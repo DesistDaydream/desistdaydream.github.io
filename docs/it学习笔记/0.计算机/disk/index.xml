@@ -1,0 +1,82 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Disk</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/disk/</link><description>Recent content in Disk on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/disk/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Raid</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/disk/raid/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/disk/raid/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/RAID">Wiki，Raid&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://zh.wikipedia.org/wiki/RAID">Wiki 中文，Raid&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Erasure_code">Wiki，Erasure code&lt;/a>(纠删码)&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Parity_bit">Wiki，Parity bit&lt;/a>(奇偶校验)&lt;/li>
+&lt;li>&lt;a href="https://support.huawei.com/enterprise/zh/doc/EDOC1000163568/26751928">https://support.huawei.com/enterprise/zh/doc/EDOC1000163568/26751928&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Redundant array of independent disks(独立磁盘冗余阵列，简称 RAID)&lt;/strong> 是一种存储虚拟化技术，可以将多个物理磁盘组合成一个或多个 Logical unit(逻辑单元) 以达到数据冗余、提高性能或两者兼得的目的。&lt;/p>
+&lt;p>数据以多种方式之一分布在驱动器上，称为 RAID 级别，具体取决于所需的冗余和性能级别。不同的方案或数据分布布局由单词“RAID”命名，后跟一个数字，例如 RAID 0 或 RAID 1。每个方案或 RAID 级别在关键目标之间提供不同的平衡：可靠性、可用性、性能和容量。高于 RAID 0 的 RAID 级别可针对不可恢复的扇区读取错误以及整个物理驱动器的故障提供保护。&lt;/p>
+&lt;p>Raid 5 等的奇偶校验机制，是纠删码的最佳实践&lt;/p>
+&lt;h1 id="虚拟磁盘的读写策略">虚拟磁盘的读写策略&lt;/h1>
+&lt;p>在创建虚拟磁盘时，会需要对其数据读写策略进行定义，以规范后续虚拟磁盘运行过程中数据的读写方式。&lt;/p>
+&lt;h2 id="数据读策略">数据读策略&lt;/h2>
+&lt;p>在配置界面中一般体现为“Read Policy”。RAID 卡支持如下两种数据读策略：&lt;/p>
+&lt;ul>
+&lt;li>预读取方式：在配置界面中一般有“Always Read Ahead”、“Read Ahead”、“Ahead”等配置选项。使用此策略后，从虚拟磁盘中读取所需数据时，会把后续数据同时读出放在 Cache 中，用户随后访问这些数据时可以直接在 Cache 中命中，将减少磁盘寻道操作，节省响应时间，提高了数据读取速度。要使用该策略，要求 RAID 控制卡支持数据掉电保护功能，但如果此时超级电容异常，可能导致数据丢失。&lt;/li>
+&lt;li>非预读取方式：使用此策略后，RAID 卡接收到数据读取命令时，才从虚拟磁盘读取数据，不会做预读取的操作。&lt;/li>
+&lt;/ul>
+&lt;h2 id="数据写策略">数据写策略&lt;/h2>
+&lt;p>在配置界面中一般体现为“Write Policy”。RAID 卡支持如下三种数据写策略：&lt;/p>
+&lt;ul>
+&lt;li>回写：在配置界面中一般体现为“Write Back”等字样。使用此策略后，需要向虚拟磁盘写数据时，会直接写入 Cache 中，当写入的数据积累到一定程度，RAID 卡才将数据刷新到虚拟磁盘，这样不但实现了批量写入，而且提升了数据写入的速度。当控制器 Cache 收到所有的传输数据后，将给主机返回数据传输完成信号。要使用该策略，要求 RAID 卡支持数据掉电保护功能，但如果此时超级电容异常，可能导致数据丢失。&lt;/li>
+&lt;li>直写：在配置界面中一般有“Write Through”等选项。使用此策略后，RAID 卡向虚拟磁盘直接写入数据，不经过 Cache。当磁盘子系统接收到所有传输数据后，控制器将给主机返回数据传输完成信号。此种方式不要求 RAID 卡支持数据掉电保护功能，即使超级电容故障，也无影响。该写策略的缺点是写入速度较低。。&lt;/li>
+&lt;li>与 BBU 相关的回写：在配置界面中一般有“Write Back with BBU”等选项。使用此策略后，当 RAID 卡 BBU 在位且状态正常时，RAID 卡到虚拟磁盘的写操作会经过 Cache 中转（即回写方式）；当 RAID 卡 BBU 不在位或 BBU 故障时，RAID 卡到虚拟磁盘的写操作会自动切换为不经过 Cache 的直接写入（即写通方式）。&lt;/li>
+&lt;/ul>
+&lt;h1 id="h3c-阵列配置">H3C 阵列配置&lt;/h1>
+&lt;p>&lt;a href="http://www.h3c.com/cn/d_202201/1526857_30005_0.htm#_Toc92721209">H460&amp;amp;P460&amp;amp;P2404&amp;amp;P4408 系列&lt;/a> 阵列卡&lt;/p></description></item><item><title>Docs: 关于外存你需要了解的</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/disk/%E5%85%B3%E4%BA%8E%E5%A4%96%E5%AD%98%E4%BD%A0%E9%9C%80%E8%A6%81%E4%BA%86%E8%A7%A3%E7%9A%84/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/disk/%E5%85%B3%E4%BA%8E%E5%A4%96%E5%AD%98%E4%BD%A0%E9%9C%80%E8%A6%81%E4%BA%86%E8%A7%A3%E7%9A%84/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;p>原文链接：&lt;a href="https://zhuanlan.zhihu.com/p/333965692">https://zhuanlan.zhihu.com/p/333965692&lt;/a>&lt;/p>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Magnetic_storage">Wiki,Magnetic Storage(磁存储)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Optical_storage">Wiki,Optical Storage(光存储)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Magnetic_tape_data_storage">Wiki,Tape Storage(磁带存储)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>上一节对内存的物理特性进行了了解，这篇打算对上一篇提到的外存进一步讲解。
+&lt;strong>外存全称为外部存储器&lt;/strong>，它指的是除计算机内存及 CPU 缓存以外的储存器。外存是相对内存来说的。计算机不能对外存进行直接寻址，简单的说，就是给外存一个物理地址的话它是处理不了的。&lt;strong>由于内存具有掉电后数据无法保存的特性，所以计算机通常需要配备外存来保持数据。&lt;/strong>
+外部存储器按照存储介质种类可以划分为&lt;strong>光、磁性、半导体&lt;/strong>这三大类。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>光存储&lt;/strong>：比较常见的是 CD、DVD、蓝光。&lt;/li>
+&lt;li>&lt;strong>磁性存储&lt;/strong>：比较常见的是磁带、软盘、硬盘。&lt;/li>
+&lt;li>&lt;strong>半导体存储&lt;/strong>：这个类型的存储比较多，比如上一篇说的内存，闪存 SSD、各种 ROM 等。&lt;/li>
+&lt;/ul>
+&lt;p>下面对这三大类的外存分别都拿一个典型出来了解一下。&lt;/p>
+&lt;h2 id="optical-storage光存储">Optical Storage(光存储)&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rcmzws/1625452479311-3b0d7cc2-2eed-4516-81dc-93e6f6933295.jpg" alt="">
+蓝光，英文 &lt;strong>Blu-ray Disc&lt;/strong>，主要用于存储高清格式的音视频文件，其物理结构与 DVD 类似。为什么叫蓝光呢？因为用于&lt;strong>刻录、读取光盘的激光是蓝紫激光&lt;/strong>，一般的 DVD 使用的激光是红激光。蓝紫激光的波长比较短，刻录的孔径就更小，所以可以刻录在光盘上的信息就更多，通常能比普通 DVD 多存储 6 到 10 倍的信息。
+目前来说，每个蓝光碟片所能存储的信息比较有限，根据了解大概能到 400GB 左右。虽然蓝光碟片能存储的信息较少，但是它能&lt;strong>保存很久，50 年往上走&lt;/strong>。不知道大家有没有了解过 GitHub 的北极代码库计划，GitHub 将优秀的代码库以二维码的形式存放到胶片中，并放到挪威的一个废弃煤矿冻土区深处进行存储。注意：它用的不是常见的磁盘，也不是用的 SSD，也不是用的蓝光 DVD，而是胶片！因为&lt;strong>胶片的寿命可以长达 1000 年&lt;/strong>，而我们常见的磁盘也不过几年寿命而已。&lt;/p>
+&lt;h2 id="magnetic-storage磁存储">Magnetic Storage(磁存储)&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rcmzws/1625452479450-98dd8455-c2a8-4490-b197-6040f5c1248e.jpeg" alt="">
+磁盘这种类型是我们目前&lt;strong>最常见也用的最多的存储介质&lt;/strong>。磁盘顾名思义就是用磁性物质制作的坚硬旋转盘片，它的物理结构一般主要有&lt;strong>磁头、盘片、电动机及主控芯片&lt;/strong>等，&lt;strong>盘片是它的主要存储组件&lt;/strong>。盘片上覆盖着一层薄薄的磁性物质，所有数据都通过磁性物质进行存储。它的读写原理是：&lt;strong>写数据时，由磁头通过电磁流改变盘片上的磁性材料的极性，比如由正极变负极，或者由负极变正极，而正极对应的是数据 1，负极对应的是 0，所以一串 0 或 1 的数据就这样通过磁材料的极性间接表达了出来；而读数据时，磁头经过盘片上方时会被磁性材料的极性改变电气信号，通过极性影响了电的 1 或 0 表达，所以也间接的将存储在磁盘上的数据表达出来了。&lt;/strong>
+磁盘的数据接口有如下几种：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>IDE&lt;/strong>：也叫 ATA，这种接口的速度不快，而且抗干扰性差，现在已逐渐淘汰。&lt;/li>
+&lt;li>&lt;strong>SATA&lt;/strong>：串行的 ATA。这种接口抗干扰性强，速度较快，一般可以达到 300MB/s 以上。我们常用的台式机就是这种接口。&lt;/li>
+&lt;li>&lt;strong>SCSI&lt;/strong>：小型机系统接口。一般用于个人工作站和服务器。&lt;/li>
+&lt;li>&lt;strong>SAS&lt;/strong>：新一代的 SCSI 技术，可兼容 SATA，速度可达 12Gb/s。&lt;/li>
+&lt;li>&lt;strong>FC&lt;/strong>：光纤通道接口，具有热插拔、速度快、价格高的特性，一般只用于高端服务器领域。&lt;/li>
+&lt;/ul>
+&lt;p>目前磁盘能存储的数据较多，而且&lt;strong>价格便宜&lt;/strong>，在外存存储介质里占了半壁江山。但是磁盘由于它的物理特性的原因&lt;strong>特别容易坏&lt;/strong>，一不小心摔它一下可能就会损坏里面的盘片或磁头，故障率特别高，而且即使不摔它，它的&lt;strong>寿命也不长&lt;/strong>，一般&lt;strong>三四年&lt;/strong>就需要换一批新磁盘。很多数据中心里面的存储服务器每隔三四年的时间就得更换一批新的磁盘，即使磁盘本身并没有什么坏道，这样看来其实磁盘也算是一种快消品。&lt;/p>
+&lt;h2 id="ssd半导体存储">SSD（半导体存储）&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rcmzws/1625452479259-716e1a53-7f56-4e64-b509-942b5e28b21b.jpeg" alt="">
+随着技术的发展，以前很贵的 SSD 也越来越被大众所消费的起。&lt;strong>SSD 全称为 Solid State Drive，译为固态硬盘&lt;/strong>。与磁盘不同的是，磁盘是用电动机驱动磁头来存取数据的，SSD 是用电来驱动半导体存取数据的，所以与磁盘相比，SSD 具有优秀的随机访问能力，而且两者的 IO 差距相当大，&lt;strong>可达 500 MB/s - 3000 MB/s&lt;/strong>，毕竟电比物理运动的磁头快多了。
+SSD 的组成部件有&lt;strong>主控芯片、缓存芯片、闪存颗粒、PCB 板&lt;/strong>，主要的存储部件是闪存颗粒。闪存颗粒有如下几种：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>SLC：Single-Level Cell&lt;/strong>，单层单元。具有 100K 次擦写寿命。它只能表达 0/1 这两种数据。&lt;/li>
+&lt;li>&lt;strong>MLC：Multi-Level Cell&lt;/strong>，多层单元，但是一般指的是两层单元。3000-10000 次擦写寿命。它能表达 00/01/10/11 四种数据。&lt;/li>
+&lt;li>&lt;strong>TLC：Trinary-Level Cell&lt;/strong>，三层单元。500-1000 次擦写寿命。依次类推，它能表达 8 种数据。&lt;/li>
+&lt;li>&lt;strong>QLC：Quad-Level Cell&lt;/strong>，四层单元。这个擦写寿命比较可怜。它能表达 16 种数据。&lt;/li>
+&lt;/ul>
+&lt;p>但是在读写速度方面：** SLC &amp;gt; MLC &amp;gt; TLC &amp;gt; QLC**，价格也是： &lt;strong>SLC &amp;gt; MLC &amp;gt; TLC &amp;gt; QLC&lt;/strong>。
+为什么会有寿命长短的区别呢？我从网上找来了一些资料：&lt;strong>闪存单元的每次擦写都会导致闪存单元里面的硅氧化物的损耗，一旦这个氧化物损耗完后这个闪存单元就会寿终正寝。单个闪存单元的层级越多加载到它上面的控制电压就需要更久，所以导致氧化物的损耗更大，寿命也就越短。&lt;/strong>
+SSD 根据插头接口的不同也可以划分为：SATA SSD、mSATA SSD、M.2 SSD、PCIe SSD。速度一般是 SATA SSD &amp;lt; mSATA SSD &amp;lt; M.2 SSD &amp;lt; PCIe SSD。
+关于磁盘和 SSD 还有很多特性没有讲，比如磁盘的寻道、SSD 的读写原理以及写放大等，这些会在接下来的&lt;strong>文件系统模块&lt;/strong>进行更加详细的介绍。&lt;/p>
+&lt;h2 id="magnetic-tape-storage磁带存储">Magnetic Tape Storage(磁带存储)&lt;/h2></description></item></channel></rss>

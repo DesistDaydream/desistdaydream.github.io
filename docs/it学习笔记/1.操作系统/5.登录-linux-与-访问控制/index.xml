@@ -1,0 +1,2883 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 5.登录 Linux 与 访问控制</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/</link><description>Recent content in 5.登录 Linux 与 访问控制 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Access Control(访问控制)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/access-control%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/access-control%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/access-control%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/access-control%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Discretionary_access_control">Wiki,DAC&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Linux 使用 &lt;strong>Discretionary Access Control(自主访问控制，简称 DAC)&lt;/strong> 概念控制所有文件的基本权限。&lt;/p>
+&lt;p>Linux 中每个文件都具有三个拥有者：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>user&lt;/strong> # 文件的属主，拥有文件的&lt;strong>一个 Linux Account(账户)&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>group&lt;/strong> # 文件的属组，拥有文件的&lt;strong>一组 Linux Account(账户)&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>other&lt;/strong> # 文件的其他，拥有该文件的&lt;strong>其他 Linux Account(账户)&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;p>上述三个角色，可以被赋予三个基本权限&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>read&lt;/strong> # 读，简写为 r&lt;/li>
+&lt;li>&lt;strong>write&lt;/strong> # 写，简写为 w&lt;/li>
+&lt;li>&lt;strong>execute&lt;/strong> # 执行，简写为 x&lt;/li>
+&lt;/ul>
+&lt;p>我们使用 &lt;code>ls -l&lt;/code> 命令查看文件，可以从第 1 列看到文件的类型与权限&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls -lh&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total 20K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx. &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">7&lt;/span> May &lt;span style="color:#ae81ff">24&lt;/span> &lt;span style="color:#ae81ff">2019&lt;/span> bin -&amp;gt; usr/bin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dr-xr-xr-x. &lt;span style="color:#ae81ff">5&lt;/span> root root 4.0K May &lt;span style="color:#ae81ff">24&lt;/span> &lt;span style="color:#ae81ff">2019&lt;/span> boot
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">20&lt;/span> root root 3.1K May &lt;span style="color:#ae81ff">14&lt;/span> 09:38 dev
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x. &lt;span style="color:#ae81ff">82&lt;/span> root root 8.0K Jun &lt;span style="color:#ae81ff">21&lt;/span> 19:42 etc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>第 1 列共 11 个字符，中间 9 个字符用以表示文件的基本权限，最后一个字符是文件的 ACL 与 SELinux 属性。格式与说明如下：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>示例&lt;/th>
+&lt;th>文件类型&lt;/th>
+&lt;th>属主权限&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>属组权限&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>其他权限&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>ACL 与 SELinux&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>读&lt;/td>
+&lt;td>写&lt;/td>
+&lt;td>执行&lt;/td>
+&lt;td>读&lt;/td>
+&lt;td>写&lt;/td>
+&lt;td>执行&lt;/td>
+&lt;td>读&lt;/td>
+&lt;td>写&lt;/td>
+&lt;td>执行&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>示例 1&lt;/td>
+&lt;td>l&lt;/td>
+&lt;td>r&lt;/td>
+&lt;td>w&lt;/td>
+&lt;td>x&lt;/td>
+&lt;td>r&lt;/td>
+&lt;td>w&lt;/td>
+&lt;td>x&lt;/td>
+&lt;td>r&lt;/td>
+&lt;td>w&lt;/td>
+&lt;td>x&lt;/td>
+&lt;td>.&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>示例 2&lt;/td>
+&lt;td>d&lt;/td>
+&lt;td>r&lt;/td>
+&lt;td>-&lt;/td>
+&lt;td>x&lt;/td>
+&lt;td>r&lt;/td>
+&lt;td>-&lt;/td>
+&lt;td>x&lt;/td>
+&lt;td>r&lt;/td>
+&lt;td>-&lt;/td>
+&lt;td>x&lt;/td>
+&lt;td>.&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>示例 3&lt;/td>
+&lt;td>d&lt;/td>
+&lt;td>r&lt;/td>
+&lt;td>w&lt;/td>
+&lt;td>x&lt;/td>
+&lt;td>r&lt;/td>
+&lt;td>-&lt;/td>
+&lt;td>x&lt;/td>
+&lt;td>r&lt;/td>
+&lt;td>-&lt;/td>
+&lt;td>x&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>中间 9 个字符分为 3 个组，分别对应文件的 3 种拥有者：&lt;/p>
+&lt;ul>
+&lt;li>第一组为文件的属主权限&lt;/li>
+&lt;li>第二组为文件的属组权限&lt;/li>
+&lt;li>第三组为文件的其他权限&lt;/li>
+&lt;/ul>
+&lt;p>每组的 3 个字符都符合如下规则：&lt;/p>
+&lt;ul>
+&lt;li>第一个字符表示是否有“读取”权限，为 &lt;code>r&lt;/code> 或 &lt;code>-&lt;/code>&lt;/li>
+&lt;li>第二个字符表示是否有“写入”权限，为 &lt;code>w&lt;/code> 或 &lt;code>-&lt;/code>&lt;/li>
+&lt;li>第三个字符表示是否有“执行”权限，为 &lt;code>x&lt;/code> 或 &lt;code>-&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>若为 &lt;code>-&lt;/code> 符号时，表示没有对应的权限&lt;/p>
+&lt;p>简单示例&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-rw&amp;mdash;&amp;mdash;-&lt;/strong> # 表明了文件的拥有者对文件有 读、写 的权限，但是没有运行的权限。也很好理解，因为这是一个普通文件，默认没有可执行的属性。记住：如果有 w 权限（写的权限），那么表明也有删除此文件的权限。&lt;/li>
+&lt;li>&lt;strong>&amp;mdash;-r&amp;mdash;&amp;ndash;&lt;/strong> # 表明文件所在的群组内的用户只可以读此文件，但不能写也不能执行。&lt;/li>
+&lt;li>&lt;strong>&amp;mdash;&amp;mdash;-r&amp;ndash;&lt;/strong> # 表示其他用户只可以读此文件，但不能写也不能执行。&lt;/li>
+&lt;/ul>
+&lt;h1 id="权限管理工具">权限管理工具&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man1/chmod.1.html">Manual(手册),chmod&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man1/chown.1.html">Manual(手册),chown&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Linux 所说的权限，就是用户和组的权限。这是最基本的权限。后面的文章中还会介绍高级权限。&lt;/p>
+&lt;h2 id="chmod--修改文件的访问权限命令">chmod # 修改文件的访问权限命令&lt;/h2>
+&lt;p>Linux/Unix 的文件权限分为三级 : 文件拥有者、文件所属组、其他。利用 chmod 可以控制文件如何被他人所调用。&lt;/p>
+&lt;h3 id="syntax语法">Syntax(语法)&lt;/h3>
+&lt;p>&lt;strong>chmod [OPTIONS] MODE[,MODE]&amp;hellip; FILE&amp;hellip;&lt;/strong>
+&lt;strong>chmod [OPTIONS] OCTAL-MODE FILE&amp;hellip;&lt;/strong>
+&lt;strong>chmod [OPTIONS] &amp;ndash;reference=RFILE FILE&amp;hellip;&lt;/strong>&lt;/p>
+&lt;p>MODE 格式如下 : &lt;code>[ugoa][[+-=][rwxX]…][,…]&lt;/code>，其中&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>[ugoa]&lt;/strong> # u 表示该档案的拥有者，g 表示与该档案的拥有者属于同一个群体(group)者，o 表示其他以外的人，a 表示这三者皆是。&lt;/li>
+&lt;li>&lt;strong>[+-=]&lt;/strong> # &lt;code>+&lt;/code> 表示增加权限、&lt;code>-&lt;/code> 表示取消权限、&lt;code>=&lt;/code> 表示唯一设定权限。&lt;/li>
+&lt;li>&lt;strong>[rwxX]&lt;/strong> # 表示可读取，w 表示可写入，x 表示可执行。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>OPTIONS&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>-c, &amp;ndash;changes # like verbose but report only when a change is made&lt;/li>
+&lt;li>&lt;strong>-f, &amp;ndash;silent, &amp;ndash;quiet&lt;/strong> # 静默模式&lt;/li>
+&lt;li>-&lt;strong>v, &amp;ndash;verbose&lt;/strong> # 诊断模式，显示完整的执行过程&lt;/li>
+&lt;li>--no-preserve-root do not treat &amp;lsquo;/&amp;rsquo; specially (the default)&lt;/li>
+&lt;li>--preserve-root # fail to operate recursively on &amp;lsquo;/&amp;rsquo;&lt;/li>
+&lt;li>--reference=RFILE use RFILE&amp;rsquo;s mode instead of MODE values&lt;/li>
+&lt;li>&lt;strong>-R, &amp;ndash;recursive&lt;/strong> # 递归方式设置，即修改指定目录及其所有子目录和其内文件的权限。&lt;/li>
+&lt;/ul>
+&lt;h3 id="example">EXAMPLE&lt;/h3>
+&lt;ul>
+&lt;li>修改当前目录及子目录内所有目录类型文件，并将这些目录的权限改为 755
+&lt;ul>
+&lt;li>&lt;strong>find ./* -type d -exec chmod 755 {} ;&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>修改当前目录及子目录内所有普通类型文件，并将这些文件的权限改为 644
+&lt;ul>
+&lt;li>&lt;strong>find ./* -type f -exec chmod 644 {} ;&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>文件 file.txt 的所有者增加读和运行的权限。
+&lt;ul>
+&lt;li>chmod u+rx file.txt&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>文件 file.txt 的群组其他用户增加读的权限。
+&lt;ul>
+&lt;li>chmod g+r file.txt&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>文件 file.txt 的其他用户移除读的权限。
+&lt;ul>
+&lt;li>chmod o-r file.txt&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>文件 file.txt 的群组其他用户增加读的权限，其他用户移除读的权限。
+&lt;ul>
+&lt;li>chmod g+r o-r file.txt&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>文件 file.txt 的群组其他用户和其他用户均移除读的权限。
+&lt;ul>
+&lt;li>chmod go-r file.txt&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>文件 file.txt 的所有用户增加运行的权限。
+&lt;ul>
+&lt;li>chmod +x file.txt&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>文件 file.txt 的所有者分配读，写和执行的权限；群组其他用户分配读的权限，不能写或执行；其他用户没有任何权限。
+&lt;ul>
+&lt;li>chmod u=rwx,g=r,o=- file.txt&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>递归执行赋权，设置 newname 文件夹权限
+&lt;ul>
+&lt;li>chmod -R 700 /home/newname&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="chown--改变文件的所有者命令">chown # 改变文件的所有者命令&lt;/h2>
+&lt;h3 id="syntax语法-1">Syntax(语法)&lt;/h3>
+&lt;p>&lt;strong>chown [OPTION] [OWNER][:[GROUP]] FILE&amp;hellip;&lt;/strong>
+&lt;strong>chown [OPTION] &amp;ndash;reference=RFILE FILE&amp;hellip;&lt;/strong>&lt;/p>
+&lt;p>-c, &amp;ndash;changes like verbose but report only when a change is made&lt;/p>
+&lt;p>-f, &amp;ndash;silent, &amp;ndash;quiet suppress most error messages&lt;/p>
+&lt;p>-v, &amp;ndash;verbose output a diagnostic for every file processed&lt;/p>
+&lt;pre>&lt;code> --dereference affect the referent of each symbolic link (this is
+the default), rather than the symbolic link itself
+&lt;/code>&lt;/pre>
+&lt;p>-h, &amp;ndash;no-dereference affect symbolic links instead of any referenced file&lt;/p>
+&lt;pre>&lt;code> (useful only on systems that can change the
+ownership of a symlink)
+--from=当前所有者:当前所属组
+只当每个文件的所有者和组符合选项所指定时才更改所
+&lt;/code>&lt;/pre>
+&lt;p>有者和组。其中一个可以省略，这时已省略的属性就不&lt;/p>
+&lt;p>需要符合原有的属性。&lt;/p>
+&lt;pre>&lt;code> --no-preserve-root do not treat '/' specially (the default)
+--preserve-root fail to operate recursively on '/'
+--reference=RFILE use RFILE's owner and group rather than
+specifying OWNER:GROUP values
+&lt;/code>&lt;/pre>
+&lt;p>-R, &amp;ndash;recursive operate on files and directories recursively&lt;/p>
+&lt;p>The following options modify how a hierarchy is traversed when the -R&lt;/p>
+&lt;p>option is also specified. If more than one is specified, only the final&lt;/p>
+&lt;p>one takes effect.&lt;/p>
+&lt;p>-H if a command line argument is a symbolic link&lt;/p>
+&lt;pre>&lt;code> to a directory, traverse it
+&lt;/code>&lt;/pre>
+&lt;p>-L traverse every symbolic link to a directory&lt;/p>
+&lt;pre>&lt;code> encountered
+&lt;/code>&lt;/pre>
+&lt;p>-P do not traverse any symbolic links (default)&lt;/p>
+&lt;h3 id="example-1">EXAMPLE&lt;/h3>
+&lt;ul>
+&lt;li>改变文件的用户（用 ls -l 可以快速查看原用户和组），后接新的所有者的用户名，再接文件名：
+&lt;ul>
+&lt;li>chown newname file.txt&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>chown 命令也可以改变文件的群组，如下：
+&lt;ul>
+&lt;li>chown newname:friends file.txt #将 file.txt 文件的用户改为 newname，所属用户组修改为 friends&lt;/li>
+&lt;li>chown root /u #将 /u 的属主更改为&amp;quot;root&amp;quot;&lt;/li>
+&lt;li>chown root:staff /u #和上面类似，但同时也将其属组更改为&amp;quot;staff&amp;quot;&lt;/li>
+&lt;li>chown -hR root /u #将 /u 及其子目录下所有文件的属主更改为&amp;quot;root&amp;quot;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="chattr-与-lsattr">chattr 与 lsattr&lt;/h2>
+&lt;p>chattr 工具可以修改文件属性，添加了 &lt;code>i&lt;/code> 属性的文件将无法被编辑，即使是 root 用户也不行。&lt;/p>
+&lt;p>chattr # 改变 Linux 文件系统上的文件属性&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>为 /etc/passwd 文件添加 i 属性
+&lt;ul>
+&lt;li>chattr +i /etc/passwd&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>为 /etc/passwd 文件去除 i 属性
+&lt;ul>
+&lt;li>chattr -i /etc/passwd&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>lsattr # 查看 Linux 文件系统上的文件属性&lt;/p></description></item><item><title>Docs: Account Manager(账户管理)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/account-manager%E8%B4%A6%E6%88%B7%E7%AE%A1%E7%90%86/account-manager%E8%B4%A6%E6%88%B7%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/account-manager%E8%B4%A6%E6%88%B7%E7%AE%A1%E7%90%86/account-manager%E8%B4%A6%E6%88%B7%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system_administrators_guide/ch-getting_started#sec-Managing_User_Accounts">红帽官方文档,RedHat7-管理用户账户的基础知识&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system_administrators_guide/ch-managing_users_and_groups">红帽官方文档,RedHat7-系统管理员指南-第四章-管理用户和组&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/security_guide/index">红帽官方文档,RedHat7-安全指南&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Linux 操作系统是一个多用户操作系统，所以除了 &lt;strong>Terminal(终端)&lt;/strong> 以外，还需 &lt;strong>Account(账户)&lt;/strong> 才可以登录上去，Linux 操作系统允许多个用户访问安装在一台机器上的单个系统。每个 User(用户) 都在自己的 Account(账户) 下操作。因此，Account Manager 代表了 Linux 系统管理的核心要素。&lt;/p>
+&lt;blockquote>
+&lt;p>User 与 Account 傻傻分不清楚，在 Linux 操作系统中，通常都会将 Account 称为 User，但是，这个称呼实际上并不准确。因为一个 User，比如 root，可以被多个现实世界中多个人使用，那么 root 这个 User 就会对应多个真实的 User~这种描述是非常矛盾的~~~~
+只不过，随着时间的推移，人们慢慢叫习惯了，各种文档和源码也都一直使用 UID 这种名称，也就不再特别区分 Account 和 User 了。只需要知道，UID 更准确的描述应该是 AID。&lt;/p>
+&lt;/blockquote>
+&lt;p>同时，一个 Linux Account 也可以不代表一个真实的 User，这样的 Account 只被应用程序使用，一个应用程序使用某个 Account 运行，以便让系统更方便得对程序进行精细化控制。这种控制方式称为 &lt;strong>Access Control(访问控制)&lt;/strong>，所以，从这种角度看，Account 也可以称为 &lt;strong>Role(角色)&lt;/strong>，详见 [访问控制](✏IT 学习笔记/📄1.操作系统/5.登录%20Linux%20 与%20 访问控制/Access%20Control(访问控制).md Control(访问控制).md) 章节。&lt;/p>
+&lt;p>为了方便得对多个 Account 管理，可以将多个 Account 组合起来，称为 &lt;strong>Group(组)&lt;/strong>，一个 Group 就是一个或多个 Account 的集合。&lt;/p>
+&lt;p>通常，Linux 将账户分为两类&lt;/p>
+&lt;ul>
+&lt;li>Normal Accounts(普通账户)&lt;/li>
+&lt;li>System Accounts(系统账户)&lt;/li>
+&lt;/ul>
+&lt;p>每个账户都有一个对应的 UID 作为其唯一标识符(纯数字)。同样，每个组也有一个对应的 GID 作为其唯一标识符(纯数字)。通常来说：&lt;/p>
+&lt;ul>
+&lt;li>1000 以下是系统账户与保留账户 和 系统组与保留组&lt;/li>
+&lt;li>1000 以上是普通账户和组&lt;/li>
+&lt;/ul>
+&lt;p>每当我们使用 useradd 命令新建一个普通用户时，用户的 UID 都是 1000 之后的数字，这种行为可以通过修改 /etc/login.defs 文件中的 UID_MIN、GID_MIN 等参数来改变。&lt;/p>
+&lt;h2 id="password密码">Password(密码)&lt;/h2>
+&lt;p>&lt;strong>Password(密码)&lt;/strong> 是用来验证用户身份的最主要方法。当用户使用一个账户登录 Linux 操作系统时，密码是用来证明账户属于该用户的一种非常高效的方式。&lt;/p>
+&lt;p>Linux 系统使用 **Secure Hash Algorithm 512(SHA512) **和 &lt;strong>shadow passwords&lt;/strong>。默认情况下，账户信息保存在 /etc/passwd 文件中，对应的密码信息经过哈希后保存在 /etc/shadow 文件中。&lt;/p>
+&lt;h1 id="关联文件">关联文件&lt;/h1>
+&lt;p>&lt;strong>/etc/group&lt;/strong> # 账户组信息
+&lt;strong>/etc/passwd&lt;/strong> # 账户信息
+&lt;strong>/etc/shadow&lt;/strong> # 安全账户信息
+&lt;strong>/etc/login.defs&lt;/strong> # login 工具包中的配置文件，部分账户管理工具会读取该文件中的参数
+&lt;strong>/etc/pam.d/&lt;/strong> #&lt;/p>
+&lt;ul>
+&lt;li>./chfn&lt;/li>
+&lt;li>./chpasswd&lt;/li>
+&lt;li>./chsh&lt;/li>
+&lt;li>./newusers&lt;/li>
+&lt;li>./passwd&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>/etc/skel/&lt;/strong> # 该目录为账户目录模板。该目录下包含多个隐藏的文件，当创建用户时，会拷贝该目录下的所有文件到所创建用户的家目录中
+&lt;strong>/home/AccountName/&lt;/strong> # UserName 为该账户同名的家目录
+&lt;strong>/var/spool/mail/AccountName&lt;/strong># 该文件为该账户的邮件池
+注意：&lt;/p>
+&lt;ul>
+&lt;li>若 /etc/shadow 被 selinux 所管理，有的时候密码修改将会失败，报错 &lt;code>passwd: Authentication token manipulation error&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;h1 id="账户管理工具">账户管理工具&lt;/h1>
+&lt;p>Linux 系统的账户管理功能，通常由 &lt;strong>shadow-utils 包&lt;/strong> 或 &lt;strong>passwd 包&lt;/strong> 中的各种工具和库提供。&lt;/p>
+&lt;blockquote>
+&lt;p>在有的发行版中(比如 CentOS)，只会将 passwd 包中的 passwd 程序保留，而将其余的程序，放在名为 &lt;strong>shadow-utils&lt;/strong> 的包中。&lt;/p>
+&lt;/blockquote>
+&lt;p>不同的 Linux 发型，还会用到某些个别的包与主包配合提供完整的账户管理功能：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>base-passwd&lt;/strong> # 这是 Ubuntu 发型版中独有的包。这个包中包含一个 &lt;code>update-passwd&lt;/code> 的程序，将会根据 /var/lib/dpkg/info/base-passwd.preinst 脚本生成 /etc/passwd 和 /etc/group 文件
+&lt;ul>
+&lt;li>参考：&lt;a href="https://unix.stackexchange.com/questions/470126/how-is-the-etc-passwd-file-instantiated">https://unix.stackexchange.com/questions/470126/how-is-the-etc-passwd-file-instantiated&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>setup&lt;/strong> # 这是 CentOS 发行版中独有的包。包含了一组重要的系统配置文件和安装文件，例如 /etc/passwd、/etc/group、/etc/shadow、/etc/profile 等等&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oib9pm/1635476577308-bd0e79ab-ffc9-41f8-ba65-471f0a3e2918.png" alt="image.png">&lt;/p>
+&lt;h2 id="useradd--添加用户">useradd # 添加用户&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/useradd.8.html">Manual(手册),useradd(8)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>useradd 程序在添加用户时，会读取 /etc/login.defs 文件中的 PASS_MAX_DAYS、PASS_MIN_DAYS、PASS_WARN_AGE 等参数，并将参数的值写入到 /etc/shadow 文件中的对应字段&lt;/p>
+&lt;h3 id="syntax语法">Syntax(语法)&lt;/h3>
+&lt;p>&lt;strong>useradd [OPTIONS] NAME&lt;/strong>&lt;/p>
+&lt;p>OPTIONS：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-m&lt;/strong> # 自动建立用户的登入目录。&lt;/li>
+&lt;li>&lt;strong>-u&lt;/strong> # 指定用户 ID 号。该值在系统中必须是唯一的。0~499 默认是保留给系统用户账号使用的，所以该值必须大于 499。&lt;/li>
+&lt;li>&lt;strong>-g GID&lt;/strong> #指定该用户的基本组 ID&lt;/li>
+&lt;li>&lt;strong>-c&lt;/strong> # 加上备注文字，备注文字保存在 passwd 的备注栏中。&lt;/li>
+&lt;li>-&lt;strong>d&lt;/strong> #指定该用户的家目录，默认为 /home 目录下的与用户名同名的文件夹&lt;/li>
+&lt;li>&lt;strong>-e&lt;/strong> # 指定账号的失效日期，日期格式为 MM/DD/YY，例如 06/30/12。缺省表示永久有效。&lt;/li>
+&lt;li>-f #指定在密码过期后多少天即关闭该账号。如果为 0 账号立即被停用；如果为-1 则账号一直可用。默认值为-1.&lt;/li>
+&lt;li>&lt;strong>-G, &amp;ndash;groups &lt;!-- raw HTML omitted -->&lt;/strong> # 指定用户所属的附加群组。&lt;/li>
+&lt;li>-l #不要把用户添加到 lastlog 和 failog 中, 这个用户的登录记录不需要记载&lt;/li>
+&lt;li>-M #不要自动建立用户的登入目录。&lt;/li>
+&lt;li>-n #取消建立以用户名称为名的群组。&lt;/li>
+&lt;li>-p # PASSWORD 指定新用户的密码&lt;/li>
+&lt;li>-r #建立一个系统帐号&lt;/li>
+&lt;li>-s #指定用户登入后所使用的 shell。默认值为/bin/bash。&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE：&lt;/p>
+&lt;ul>
+&lt;li>创建一个名为 lichenhao 的用户，并设置该用户密码为 lch@password
+&lt;ul>
+&lt;li>useradd -m lichenhao &amp;amp;&amp;amp; echo &amp;rsquo;lch@password&amp;rsquo; | passwd lichenhao &amp;ndash;stdin&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>新增一个用户 user，并指定用户组 ftp
+&lt;ul>
+&lt;li>useradd -g ftp user&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>新增一个用户：user 并指定家目录为/mnt/bak/。如果没有此目录，则报错，就需要手动创建目录
+&lt;ul>
+&lt;li>useradd -d /mnt/back/ user&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>新增一个用户：user 并设置密码为 123456
+&lt;ul>
+&lt;li>useradd -p 123456 user&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>新增一个 FTP 用户：ftp2018 （无需登录系统）
+&lt;ul>
+&lt;li>useradd -g ftp -s /sbin/nologin ftp2018&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="userdel--删除用户">userdel # 删除用户&lt;/h2>
+&lt;h3 id="syntax语法-1">Syntax(语法)&lt;/h3>
+&lt;p>&lt;strong>userdel [OPTIONS] NAME&lt;/strong>&lt;/p>
+&lt;p>OPTIONS：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-f, &amp;ndash;force&lt;/strong> # 强制删除&lt;/li>
+&lt;li>&lt;strong>-r, &amp;ndash;remove&lt;/strong> # 删除用户的时候同时移除该用户的家目录和邮件池。不加参数的话，只会删除用户，但是不会删除在/home 目录中的用户家目录。如果你想要连此用户的家目录也一并删除，可以加上 –remove-home 这个参数&lt;/li>
+&lt;li>-&lt;strong>R, &amp;ndash;root CHROOT_DIR&lt;/strong> # chroot 到的目录&lt;/li>
+&lt;li>&lt;strong>-Z, &amp;ndash;selinux-user&lt;/strong> # 为用户删除所有的 SELinux 用户映射&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>userdel -r user #删除名为 user 的用户，同时删除该用户的家目录和邮件池文件&lt;/li>
+&lt;/ul>
+&lt;h2 id="usermod--修改用户">usermod # 修改用户&lt;/h2>
+&lt;h3 id="syntax语法-2">Syntax(语法)&lt;/h3>
+&lt;p>&lt;strong>usermod [OPTIONS] NAME&lt;/strong>&lt;/p>
+&lt;p>OPTIONS：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-a, &amp;ndash;append GROUP&lt;/strong> # 将用户追加至上边 -G 中指定附加组中，并不从其它组中删除此用户&lt;/li>
+&lt;li>&lt;strong>-c, &amp;ndash;comment &lt;!-- raw HTML omitted -->&lt;/strong> # GECOS 字段的新值&lt;/li>
+&lt;li>&lt;strong>-d, &amp;ndash;home &amp;lt;HOME_DIR&amp;gt;&lt;/strong> # 用户的新主目录&lt;/li>
+&lt;li>&lt;strong>-e, &amp;ndash;expiredate &amp;lt;EXPIRE_DATE&amp;gt;&lt;/strong> # 设定帐户过期的日期为 EXPIRE_DATE&lt;/li>
+&lt;li>&lt;strong>-f, &amp;ndash;inactive INACTIVE&lt;/strong> # 过期 INACTIVE 天数后，设定密码为失效状态&lt;/li>
+&lt;li>&lt;strong>-g, &amp;ndash;gid GROUP&lt;/strong> # 强制使用 GROUP 为新主组&lt;/li>
+&lt;li>&lt;strong>-G, &amp;ndash;groups GROUPS&lt;/strong> # 新的附加组列表 GROUPS。将用户从该选项指定的组列表以外的组中删除。可以与 -a 选项配合，变更此行为。-a 会将用户附加到指定的组中而不删除。&lt;/li>
+&lt;li>&lt;strong>-l, &amp;ndash;login LOGIN&lt;/strong> # 新的登录名称&lt;/li>
+&lt;li>&lt;strong>-L, &amp;ndash;lock&lt;/strong> # 锁定用户帐号&lt;/li>
+&lt;li>&lt;strong>-m, &amp;ndash;move-home&lt;/strong> # 将家目录内容移至新位置 (仅于 -d 一起使用)&lt;/li>
+&lt;li>&lt;strong>-o, &amp;ndash;non-unique&lt;/strong> # 允许使用重复的(非唯一的) UID&lt;/li>
+&lt;li>&lt;strong>-p, &amp;ndash;password PASSWORD&lt;/strong> # 将加密过的密码 (PASSWORD) 设为新密码&lt;/li>
+&lt;li>-&lt;strong>R, &amp;ndash;root CHROOT_DIR&lt;/strong> # chroot 到的目录&lt;/li>
+&lt;li>&lt;strong>-s, &amp;ndash;shell SHELL&lt;/strong> # 该用户帐号的新登录 shell&lt;/li>
+&lt;li>&lt;strong>-u, &amp;ndash;uid UID&lt;/strong> # 用户帐号的新 UID&lt;/li>
+&lt;li>&lt;strong>-U, &amp;ndash;unlock&lt;/strong> # 解锁用户帐号&lt;/li>
+&lt;li>&lt;strong>-Z, &amp;ndash;selinux-user SEUSER&lt;/strong> # 用户账户的新 SELinux 用户映射&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>修改 newname 用户所在群组为 test
+&lt;ul>
+&lt;li>usermod -g test newname&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>一次将一个用户添加到多个群组
+&lt;ul>
+&lt;li>usermod -G friends,happy,funny newname&lt;/li>
+&lt;li>注意：使用 usermod 时要小心，因为配合-g 或-G 参数时，它会把用户从原先的群组里剔除，加入到新的群组。如果你不想离开原先的群组，又想加入新的群组，可以在-G 参数的基础上加上-a 参数，a 是英语 append 的缩写，表示“追加”。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>-a 追加用户到新的用户组，保留原来的组
+&lt;ul>
+&lt;li>usermod -aG happy newname&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="groupaddgroupdelgroupmodgpasswd-用户组管理相关命令">groupadd、groupdel、groupmod、gpasswd #用户组管理相关命令&lt;/h2>
+&lt;p>OPTIONS：&lt;/p>
+&lt;ul>
+&lt;li>-f, &amp;ndash;force 如果组已经存在则成功退出，并且如果 GID 已经存在则取消 -g&lt;/li>
+&lt;li>-g, &amp;ndash;gid GID # 为新组使用 GID&lt;/li>
+&lt;li>-K, &amp;ndash;key KEY=VALUE # 不使用 /etc/login.defs 中的默认值&lt;/li>
+&lt;li>-o, &amp;ndash;non-unique # 允许创建有重复 GID 的组&lt;/li>
+&lt;li>-p, &amp;ndash;password PASSWORD # 为新组使用此加密过的密码&lt;/li>
+&lt;li>-r, &amp;ndash;system # 创建一个系统账户&lt;/li>
+&lt;li>-R, &amp;ndash;root CHROOT_DIR # chroot 到的目录&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>创建一个名为 newname 的组
+&lt;ul>
+&lt;li>groupadd newname&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>修改组
+&lt;ul>
+&lt;li>groupmod -n test2group testgroup&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>删除名为 test2group 的组
+&lt;ul>
+&lt;li>groupdel test2group&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>查看当前登陆用户所在的组
+&lt;ul>
+&lt;li>groups&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>查看 testnewuser 所在的组
+&lt;ul>
+&lt;li>groups testnewuser&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="who--显示当前登录用户的相关信息">who # 显示当前登录用户的相关信息&lt;/h2>
+&lt;h3 id="syntax语法-3">Syntax(语法)&lt;/h3>
+&lt;p>&lt;strong>who [OPTION]&amp;hellip; [ FILE | ARG1 ARG2 ]&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>-a 打印能打印的全部&lt;/li>
+&lt;li>-d 打印死掉的进程&lt;/li>
+&lt;li>-m 同 am i,mom likes&lt;/li>
+&lt;li>-q 打印当前登录用户数及用户名&lt;/li>
+&lt;li>-u 打印当前登录用户登录信息&lt;/li>
+&lt;li>-r 打印运行等级&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>whoami #要查看当前登录用户的用户名&lt;/li>
+&lt;li>who am i #表示打开当前伪终端的用户的用户名，可以简写为 who&lt;/li>
+&lt;/ul>
+&lt;p>who&lt;/p>
+&lt;h1 id="密码管理工具">密码管理工具&lt;/h1>
+&lt;h2 id="passwd--改变用户的密码">passwd # 改变用户的密码&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man1/passwd.1.html">Manual(手册),passwd(1)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h3 id="syntax语法-4">Syntax(语法)&lt;/h3>
+&lt;h2 id="chage--控制用户的密码到期信息">chage # 控制用户的密码到期信息&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man1/chage.1.html">Manual(手册),chage(1)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>passwd 软件包将会记录用户上次更改密码的时间、应该间隔多久更改一次密码 等等，chage 工具就可以对上述信息进行管理&lt;/p>
+&lt;p>&lt;code>chage&lt;/code> 工具仅控制 /etc/shadow 文件中的信息，/etc/passwd 文件并不会影响到 &lt;code>chage&lt;/code> 程序的实现。并且，&lt;code>chage&lt;/code> 程序也不会报告 /etc/passwd 和 /etc/shaodw 文件的不一致情况，&lt;code>pwck&lt;/code> 工具可用于检测两个文件的不一致处。&lt;/p>
+&lt;p>&lt;code>chage&lt;/code> 工具仅限于 root 用户，但是 -l 选项除外，非特权用户可以使用 -l 选项来确定自身的密码或账户合适到期。chage 可以修改 /etc/shadow 文件中多个字段的配置。&lt;/p>
+&lt;h3 id="syntax语法-5">Syntax(语法)&lt;/h3>
+&lt;p>&lt;strong>chage [OPTIONS] LOGIN&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>OPTIONS&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-d, &amp;ndash;lastday &lt;!-- raw HTML omitted -->&lt;/strong> # 设置上次更改密码的日期。值是从 1970 年 1 月 1 日开始到某年某月某日的天数。
+&lt;ul>
+&lt;li>若指定空值，则表示从没修改过密码，即 -l 选项查看的第一行的值为 never。&lt;/li>
+&lt;li>若指定 0，则用户再次登录时，则会被强制要求立刻修改密码，否则无法登录&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>-l, &amp;ndash;list&lt;/strong> # 显示账户的老化信息&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@hw-cloud-xngy-jump-server-linux-2 ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># chage -l root&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Last password change : Oct 01, &lt;span style="color:#ae81ff">2021&lt;/span> &lt;span style="color:#75715e"># 最后一次修改密码的时间&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Password expires : never
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Password inactive : never
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Account expires : never
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Minimum number of days between password change : &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Maximum number of days between password change : &lt;span style="color:#ae81ff">99999&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Number of days of warning before password expires : &lt;span style="color:#ae81ff">7&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>&lt;strong>-m, &amp;ndash;mindays &lt;!-- raw HTML omitted -->&lt;/strong> # 密码可以修改的最小间隔天数。如果 INT 为 0，则表示不用等待，任何时候都可以修改密码
+&lt;ul>
+&lt;li>对应 shadow 文件中的第 4 个字段 minimum password age&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>-M, &amp;ndash;maxdays &lt;!-- raw HTML omitted -->&lt;/strong> #
+&lt;ul>
+&lt;li>对应 shadow 文件中的第 5 个字段 maximum password age&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>-W, &amp;ndash;warndays &lt;!-- raw HTML omitted -->&lt;/strong> #
+&lt;ul>
+&lt;li>对应 shadow 文件中的第 6 个字段 password warning period&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="pwck">pwck&lt;/h2></description></item><item><title>Docs: ACL</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/access-control%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/acl/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/access-control%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/acl/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system_administrators_guide/ch-access_control_lists">红帽官方文档,RedHat7-系统管理员指南-第五章.访问控制列表&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Access Control Lists(访问控制列表，简称 ACL)&lt;/strong>。Linux 权限管理是 Linux 很重要的一项内容，重则引起用户信息泄露，轻则导致文件错乱和丢失。企业服务器里有些目录下面的东西暂时保密，不希望别人可以进入目录并查看。有些文件希望别人可以看，但不能删除。有些目录只有 root 等管理员权限的账户才能修改，&lt;/p>
+&lt;p>Linux 服务器供多个人登录使用，要是没有权限管理就乱了，大家都一样的权限。有些维护系统的命令比较复杂，经验丰富的管理员运行这些命令没事，普通新用户运行的话，可以会导致 Linux 服务器瘫痪。&lt;/p>
+&lt;p>就像咱们日常生活中，全世界人的权限都一样不就乱了吗。&lt;/p>
+&lt;p>今天我们来介绍一下 Linux 权限管理的 ACL 权限，它是用户管理结束之后必须要经历的一步。Linux 系统的用户管理包括 Linux 用户和用户组管理之相关配置文件，用户管理的相关配置文件，内容有用户信息文件/etc/passwd，用户密码文件/etc/shadow；用户组信息文件/etc/group，用户组密码文件/etc/gshadow。用户的家目录，以及用户的模板目录； Linux 用户和用户组管理之用户管理命令，管理用户和用户组的命令，包括新建、修改、查看等等以及用的比较多的切换用户命令 su。&lt;/p>
+&lt;p>下面我们正式开始介绍：&lt;/p>
+&lt;p>1、什么是 ACL 权限？&lt;/p>
+&lt;p>比如有如下场景：&lt;/p>
+&lt;p>某大牛在 QQ 群内直播讲解 Linux 系统的权限管理，讲解完之后，他在一个公有的 Linux 系统中创建了一个 /project 目录，里面存放的是课后参考资料。那么 /project 目录对于大牛而言是所有者，拥有读写可执行（rwx）权限，对于 QQ 群内的所有用户他们都分配的一个所属组里面，也都拥有读写可执行（rwx）权限，而对于 QQ 群外的其他人，那么我们不给他访问/project 目录的任何权限，那么 /project 目录的所有者和所属组权限都是（rwx），其他人权限无。&lt;/p>
+&lt;p>问题来了，这时候直播有旁听的人参与（不属于 QQ 群内），听完之后，我们允许他访问/project 目录查看参考资料，但是不能进行修改，也就是拥有（r-x）的权限，这时候我们该怎么办呢？我们知道一个文件只能有一个所属组，我们将他分配到 QQ 群所在的所属组内，那么他拥有了写的权限，这是不被允许的；如果将这个旁听的人视为目录/project 的其他人，并且将/project 目录的其他人权限改为（r-x），那么不是旁听的人也能访问我们/project 目录了，这显然也是不被允许的。怎么解决呢？&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wwngi2/1616166788266-55102010-3c01-4999-953f-5264545bba2a.png" alt="">&lt;/p>
+&lt;p>我们想想 windows 系统里面给某个文件分配权限的办法：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wwngi2/1616166788426-4edff74a-9b30-43c9-a8c4-688c5ecadba2.png" alt="">&lt;/p>
+&lt;p>如上图，我们想要让某个用户不具备某个权限，直接不给他分配这个目录的相应权限就行了。那么对应到 Linux 系统也是这样，我们给指定的用户指定目录分配指定的权限，也就是 ACL 权限分配。&lt;/p>
+&lt;h2 id="查看分区-acl-权限是否开启dump2fs">查看分区 ACL 权限是否开启：dump2fs&lt;/h2>
+&lt;p>我们看某个文件（Linux 系统中目录也是文件，一切皆是文件）是否支持 ACL 权限，首先要看文件所在的分区是否支持 ACL 权限。&lt;/p>
+&lt;p>①、查看当前系统有哪些分区：df -h&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wwngi2/1616166788270-02fa6473-8187-498a-910b-641f376cd11c.png" alt="">&lt;/p>
+&lt;p>②、查看指定分区详细文件信息：dumpe2fs -h 分区路径&lt;/p>
+&lt;p>下面是查看 根分区/ 的详细文件信息&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wwngi2/1616166788208-6d15dfed-e275-4812-81cf-66f42bc9965b.png" alt="">&lt;/p>
+&lt;p>回到顶部&lt;/p>
+&lt;h3 id="开启分区-acl-权限">开启分区 ACL 权限&lt;/h3>
+&lt;p>临时开启分区 ACL 权限&lt;/p>
+&lt;pre>&lt;code>mount -o remount,acl /
+&lt;/code>&lt;/pre>
+&lt;p>重新挂载根分区，并挂载加入 acl 权限。注意这种命令开启方式，如果系统重启了，那么根分区权限会恢复到初始状态。&lt;/p>
+&lt;p>永久开启分区 ACL 权限
+修改配置文件 /etc/fstab
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wwngi2/1616166788212-4ba77fea-8a55-4639-bea6-6c3ef58096f2.png" alt="">
+上面是修改根分区拥有 acl 权限&lt;/p>
+&lt;pre>&lt;code>UUID=490ed737-f8cf-46a6-ac4b-b7735b79fc63 / ext4 defaults,acl 1 1
+&lt;/code>&lt;/pre>
+&lt;p>重新挂载文件系统或重启系统，使得修改生效&lt;/p>
+&lt;pre>&lt;code>mount -o remount /
+&lt;/code>&lt;/pre>
+&lt;h1 id="acl-命令行工具">ACL 命令行工具&lt;/h1>
+&lt;h2 id="setfacl--设定指定文件的-acl-权限">setfacl # 设定指定文件的 ACL 权限&lt;/h2>
+&lt;p>&lt;strong>setfacl [-bkndRLPvh] [{-m|-x} acl_spec] [{-M|-X} acl_file] file &amp;hellip;&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>-m # 设定 ACL 权限&lt;/li>
+&lt;li>-x # 删除指定的 ACL 权限&lt;/li>
+&lt;li>-b # 删除所有的 ACL 权限&lt;/li>
+&lt;li>-d # 设定默认 ACL 权限&lt;/li>
+&lt;li>-k # 删除默认 ACL 权限&lt;/li>
+&lt;li>-R # 递归设定 ACL 权限&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>setfacl -m u:lichenhao:rwx test # 让 lichenhao 这个用户对 test 文件具有 rwx 的权限&lt;/li>
+&lt;li>setfacl -m g:lichenhao:rwx test # 让 lichenhao 这个组对 test 文件具有 rwx 的权限&lt;/li>
+&lt;li>Note：我们给用户或用户组设定 ACL 权限其实并不是真正我们设定的权限，是与 mask 的权限“相与”之后的权限才是用户的真正权限，一般默认 mask 权限都是 rwx，与我们所设定的权限相与就是我们设定的权限。mask 权限下面我们会详细讲解&lt;/li>
+&lt;/ul>
+&lt;p>范例：所有者 root 用户在根目录下创建一个文件目录/project，然后创建一个 QQ 群所属组，所属组里面创建两个用户 zhangsan 和 lisi。所有者和所属组权限和其他人权限是 770。&lt;/p>
+&lt;p>然后创建一个旁听用户 pt，给他设定/project 目录的 ACL 为 r-x。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wwngi2/1616166788257-439056df-af1a-41c9-913f-cf18513209ba.png" alt="">&lt;/p>
+&lt;p>&lt;a href="https://images2017.cnblogs.com/blog/1120165/201711/1120165-20171109082727169-259824174.png">https://images2017.cnblogs.com/blog/1120165/201711/1120165-20171109082727169-259824174.png&lt;/a>目录 /project 的所有者和所属组其他人权限设定为 770。接下来我们创建旁听用户 pt，并赋予 acl 权限 rx&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wwngi2/1616166788285-7a684555-e53d-4e5b-96e9-d560c49807f6.png" alt="">&lt;/p>
+&lt;p>为了验证 pt 用户对于 /project 目录没有写权限，我们用 su 命令切换到 pt 用户，然后进入 /project 目录，在此目录下创建文件，看是否能成功：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wwngi2/1616166788260-060edb5b-0ca0-4ee1-a1e7-ba47fccd27a3.png" alt="">&lt;/p>
+&lt;p>上面提示权限不够，说明 acl 权限赋予成功，注意如下所示，如果某个目录或文件下有 + 标志，说明其具有 acl 权限。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wwngi2/1616166788286-6baf14f4-02bd-4091-ab64-13c00e9040d3.png" alt="">&lt;/p>
+&lt;h2 id="getfacl--查看-acl-权限">getfacl # 查看 ACL 权限&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wwngi2/1616166788267-41d4fa26-0894-482f-8caa-90ad69c61a69.png" alt="">&lt;/p>
+&lt;h1 id="最大有效权限-mask">最大有效权限 mask&lt;/h1>
+&lt;p>前面第 4 点我们讲过，我们给用户或用户组设定 ACL 权限其实并不是真正我们设定的权限，是与 mask 的权限“相与”之后的权限才是用户的真正权限，一般默认 mask 权限都是 rwx，与我们所设定的权限相与就是我们设定的权限。&lt;/p>
+&lt;p>我们通过 getfacl 文件名 也能查看 mask 的权限，那么我们怎么设置呢？&lt;/p>
+&lt;p>setfacl -m m:权限 文件名&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wwngi2/1616166788276-cd39efa5-39ce-488d-96f4-9e9b658ceeb0.png" alt="">&lt;/p>
+&lt;h1 id="删除-acl-权限">删除 ACL 权限&lt;/h1>
+&lt;p>①、删除指定用户的 ACL 权限&lt;/p>
+&lt;pre>&lt;code>setfacl -x u:用户名 文件名
+&lt;/code>&lt;/pre>
+&lt;p>②、删除指定用户组的 ACL 权限&lt;/p>
+&lt;pre>&lt;code>setfacl -x g:组名 文件名
+&lt;/code>&lt;/pre>
+&lt;p>③、删除文件的所有 ACL 权限&lt;/p>
+&lt;pre>&lt;code>setfacl -b 文件名
+&lt;/code>&lt;/pre>
+&lt;p>8、递归 ACL 权限
+通过加上选项 -R 递归设定文件的 ACL 权限，所有的子目录和子文件也会拥有相同的 ACL 权限。&lt;/p>
+&lt;pre>&lt;code>setfacl -m u:用户名:权限 -R 文件名
+&lt;/code>&lt;/pre>
+&lt;p>9、默认 ACL 权限
+如果给父目录设定了默认的 ACL 权限，那么父目录中所有新建的子文件会继承父目录的 ACL 权限。&lt;/p>
+&lt;pre>&lt;code>setfacl -m d:u:用户名:权限 文件名
+&lt;/code>&lt;/pre></description></item><item><title>Docs: Capabilities(能力) 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/access-control%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/capabilities%E8%83%BD%E5%8A%9B-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/access-control%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/capabilities%E8%83%BD%E5%8A%9B-%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.qikqiak.com/post/capabilities-on-k8s/">阳明博客,在 Kubernets 中配置 Container Capabilities&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="linux-capabilities">Linux Capabilities&lt;/h2>
+&lt;p>要了解 &lt;code>Linux Capabilities&lt;/code>，这就得从 Linux 的权限控制发展来说明。在 Linux 2.2 版本之前，当内核对进程进行权限验证的时候，Linux 将进程划分为两类：特权进程（UID=0，也就是超级用户）和非特权进程（UID!=0），特权进程拥有所有的内核权限，而非特权进程则根据进程凭证（effective UID, effective GID，supplementary group 等）进行权限检查。
+比如我们以常用的 &lt;code>passwd&lt;/code> 命令为例，修改用户密码需要具有 root 权限，而普通用户是没有这个权限的。但是实际上普通用户又可以修改自己的密码，这是怎么回事呢？在 Linux 的权限控制机制中，有一类比较特殊的权限设置，比如 SUID(Set User ID on execution)，允许用户以可执行文件的 owner 的权限来运行可执行文件。因为程序文件 &lt;code>/bin/passwd&lt;/code> 被设置了 &lt;code>SUID&lt;/code> 标识，所以普通用户在执行 passwd 命令时，进程是以 passwd 的所有者，也就是 root 用户的身份运行，从而就可以修改密码了。
+但是使用 &lt;code>SUID&lt;/code> 却带来了新的安全隐患，当我们运行设置了 &lt;code>SUID&lt;/code> 的命令时，通常只是需要很小一部分的特权，但是 &lt;code>SUID&lt;/code> 却给了它 root 具有的全部权限，一旦 被设置了 &lt;code>SUID&lt;/code> 的命令出现漏洞，是不是就很容易被利用了。
+为此 Linux 引入了 &lt;code>Capabilities&lt;/code> 机制来对 root 权限进行了更加细粒度的控制，实现按需进行授权，这样就大大减小了系统的安全隐患。&lt;/p>
+&lt;h3 id="什么是-capabilities">什么是 Capabilities&lt;/h3>
+&lt;p>从内核 2.2 开始，Linux 将传统上与超级用户 root 关联的特权划分为不同的单元，称为 &lt;code>capabilites&lt;/code>。&lt;code>Capabilites&lt;/code> 每个单元都可以独立启用和禁用。这样当系统在作权限检查的时候就变成了：&lt;strong>在执行特权操作时，如果进程的有效身份不是 root，就去检查是否具有该特权操作所对应的 capabilites，并以此决定是否可以进行该特权操作&lt;/strong>。比如如果我们要设置系统时间，就得具有 &lt;code>CAP_SYS_TIME&lt;/code> 这个 capabilites。下面是从 &lt;a href="http://man7.org/linux/man-pages/man7/capabilities.7.html">capabilities man page&lt;/a> 中摘取的 capabilites 列表：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gx1378/1621522377595-cda9ebb1-7b5a-403e-9777-31d26468fd1c.png" alt="">&lt;/p>
+&lt;h3 id="如何使用-capabilities">如何使用 Capabilities&lt;/h3>
+&lt;p>我们可以通过 &lt;code>getcap&lt;/code> 和 &lt;code>setcap&lt;/code> 两条命令来分别查看和设置程序文件的 &lt;code>capabilities&lt;/code> 属性。比如当前我们是&lt;code>zuiapp&lt;/code> 这个用户，使用 &lt;code>getcap&lt;/code> 命令查看 &lt;code>ping&lt;/code> 命令目前具有的 &lt;code>capabilities&lt;/code>：&lt;/p>
+&lt;pre>&lt;code>$ ll /bin/ping
+-rwxr-xr-x. 1 root root 62088 Nov 7 2016 /bin/ping
+$ getcap /bin/ping
+/bin/ping = cap_net_admin,cap_net_raw+p
+&lt;/code>&lt;/pre>
+&lt;p>我们可以看到具有 &lt;code>cap_net_admin&lt;/code> 这个属性，所以我们现在可以执行 &lt;code>ping&lt;/code> 命令：&lt;/p>
+&lt;pre>&lt;code>$ ping www.qikqiak.com
+PING www.qikqiak.com.w.kunlungr.com (115.223.14.186) 56(84) bytes of data.
+64 bytes from 115.223.14.186 (115.223.14.186): icmp_seq=1 ttl=54 time=7.87 ms
+64 bytes from 115.223.14.186 (115.223.14.186): icmp_seq=2 ttl=54 time=7.85 ms
+&lt;/code>&lt;/pre>
+&lt;p>但是如果我们把命令的 &lt;code>capabilities&lt;/code> 属性移除掉：&lt;/p>
+&lt;pre>&lt;code>$ sudo setcap cap_net_admin,cap_net_raw-p /bin/ping
+$ getcap /bin/ping
+/bin/ping =
+&lt;/code>&lt;/pre>
+&lt;p>这个时候我们执行 &lt;code>ping&lt;/code> 命令可以发现已经没有权限了：&lt;/p>
+&lt;pre>&lt;code>$ ping www.qikqiak.com
+ping: socket: Operation not permitted
+&lt;/code>&lt;/pre>
+&lt;p>因为 ping 命令在执行时需要访问网络，所需的 &lt;code>capabilities&lt;/code> 为 &lt;code>cap_net_admin&lt;/code> 和 &lt;code>cap_net_raw&lt;/code>，所以我们可以通过 &lt;code>setcap&lt;/code> 命令可来添加它们：&lt;/p>
+&lt;pre>&lt;code>$ sudo setcap cap_net_admin,cap_net_raw+p /bin/ping
+$ getcap /bin/ping
+/bin/ping = cap_net_admin,cap_net_raw+p
+$ ping www.qikqiak.com
+PING www.qikqiak.com.w.kunlungr.com (115.223.14.188) 56(84) bytes of data.
+64 bytes from 115.223.14.188 (115.223.14.188): icmp_seq=1 ttl=54 time=7.39 ms
+&lt;/code>&lt;/pre>
+&lt;p>命令中的 &lt;code>p&lt;/code> 表示 &lt;code>Permitted&lt;/code> 集合(接下来会介绍)，&lt;code>+&lt;/code> 号表示把指定的&lt;code>capabilities&lt;/code> 添加到这些集合中，&lt;code>-&lt;/code> 号表示从集合中移除。
+对于可执行文件的属性中有三个集合来保存三类 &lt;code>capabilities&lt;/code>，它们分别是：&lt;/p>
+&lt;ul>
+&lt;li>Permitted：在进程执行时，Permitted 集合中的 capabilites 自动被加入到进程的 Permitted 集合中。&lt;/li>
+&lt;li>Inheritable：Inheritable 集合中的 capabilites 会与进程的 Inheritable 集合执行与操作，以确定进程在执行 execve 函数后哪些 capabilites 被继承。&lt;/li>
+&lt;li>Effective：Effective 只是一个 bit。如果设置为开启，那么在执行 execve 函数后，Permitted 集合中新增的 capabilities 会自动出现在进程的 Effective 集合中。&lt;/li>
+&lt;/ul>
+&lt;p>对于进程中有五种 &lt;code>capabilities&lt;/code> 集合类型，相比文件的 &lt;code>capabilites&lt;/code>，进程的 &lt;code>capabilities&lt;/code> 多了两个集合，分别是 &lt;code>Bounding&lt;/code> 和 &lt;code>Ambient&lt;/code>。
+我们可以通过下面的命名来查看当前进程的 &lt;code>capabilities&lt;/code> 信息：&lt;/p>
+&lt;pre>&lt;code>$ cat /proc/7029/status | grep 'Cap' #7029为PID
+CapInh: 0000000000000000
+CapPrm: 0000000000000000
+CapEff: 0000000000000000
+CapBnd: 0000001fffffffff
+CapAmb: 0000000000000000
+&lt;/code>&lt;/pre>
+&lt;p>然后我们可以使用 &lt;code>capsh&lt;/code> 命令把它们转义为可读的格式，这样基本可以看出进程具有的 &lt;code>capabilities&lt;/code> 了：&lt;/p>
+&lt;pre>&lt;code>$ capsh --decode=0000001fffffffff
+0x0000001fffffffff=cap_chown,cap_dac_override,cap_dac_read_search,cap_fowner,cap_fsetid,cap_kill,cap_setgid,cap_setuid,cap_setpcap,cap_linux_immutable,cap_net_bind_service,ca
+&lt;/code>&lt;/pre></description></item><item><title>Docs: OpenSSH 管理工具套件</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/openssh-%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7%E5%A5%97%E4%BB%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/openssh-%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7%E5%A5%97%E4%BB%B6/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;ul>
+&lt;li>&lt;a href="http://www.openssh.com/manual.html">官方文档,Manual(手册)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.myfreax.com/how-to-setup-ssh-tunneling/">https://www.myfreax.com/how-to-setup-ssh-tunneling/&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://hellolzc.github.io/2020/04/port-forwarding-with-ssh/">https://hellolzc.github.io/2020/04/port-forwarding-with-ssh/&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://tuxgraphics.org/~guido/scripts/ssh-socks5-port-forwarding.html">http://tuxgraphics.org/~guido/scripts/ssh-socks5-port-forwarding.html&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;ul>
+&lt;li>ssh、scp、sftp # 客户端管理工具&lt;/li>
+&lt;li>ssh-add、ssh-keysign、ssh-keyscan、ssh-keygen # 密钥管理工具&lt;/li>
+&lt;li>sshd、sftp-server、ssh-agent # 服务端管理工具&lt;/li>
+&lt;/ul>
+&lt;h1 id="ssh--openssh-的-ssh-客户端工具远程登录程序">ssh # OpenSSH 的 ssh 客户端工具(远程登录程序)&lt;/h1>
+&lt;h2 id="syntax语法">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>ssh [OPTIONS] [User@] HostIP [COMMAND]&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-C&lt;/strong> # 请求压缩所有数据(包括 stdin、stdout、stderr、X11 转发的数据、TCP 和 UNIX-domain 连接)&lt;/li>
+&lt;li>&lt;strong>-i &amp;lt;/PATH/FILE&amp;gt;&lt;/strong> # 使用指定的私钥文件来进行登录认证&lt;/li>
+&lt;li>&lt;strong>-J &amp;lt;DEST[,DEST2,&amp;hellip;]&amp;gt;&lt;/strong> # 首先与 DEST 建立 ssh 连接，并通过 DEST 跳转到最终目标主机。如果需要多次跳转。可以指定多个 DEST 并以逗号分割。
+&lt;ul>
+&lt;li>DEST 格式为：&lt;code>[USER@]HOST[:PORT]&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>-o &amp;lt;Key=Value&amp;gt;&lt;/strong> # 以命令行的方式配置本应该在 /etc/ssh/ssh_config 文件中配置的内容。可用于以配置文件中使用的格式提供选项。Key 是 /etc/ssh/ssh_config 配置文件中的关键字。可用的 OPTIONS 详见 /etc/ssh/ssh_config 文件详解。&lt;/li>
+&lt;li>&lt;strong>-p &lt;!-- raw HTML omitted -->&lt;/strong> # 指定 HostIP 所在远程服务器监听的端口&lt;/li>
+&lt;li>&lt;strong>-T&lt;/strong> # 不要分配一个伪终端&lt;/li>
+&lt;li>&lt;strong>-W&lt;/strong> # 请求将客户端上的标准输入和输出通过安全通道转发到端口上的主机。 表示-N，-T，ExitOnForwardFailure 和 ClearAllForwardings，尽管可以在配置文件中或使用-o 命令行选项覆盖它们。&lt;/li>
+&lt;li>&lt;strong>-X&lt;/strong> # 启用 X11 转发&lt;/li>
+&lt;li>**-Y **# 启用受信任的 X11 转发。 受信任的 X11 转发不受 X11 SECURITY 扩展控件的约束。&lt;/li>
+&lt;li>&lt;strong>端口转发选项&lt;/strong>
+&lt;ul>
+&lt;li>&lt;strong>-D &amp;lt;[Bind_Address]:PORT&amp;gt;&lt;/strong> # Dynamic(动态) 转发。启用动态转发的 ssh 程序相当于一个代理服务，通过监听的端口，可以将流量送到指定的目标主机。&lt;/li>
+&lt;li>&lt;strong>-L &lt;!-- raw HTML omitted -->&lt;/strong> # Local(本地) 转发。发往本地的 TCP 端口 或 Unix Socket 上的流量转发到远端 TCP 端口 或 Unix Socket 上。
+&lt;ul>
+&lt;li>XXX 有多种语法格式：&lt;/li>
+&lt;li>&lt;strong>-L [Bind_Address:]LocalPort:RemoteHost:RemoteHostPort&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>-L [Bind_Address:]LocalPort:RemoteSocket&lt;/strong>&lt;/li>
+&lt;li>**-L LocalSocket:RemoteHost:RemotePort **&lt;/li>
+&lt;li>&lt;strong>-L LocalSocket:RemoteSocket&lt;/strong>&lt;/li>
+&lt;li>假如现在有 A、B、C 三台主机，A 与 C 不通，A 与 B 通，C 与 B 通；也就是说 B 是中转站(运行 sshd 程序)。如果想要通过 A 访问 C，则需要在 A 上执行 &lt;code>ssh -L XXX B-IP&lt;/code> 命令&lt;/li>
+&lt;li>Local 表示 A 主机，Remote 表示 C 主机&lt;/li>
+&lt;li>访问 A Port 就是访问 C Port&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>-R &lt;!-- raw HTML omitted -->&lt;/strong> # Remote(远程) 转发。发往指定 &lt;code>RemotePort&lt;/code> 或 &lt;code>RemoteSocket&lt;/code> 上的流量转发到 &lt;code>本地端口&lt;/code> 或 &lt;code>Unix Socket&lt;/code> 上。远程转发其实更像将 Local 服务通过 ssh 程序以类似 nat 的方式暴露到 Remote 上。
+&lt;ul>
+&lt;li>XXX 有多种语法格式：&lt;/li>
+&lt;li>&lt;strong>-R [bind_address:]RemotePort:LocalHost:LocalPort&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>-R [bind_address:]RemotePort:LocalSocket&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>-R RemoteSocket:LocalHost:LocalPort&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>-R RemoteSocket:LocalSocket&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>-R [bind_address:]port&lt;/strong>&lt;/li>
+&lt;li>假如现在有 A、B、C 三台主机，A 与 C 不通，A 与 B 通，C 与 B 通；也就是说 B 是中转站(运行 sshd 程序)。如果想要通过 A 访问 C，则需要在 C 上执行 &lt;code>ssh -R XXX B-IP&lt;/code> 命令&lt;/li>
+&lt;li>Local 表示 C 主机，Remote 表示 B 主机&lt;/li>
+&lt;li>从 A 访问 B Port 就是访问 C Port&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>端口转发常用附加选项&lt;/strong>
+&lt;ul>
+&lt;li>**-f **# 在后台运行 ssh 程序。常与 -N 连用。
+&lt;ul>
+&lt;li>如果单独使用，则会报错：&lt;code>Cannot fork into background without a command to execute.&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>**-g **# 表示 ssh 隧道对应的转发端口将监听在主机的所有 IP 中，不使用 -g 时，转发端口默认只监听在主机的本地回环地址中，-g 表示开启网关模式，远程端口转发中，无法开启网关功能。&lt;/li>
+&lt;li>&lt;strong>-N&lt;/strong> # 不要执行远程命令。这对于仅让 ssh 用来端口转发时非常有用。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="端口转发语法示例">端口转发语法示例&lt;/h3>
+&lt;p>假如现在环境如下：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/mzs2hg/1639031352911-319c0d47-4ef2-4aa2-ae0f-b0e3f77615d0.jpeg" alt="">&lt;/p>
+&lt;p>&lt;strong>A 与 C 直接互通&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>在 A 主机上执行命令：
+&lt;ul>
+&lt;li>&lt;strong>ssh -D localhost:10022 root@B-HOST&lt;/strong>&lt;/li>
+&lt;li>这个命令的意思是：以 root 用户连接到 B 主机，并在本地 28080 端口上启用动态转发功能。相当于在 B 主机上与本地的 10022 端口建立了一个隧道。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>此时在 A 主机上执行如下命令即可直接远程登录到 C 主机
+&lt;ul>
+&lt;li>&lt;strong>ssh -o ProxyCommand=&amp;ldquo;nc -x 127.0.0.1:10022 %h %p&amp;rdquo; root@C-HOST&lt;/strong>&lt;/li>
+&lt;li>也可以使用 socat 工具
+&lt;ul>
+&lt;li>ssh -o ProxyCommand=&amp;lsquo;socat - socks:127.0.0.1:%h:%p,socksport=10022&amp;rsquo; root@C-HOST&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Windows 上可以使用 &lt;a href="https://nmap.org/download.html">ncat &lt;/a>工具
+&lt;ul>
+&lt;li>ssh -o ProxyCommand=&amp;ldquo;ncat &amp;ndash;proxy-type socks5 &amp;ndash;proxy 127.0.0.1:10022 %h %p&amp;rdquo; root@C-HOST&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>通过 B 中转，将 C 的端口映射到 A 的端口上&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>通过 A 访问 C 上的 mysql&lt;/strong>
+&lt;ul>
+&lt;li>在 A 主机上执行
+&lt;ul>
+&lt;li>&lt;strong>ssh -L 13306:C-IP:3306 root@B-HOST&lt;/strong>&lt;/li>
+&lt;li>这个命令的意思是：A 主机上以 root 用户连接到 B 主机，并在 A 主机本地 13306 端口上启用本地转发，所有到 A 主机的 13306 端口的流量都会通过 B 主机转发到 C 主机的 3306 端口上&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>此时，即可通过 A 主机的 13306 端口连接 C 主机的 mysql 数据库。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>通过 A 访问 C 上的 Prometheus&lt;/strong>
+&lt;ul>
+&lt;li>与通过 A 访问 C 的 mysql 类似&lt;/li>
+&lt;li>在 A 主机上执行
+&lt;ul>
+&lt;li>&lt;strong>ssh -L 19090:C-IP:9090 root@B-HOST&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>此时通过浏览器访问 http://A-IP:19090 即可打开 C 在 9090 端口上的 Web 应用&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>将 C 的端口映射到 B 的端口上&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>在 C 主机上执行
+&lt;ul>
+&lt;li>&lt;strong>ssh -R 19090:C-IP:9090 root@B-HOST&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>此时访问 http://B-IP:19090 即可直接打开 C 主机在 9090 端口上的 Web 应用。&lt;/li>
+&lt;li>22 端口同理，只需要将 9090 改为 22，那么在任意一台机器上执行 &lt;strong>ssh root@B-IP -p 19090&lt;/strong> 命令就是通过 B 的 19090 端口 ssh 连接到 C 主机。&lt;/li>
+&lt;li>注意：如果远程端口转发时遇到问题，需要在 sshd_config 配置文件中将 &lt;code>GatewayPorts&lt;/code> 设置为 yes。因为不开启该配置，在 B 上监听的 IP 将会是 127.0.0.1，开启后是 *&lt;/li>
+&lt;/ul>
+&lt;h2 id="example">EXAMPLE&lt;/h2>
+&lt;ul>
+&lt;li>常用在脚本中，对远程服务器执行本地脚本，由于在后台执行如法判断脚本退出状态导致 set -e 失效，所以加上了 echo $? &amp;gt; /dev/null 来处理后台脚本的执行状态。
+&lt;ul>
+&lt;li>ssh -T root@${IP} &amp;lt; ${WorkDir}/install/install-docker.sh; echo $? &amp;gt; /dev/null &amp;amp;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>连接时，不要严格检查 HostKey。即跳过确实添加 HostKey 的过程，不用输入 yes 或 no。
+&lt;ul>
+&lt;li>ssh -o StrictHostKeyChecking=no 192.168.0.10&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>通过 IPv6 连接到目标主机。主意添加后面的 &lt;code>%DEV&lt;/code>，DEV 就是指定的网络设备。
+&lt;ul>
+&lt;li>ssh -6 fe80::2c75:df14:7422:36a%ens3&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>依次通过 202.43.145.163、172.19.42.247 这两台主机的跳转后，连接到 172.19.42.248
+&lt;ul>
+&lt;li>ssh -J &lt;a href="mailto:root@202.43.145.163">root@202.43.145.163&lt;/a>:42203,172.19.42.247 &lt;a href="mailto:root@172.19.42.248">root@172.19.42.248&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>建立隧道，并禁用远程执行命令，以通过公网远程连接 windows
+&lt;ul>
+&lt;li>在内网的 Win10 上执行如下命令，将会在 122.9.154.106 设备上开启 13389 端口监听，其他客户端通过访问 122.9.154.106 的 13389 端口，即可远程登录连接本地 windows&lt;/li>
+&lt;li>ssh -N -R 13389:localhost:3389 &lt;a href="mailto:root@122.9.154.106">root@122.9.154.106&lt;/a> -p 10022&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>建立隧道，并禁用远程执行命令，通过本地的 13389 端口，即可远程连接到 172.19.42.240 的桌面
+&lt;ul>
+&lt;li>ssh -N -L 13389:172.19.42.240:3389 &lt;a href="mailto:root@202.43.145.163">root@202.43.145.163&lt;/a> -p 42201&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>ssh 远程调用函数
+&lt;ul>
+&lt;li>&lt;a href="https://stackoverflow.com/questions/22107610/shell-script-run-function-from-script-over-ssh">https://stackoverflow.com/questions/22107610/shell-script-run-function-from-script-over-ssh&lt;/a> #&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>连接时启用 X11 转发，常用于在 Linux 系统上连接后启动
+&lt;ul>
+&lt;li>ssh -X -C 192.168.0.1&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;p>OPTIONS：&lt;/p>
+&lt;ul>
+&lt;li>**-r **# 以递归方式复制，用于复制整个目录&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE：&lt;/p>
+&lt;ul>
+&lt;li>把本地 nginx 文件推上去复制到以 root 用户登录的 10.10.10.10 这台机器的/opt/soft/scptest 目录下
+&lt;ul>
+&lt;li>scp /opt/soft/nginx-0.5.38.tar.gz &lt;a href="mailto:root@10.10.10.10">root@10.10.10.10&lt;/a>:/opt/soft/scptest&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>把以 root 用户登录的 10.10.10.10 机器中的 nginx 文件拉下来复制到本地/opt/soft 目录下
+&lt;ul>
+&lt;li>scp &lt;a href="mailto:root@10.10.10.10">root@10.10.10.10&lt;/a>:/opt/soft/nginx-0.5.38.tar.gz /opt/soft/&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>基于密钥的认证,当对方主机 ssh 登录的用户的家目录存在公钥，并且公钥设置密码为空，那么以后 ssh 协议登录传输都可以直接登录而不用密码&lt;/p>
+&lt;h1 id="ssh-keygen--在客户端生成密钥对">ssh-keygen # 在客户端生成密钥对&lt;/h1>
+&lt;p>&lt;strong>ssh-keygen -t rsa [-P &amp;lsquo;&amp;rsquo;] [-f ~/.ssh/id_rsa]&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>EXAMPLE：
+&lt;ul>
+&lt;li>ssh-keygen -t rsa -P &amp;rsquo;&amp;rsquo; -f ~/.ssh/id_rsa&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="ssh-copy-id--把生成的公钥传输至远程服务器对应用户的家目录">ssh-copy-id # 把生成的公钥传输至远程服务器对应用户的家目录&lt;/h1>
+&lt;p>&lt;strong>ssh-copy-id [-i [Identity_File]] [User@]HostIP&lt;/strong>
+Identity_File(身份文件) # 一般为 /root/.ssh/id_rsa.pub
+EXAMPLE：&lt;/p>
+&lt;ul>
+&lt;li>将公钥拷贝到服务端
+&lt;ul>
+&lt;li>ssh-copy-id -i /root/.ssh/id_rsa.pub &lt;a href="mailto:root@192.168.0.10">root@192.168.0.10&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>若没有 ssh-copy-id 命令，则可以这么这么弄
+&lt;ul>
+&lt;li>cat ~/.ssh/id_rsa.pub | ssh &lt;a href="mailto:root@192.168.0.10">root@192.168.0.10&lt;/a> &amp;lsquo;cat &amp;raquo; .ssh/authorized_keys&amp;rsquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul></description></item><item><title>Docs: PAM 模块详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/pam-%E6%A8%A1%E5%9D%97%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/pam-%E6%A8%A1%E5%9D%97%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;h2 id="参考">参考：&lt;/h2>
+&lt;/blockquote>
+&lt;h1 id="pam-的各模块说明">PAM 的各模块说明&lt;/h1>
+&lt;p>全局参数&lt;/p>
+&lt;ul>
+&lt;li>file=/PATH/TO/FILE # 用于指定统计次数存放的位置，默认保存在/var/log/tallylog 文件中；&lt;/li>
+&lt;li>onerr #当意外发生时，返加 PAM_SUCCESS 或 pam 错误代码，一般该项不进行配置；&lt;/li>
+&lt;li>audit # 如果登录的用户不存在，则将访问信息写入系统日志；&lt;/li>
+&lt;li>silent # 静默模式，不输出任何日志信息；&lt;/li>
+&lt;li>no_log_info # 不打印日志信息通过 syslog&lt;/li>
+&lt;li>上面的五项全局参数，一般在使用中都不需要单独配置。&lt;/li>
+&lt;/ul>
+&lt;h1 id="pam_faillock--在指定的时间间隔内计算身份验证失败">pam_faillock # 在指定的时间间隔内计算身份验证失败&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man.cx/pam_faillock">Manual(手册),pam_faillock(8)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://man.cx/faillock.conf(5)">Manual(手册),faillock.conf(5)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/dev-sec/ansible-collection-hardening/issues/377">https://github.com/dev-sec/ansible-collection-hardening/issues/377&lt;/a>&lt;/li>
+&lt;li>红帽官方文档,安全指南-账户锁
+&lt;ul>
+&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/security_guide/chap-hardening_your_system_with_tools_and_services#sect-Security_Guide-Workstation_Security-Account_Locking">https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/security_guide/chap-hardening_your_system_with_tools_and_services#sect-Security_Guide-Workstation_Security-Account_Locking&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>提供 auth、account 管理类型的模块&lt;/p>
+&lt;p>pam_faillock 模块在指定的时间间隔内维护每个账户在尝试进行身份验证时的失败事件，并且在连续失败时锁定账户。&lt;/p>
+&lt;p>pam_faillock 与大部分模块有一点不同，不建议在 PAM 规则中配置参数，而是推荐使用默认的 /etc/security/faillock.conf 配置文件中配置参数&lt;/p>
+&lt;h2 id="关联文件">关联文件&lt;/h2>
+&lt;p>&lt;strong>/etc/security/faillock.conf&lt;/strong> # 运行时配置文件。除了在 /etc/pam.d/* 文件中配置模块的参数，还可以通过这个文件配置模块的参数。
+&lt;strong>/var/run/faillock/*&lt;/strong> # 记录用户身份验证失败的事件。目录中的文件名以用户名命名&lt;/p>
+&lt;h2 id="模块参数">模块参数&lt;/h2>
+&lt;p>&lt;strong>preauth | authfail | authsucc&lt;/strong> #
+&lt;strong>conf=&amp;lt;/PATH/TO/FILE&amp;gt;&lt;/strong> # 指定要使用的配置文件路径。&lt;/p>
+&lt;h2 id="应用示例">应用示例&lt;/h2>
+&lt;p>登录失败 3 次会锁定用户 60 秒，账户登录失败 3 次 锁定 30 秒&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span> sudo tee /etc/pam.d/password-auth-local &amp;gt; /dev/null &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">auth required pam_faillock.so preauth audit deny=3 even_deny_root unlock_time=60 root_unlock_time=30
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">auth include password-auth-ac
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">auth [default=die] pam_faillock.so authfail audit deny=3 even_deny_root unlock_time=60 root_unlock_time=30
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">account required pam_faillock.so
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">account include password-auth-ac
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">password include password-auth-ac
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">session include password-auth-ac
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ln -sf /etc/pam.d/password-auth-local /etc/pam.d/password-auth
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>注意：由于 password-auth-ac 中有 pam_succeed_if.so uid &amp;gt;= 1000 quiet_success 这样一条规则，所以上述配置对 root 账户不起作用。&lt;/p>
+&lt;h2 id="命令行工具">命令行工具&lt;/h2>
+&lt;h3 id="faillock">faillock&lt;/h3>
+&lt;p>&lt;strong>faillock [OPTIONS]&lt;/strong>
+管理登录失败锁定记录的工具&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@LNDL-PSC-SCORE-PM-OS04-EBRS-HA02 pam.d&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># faillock&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>developer:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>When Type Source Valid
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>2021-10-21 21:42:50 RHOST 172.16.10.11 V
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>When Type Source Valid
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>2021-10-21 21:42:41 RHOST 172.16.10.11 V
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;user &lt;!-- raw HTML omitted -->&lt;/strong> # 指定要处理的用户名称&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;reset&lt;/strong> # 清除失败记录，解除锁定&lt;/li>
+&lt;/ul>
+&lt;h1 id="pam_nologin">pam_nologin&lt;/h1>
+&lt;p>这个模块可以限制一般用户是否能够登入主机之用。当 /etc/nologin 这个文件存在时，则所有一般使用者均无法再登入系统了！若 /etc/nologin 存在，则一般使用者在登入时， 在他们的终端机上会将该文件的内容显示出来！所以，正常的情况下，这个文件应该是不能存在系统中的。 但这个模块对 root 以及已经登入系统中的一般账号并没有影响。&lt;/p>
+&lt;h1 id="pam_pwhistory--记住最后的密码">pam_pwhistory # 记住最后的密码&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/pam_pwhistory.8.html">Manual(手册),pam_pwhistory(8)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>该模块用于记住用户设置过的密码，以防止用户在修改密码时频繁交替得使用相同的密码&lt;/p>
+&lt;h2 id="关联文件-1">关联文件&lt;/h2>
+&lt;p>&lt;strong>/etc/security/opasswd&lt;/strong> # 用户设置过的历史密码将会以加密方式保存在该文件中。&lt;/p>
+&lt;h2 id="模块参数-1">模块参数&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>remember=INT&lt;/strong> # 用户设置过的 remember 个密码将会保存在 /etc/security/opasswd 文件中。&lt;code>默认值：10&lt;/code>。值为 0 时，模块将会保持 opasswd 文件的现有内容不变&lt;/li>
+&lt;/ul>
+&lt;h1 id="pam_pwquality--密码质量检查">pam_pwquality # 密码质量检查&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/libpwquality/libpwquality/">GitHub 项目，libpwquality/libpwquality&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://man.cx/pam_pwquality">Manual(手册)，pam_pwquality(8)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>pam_pwquality 模块属于 libpwquality 库，最初基于 pam_cracklib 模块，用以执行密码质量检查。仅提供 password 模块类型。&lt;/p>
+&lt;blockquote>
+&lt;p>注意：在红帽企业 Linux 7 中，pam_pwquality PAM 模块取代 pam_cracklib，该模块在红帽企业 Linux 6 中用作密码质量检查的默认模块。它使用与 pam_cracklib 相同的后端。详见&lt;a href="https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/security_guide/chap-hardening_your_system_with_tools_and_services">红帽官网&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>该模块的作用是提示用户输入密码，并根据系统字典和一组识别不良选择的规则检查其强度。第一个操作是提示输入一个密码，检查其强度，然后，如果认为强度高，则第二次提示输入密码（以验证第一次输入的密码是否正确）。一切顺利，密码将传递给后续模块以作为新的身份验证令牌安装。&lt;/p>
+&lt;p>模块可以提供如下几种类型的检查&lt;/p>
+&lt;ul>
+&lt;li>**Palindrome(回文) **#&lt;/li>
+&lt;li>&lt;strong>Case Change Only(仅大小写更改)&lt;/strong> # 新密码是否与旧密码相同，只是大小写不同？&lt;/li>
+&lt;li>&lt;strong>Similar(相似)&lt;/strong> # 新密码是不是太像旧密码了？这主要由一个参数 difok 控制，它是旧密码和新密码之间足以接受新密码的一系列字符更改（插入、删除或替换）。&lt;/li>
+&lt;li>&lt;strong>Rotated(旋转的)&lt;/strong> # Is the new password a rotated version of the old password?新密码是旧密码的轮换版本吗？&lt;/li>
+&lt;li>&lt;strong>Same consecutive characters(相同的连续字符)&lt;/strong> # Optional check for same consecutive characters.可选检查相同的连续字符。&lt;/li>
+&lt;li>&lt;strong>Too long monotonic character sequence(太长的单调字符序列)&lt;/strong> # 可选检查太长的单调字符序列。&lt;/li>
+&lt;li>&lt;strong>Contains user name(包含用户名)&lt;/strong> # 检查密码是否包含某种形式的用户名。&lt;/li>
+&lt;li>&lt;strong>Dictionary check(字典检查)&lt;/strong> # 调用 Cracklib 例程来检查密码是否是字典的一部分。&lt;/li>
+&lt;/ul>
+&lt;p>上述这些检查可以通过使用模块参数或通过修改 &lt;code>/etc/security/pwquality.conf&lt;/code> 配置文件来配置。模块参数 j 覆盖配置文件中的设置。&lt;/p>
+&lt;h2 id="关联文件-2">关联文件&lt;/h2>
+&lt;p>&lt;strong>/etc/security/pwquality.conf&lt;/strong> # 模块运行时配置文件
+&lt;strong>/usr/lib64/security/pam_pwquality.so&lt;/strong> # 模块文件&lt;/p>
+&lt;h2 id="模块参数-2">模块参数&lt;/h2>
+&lt;p>通用参数&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>retry=&lt;!-- raw HTML omitted -->&lt;/strong> # 重试次数。&lt;code>默认值：1&lt;/code>。允许用户输入密码错误的最大次数、对于输入新密码时的情况，则是允许用户输入不符合要求的新密码的最大次数。&lt;/li>
+&lt;/ul>
+&lt;p>设置新密码时执行检查的参数，某些参数的值为 -1 时，表示新密码至少需要有 1 位数字、大写字母、特殊字符 等等。值为 0 表示禁用检查。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>minlen=&lt;!-- raw HTML omitted -->&lt;/strong> # 新密码的最小字符数。&lt;code>默认值：8&lt;/code>&lt;/li>
+&lt;li>&lt;strong>dcredit=&lt;!-- raw HTML omitted -->&lt;/strong> # 新密码中包含的 **digit(数字) **的字符数。&lt;/li>
+&lt;li>&lt;strong>ucredit=&lt;!-- raw HTML omitted -->&lt;/strong> # 新密码中包含的 **uppercase(大写字母) **的字符数。&lt;/li>
+&lt;li>&lt;strong>lcredit=&lt;!-- raw HTML omitted -->&lt;/strong> # 新密码中包含的 &lt;strong>lowercase(小写字母)&lt;/strong> 的字符数。&lt;/li>
+&lt;li>&lt;strong>ocredit=&lt;!-- raw HTML omitted -->&lt;/strong> # 新密码中包含的 &lt;strong>other(其他字符)&lt;/strong> 的字符数。其他字符就是特殊字符&lt;/li>
+&lt;li>&lt;strong>minclass=&lt;!-- raw HTML omitted -->&lt;/strong> # 新密码中包含的字符类型的数量。&lt;code>默认值：0&lt;/code> 共有 4 中字符类型可用：
+&lt;ul>
+&lt;li>digits(数字)&lt;/li>
+&lt;li>uppercase(大写字母)&lt;/li>
+&lt;li>lettercase(小写字母)&lt;/li>
+&lt;li>other(其他字符)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="应用示例-1">应用示例&lt;/h2>
+&lt;p>输入错误最多 3 次，至少 14 个字符，其中 大写字母、小写字母、数字、特殊符号 这四类字符每类至少有一个。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>pam_pwquality.so try_first_pass retry&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">3&lt;/span> minlen&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">14&lt;/span> dcredit&lt;span style="color:#f92672">=&lt;/span>-1 ucredit&lt;span style="color:#f92672">=&lt;/span>-1 ocredit&lt;span style="color:#f92672">=&lt;/span>-1 lcredit&lt;span style="color:#f92672">=&lt;/span>-1
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="pwqualityconf-文件示例">pwquality.conf 文件示例&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>minlen &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">14&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lcredit &lt;span style="color:#f92672">=&lt;/span> -1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ucredit &lt;span style="color:#f92672">=&lt;/span> -1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dcredit &lt;span style="color:#f92672">=&lt;/span> -1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ocredit &lt;span style="color:#f92672">=&lt;/span> -1
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="pam_succeed_if--测试账户特性">pam_succeed_if # 测试账户特性&lt;/h1>
+&lt;p>pam_succeed_if 模块旨在根据 **账户的特征 **或 其他&lt;/p>
+&lt;p>说白了，从编程角度看，这就是一个典型的 if&amp;hellip;else&amp;hellip; 控制结构，在一组规则栈中，通过使用该模块，对一些条件进行判断。&lt;/p>
+&lt;p>比如&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>pam_succeed_if.so uid &amp;gt;= 1000&lt;/code> 表示调用该模块的程序所使用的账号的 uid 要是大于等于 1000，则模块返回成功&lt;/li>
+&lt;li>&lt;code>pam_succeed_if.so service in crond&lt;/code> 表示调用该模块的程序是 crond 的话，则模块返回成功。&lt;/li>
+&lt;/ul>
+&lt;p>该模块的常见用途就是根据该模块的条件测试结果，决定是否加载其他模块。&lt;/p>
+&lt;h2 id="模块参数-3">模块参数&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>quiet_success&lt;/strong> # 若模块返回成功，则不要将验证事件记录到系统日志中。&lt;/li>
+&lt;li>&lt;strong>use_uid&lt;/strong> # 使用运行应用程序的 UID 的用户的帐户而不是正在验证的用户来评估条件。&lt;/li>
+&lt;li>&lt;strong>Conditions(条件)&lt;/strong> # 条件参数由 3 部分组成：&lt;code>Field Test Value&lt;/code>。
+&lt;ul>
+&lt;li>可用的 Field 有：user、uid、gid、shell、home、ruser、rhost、tty、service&lt;/li>
+&lt;li>可用的 Test 有：&lt;code>&amp;lt;&lt;/code> &lt;code>&amp;lt;=&lt;/code> &lt;code>eq&lt;/code> &lt;code>&amp;gt;=&lt;/code> &lt;code>&amp;gt;&lt;/code> &lt;code>ne&lt;/code> &lt;code>=&lt;/code> &lt;code>!=&lt;/code> &lt;code>=~&lt;/code> &lt;code>!~&lt;/code> &lt;code>in&lt;/code> &lt;code>not in&lt;/code>&lt;/li>
+&lt;li>比如：
+&lt;ul>
+&lt;li>&lt;strong>uid &amp;gt;= 1000&lt;/strong> # 表示运行程序所使用的账号的 uid 要是大于 1000，则模块返回成功&lt;/li>
+&lt;li>更多语法说明，详见 Manual。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="应用示例-2">应用示例&lt;/h2>
+&lt;p>该模块非常容易造成 PAM 认证时的结果与想要的结果产生偏差，比如在 CentOS7 下，/etc/pam.d/password-auth-ac 的配置如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>auth required pam_env.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_faildelay.so delay&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">2000000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth sufficient pam_unix.so nullok try_first_pass
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth requisite pam_succeed_if.so uid &amp;gt;&lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">1000&lt;/span> quiet_success
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_deny.so
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>此时，我们想要使用 pam_faillock 模块配置一下账户认证失败后锁定的功能，如果将配置修改为如下样子：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>auth required pam_env.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_faillock.so preauth audit deny&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">3&lt;/span> even_deny_root unlock_time&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">60&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_faildelay.so delay&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">2000000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth sufficient pam_unix.so nullok try_first_pass
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth requisite pam_succeed_if.so uid &amp;gt;&lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">1000&lt;/span> quiet_success
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth &lt;span style="color:#f92672">[&lt;/span>default&lt;span style="color:#f92672">=&lt;/span>die&lt;span style="color:#f92672">]&lt;/span> pam_faillock.so authfail audit deny&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">3&lt;/span> even_deny_root unlock_time&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">60&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_deny.so
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>此时，所有 uid 小于 1000 的，包括 root 账户，都是无法享受到第 6 行规则的效果的，因为当执行到第 5 行时，发现此次认证行为的账户是 root(uid=0) 则直接返回失败，不在执行第 6 行的规则了~~&lt;/p>
+&lt;h1 id="pam_unix--传统密码认证">pam_unix # 传统密码认证&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/pam_unix.8.html">Manual(手册),pam_unix(8)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>注意：推荐使用 pam_pwquality 模块与 pam_unix 模块配合使用&lt;/p>
+&lt;p>若是不满足密码强度要求，将会出现类似如下的提示：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@common-centos-test pam.d&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># passwd developer&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Changing password &lt;span style="color:#66d9ef">for&lt;/span> user developer.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>New password:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>BAD PASSWORD: The password contains less than &lt;span style="color:#ae81ff">1&lt;/span> uppercase letters
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Retype new password:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>BAD PASSWORD: The password fails the dictionary check - it is too simplistic/systematic
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>注意：root 用户修改任何用户的密码不受此模块限制，只有普通用户修改自己的密码时才有效。&lt;/p>
+&lt;h2 id="模块参数-4">模块参数&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>nullok&lt;/strong> # 此模块的默认操作是，如果用户的官方密码为空，则不允许用户访问服务。nullok 参数覆盖此默认值。&lt;/li>
+&lt;li>&lt;strong>try_first_pass&lt;/strong> # 这个选项指示本模块首先尝试使用已有的密码，即从第一个向用户提示输入密码的模块那里取得密码，并对该密码进行认证。如果密码认证失败，则再提示用户输入密码。&lt;/li>
+&lt;li>&lt;strong>use_authtok&lt;/strong> # “use_authtok”参数确保 pam_unix 模块不会提示输入密码，而是使用 pam_pwquality 提供的密码。&lt;/li>
+&lt;li>&lt;strong>密码要求参数&lt;/strong>
+&lt;ul>
+&lt;li>&lt;strong>minlen=INT&lt;/strong> # 密码长度最少 minlen 位&lt;/li>
+&lt;li>&lt;strong>difok=INT&lt;/strong> # 新旧密码最少 difok 个字符不同&lt;/li>
+&lt;li>&lt;strong>icredit=-1&lt;/strong> # 最少 1 个数字.&lt;/li>
+&lt;li>&lt;strong>lcredit=-1&lt;/strong> # 最少 1 个小写字符&lt;/li>
+&lt;li>&lt;strong>ucredit=-1&lt;/strong> # 最少 1 个大写字符&lt;/li>
+&lt;li>&lt;strong>ocredit=-1&lt;/strong> # 最少 1 个特殊字符&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="heading">&lt;/h1></description></item><item><title>Docs: pam_limits 模块</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/pam-%E6%A8%A1%E5%9D%97%E8%AF%A6%E8%A7%A3/pam_limits-%E6%A8%A1%E5%9D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/pam-%E6%A8%A1%E5%9D%97%E8%AF%A6%E8%A7%A3/pam_limits-%E6%A8%A1%E5%9D%97/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/pam_limits.8.html">Manual(手册),pam_limits(8)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.man7.org/linux/man-pages/man5/limits.conf.5.html">Manula(手册),limits.conf(5)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>应用场景：我的 Linux 主机里面同时登入了十个人，这十个人不知怎么搞的， 同时开启了 100 个文件，每个文件的大小约 10M ，请问一下， 我的 Linux 主机的内存要有多大才够？ 10&lt;em>100&lt;/em>10 = 10000M = 10G &amp;hellip; 老天爷，这样，系统不挂点才有鬼哩！为了要预防这个情况 的发生，所以我们是可以『限制用户的某些系统资源』的，包括可以开启的文件数量， 可以使用的 CPU 时间，可以使用的内存总量等等。除了这个模块有这个限制功能外，bash 还自带 ulimit 命令可以实现这个功能。&lt;/p>
+&lt;ul>
+&lt;li>限制用户会话过程中对各种系统资源的使用情况，默认情况下该模块的配置文件是/etc/security/limits.conf&lt;/li>
+&lt;li>该配置文件中的参数，可以通过 &lt;code>ulimit -a&lt;/code> 命令查看&lt;/li>
+&lt;/ul>
+&lt;h1 id="关联文件">关联文件&lt;/h1>
+&lt;p>/etc/security/* #&lt;/p>
+&lt;ul>
+&lt;li>/etc/security/limits.conf # 限制用户会话过程中对各种系统资源的使用情况的配置文件&lt;/li>
+&lt;/ul>
+&lt;h2 id="配置文件语法">配置文件语法&lt;/h2>
+&lt;p>&lt;strong>/etc/security/limit.conf 文件语法格式：&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>&amp;lt;domain&amp;gt; &amp;lt;type&amp;gt; &amp;lt;item&amp;gt; &amp;lt;value&amp;gt;
+XXX XXXX XXXX XXXX
+用户名/组名 限制类型 要限制的项目 具体值
+&lt;/code>&lt;/pre>
+&lt;ul>
+&lt;li>&lt;strong>domain&lt;/strong> #设置需要被限制的用户名或组名，组名前面加@和用户名区别。也可使用通配符 * 来表示所有用户&lt;/li>
+&lt;li>&lt;strong>type&lt;/strong> # 在设定上，通常 soft 会比 hard 小，举例来说，soft 可设定为 80 而 hard 设定为 100，那么你可以使用到 90 (因为没有超过 100)，但介于 80~100 之间时，系统会有警告讯息通知你！
+&lt;ul>
+&lt;li>hard #严格的设定，指设定的 value 必定不能超过设定的数值&lt;/li>
+&lt;li>soft #警告的设定，指设定的 value 可以超过设定值，但是若超过则有警告讯息。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>item&lt;/strong> # 指定要限制的项目
+&lt;ul>
+&lt;li>core # 限制内核文件的大小&lt;/li>
+&lt;li>何谓 core 文件,当一个程序崩溃时，在进程当前工作目录的 core 文件中复制了该进程的存储图像。core 文件仅仅是一个内存映象（同时加上调试信息），主要是用来调试的。core 文件是个二进制文件，需要用相应的工具来分析程序崩溃时的内存映像，系统默认 core 文件的大小为 0，所以没有被创建。可以用 ulimit 命令查看和修改 core 文件的大小，例如：ulimit -c 1000 #指定修改 core 文件的大小，1000 指定了 core 文件大小。也可以对 core 文件的大小不做限制，如： ulimit -c unlimited&lt;/li>
+&lt;li>date # 最大数据大小&lt;/li>
+&lt;li>fsize # 最大文件大小&lt;/li>
+&lt;li>memlock # 最大锁定内存地址空间&lt;/li>
+&lt;li>nofile # 打开文件的最大数目，默认为 1024&lt;/li>
+&lt;li>对于需要做许多套接字连接并使它们处于打开状态的应用程序而言，最好通过使用 ulimit -n，或者通过设置 nofile 参数，为用户把文件描述符的数量设置得比默认值高一些&lt;/li>
+&lt;li>rss # 最大持久设置大小&lt;/li>
+&lt;li>stack # 最大栈大小&lt;/li>
+&lt;li>cpu # 以分钟为单位的最多 CPU 时间&lt;/li>
+&lt;li>nproc # 打开进程的最大数&lt;/li>
+&lt;li>as # 地址空间限制&lt;/li>
+&lt;li>maxlogins # 此用户允许登录的最大数目&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>value&lt;/strong> # 指定 item 中具体项目的值
+&lt;ul>
+&lt;li>NUM # 可以是具体的数值&lt;/li>
+&lt;li>unlimited # 表示无限制的&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="security-目录下文件的配置示例">security 目录下文件的配置示例&lt;/h2>
+&lt;p>/etc/security/limits.conf 配置文件示例&lt;/p>
+&lt;p>如图所示，左边的是 limit.conf 的配置，意思是所有用户的可以打开的文件最大数为 1000000，然后通过 bash 内嵌命令 ulimit -a 可以查看到右图的效果
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xg1n26/1616166776345-13a61424-8c05-47a2-af4a-aac10869dcaa.png" alt="">
+注意：在 CentOS 7 &amp;amp; Ubuntu 系统中，使用 Systemd 替代了之前的 SysV。/etc/security/limits.conf 文件的配置作用域缩小了。/etc/security/limits.conf 的配置，只适用于通过 PAM 认证登录用户的资源限制，它对 systemd 的 service 的资源限制不生效。因此登录用户的限制，通过 /etc/security/limits.conf 与 /etc/security/limits.d 下的文件设置即可。对于 systemd service 的资源设置，则需修改全局配置，全局配置文件放在 /etc/systemd/system.conf 和 /etc/systemd/user.conf，&lt;/p>
+&lt;p>DefaultLimitNOFILE=100000 # 对应 max openfile&lt;/p>
+&lt;p>DefaultLimitNPROC=65535 # 对应 max processes&lt;/p>
+&lt;h1 id="命令行工具">命令行工具&lt;/h1>
+&lt;h2 id="ulimit">ulimit&lt;/h2>
+&lt;p>临时更改或者查看当前登录用户的资源限制情况。&lt;/p>
+&lt;p>注意：该命令只可在当前 shell 环境中生效，如果想要让配置永久生效，需要修改/etc/security/limit.conf 文件&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-a&lt;/strong> # 显示所有限制 All current limits are reported&lt;/li>
+&lt;li>-b # The maximum socket buffer size&lt;/li>
+&lt;li>-c # core 文件大小的上限 The maximum size of core files created&lt;/li>
+&lt;li>-d # 进程数据段大小的上限 The maximum size of a process&amp;rsquo;s data segment&lt;/li>
+&lt;li>-e #The maximum scheduling priority (&amp;ldquo;nice&amp;rdquo;)&lt;/li>
+&lt;li>-f #shell 所能创建的文件大小的上限 The maximum size of files written by the shell and its children&lt;/li>
+&lt;li>-i #The maximum number of pending signals&lt;/li>
+&lt;li>-l #The maximum size that may be locked into memory&lt;/li>
+&lt;li>-m #驻留内存大小的上限 The maximum resident set size (many systems do not honor this limit)&lt;/li>
+&lt;li>&lt;strong>-n&lt;/strong> # 打开文件数的上限 The maximum number of open file descriptors (most systems do not allow this value to be set)&lt;/li>
+&lt;li>-p #管道大小 The pipe size in 512-byte blocks (this may not be set)&lt;/li>
+&lt;li>-q #The maximum number of bytes in POSIX message queues&lt;/li>
+&lt;li>-r #The maximum real-time scheduling priority&lt;/li>
+&lt;li>-s # 堆栈大小的上限 The maximum stack size&lt;/li>
+&lt;li>-t #每秒可占用的 CPU 时间上限 The maximum amount of cpu time in seconds&lt;/li>
+&lt;li>-u #进程数的上限 The maximum number of processes available to a single user&lt;/li>
+&lt;li>-v #虚拟内存的上限 The maximum amount of virtual memory available to the shell and, on some systems, to its children&lt;/li>
+&lt;li>-x #The maximum number of file locks&lt;/li>
+&lt;li>-T #The maximum number of threads&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>ulimit -n 1000 #&lt;/li>
+&lt;/ul>
+&lt;h1 id="优化实例">优化实例&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &amp;gt;&amp;gt; /etc/security/limits.d/max-openfile.conf &lt;span style="color:#e6db74">&amp;lt;&amp;lt; EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">* soft nproc 1000000
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">* hard nproc 1000000
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">* soft nofile 1000000
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">* hard nofile 1000000
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>cat /dev/urandom | head -1 | md5sum | head -c 32 &amp;raquo; /pass #生成 32 位随机密码&lt;/p></description></item><item><title>Docs: PAM(可插入式认证模块)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/linux-pam/linux-pam">GitHub 项目，linux-pam&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://www.linux-pam.org/Linux-PAM-html/">&lt;del>官方文档&lt;/del>&lt;/a>&lt;del>已停止更新不再维护&lt;/del>&lt;/li>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/pam.8.html">Manual(手册),PAM(8)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Pluggable_authentication_module">Wiki,PAM&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Linux_PAM">Wiki,Linux PAM&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.cnblogs.com/kevingrace/p/8671964.html">博客园，Linux 下 PAM 模块学习总结&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.cnblogs.com/yinzhengjie/p/8395279.html">博客园，PAM(Pluggable Authentication Modules)认证机制详情&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.redhat.com/sysadmin/pluggable-authentication-modules-pam">https://www.redhat.com/sysadmin/pluggable-authentication-modules-pam&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://www.jinbuguo.com/linux/pam.html">金步国，Linux PAM 学习笔记&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Pluggable Authentication Modules(可插入式认证模块，简称 PAM)&lt;/strong> 是由 Sun 提出的一种认证机制。它通过提供一些动态链接库和一套统一的 API，将系统提供的服务和该服务的认证方式分开，使得系统管理员可以灵活地根据需要给不同的服务配置不同的认证方式而无需更改服务程序，同时也便于向系统中添加新的认证手段。&lt;/p>
+&lt;p>在过去，我们想要对一个使用者进行 Authentication(认证)，得要要求用户输入账号密码，然后通过自行撰写的程序来判断该账号密码是否正确。也因为如此，我们常常使用不同的机制来判断账号密码，所以搞的一部主机上面拥有多个各别的认证系统，也造成账号密码可能不同步的验证问题！为了解决这个问题因此有了 PAM 的机制！&lt;/p>
+&lt;p>以常见的 su 命令来说，它可以实现用户切换，从 root 切换至其他用户不需要密码、从非 root 用户切换至其他用户则需要验证目标用户的密码，一旦认证成功就以目标用户身份启动 shell 以供使用。本质上，su 只做两件事：(1)认证；(2)启动 shell 。按照传统思路，两件事都很容易实现，例如认证逻辑可以用伪代码这样简单的描述：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#f92672">(&lt;/span> uid &lt;span style="color:#f92672">==&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#f92672">)&lt;/span> 认证成功
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>elseif &lt;span style="color:#f92672">(&lt;/span> 输入的密码 &lt;span style="color:#f92672">==&lt;/span> 目标用户的密码 &lt;span style="color:#f92672">)&lt;/span> 认证成功
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">else&lt;/span> 认证失败
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>但是，认证需求不是一成不变的。例如：&lt;/p>
+&lt;ul>
+&lt;li>(1)为了方便运维团队成员(也就是 wheel 组)，希望 wheel 组中的用户无需输入密码也能直接进行用户切换；&lt;/li>
+&lt;li>(2)为了加强安全性，希望额外验证手机短信；&lt;/li>
+&lt;li>(3)为了避免频繁输入难记的用户密码，希望可以选用指纹方式进行验证；&lt;/li>
+&lt;li>(4)为了方便某个特定的用户测试，希望仅凭手机短信也能完成验证&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip;&lt;/li>
+&lt;/ul>
+&lt;p>这样一来， su 的开发者将会被迫不断更改 su 的源代码，然后再重新调试、编译、分发，非常辛苦。这种情况下，PAM 就可以对 su 开发者说：&amp;ldquo;认证的事交给我，能不能通过认证由我说了算，你只需做好其他事情(启动 shell)即可&amp;rdquo;；同时又对用户(系统管理员)说：&amp;ldquo;只要学会了 PAM 配置语法，就可以利用各种 PAM 模块，编写出千变万化的认证策略。无需打扰 su 开发者，就能立即得到想要的效果&amp;rdquo;。通过把与认证相关的脏活累活都交给 PAM 来干， su 的开发者与用户之间实现了解耦，彼此皆大欢喜。&lt;/p>
+&lt;p>推而广之，如果一个应用程序想要使用 PAM 进行认证，只需在源代码中嵌入 PAM 支持即可(也就是引入相应的头文件)。然后开发者无需再为认证部分操心(是否通过认证交给 PAM 决定)，只需专注程序的其他部分即可。也就是说，无需修改应用程序就可以切换、修改、升级应用程序使用的认证机制。当然，如果只有一个不支持 PAM 的二进制文件，那就没有办法改造了。&lt;/p>
+&lt;h1 id="linux-pam">Linux-PAM&lt;/h1>
+&lt;p>Linux-PAM 就是一种 Linux 平台上的 PAM 实现&lt;/p>
+&lt;p>我们可以通过 &lt;code>ldd&lt;/code> 命令查出来进程是否支持 PAM&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ldd $(which login) | grep pam&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> libpam.so.0 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; /lib/x86_64-linux-gnu/libpam.so.0 &lt;span style="color:#f92672">(&lt;/span>0x00007f53a3720000&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> libpam_misc.so.0 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; /lib/x86_64-linux-gnu/libpam_misc.so.0 &lt;span style="color:#f92672">(&lt;/span>0x00007f53a371b000&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Linux-PAM 可以说是一套 API 与 Library，为应用程序提供完整的 **Autherntication(认证) **机制，只要使用者将认证阶段的需求告知 PAM 后，PAM 就能够回报使用者认证的结果(成功或失败)。由于 PAM 仅是一套认证的机制，又可以提供给其他程序所呼叫引用，因此不论你使用什么程序，都可以使用 PAM 来进行认证，如此一来，就能够让账号密码或者是其他方式的认证具有一致的结果！也让程序设计师方不在着重处理认证的问题。&lt;/p>
+&lt;h2 id="linux-pam-管理组认证功能的分组">Linux-PAM 管理组(认证功能的分组)&lt;/h2>
+&lt;p>Linux-PAM 将认证功能分为 4 个管理组(也可以称为：管理类型)，注意：相同的 PAM 模块关联到不同的管理类型时，产生的效果是不同的。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Authentication Management(身份认证管理)&lt;/strong> # 认证用户并设置用户凭据。通常，这是通过用户必须满足的一些质询响应请求: 如果你是你声称的那个人，请输入你的密码。
+&lt;ul>
+&lt;li>对应配置文件中的 &lt;strong>auth&lt;/strong> 关键字&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Account Management(账户管理)&lt;/strong> # 提供账户认证服务类型。比如用户的密码是否已过期;该用户是否允许访问所请求的服务
+&lt;ul>
+&lt;li>对应配置文件中的 &lt;strong>account&lt;/strong> 关键字&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Password Management(密码管理)&lt;/strong> # 更新身份认证机制。通常，此类服务与 Authentication Management 紧密耦合。一些身份认证机制很适合使用这种功能进行更新。类 Unix 系统基于密码的访问是一个明显的例子
+&lt;ul>
+&lt;li>对应配置文件中的 &lt;strong>password&lt;/strong> 关键字&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Session Management(会话管理)&lt;/strong> # 会话管理任务涵盖应在提供服务前以及撤回后的服务。这些任务包括维护审计跟踪和用户主目录的安装。会话管理组很重要，因为它提供了用于模块的开放和关闭钩子，以影响用户可用的服务。
+&lt;ul>
+&lt;li>对应配置文件中的 &lt;strong>session&lt;/strong> 关键字&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>注意：上面说的&amp;quot;凭据&amp;quot;不仅仅指密码，而是泛指一切认证方式，例如：一次性密码、指纹、短信、IP 地址、二维码。除验证凭据之外，还可以进一步执行更多的关联操作，例如：修改账户所属的组、显示特定的提示信息、赋予账户某些权限。&lt;/p>
+&lt;p>也可以这么说，PAM 将模块分为 4 大类，每个模块都可以属于一个或多个类型，当指定一个模块的类别的时，当通过 API 调用该模块时，其行为也会变为对应模块类型的行为。&lt;/p>
+&lt;p>另外，从某种角度看，这 4 个管理类型，也可以称为 4 个 stack(栈)，每个&lt;strong>栈&lt;/strong>都是由一组规则组成。&lt;strong>规则栈&lt;/strong>的概念在下文有详细描述。&lt;/p>
+&lt;p>上述 4 种功能，都可以通过位于 /lib/security/ 或 /lib64/security/ 中的各种 PAM 模块实现，模块名称一般都符合 &lt;code>pam_*.so&lt;/code> 格式&lt;/p>
+&lt;h2 id="linux-pam-的运行方式">Linux-PAM 的运行方式&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span> +----------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | application: X |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +----------------+ / +----------+ +&lt;span style="color:#f92672">================&lt;/span>+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | authentication-&lt;span style="color:#f92672">[&lt;/span>----&amp;gt;--&lt;span style="color:#ae81ff">\-&lt;/span>-&lt;span style="color:#f92672">]&lt;/span> Linux- |--&amp;lt;--| PAM config file|
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | + &lt;span style="color:#f92672">[&lt;/span>----&amp;lt;--/--&lt;span style="color:#f92672">]&lt;/span> PAM | |&lt;span style="color:#f92672">================&lt;/span>|
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> |&lt;span style="color:#f92672">[&lt;/span>conversation&lt;span style="color:#f92672">()][&lt;/span>--+ &lt;span style="color:#ae81ff">\ &lt;/span> | | | X auth .. a.so |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +----------------+ | / +-n--n-----+ | X auth .. b.so |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | | | __| | | _____/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | service user | A | | |____,-----&lt;span style="color:#960050;background-color:#1e0010">&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | | | V A
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +----------------+ +------|-----|---------+ -----+------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +---u-----u----+ | | |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | auth.... |--&lt;span style="color:#f92672">[&lt;/span> a &lt;span style="color:#f92672">]&lt;/span>--&lt;span style="color:#f92672">[&lt;/span> b &lt;span style="color:#f92672">]&lt;/span>--&lt;span style="color:#f92672">[&lt;/span> c &lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +--------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | acct.... |--&lt;span style="color:#f92672">[&lt;/span> b &lt;span style="color:#f92672">]&lt;/span>--&lt;span style="color:#f92672">[&lt;/span> d &lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +--------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | password |--&lt;span style="color:#f92672">[&lt;/span> b &lt;span style="color:#f92672">]&lt;/span>--&lt;span style="color:#f92672">[&lt;/span> c &lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +--------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | session |--&lt;span style="color:#f92672">[&lt;/span> e &lt;span style="color:#f92672">]&lt;/span>--&lt;span style="color:#f92672">[&lt;/span> c &lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>PAM 大体分为三个部分&lt;/p>
+&lt;ul>
+&lt;li>应用层 # 包括 ftpd、login、passwd 等应用程序&lt;/li>
+&lt;li>接口层 # 连接 应用层 与 身份认证协议层 的接口，包括一些配置文件，通过配置文件可以选择应用程序所采用的认证方案(即所使用的模块及其参数)&lt;/li>
+&lt;li>身份认证协议层 # 由各种模块实现的 Unix、Kerberos、S/Key 等身份认证方案&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ey0dgw/1635432839615-8af1927e-94eb-4119-8444-7dd023925c06.png" alt="image.png">&lt;/p>
+&lt;ul>
+&lt;li>应用程序的开发者，通过在代码中导入 PAM API 库，从而实现对认证方法的调用；&lt;/li>
+&lt;li>PAM 模块的开发者，则利用 PAM SPI(Service Module API) 来编写模块，以便将不同的认证机制加入到系统中；&lt;/li>
+&lt;li>PAM 核心库(libpam) 则会读取配置文件，以此为根据，将应用程序和对应的认证方法联系起来&lt;/li>
+&lt;/ul>
+&lt;p>PAM 通过一个与程序相同文件名的配置文件来进行一连串的认证分析需求(也可以通过程序的配置指定具体的 PAM 配置文件路径)。如上图所示，应用程序 X 调用 Linux-PAM 库，这是一个核心模块，它并不负责认证动作，仅用来暴露 PAM API 以及调用 PAM 模块，真正的认证动作是 PAM 库根据&lt;strong>自定义的 PAM 配置文件&lt;/strong> 逐一调用模块进行认证的。PAM 读取配置文件之后会根据读取到的内容进行相应的认证操作，最后会将认证的结果返回给应用程序。&lt;/p>
+&lt;p>这个 PAM 配置文件，分为 4 个部分，分别是 4 个管理类型，这四个部分都有一个或多个规则来执行认证操作，多个规则组合成一个规则栈。就像上图描述的&lt;/p>
+&lt;ul>
+&lt;li>a、b、c 模块进行 auth 认证&lt;/li>
+&lt;li>b、d 模块进行 account 认证&lt;/li>
+&lt;li>b、c 模块进行 password 认证&lt;/li>
+&lt;li>e、c 模块进行 session 认证&lt;/li>
+&lt;/ul>
+&lt;p>一个或多个模块对同一类管理类型进行认证操作，并统一处理结果，以一个整体响应给调用 PAM 的应用程序。所以，总结一下，调用 Linux-PAM 时，其实最多只会返回 4 个结果，因为同一个服务的相同管理类型下的规则，是作为一个整体的。&lt;/p>
+&lt;p>让我们看看当本地的用户登录到基于文本的控制台时所采取的步骤：&lt;/p>
+&lt;ul>
+&lt;li>auth 认证 # 登录应用程序提示输入用户名和密码，然后进行 libpam 身份认证调用以询问：“这个用户是他们所说的吗？” 该 pam_unix 模块负责检查本地账户认证。也可能会检查其他模块，最终将结果传递回登录过程。&lt;/li>
+&lt;li>account 认证 # 登录过程接下来会询问“此用户是否允许连接？”，然后对 进行帐户调用 libpam。该 pam_unix 模块会检查诸如密码是否已过期之类的内容。其他模块可能会检查主机或基于时间的访问控制列表。总体响应将返回给流程。
+&lt;ul>
+&lt;li>如果密码已过期，应用程序会做出响应。某些应用程序根本无法登录用户。登录过程会提示用户输入新密码。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>password 认证 # 为了验证密码并将其写入正确的位置，登录过程会对 进行密码调用 libpam。该 pam_unix 模块写入到本地&lt;strong>影子&lt;/strong>文件。也可以调用其他模块来验证密码强度。
+&lt;ul>
+&lt;li>如果此时登录过程仍在继续，则已准备好创建会话。会话调用 libpam 导致 pam_unix 模块将登录时间戳写入&lt;strong>wtmp&lt;/strong>文件。其他模块启用 X11 身份认证或 SELinux 用户上下文。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>session 认证 # 在注销时，当会话关闭时，可以对 进行另一个会话调用 libpam。这是 pam_unix 模块将注销时间戳写入&lt;strong>wtmp&lt;/strong>文件的时间。&lt;/li>
+&lt;/ul>
+&lt;h2 id="rules-stack规则栈">Rules stack(规则栈)&lt;/h2>
+&lt;p>Linux-PAM 可以通过一组规则栈，对一个程序进行多重验证，假如现在有下面一个服务所使用的 PAM 配置：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>auth requisite pam_authtok_get.so.1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_dhkeys.so.1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_unix_cred.so.1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_unix_auth.so.1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_dial_auth.so.1
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这就是一组规则栈，用来执行 auth 认证行为，每条规则的执行结果进行集合处理，按照从上到下的顺序逐一执行，每条规则的返回码都会根据 Control 的配置集成到整体结果中。所以，有可能这一组规则只执行了 1 条就停止了，也有可能所有都执行了。&lt;/p>
+&lt;h1 id="linux-pam-关联文件与配置">Linux-PAM 关联文件与配置&lt;/h1>
+&lt;p>/etc/pam.conf # PAM 的默认配置文件，当存在 pam.d 文件夹时，自动接管配置，不再读取 pam.conf 下的配置
+/etc/pam.d/* # PAM 的配置文件，当存在该目录时，不再读取 pam.conf 文件中的配置。该目录下的文件，通常都是由其他应用程序在安装时自动创建的。&lt;/p>
+&lt;ul>
+&lt;li>/etc/pam.d/sshd # 使用 ssh 方式登录时候的配置文件&lt;/li>
+&lt;li>/etc/pam.d/login # 使用 tty 方式登录时候的配置文件。i.e.通过设备直接登录或者 su 方式切换用户&lt;/li>
+&lt;li>/etc/pam.d/remote # 使用 telnet 方式登录时候的配置文件&lt;/li>
+&lt;li>/etc/pam.d/kde # 使用&amp;quot;图形界面&amp;quot;方式登录时候的配置文件&lt;/li>
+&lt;li>/etc/pam.d/system-auth # 配置凡是调用 system-auth 文件的服务，都会生效&lt;/li>
+&lt;li>/etc/pam.d/common-auth # 此文件中的安全策略可以限制用户不能更改为之前使用的历史密码&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip; 等等&lt;/li>
+&lt;/ul>
+&lt;p>/usr/lib64/security/_ # CentOS 发行版的 PAM 模块存放目录
+/usr/lib/x86_64-linux-gnu/_ # Ubuntu 发行版的 PAM 模块存放目录&lt;/p>
+&lt;h1 id="linux-pam-认证机制示例">Linux-PAM 认证机制示例&lt;/h1>
+&lt;h2 id="system-auth">system-auth&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># grep -v ^# /etc/pam.d/system-auth&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_env.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth sufficient pam_unix.so nullok try_first_pass
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth requisite pam_succeed_if.so uid &amp;gt;&lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">500&lt;/span> quiet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_deny.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>account required pam_unix.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>account sufficient pam_localuser.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>account sufficient pam_succeed_if.so uid &amp;lt; &lt;span style="color:#ae81ff">500&lt;/span> quiet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>account required pam_permit.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>password requisite pam_cracklib.so try_first_pass retry&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">3&lt;/span> type&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>password sufficient pam_unix.so sha512 shadow nullok try_first_pass use_authtok
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>password required pam_deny.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session optional pam_keyinit.so revoke
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session required pam_limits.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session &lt;span style="color:#f92672">[&lt;/span>success&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span> default&lt;span style="color:#f92672">=&lt;/span>ignore&lt;span style="color:#f92672">]&lt;/span> pam_succeed_if.so service in crond quiet use_uid
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session required pam_unix.so
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>第一部分表示，当用户登录的时候，首先会通过 auth 类接口对用户身份进行识别和密码认证。所以在该过程中验证会经过几个带 auth 的配置项。
+其中的第一步是通过 pam_env.so 模块来定义用户登录之后的环境变量， pam_env.so 允许设置和更改用户登录时候的环境变量，默认情况下，若没有特别指定配置文件，将依据/etc/security/pam_env.conf 进行用户登录之后环境变量的设置。
+然后通过 pam_unix.so 模块来提示用户输入密码，并将用户密码与/etc/shadow 中记录的密码信息进行对比，如果密码比对结果正确则允许用户登录，而且该配置项的使用的是“sufficient”控制位，即表示只要该配置项的验证通过，用户即可完全通过认证而不用再去走下面的认证项。不过在特殊情况下，用户允许使用空密码登录系统，例如当将某个用户在/etc/shadow 中的密码字段删除之后，该用户可以只输入用户名直接登录系统。
+下面的配置项中，通过 pam_succeed_if.so 对用户的登录条件做一些限制，表示允许 uid 大于 500 的用户在通过密码验证的情况下登录，在 Linux 系统中，一般系统用户的 uid 都在 500 之内，所以该项即表示允许使用 useradd 命令以及默认选项建立的普通用户直接由本地控制台登录系统。
+最后通过 pam_deny.so 模块对所有不满足上述任意条件的登录请求直接拒绝，pam_deny.so 是一个特殊的模块，该模块返回值永远为否，类似于大多数安全机制的配置准则，在所有认证规则走完之后，对不匹配任何规则的请求直接拒绝。&lt;/p>
+&lt;p>第二部分的三个配置项主要表示通过 account 账户类接口来识别账户的合法性以及登录权限。
+第一行仍然使用 pam_unix.so 模块来声明用户需要通过密码认证。第二行承认了系统中 uid 小于 500 的系统用户的合法性。之后对所有类型的用户登录请求都开放控制台。&lt;/p>
+&lt;p>第三部分会通过 password 类接口来确认用户使用的密码或者口令的合法性。第一行配置项表示需要的情况下将调用 pam_cracklib 来验证用户密码复杂度。如果用户输入密码不满足复杂度要求或者密码错，最多将在三次这种错误之后直接返回密码错误的提示，否则期间任何一次正确的密码验证都允许登录。需要指出的是，pam_cracklib.so 是一个常用的控制密码复杂度的 pam 模块，关于其用法举例我们会在之后详细介绍。之后带 pam_unix.so 和 pam_deny.so 的两行配置项的意思与之前类似。都表示需要通过密码认证并对不符合上述任何配置项要求的登录请求直接予以拒绝。不过用户如果执行的操作是单纯的登录，则这部分配置是不起作用的。&lt;/p>
+&lt;p>第四部分主要将通过 session 会话类接口为用户初始化会话连接。其中几个比较重要的地方包括，使用 pam_keyinit.so 表示当用户登录的时候为其建立相应的密钥环，并在用户登出的时候予以撤销。不过该行配置的控制位使用的是 optional，表示这并非必要条件。之后通过 pam_limits.so 限制用户登录时的会话连接资源，相关 pam_limit.so 配置文件是/etc/security/limits.conf，默认情况下对每个登录用户都没有限制。关于该模块的配置方法在后面也会详细介绍。&lt;/p></description></item><item><title>Docs: PAM配置文件</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/pam%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/pam%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man5/pam.conf.5.html">Manual(手册),pam.conf(5)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>这是一个最基本的配置文件示例：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#%PAM-1.0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_deny.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>account required pam_deny.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>password required pam_deny.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session required pam_deny.so
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="syntax语法">Syntax(语法)&lt;/h1>
+&lt;p>PAM 配置文件由 &lt;strong>Rules(规则)&lt;/strong> 列表组成，每条规则一行。规则是由空格分割的多个 &lt;strong>Tokens&lt;/strong> 组成&lt;/p>
+&lt;blockquote>
+&lt;p>不知道官方为什么把每个字段要称为 Token~~~o(╯□╰)o&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>Service Type Control Module-Path Module-Arguments&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Service&lt;/strong> # 需要调用 PAM 的应用程序的名称。比如 su、login、sshd 等等
+&lt;ul>
+&lt;li>注意：/etc/pam.conf 和 /etc/pam.d/* 配置文件有一点差别，在于 Service 字段。/etc/pam.d/ 目录下的所有配置文件，没有 Service 字段，取而代之的是文件名称，也就是说，Service 字段的值，就是 /etc/pam.d/ 目录下的文件名。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>**Type **# 管理类型，这个类型就是 《&lt;a href=".md">Linux-PAM 管理组&lt;/a>》 的简写。即.本条规则中使用的模块要与哪个管理组关联。
+&lt;ul>
+&lt;li>可用的类型有 auth、account、password、session&lt;/li>
+&lt;li>若在类型前面加上 &lt;code>-&lt;/code>，则表示即使模块不存在，也不会影响认证结果，也不会将事件记录到日志中。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>**Control **# 规则执行完成后的行为。即调用 PAM API 完成后，会有返回值，根据返回值，决定如何进行后续认证。&lt;/li>
+&lt;li>&lt;strong>Module-Path&lt;/strong> # 规则调用的 PAM 模块名称，模块默认在 &lt;strong>/usr/lib64/security/&lt;/strong> 目录(CentOS 系统)下。
+&lt;ul>
+&lt;li>不同系统中，模块所在的默认路径可能不一样。&lt;/li>
+&lt;li>若调用的 PAM 模块不在默认目录下，则该字段需要使用&lt;strong>模块的绝对路径&lt;/strong>。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Module-Arguments&lt;/strong> # 规则调用的 PAM 模块的参数。每个参数以空格分隔。&lt;/li>
+&lt;/ul>
+&lt;h2 id="service">Service&lt;/h2>
+&lt;p>Service 除了以应用程序命名，还可以使用自定义的名称，这些名称通常通过 include 这种 Control 行为引用该 Service。&lt;/p>
+&lt;h2 id="type">Type&lt;/h2>
+&lt;p>指定规则所属的管理组。用于定义规则调用的模块需要与哪个管理类型关联。&lt;/p>
+&lt;blockquote>
+&lt;p>也就是指定这条规则指定的模块应该使用的模块类型。&lt;/p>
+&lt;/blockquote>
+&lt;ul>
+&lt;li>**account **# 对应账户管理。验证用户是否有权限访问。
+&lt;ul>
+&lt;li>比如验证用户的密码是否过期、验证用户是否有权访问所请求的服务&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>**auth **# 对应身份验证管理。验证用户身份，就是证明 root 是 root
+&lt;ul>
+&lt;li>比如让应用程序提示用户输入密码来确定该用户就是其所声称的身份。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>**password **# 对应密码管理，用于更改用户密码以及强制使用强密码配置
+&lt;ul>
+&lt;li>比如修改密码时，必须满足强度要求。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>**session **# 对应会话管理，用户管理和配置用户会话。会话在用户成功认证后启动生效&lt;/li>
+&lt;/ul>
+&lt;p>account 与 auth 的配合可以实现这么一个场景：&lt;/p>
+&lt;ul>
+&lt;li>比如现在有这么一个场景，张三要去商场买酱油。当张三到达商场后，保安人员首先要对张三进行认证，确认张三这个人可以进入商场；然后张三到达货柜拿走酱油去结账，收银人员进行授权检查，核验张三是否有权力购买酱油。&lt;/li>
+&lt;/ul>
+&lt;h2 id="control">Control&lt;/h2>
+&lt;p>Control 会根据当前规则的执行结果，执行后续操作，也就是控制。比如当一条规则失败时，是否继续执行后面的规则；当一条规则成功时，是否执行后面的规则；等等。&lt;/p>
+&lt;p>Control 有两种语法，简单与复杂。简单语法通过单一的指令，来定义规则执行后的行为；复杂指令通过 1 个或多个键值对来定义规则执行后的行为。&lt;/p>
+&lt;h4 id="简单语法">简单语法&lt;/h4>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;strong>requisite&lt;/strong> # 验证失败时，立即结束整个验证过程，返回 failure。&lt;/p>
+&lt;ul>
+&lt;li>就好比让你答题 100 道，如果在答题的过程中有一道做错了直接让你出去，不会进行下面的答题过程。拥有一票否决，此关不过，立即返回 failure。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;h2 id="required--验证失败时最后会返回-failure但仍需执行同一个规则栈中的其他规则拥有参考其他模块意见基础之上的一票否决权可以通过其它模块来检查为什么验证没有通过">&lt;strong>required&lt;/strong> # 验证失败时，最后会返回 failure，但仍需执行同一个规则栈中的其他规则。拥有参考其他模块意见基础之上的一票否决权。可以通过其它模块来检查为什么验证没有通过。&lt;/h2>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>sufficient&lt;/strong> # 验证成功且之前的 required 模块没有失败时，立即结束整个验证过程，返回 true。验证失败时，忽略失败结果并继续执行栈中的后续规则。&lt;/p>
+&lt;ul>
+&lt;li>换句话说，sufficient 的验证失败对整个验证没有任何影响。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>optional&lt;/strong> # 可选条件，无论验证结果如何，均不会影响。通常用于 session 类型。&lt;/p>
+&lt;ul>
+&lt;li>该模块返回的通过/失败结果被忽略。当没有其他模块被引用时，标记为 optional 模块并且成功验证时该模块才是必须的。该模块被调用来执行一些操作，并不影响模块堆栈的结果。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>include&lt;/strong> # 包含另外一个配置文件中&lt;strong>相同类型&lt;/strong>的行。比如 &lt;code>password include system-auth-ac&lt;/code> 则会从 system-auth-ac 文件中，将 Type 字段为 password 的行填充到本文件中。&lt;/p>
+&lt;ul>
+&lt;li>为当前规则中指定的 Type 引用 Module-Path 中定义的规则&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>**substack **# 子栈。这与 include 的不同之处在于，对子规则栈中的 done 和 die 操作的评估不会导致跳过完整模块堆栈的其余部分&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h4 id="复杂语法">复杂语法&lt;/h4>
+&lt;p>&lt;strong>[Value1=Acton1 Value2=Action2 &amp;hellip; ValueN=ActionN]&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>Value # 该规则调用的模块执行完成后的返回码。
+&lt;ul>
+&lt;li>可用的返回码有：&lt;strong>success&lt;/strong>; &lt;strong>open_err&lt;/strong>; &lt;strong>symbol_err&lt;/strong>; &lt;strong>service_err&lt;/strong>; &lt;strong>system_err&lt;/strong>; &lt;strong>buf_err&lt;/strong>; &lt;strong>perm_denied&lt;/strong>; &lt;strong>auth_err&lt;/strong>; &lt;strong>cred_insufficient&lt;/strong>; &lt;strong>authinfo_unavail&lt;/strong>; &lt;strong>user_unknown&lt;/strong>; &lt;strong>maxtries&lt;/strong>; &lt;strong>new_authtok_reqd&lt;/strong>; &lt;strong>acct_expired&lt;/strong>; &lt;strong>session_err&lt;/strong>; &lt;strong>cred_unavail&lt;/strong>; &lt;strong>cred_expired&lt;/strong>; &lt;strong>cred_err&lt;/strong>; &lt;strong>no_module_data&lt;/strong>; &lt;strong>conv_err&lt;/strong>; &lt;strong>authtok_err&lt;/strong>; &lt;strong>authtok_recover_err&lt;/strong>; &lt;strong>authtok_lock_busy&lt;/strong>; &lt;strong>authtok_disable_aging&lt;/strong>; &lt;strong>try_again&lt;/strong>; &lt;strong>ignore&lt;/strong>; &lt;strong>abort&lt;/strong>; &lt;strong>authtok_expired&lt;/strong>; &lt;strong>module_unknown&lt;/strong>; &lt;strong>bad_item&lt;/strong>; and &lt;strong>default&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Action # 表示当发现该返回码时，要执行的行为。
+&lt;ul>
+&lt;li>可用的行为有：&lt;strong>ignore、bad、die、ok、done、reset、N&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h4 id="简单语法与复杂语法的对应关系">简单语法与复杂语法的对应关系&lt;/h4>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>简单语法&lt;/th>
+&lt;th>复杂语法&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>required&lt;/td>
+&lt;td>[success=ok new_authtok_reqd=ok ignore=ignore default=bad]&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>requisite&lt;/td>
+&lt;td>[success=ok new_authtok_reqd=ok ignore=ignore default=die]&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>sufficient&lt;/td>
+&lt;td>[success=done new_authtok_reqd=done default=ignore]&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>optional&lt;/td>
+&lt;td>[success=ok new_authtok_reqd=ok default=ignore]&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h2 id="module-path">Module-Path&lt;/h2>
+&lt;p>在 CentOS 中，模块文件默认在 /usr/lib64/security/ 目录中，以 .so 结尾&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls /usr/lib64/security/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_access.so pam_cracklib.so pam_env.so pam_filter pam_issue.so pam_listfile.so pam_mkhomedir.so pam_permit.so pam_rhosts.so pam_selinux.so pam_succeed_if.so pam_timestamp.so pam_unix_auth.so pam_userdb.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_cap.so pam_debug.so pam_exec.so pam_filter.so pam_keyinit.so pam_localuser.so pam_motd.so pam_postgresok.so pam_rootok.so pam_sepermit.so pam_systemd.so pam_tty_audit.so pam_unix_passwd.so pam_warn.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_chroot.so pam_deny.so pam_faildelay.so pam_ftp.so pam_lastlog.so pam_loginuid.so pam_namespace.so pam_pwhistory.so pam_securetty.so pam_shells.so pam_tally2.so pam_umask.so pam_unix_session.so pam_wheel.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_console.so pam_echo.so pam_faillock.so pam_group.so pam_limits.so pam_mail.so pam_nologin.so pam_pwquality.so pam_selinux_permit.so pam_stress.so pam_time.so pam_unix_acct.so pam_unix.so pam_xauth.so
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 Ubuntu 中，模块文件默认在 /usr/lib/x86_64-linux-gnu/security/ 目录中，以 .so 结尾&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>$ ls /usr/lib/x86_64-linux-gnu/security/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_access.so pam_echo.so pam_faildelay.so pam_ftp.so pam_issue.so pam_listfile.so pam_mkhomedir.so pam_permit.so pam_securetty.so pam_stress.so pam_tally.so pam_umask.so pam_wheel.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_cap.so pam_env.so pam_faillock.so pam_gdm.so pam_keyinit.so pam_localuser.so pam_motd.so pam_pwhistory.so pam_selinux.so pam_succeed_if.so pam_time.so pam_unix.so pam_xauth.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_debug.so pam_exec.so pam_filter.so pam_gnome_keyring.so pam_lastlog.so pam_loginuid.so pam_namespace.so pam_rhosts.so pam_sepermit.so pam_systemd.so pam_timestamp.so pam_userdb.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_deny.so pam_extrausers.so pam_fprintd.so pam_group.so pam_limits.so pam_mail.so pam_nologin.so pam_rootok.so pam_shells.so pam_tally2.so pam_tty_audit.so pam_warn.so
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="module-arguments">Module-Arguments&lt;/h2>
+&lt;p>详见 《[PAM 模块详解](✏IT 学习笔记/📄1.操作系统/5.登录%20Linux%20 与%20 访问控制/PAM(可插入式认证模块)/PAM%20 模块详解.md 模块详解.md)》&lt;/p>
+&lt;h1 id="etcpamdpassword-auth-与-etcpamdsystem-auth">/etc/pam.d/password-auth 与 /etc/pam.d/system-auth&lt;/h1>
+&lt;ul>
+&lt;li>CentOS 发行版中，这个两个文件分别是 password-auth-ac 和 system-auth-ac 的软链接。两个 *-ac 文件，则是由 &lt;code>authconfig&lt;/code> 程序生成的&lt;/li>
+&lt;li>Ubuntu 发行版中，这个两个文件分别是 common-password 和 common-auth。这两个文件，则是由 &lt;code>pam-auth-update&lt;/code> 程序生成的。&lt;/li>
+&lt;/ul>
+&lt;p>通常情况下，如果想要添加更多的认证配置，推荐使用一个新的文件，并使用 include 指令包含这俩文件即可。&lt;/p>
+&lt;h2 id="centos-发行版配置">CentOS 发行版配置&lt;/h2>
+&lt;p>auth required pam_env.so
+auth required pam_faildelay.so delay=2000000
+auth sufficient pam_unix.so nullok try_first_pass
+auth requisite pam_succeed_if.so uid &amp;gt;= 1000 quiet_success
+auth required pam_deny.so&lt;/p>
+&lt;p>account required pam_unix.so
+account sufficient pam_localuser.so
+如果用户 ID 小于 1000，直接退出，不再进行验证
+account sufficient pam_succeed_if.so uid &amp;lt; 1000 quiet
+account required pam_permit.so&lt;/p>
+&lt;p>password requisite pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type=
+password sufficient pam_unix.so sha512 shadow nullok try_first_pass use_authtok&lt;/p>
+&lt;p>password required pam_deny.so&lt;/p>
+&lt;p>session optional pam_keyinit.so revoke
+session required pam_limits.so
+-session optional pam_systemd.so
+session [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+session required pam_unix.so&lt;/p>
+&lt;h1 id="etcpamdsshd">/etc/pam.d/sshd&lt;/h1>
+&lt;p>这是用于安全的 Shell 服务的 PAM 配置，比如 OpenSSH&lt;/p>
+&lt;h1 id="include-common-auth">Standard Un*x authentication.
+@include common-auth&lt;/h1>
+&lt;h1 id="account-required-pam_nologinso">Disallow non-root logins when /etc/nologin exists.
+account required pam_nologin.so&lt;/h1>
+&lt;h1 id="-account-required-pam_accessso">Uncomment and edit /etc/security/access.conf if you need to set complex
+# access limits that are hard to express in sshd_config.
+# account required pam_access.so&lt;/h1>
+&lt;h1 id="include-common-account">Standard Un*x authorization.
+@include common-account&lt;/h1>
+&lt;h1 id="session-successok-ignoreignore-module_unknownignore-defaultbad-pam_selinuxso-close">SELinux needs to be the first session rule. This ensures that any
+# lingering context has been cleared. Without this it is possible that a
+# module could execute code in the wrong domain.
+session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close&lt;/h1>
+&lt;h1 id="session-required-pam_loginuidso">Set the loginuid process attribute.
+session required pam_loginuid.so&lt;/h1>
+&lt;h1 id="session-optional-pam_keyinitso-force-revoke">Create a new session keyring.
+session optional pam_keyinit.so force revoke&lt;/h1>
+&lt;h1 id="include-common-session">Standard Un*x session setup and teardown.
+@include common-session&lt;/h1>
+&lt;p>登录成功后打印当天消息。这包括来自 /run/motd.dynamic 的动态生成部分和来自 /etc/motd 的静态部分。
+注释这两行，将会禁用登录后的消息提示功能
+session optional pam_motd.so motd=/run/motd.dynamic
+session optional pam_motd.so noupdate&lt;/p>
+&lt;h1 id="session-optional-pam_mailso-standard-noenv--1">Print the status of the user&amp;rsquo;s mailbox upon successful login.
+session optional pam_mail.so standard noenv # [1]&lt;/h1>
+&lt;h1 id="session-required-pam_limitsso">Set up user limits from /etc/security/limits.conf.
+session required pam_limits.so&lt;/h1>
+&lt;h1 id="session-required-pam_envso-user_readenv1-envfileetcdefaultlocale">Read environment variables from /etc/environment and
+# /etc/security/pam_env.conf.
+session required pam_env.so # [1]
+# In Debian 4.0 (etch), locale-related environment variables were moved to
+# /etc/default/locale, so read that as well.
+session required pam_env.so user_readenv=1 envfile=/etc/default/locale&lt;/h1>
+&lt;h1 id="session-successok-ignoreignore-module_unknownignore-defaultbad-pam_selinuxso-open">SELinux needs to intervene at login time to ensure that the process starts
+# in the proper default security context. Only sessions which are intended
+# to run in the user&amp;rsquo;s context should be run after this.
+session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open&lt;/h1>
+&lt;h1 id="include-common-password">Standard Un*x password updating.
+@include common-password&lt;/h1>
+&lt;h1 id="etcpamdsu">/etc/pam.d/su&lt;/h1>
+&lt;p>&lt;strong>auth sufficient pam_rootok.so&lt;/strong>
+当开始使用 pam_wheel.so 模块时，只有属于 wheel 组的用户，才可以使用 su 命令切换到 root 用户
+&lt;strong>auth sufficient pam_wheel.so trust use_uid&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>当用户在 wheel 组时，使用 su - root 命令不需要密码即可切换到 root 用户&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>auth required pam_wheel.so use_uid&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>当用户在 wheel 组时，使用 su - root 命令需要密码即可切换到 root 用户&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>auth substack system-auth&lt;/strong>
+&lt;strong>auth include postlogin&lt;/strong>
+&lt;strong>account sufficient pam_succeed_if.so uid = 0 use_uid quiet&lt;/strong>
+&lt;strong>account include system-auth&lt;/strong>
+&lt;strong>password include system-auth&lt;/strong>
+&lt;strong>session include system-auth&lt;/strong>
+&lt;strong>session include postlogin&lt;/strong>
+&lt;strong>session optional pam_xauth.so&lt;/strong>&lt;/p>
+&lt;h1 id="配置示例">配置示例&lt;/h1>
+&lt;p>&lt;strong>/etc/pam.d/sshd 配置文件示例&lt;/strong>
+注意 sshd、login、remote、kde 这几个文件中的配置大部分都相同，&lt;/p>
+&lt;pre>&lt;code># %PAM-1.0
+# 最多连续三认认证登录都出错时，60秒后解锁，root用户也可以被锁定，root用户15秒后解锁。
+auth required pam_tally2.so deny=3 unlock_time=60 even_deny_root root_unlock_time=15
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>/etc/pam.d/common-password 文件配置示例&lt;/strong>&lt;/p>
+&lt;pre>&lt;code># 限制用户不能更改为之前使用的历史密码
+password required pam_pwhistory.so use_authtok remember=6 retry=3
+&lt;/code>&lt;/pre>
+&lt;p>问题实例：限制用户不能更改为之前使用的历史密码&lt;/p>
+&lt;ul>
+&lt;li>Linux 历史密码在 /etc/security/opasswd 中存放&lt;/li>
+&lt;li>解决方法
+&lt;ul>
+&lt;li>临时更改 commen-password 文件修改密码修改策略，去除历史密码的限制，更改完密码后在恢复原来的策略&lt;/li>
+&lt;li>删掉 /etc/security/opasswd 中关于被修改文件的内容，这样就检测不到之前的历史密码了&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul></description></item><item><title>Docs: Secure Shell(SSH) 安全外壳协议</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Secure_Shell_Protocol">Wiki-SSH&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.digitalocean.com/community/tutorials/how-to-set-up-ssh-keys-on-centos-8">https://www.digitalocean.com/community/tutorials/how-to-set-up-ssh-keys-on-centos-8&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>**Secure Shell Protocol(安全外壳协议，简称 SSH) **是一种加密的&lt;a href="https://zh.wikipedia.org/wiki/%E7%BD%91%E7%BB%9C%E4%BC%A0%E8%BE%93%E5%8D%8F%E8%AE%AE">网络传输协议&lt;/a>，可在不安全的网络中为网络服务提供安全的传输环境[1]。SSH 通过在网络中创建安全隧道来实现 SSH 客户端与服务器之间的连接[2]。虽然任何网络服务都可以通过 SSH 实现安全传输，SSH 最常见的用途是远程登录系统，人们通常利用 SSH 来传输命令行界面和远程执行命令。使用频率最高的场合类 Unix 系统，但是 Windows 操作系统也能有限度地使用 SSH。2015 年，微软宣布将在未来的操作系统中提供原生 SSH 协议支持[3]，Windows 10 1809 版本已提供可手动安装的 OpenSSH 工具&lt;/p>
+&lt;h1 id="openssh--ssh-协议的实现">OpenSSH # SSH 协议的实现&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.openssh.com/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.openssh.com/manual.html">官方文件,Manual(手册)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>OpenSSH 是 ssh 协议的开源实现方案，该工具为 C/S 架构，服务端默认监听在 22/tcp 端口上。如果想要连接到服务端，同样需要一个客户端来进行连接。&lt;/p>
+&lt;p>比如，现在有两台主机，主机 A 和主机 B，如果想要在 B 上可以操作 A，那么就需要在 A 机上安装服务端工具(openssh-server)，在 B 机上安装客户端工具(openssh-client)，然后通过 ssh 工具进行互联&lt;/p>
+&lt;p>Note：现在 OpenSSH 一般作为 Linux 发行版的标准远程登录工具默认安装在系统中且开机自启动。&lt;/p>
+&lt;h2 id="关联文件">关联文件&lt;/h2>
+&lt;p>&lt;strong>/var/log/secure&lt;/strong> # 登录信息日志所在位置&lt;/p>
+&lt;ul>
+&lt;li>可以通过该日志获取到尝试暴力破解的 IP&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>/etc/ssh/ssh_config&lt;/strong> # OpenSSH 的 client 端配置(ssh、scp 等程序)
+&lt;strong>/etc/ssh/sshd_config&lt;/strong> # OpenSSH 的 server 端配置(sshd 程序)
+&lt;strong>~/.ssh/know_hosts&lt;/strong> # 已知的曾经连接过的主机的信息。凡是使用 ssh 连接过该主机，都会将信息记录在其中
+&lt;strong>~/.ssh/authorized_keys&lt;/strong> # 已经认证的公钥。如果其他 client 想要连接服务端，凡是在该文件中的公钥，都可以免密连接。&lt;/p>
+&lt;ul>
+&lt;li>注意：OpenSSH 使用非对称加密的方式，与传统互联网的 https 使用方式相反。https 的公钥是交给客户端，用来验证服务端返回的网页是否可信。而 OpenSSH 则是将公钥交给服务端，用来验证客户端发送的信息是否可信。&lt;/li>
+&lt;li>这也确实符合逻辑
+&lt;ul>
+&lt;li>ssh 是一个客户端需要登录多个服务端，服务端要验证客户端发送的信息的真实性，要是不验证，那么就可以随便在自己服务器上执行命令了，这是不对的~&lt;/li>
+&lt;li>而互联网通过 https 访问，则是多个客户端对应一个服务端。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>~/.ssh/config&lt;/strong> # OpenSSH 的 client 端配置，该配置文件主要针对不同用户来使用，默认不存在，需要手动创建。
+在客户端添加如下配置内容，就可以通过名字，而不是 IP 来 ssh 登录目标主机了，还不用改 hosts 文件，也不用配置域名解析
+Host centos8 User root Hostname 10.10.100.249 # 效果如下&lt;/p>
+&lt;pre>&lt;code>[root@lichenhao ~]# ssh centos8
+root@10.10.100.249's password:
+Last login: Fri Jul 10 22:56:38 2020 from 10.10.100.200
+[root@centos-8-init ~]#
+&lt;/code>&lt;/pre>
+&lt;p>工作环境一般配置&lt;/p>
+&lt;ul>
+&lt;li>不要使用默认端口&lt;/li>
+&lt;li>禁止使用 protocaol version 1&lt;/li>
+&lt;li>限制可登录用户&lt;/li>
+&lt;li>设定空闲会话超时时长&lt;/li>
+&lt;li>利用防火墙设置 ssh 访问策略&lt;/li>
+&lt;li>仅监听特定的 IP 地址&lt;/li>
+&lt;li>基于口令认证时，使用强密码策略
+&lt;ul>
+&lt;li>tr -dc A-Za-z0-9_ &amp;lt; /dev/urandom | head -c 30 | xargs # 生成 30 位随机字符串&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>禁止使用空密码&lt;/li>
+&lt;li>禁止 root 用户直接登录&lt;/li>
+&lt;li>限制 ssh 的访问频度和并发(即同时)在线数&lt;/li>
+&lt;li>做好日志&lt;/li>
+&lt;/ul>
+&lt;h1 id="openssh-优化">OpenSSH 优化&lt;/h1>
+&lt;ul>
+&lt;li>提高 ssh 连接速度
+&lt;ul>
+&lt;li>修改 sshd_config 文件中 useDNS 为 no&lt;/li>
+&lt;li>修改 ssh_config 文件中 GSSAPIAuthentication 为 no&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="问题实例">问题实例&lt;/h1>
+&lt;h2 id="使用-xshell-多次-ssh-跳转连接后-x11-无法转发">使用 Xshell 多次 ssh 跳转连接后 x11 无法转发&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://serverfault.com/a/425413">https://serverfault.com/a/425413&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>问题描述：
+在 windows 上使用 xshell 连接到主机 A，再通过主机 A 连接到主机 B。在主机 B 上打开 x11 程序失败。(x11 程序必须 virt-manager、xclock 等具有图形化的程序)&lt;/p>
+&lt;blockquote>
+&lt;p>Note：如果使用 xshell 直接连接主机 B 则无此问题。&lt;/p>
+&lt;/blockquote>
+&lt;p>问题原因：
+缺少 x11 认证程序&lt;/p>
+&lt;p>解决方式：
+安装程序包 yum install -y xorg-x11-xauth&lt;/p>
+&lt;p>xorg-x11-xaut 软件包安装完成后退出当前 shell 重新登录，即可自动配置$DISPLAY 环境变量的值为 localhost:10.0&lt;/p>
+&lt;p>由于现阶段 sshd_config 文件中已经默认开启 X11 转发( i.e. X11Forwarding yes )，所以 X11 转发的相关配置已不用修改&lt;/p>
+&lt;p>最后在使用 ssh 登录的时候加上-Y 选项，i.e. ssh -Y root@主机 B 的 IP，然后 x11 的转发效果就实现了。&lt;/p>
+&lt;p>&lt;a href="https://serverfault.com/a/425413">
+&lt;/a>&lt;/p></description></item><item><title>Docs: SELinux</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/selinux/selinux/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/selinux/selinux/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Security-Enhanced_Linux">Wiki,Security-Enhanced Linux&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Security Enhanced Linux(安全强化的 Linux，简称 SELinux)&lt;/strong> 是由美国国家安全局 (NSA) 开发的，当初开发这玩意儿的目的是因为很多企业界发现， 通常系统出现问题的原因大部分都在于『内部员工的资源误用』所导致的，实际由外部发动的攻击反而没有这么严重。 那么什么是『员工资源误用』呢？举例来说，如果有个不是很懂系统的系统管理员为了自己设定的方便，将网页所在目录 /var/www/html/ 的权限设定为 drwxrwxrwx 时，你觉得会有什么事情发生？&lt;/p>
+&lt;p>当初设计的目标：避免资源的误用&lt;/p>
+&lt;p>现在我们知道所有的系统资源都是透过进程来进行存取的，那么 /var/www/html/ 如果设定为 777 ，代表所有进程均可对该目录存取，万一你真的有启动 WWW 服务器软件，那么该软件所触发的进程将可以写入该目录， 而该进程却是对整个 Internet 提供服务的！只要有心人接触到这支进程，而且该进程刚好又有提供用户进行写入的功能， 那么外部的人很可能就会对你的系统写入些莫名其妙的东西！那可真是不得了！一个小小的 777 问题可是大大的！&lt;/p>
+&lt;p>为了控管这方面的权限与进程的问题，所以美国国家安全局就着手处理操作系统这方面的控管。 由于 Linux 是自由软件，程序代码都是公开的，因此她们便使用 Linux 来作为研究的目标， 最后更将研究的结果整合到 Linux 核心里面去，那就是 SELinux 啦！所以说， SELinux 是整合到核心的一个模块喔！ 更多的 SELinux 相关说明可以参考：&lt;/p>
+&lt;p>这也就是说：其实 SELinux 是在进行进程、文件等细部权限设定依据的一个核心模块！ 由于启动网络服务的也是进程，因此刚好也能够控制网络服务能否存取系统资源的一道关卡！ 所以，在讲到 SELinux 对系统的访问控制之前，我们得先来回顾一下之前谈到的系统文件权限与用户之间的关系。因为先谈完这个你才会知道为何需要 SELinux 的啦！&lt;/p>
+&lt;p>目前 SELinux 依据启动与否，共有三种模式，分别如下：&lt;/p>
+&lt;ol>
+&lt;li>enforcing：强制模式，代表 SELinux 运作中，且已经正确的开始限制 domain/type 了；&lt;/li>
+&lt;li>permissive：宽容模式：代表 SELinux 运作中，不过仅会有警告讯息并不会实际限制 domain/type 的存取。这种模式可以运来作为 SELinux 的 debug 之用&lt;/li>
+&lt;li>disabled：关闭，SELinux 并没有实际运作。&lt;/li>
+&lt;/ol>
+&lt;h1 id="selinux-关联文件与配置">SELinux 关联文件与配置&lt;/h1>
+&lt;p>/etc/selinux/config #&lt;/p>
+&lt;h1 id="命令行工具">命令行工具&lt;/h1>
+&lt;h2 id="setenforce-01--设定-selinux-模式">setenforce {0|1} # 设定 selinux 模式&lt;/h2>
+&lt;p>0 为 permissive 宽容模式
+1 为 Enforcing 强制模式&lt;/p>
+&lt;h2 id="getenforce--查看当前-selinux-模式">getenforce # 查看当前 selinux 模式&lt;/h2>
+&lt;h2 id="sestatus--查看-selinux-状态">sestatus # 查看 selinux 状态&lt;/h2></description></item><item><title>Docs: sshpass</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/sshpass/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/sshpass/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://sourceforge.net/projects/sshpass/">源码&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://man.cx/sshpass">manual&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Sshpass 是一种使用 SSH 所谓的“交互式键盘密码身份验证”非交互式执行密码身份验证的工具。大多数用户应该改用 SSH 更安全的公钥认证。&lt;/p>
+&lt;h1 id="syntax语法">Syntax(语法)&lt;/h1>
+&lt;p>&lt;strong>OPTIONS&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-p &lt;!-- raw HTML omitted -->&lt;/strong> # 指定 ssh 时使用的密码&lt;/li>
+&lt;/ul>
+&lt;h1 id="问题示例">问题示例&lt;/h1>
+&lt;h2 id="使用-sshpass--p-密码-ssh-rootip-地址-没有任何反应解决办法找到了">使用 sshpass -p 密码 ssh root@ip 地址 没有任何反应，解决办法找到了&lt;/h2>
+&lt;p>添加-o StrictHostKeyChecking=no 选项【表示远程连接时不提示是否输入 yes/no】&lt;/p>
+&lt;p>sshpass -p molihuacha.1 ssh -o StrictHostKeyChecking=no &lt;a href="mailto:root@188.131.150.204">root@188.131.150.204&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://blog.csdn.net/weixin_41831919/article/details/109660760">
+&lt;/a>&lt;/p></description></item><item><title>Docs: su 与 sudo</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/su-%E4%B8%8E-sudo/su-%E4%B8%8E-sudo/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/su-%E4%B8%8E-sudo/su-%E4%B8%8E-sudo/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;/blockquote>
+&lt;h1 id="su">su&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man1/su.1.html">Manual(手册),su(1)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>使用 su 命令切换用户身份然后执行命令虽然简单，但是，也有一些致命的缺点：&lt;/p>
+&lt;ul>
+&lt;li>普通用户必须知道 root 密码才可以切换到 root，这样 root 密码就泄漏了。&lt;/li>
+&lt;li>使用 su 命令切换身份，无法对切换后的身份做精细的控制，拿到超级权限的人可以为所欲为。甚至可以改掉 root 密码，让真正的管理员无法再拥有 root 权限。&lt;/li>
+&lt;/ul>
+&lt;p>这时候，就可以使用 sudo 工具&lt;/p>
+&lt;h1 id="su-配置">su 配置&lt;/h1>
+&lt;p>/etc/pam.d/su #
+/etc/pam.d/su-l #
+/etc/default/su #
+/etc/login.defs #&lt;/p>
+&lt;h1 id="sudo">sudo&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/sudo.8.html">Manual(手册),sudo(8)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man5/sudoers.5.html">Manual(手册),sudoers(5)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://ostechnix.com/how-to-change-default-sudo-log-file-in-linux/">如何改变 sudo 日志文件&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>sudo(substitute user [或 superuser] do)&lt;/strong> 程序可以让当前用户使用其他的用户的权限来执行指定的命令&lt;/p>
+&lt;p>通过 sudo 命令，我们可以把某些 root 权限(e.g.只有 root 用户才能执行的命令)分类有针对性授权给指定的普通用户，并且普通用户不需要知道 root 密码就可以使用得到的授权来管理。效果如下所示(配置好 sudo 之后，普通用户 lichenhao 也可以通过在命令前加 sudo 来执行 root 才能执行的命令)
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ucpd2y/1616166756129-0c242239-c867-4503-8d14-2b199cab5600.png" alt="">&lt;/p>
+&lt;p>sudo 通过各种插件实现功能。默认插件为 sudoers，用来确定用户的 sudo 权限，sudoers 的策略，通过 /etc/sudoers 文件进行配置，或者在 LDAP 中进行配置。&lt;/p>
+&lt;h1 id="sudo-配置">sudo 配置&lt;/h1>
+&lt;p>**/etc/sudo.conf **# sudo 程序的配置文件
+&lt;strong>/etc/sudoers&lt;/strong> # suders 插件的配置文件，可以配置哪些用户可以拥有哪些权限。注意：该文件是只读的，只能通过 visudo 命令进行编辑&lt;/p>
+&lt;ul>
+&lt;li>**/etc/sudoers.d/* **# /etc/sudoers 的 include 配置的默认目录&lt;/li>
+&lt;/ul>
+&lt;h2 id="sudo-日志配置">sudo 日志配置&lt;/h2>
+&lt;p>使用&lt;/p>
+&lt;h1 id="sudo-命令行工具">sudo 命令行工具&lt;/h1>
+&lt;ul>
+&lt;li>sudo # 可以让普通用户拥有 root 权限去执行命令，sudo 的配置文件是/etc/sudoers。&lt;/li>
+&lt;li>visudo # 通过 visudo 编辑/etc/sudoers，可以检查语法。&lt;/li>
+&lt;/ul>
+&lt;h2 id="sudu--使用其余用户的权限执行指定的命令">sudu # 使用其余用户的权限执行指定的命令&lt;/h2>
+&lt;p>&lt;strong>sudo [OPTIONS] [COMMAND]&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-l, &amp;ndash;list&lt;/strong> # 查看授权情况，列出用户在主机上可用的和被禁止的命令&lt;/li>
+&lt;li>&lt;strong>-k, &amp;ndash;reset-timestamp&lt;/strong> # 删除时间戳，时间戳默认 5 分钟也会失效&lt;/li>
+&lt;li>&lt;strong>-u，&amp;ndash;user=&lt;!-- raw HTML omitted -->&lt;/strong> # 以指定用户执行命令。STRING 可以 用户名 或 用户 ID&lt;/li>
+&lt;li>&lt;strong>-s, &amp;ndash;shell&lt;/strong> # 以目标用户运行 shell。
+&lt;ul>
+&lt;li>若直接使用 &lt;code>sudo -s&lt;/code> 命令，相当于以 root 用户运行 shell，省去了 su - root 再输入密码的操作&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>sudo -u lichenhao whoami #使用用户 lichenhao 来执行 whoami 命令&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>[root@master ~]# whoami
+root
+[root@master ~]# sudo -u lichenhao whoami
+lichenhao
+&lt;/code>&lt;/pre>
+&lt;h2 id="visudo--编辑etcsudoers-文件">visudo # 编辑/etc/sudoers 文件&lt;/h2>
+&lt;p>使用 visudo 命令可直接进入编辑模式开始配置 /etc/sudoers 文件，配置 visudo 后，使用 sudo 命令，可以让非 root 用户在执行某些命令时不用 root 密码&lt;/p>
+&lt;p>OPTIONS：&lt;/p>
+&lt;ul>
+&lt;li>**-c **# 检查 /etc/sudoers 文件的语法&lt;/li>
+&lt;li>&lt;strong>-f, &amp;ndash;file=sudoers&lt;/strong> # 指定 sudoers 文件的路径&lt;/li>
+&lt;li>&lt;strong>-q, &amp;ndash;quiet&lt;/strong> # less verbose (quiet) syntax error messages&lt;/li>
+&lt;li>&lt;strong>-s, &amp;ndash;strict&lt;/strong> # 严格的语法检查，在编辑 sudoers 文件并保存退出后，如果语法错误，则会弹出提示&lt;/li>
+&lt;/ul></description></item><item><title>Docs: sudoers 配置详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/su-%E4%B8%8E-sudo/sudoers-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/su-%E4%B8%8E-sudo/sudoers-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man5/sudoers.5.html#SUDOERS_FILE_FORMAT">Manual(手册),sudoers(5)-sudoers 文件格式&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>使用 &lt;code>visudo&lt;/code> 命令可直接进入编辑模式以编辑 /etc/sudoers 文件&lt;/p>
+&lt;p>sudoers 文件使用 &lt;a href="https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form">&lt;strong>Extended Backus-Naur Form(简称 EBNF)&lt;/strong>&lt;/a> 格式书写。&lt;/p>
+&lt;p>sudoers 文件由如下几类条目组成：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Aliases(别名)&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>User Specifications(用户规范)&lt;/strong> # 即指定谁可以运行什么程序&lt;/li>
+&lt;li>&lt;strong>Defaults&lt;/strong> # Defaults 条目的配置，可以在运行时变更 sudo 的运行行为。
+&lt;ul>
+&lt;li>比如配置日志输出路径等等。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="aliases">Aliases&lt;/h2>
+&lt;p>用户规范条目中的每个字段都可以使用别名来表示，提前设置好别名，然后在这个字段使用别名来表示&lt;/p>
+&lt;p>sudoers 中可以设置 4 种别名：&lt;/p>
+&lt;ul>
+&lt;li>User_Alias(用户别名)&lt;/li>
+&lt;li>Runas_Alias()&lt;/li>
+&lt;li>Host_Alias(主机别名)&lt;/li>
+&lt;li>Cmnd_Alias(命令别名)&lt;/li>
+&lt;/ul>
+&lt;p>别名语法：
+在别名的设置中，可以使用 &lt;code>*&lt;/code> 这种通配符来匹配所有&lt;/p>
+&lt;ul>
+&lt;li>User_Alias 别名名称 = 用户名,&amp;hellip;&lt;/li>
+&lt;li>Host_Alias 别名名称 = 主机名,&amp;hellip;&lt;/li>
+&lt;li>Cmnd_Alias 别名名称 = 命令,&amp;hellip;&lt;/li>
+&lt;/ul>
+&lt;h3 id="默认配置示例">默认配置示例&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 主机别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 对于一组服务器，你可能会更喜欢使用主机名（可能是全域名的通配符）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 或IP地址代替，这时可以配置主机别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Host_Alias FILESERVERS = fs1, fs2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Host_Alias MAILSERVERS = smtp, smtp2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 用户别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 这并不很常用，因为你可以通过使用组来代替一组用户的别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># User_Alias ADMINS = jsmith, mikem&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 命令别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 指定一系列相互关联的命令（当然可以是一个）的别名，通过赋予该别名sudo权限，&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 可以通过sudo调用所有别名包含的命令，下面是一些示例&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 网络操作相关命令别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Cmnd_Alias NETWORKING &lt;span style="color:#f92672">=&lt;/span> /sbin/route, /sbin/ifconfig, /bin/ping, /sbin/dhclient,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> /usr/bin/net, /sbin/iptables, /usr/bin/rfcomm, /usr/bin/wvdial, /sbin/iwconfig,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> /sbin/mii-tool
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 软件安装管理相关命令别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Cmnd_Alias SOFTWARE &lt;span style="color:#f92672">=&lt;/span> /bin/rpm, /usr/bin/up2date, /usr/bin/yum
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 服务相关命令别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Cmnd_Alias SERVICES &lt;span style="color:#f92672">=&lt;/span> /sbin/service, /sbin/chkconfig
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 本地数据库升级命令别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Cmnd_Alias LOCATE &lt;span style="color:#f92672">=&lt;/span> /usr/sbin/updatedb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 磁盘操作相关命令别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Cmnd_Alias STORAGE &lt;span style="color:#f92672">=&lt;/span> /sbin/fdisk, /sbin/sfdisk, /sbin/parted, /sbin/partprobe, /bin/mount, /bin/umount
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 代理权限相关命令别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Cmnd_Alias DELEGATING &lt;span style="color:#f92672">=&lt;/span> /usr/sbin/visudo, /bin/chown, /bin/chmod, /bin/chgrp
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 进程相关命令别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Cmnd_Alias PROCESSES &lt;span style="color:#f92672">=&lt;/span> /bin/nice, /bin/kill, /usr/bin/kill, /usr/bin/killall
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 驱动命令别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Cmnd_Alias DRIVERS &lt;span style="color:#f92672">=&lt;/span> /sbin/modprobe
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="user-specifications">User Specifications&lt;/h2>
+&lt;p>User Specifications(用户规范) 用来指定谁可以运行什么程序，可以理解为赋权。&lt;/p>
+&lt;p>用户规范语法：&lt;/p>
+&lt;ul>
+&lt;li>用户 登录的主机=[(可以变换的身份) ] 可以执行的命令,&amp;hellip;&lt;/li>
+&lt;/ul>
+&lt;h3 id="默认配置示例-1">默认配置示例&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 下面是规则配置：什么用户在哪台服务器上可以执行哪些命令（sudoers文件可以在多个系统上共享）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 语法:&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## user MACHINE=COMMANDS&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 用户 登录的主机=（可以变换的身份） 可以执行的命令&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">##&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 命令部分可以附带一些其它的选项&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">##&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 允许root用户执行任意路径下的任意命令&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root ALL&lt;span style="color:#f92672">=(&lt;/span>ALL&lt;span style="color:#f92672">)&lt;/span> ALL
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 允许sys用户组中的用户使用NETWORKING等所有别名中配置的命令&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># %sys ALL = NETWORKING, SOFTWARE, SERVICES, STORAGE, DELEGATING, PROCESSES, LOCATE, DRIVERS&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 允许wheel用户组中的用户执行所有命令&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># %wheel ALL=(ALL) ALL&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 允许wheel用户组中的用户在不输入该用户的密码的情况下执行所有命令&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># %wheel ALL=(ALL) NOPASSWD: ALL&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 允许users用户组中的用户像root用户一样使用mount、unmount、chrom命令&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># %users ALL=/sbin/mount /mnt/cdrom, /sbin/umount /mnt/cdrom&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 允许users用户组中的用户像root用户一样使用shutdown命令&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># %users localhost=/sbin/shutdown -h now&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="defaults">Defaults&lt;/h2>
+&lt;p>Defaults 语法：&lt;/p>
+&lt;ul>
+&lt;li>Default_Type Parameter_List
+&lt;ul>
+&lt;li>Default_type 可用的值有如下几个：
+&lt;ul>
+&lt;li>Defautls&lt;/li>
+&lt;li>Defaults @ Host_List&lt;/li>
+&lt;li>Defaults : User_List&lt;/li>
+&lt;li>Defaults ! Cmnd_List&lt;/li>
+&lt;li>Defaults &amp;gt; Runas_List&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Parameter_List 格式如下：
+&lt;ul>
+&lt;li>Parameter = Value&lt;/li>
+&lt;li>Parameter += Value&lt;/li>
+&lt;li>Parameter -= Value&lt;/li>
+&lt;li>! Parameter&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>可用的参数参考下文 Defautls 条目参数&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>要在参数中包含文字反斜杠字符，必须对反斜杠进行两次转义。例如，要匹配 “\ n” 作为命令行参数的一部分，必须在 sudoers 文件中使用 “\ \ n”。这是由于存在两个转义级别，一个在 sudoers 解析器本身中，另一个在 fnmatch(3) 函数匹配命令行参数时。&lt;/p>
+&lt;h3 id="默认配置示例-2">默认配置示例&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 如果无法在终端上禁用 echo，则拒绝运行&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults !visiblepw
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 开启sudo日志，让sudo命令每次执行都写入到/var/log/sudo.log文件中&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults logfile&lt;span style="color:#f92672">=&lt;/span>/var/log/sudo.log
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Preserving HOME has security implications since many programs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># use it when searching for configuration files. Note that HOME&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># is already set when the the env_reset option is enabled, so&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># this option is only effective for configurations where either&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># env_reset is disabled or HOME is present in the env_keep list.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults always_set_home
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults match_group_by_gid
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Prior to version 1.8.15, groups listed in sudoers that were not&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># found in the system group database were passed to the group&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># plugin, if any. Starting with 1.8.15, only groups of the form&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># %:group are resolved via the group plugin by default.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># We enable always_query_group_plugin to restore old behavior.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Disable this option for new behavior.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults always_query_group_plugin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults env_reset
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults env_keep &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;COLORS DISPLAY HOSTNAME HISTSIZE KDEDIR LS_COLORS&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults env_keep &lt;span style="color:#f92672">+=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;MAIL PS1 PS2 QTDIR USERNAME LANG LC_ADDRESS LC_CTYPE&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults env_keep &lt;span style="color:#f92672">+=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;LC_COLLATE LC_IDENTIFICATION LC_MEASUREMENT LC_MESSAGES&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults env_keep &lt;span style="color:#f92672">+=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER LC_TELEPHONE&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults env_keep &lt;span style="color:#f92672">+=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;LC_TIME LC_ALL LANGUAGE LINGUAS _XKB_CHARSET XAUTHORITY&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Adding HOME to env_keep may enable a user to run unrestricted&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># commands via sudo.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Defaults env_keep += &amp;#34;HOME&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 下面这个指令指定当用户执行 sudo 命令时在什么地方寻找二进制代码和命令。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 这个选项的目的显然是要限制用户运行 sudo 命令的范围，这是一种好做法。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 说白了，就是替换 $PATH 变量的值。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Defaults secure_path &lt;span style="color:#f92672">=&lt;/span> /sbin:/bin:/usr/sbin:/usr/bin
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="defaults-条目参数httpsman7orglinuxman-pagesman5sudoers5htmlsudoers_options">&lt;a href="https://man7.org/linux/man-pages/man5/sudoers.5.html#SUDOERS_OPTIONS">Defaults 条目参数&lt;/a>&lt;/h1>
+&lt;h2 id="日志相关">日志相关&lt;/h2>
+&lt;p>&lt;strong>logfile = &lt;!-- raw HTML omitted -->&lt;/strong> # 使用本地文件记录日志，并指定文件的绝对路径。默认情况下，sudo 使用 syslog 记录日志。
+&lt;strong>syslog = &lt;!-- raw HTML omitted -->&lt;/strong> # 使用 syslog 记录日志，并指定 syslog 的日志设施。&lt;code>默认值：authpriv&lt;/code>。&lt;/p>
+&lt;ul>
+&lt;li>可用的设施有：**authpriv **(if your OS supports it), &lt;strong>auth&lt;/strong>, &lt;strong>daemon&lt;/strong>,&lt;strong>user&lt;/strong>, &lt;strong>local0&lt;/strong>, &lt;strong>local1&lt;/strong>, &lt;strong>local2&lt;/strong>, &lt;strong>local3&lt;/strong>, &lt;strong>local4&lt;/strong>, &lt;strong>local5&lt;/strong>,&lt;strong>local6&lt;/strong>, and &lt;strong>local7&lt;/strong>.&lt;/li>
+&lt;/ul>
+&lt;h2 id="其他">其他&lt;/h2>
+&lt;p>&lt;strong>secure_path = &lt;a href="PATH:PATH:...">PATH:PATH:...&lt;/a>&lt;/strong> # 如果设置了该选项，则通过 sudo 运行命令时，将会用该选项的值替代用户设置的 &lt;code>$PATH&lt;/code> 变量。
+&lt;strong>visiblewp&lt;/strong> # 默认情况下，如果用户必须输入密码，但无法在终端上禁用 echo，sudo 将拒绝运行。如果设置了 visiblepw 标志，即使在屏幕上可见，sudo 也会提示输入密码。这使得运行 “ssh somehost sudo ls” 之类的东西成为可能，因为默认情况下，ssh(1) 在运行命令时不分配 tty。默认情况下，此标志处于关闭状态。&lt;/p>
+&lt;h1 id="用户赋权的实用案例">用户赋权的实用案例&lt;/h1>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>别名
+&lt;ul>
+&lt;li>设定别名 DOCKER，该 DOCKER 别名包括 docker 命令和 systemctl 中子命令对 docker 服务的操作
+&lt;ul>
+&lt;li>Cmnd_Alias DOCKER = /usr/bin/docker*, /usr/bin/systemctl * docker*&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>赋权
+&lt;ul>
+&lt;li>表示 lichenhao 用户可以在所有主机执行所有命令
+&lt;ul>
+&lt;li>lichenhao ALL=ALL #&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>表示 lichenhao 用户在所有主机，变换为 root 身份，可以执行所有命令
+&lt;ul>
+&lt;li>lichenhao ALL=(root) ALL&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>赋予 developer 用户，可以操作 docker 和 nginx 的所有权限。i.e.通过 systemctl 控制 docker 和 nginx 服务，使用 docker 和 nginx 相关命令&lt;/p>
+&lt;ul>
+&lt;li>&lt;em>&lt;em>Cmnd_Alias DOCKER = /usr/bin/systemctl * docker&lt;/em>, /usr/bin/docker&lt;/em>** # 为某些命令设置别名&lt;/li>
+&lt;li>&lt;em>&lt;em>Cmnd_Alias NGINX = /usr/bin/systemctl * nginx&lt;/em>, /usr/bin/nginx&lt;/em>** # 为某些命令设置别名&lt;/li>
+&lt;li>&lt;strong>developer ALL=(root) NOPASSWD:DOCKER,NGINX&lt;/strong> # 让 developer 用户可以以 root 用户且不使用密码执行 DOCKER 和 NGINX 别名中的所有命令&lt;/li>
+&lt;li>&lt;strong>Defaults logfile = /var/log/sudo/sudo.log&lt;/strong> # 将 sudo 的日志保存到其他目录，不通过 rsyslog 保存。&lt;/li>
+&lt;/ul></description></item><item><title>Docs: SUID,SGID,SBIT 特殊权限</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/access-control%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/suidsgidsbit-%E7%89%B9%E6%AE%8A%E6%9D%83%E9%99%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/access-control%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/suidsgidsbit-%E7%89%B9%E6%AE%8A%E6%9D%83%E9%99%90/</guid><description>
+&lt;h1 id="heading">&lt;/h1>
+&lt;h1 id="理解-linux-特殊权限-suidsgidsbit">理解 Linux 特殊权限 SUID,SGID,SBIT&lt;/h1>
+&lt;p>setuid 和 setgid 分别是 set uid ID upon execution 和 set group ID upon execution 的缩写。我们一般会再次把它们缩写为 suid 和 sgid。它们是控制文件访问的权限标志(flag)，它们分别允许用户以可执行文件的 owner 或 owner group 的权限运行可执行文件。&lt;/p>
+&lt;p>说明：本文的演示环境为 Ubuntu 16.04。&lt;/p>
+&lt;h2 id="suid">SUID&lt;/h2>
+&lt;p>在 Linux 中，所有账号的密码记录在 /etc/shadow 这个文件中，并且只有 root 可以读写入这个文件：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799191-07205d29-3249-4724-802b-9d1427f5605a.png" alt="">&lt;/p>
+&lt;p>如果另一个普通账号 tester 需要修改自己的密码，就要访问 /etc/shadow 这个文件。但是明明只有 root 才能访问 /etc/shadow 这个文件，这究竟是如何做到的呢？事实上，tester 用户是可以修改 /etc/shadow 这个文件内的密码的，就是通过 SUID 的功能。让我们看看 passwd 程序文件的权限信息：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799212-45da6372-c8d7-4bb6-bae2-4b9c90c4c86e.png" alt="">&lt;/p>
+&lt;p>上图红框中的权限信息有些奇怪，owner 的信息为 rws 而不是 rwx。当 s 出现在文件拥有者的 x 权限上时，就被称为 SETUID BITS 或 SETUID ，其特点如下：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>SUID 权限仅对二进制可执行文件有效&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>如果执行者对于该二进制可执行文件具有 x 的权限，执行者将具有该文件的所有者的权限&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>本权限仅在执行该二进制可执行文件的过程中有效&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>下面我们来看 tester 用户是如何利用 SUID 权限完成密码修改的：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>tester 用户对于 /usr/bin/passwd 这个程序具有执行权限，因此可以执行 passwd 程序&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>passwd 程序的所有者为 root&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>tester 用户执行 passwd 程序的过程中会暂时获得 root 权限&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>因此 tester 用户在执行 passwd 程序的过程中可以修改 /etc/shadow 文件&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>但是如果由 tester 用户执行 cat 命令去读取 /etc/shadow 文件确是不行的：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799191-793208d8-f3ee-4818-9a19-cd083def0bf6.png" alt="">&lt;/p>
+&lt;p>原因很清楚，tester 用户没有读 /etc/shadow 文件的权限，同时 cat 程序也没有被设置 SUID。我们可以通过下图来理解这两种情况：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799223-3f313650-c990-4a0a-bdb9-6dfa9efe538f.png" alt="">&lt;/p>
+&lt;p>如果想让任意用户通过 cat 命令读取 /etc/shadow 文件的内容也是非常容易的，给它设置 SUID 权限就可以了：&lt;/p>
+&lt;p>$ sudo chmod 4755 /bin/cat&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799251-47e701ba-439d-4414-862c-ec7e229a8924.png" alt="">&lt;/p>
+&lt;p>现在 cat 已经具有了 SUID 权限，试试看，是不是已经可以 cat 到 /etc/shadow 的内容了。因为这样做非常不安全，所以赶快通过下面的命令把 cat 的 SUID 权限移除掉：&lt;/p>
+&lt;p>$ sudo chmod 755 /bin/cat&lt;/p>
+&lt;h2 id="sgid">SGID&lt;/h2>
+&lt;p>当 s 标志出现在用户组的 x 权限时称为 SGID。SGID 的特点与 SUID 相同，我们通过 /usr/bin/mlocate 程序来演示其用法。mlocate 程序通过查询数据库文件 /var/lib/mlocate/mlocate.db 实现快速的文件查找。 mlocate 程序的权限如下图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799232-7e50eb71-b677-495e-a764-8d8f4646c801.png" alt="">&lt;/p>
+&lt;p>很明显，它被设置了 SGID 权限。下面是数据库文件 /var/lib/mlocate/mlocate.db 的权限信息：很明显，它被设置了 SGID 权限。下面是数据库文件 /var/lib/mlocate/mlocate.db 的权限信息：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799213-a5db060f-ae00-4861-b9dd-bf0f2dceb852.png" alt="">&lt;/p>
+&lt;p>普通用户 tester 执行 mlocate 命令时，tester 就会获得用户组 mlocate 的执行权限，又由于用户组 mlocate 对 mlocate.db 具有读权限，所以 tester 就可以读取 mlocate.db 了。程序的执行过程如下图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799258-9b317569-d4c6-4a5c-af86-9f26d13b631f.png" alt="">&lt;/p>
+&lt;p>除二进制程序外，SGID 也可以用在目录上。当一个目录设置了 SGID 权限后，它具有如下功能：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>用户若对此目录具有 r 和 x 权限，该用户能够进入该目录&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>用户在此目录下的有效用户组将变成该目录的用户组&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>若用户在此目录下拥有 w 权限，则用户所创建的新文件的用户组与该目录的用户组相同&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>下面看个例子，创建 testdir 目录，目录的权限设置如下：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799241-5c3ef1da-c03c-44a9-9144-c8f85904ff8a.png" alt="">&lt;/p>
+&lt;p>此时目录 testdir 的 owner 是 nick，所属的 group 为 tester。&lt;/p>
+&lt;p>先创建一个名为 nickfile 的文件：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799231-455ac1fd-1fab-4787-8c4c-140299001f32.png" alt="">&lt;/p>
+&lt;p>这个文件的权限看起来没有什么特别的。然后给 testdir 目录设置 SGID 权限：&lt;/p>
+&lt;p>$ sudo chmod 2775 testdir&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799270-a6affdad-ff72-4f8b-a52b-b5c30c33d7ad.png" alt="">&lt;/p>
+&lt;p>然后再创建一个文件 nickfile2：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799233-66f8ad3f-b6f4-4eb9-ae44-81c0459e6c8c.png" alt="">&lt;/p>
+&lt;p>新建的文件所属的组为 tester！&lt;/p>
+&lt;p>总结一下，当 SGID 作用于普通文件时，和 SUID 类似，在执行该文件时，用户将获得该文件所属组的权限。当 SGID 作用于目录时，意义就非常重大了。当用户对某一目录有写和执行权限时，该用户就可以在该目录下建立文件，如果该目录用 SGID 修饰，则该用户在这个目录下建立的文件都是属于这个目录所属的组。&lt;/p>
+&lt;p>SBIT&lt;/p>
+&lt;p>其实 SBIT 与 SUID 和 SGID 的关系并不大。&lt;/p>
+&lt;p>SBIT 是 the restricted deletion flag or sticky bit 的简称。&lt;/p>
+&lt;p>SBIT 目前只对目录有效，用来阻止非文件的所有者删除文件。比较常见的例子就是 /tmp 目录：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799256-b2169030-98e0-45b9-8092-f535177bb013.png" alt="">&lt;/p>
+&lt;p>权限信息中最后一位 t 表明该目录被设置了 SBIT 权限。SBIT 对目录的作用是：当用户在该目录下创建新文件或目录时，仅有自己和 root 才有权力删除。&lt;/p>
+&lt;p>设置 SUID、SGID、SBIT 权限&lt;/p>
+&lt;p>以数字的方式设置权限&lt;/p>
+&lt;p>SUID、SGID、SBIT 权限对应的数字如下：&lt;/p>
+&lt;p>SUID-&amp;gt;4SGID-&amp;gt;2SBIT-&amp;gt;1&lt;/p>
+&lt;p>所以如果要为一个文件权限为 &amp;ldquo;-rwxr-xr-x&amp;rdquo; 的文件设置 SUID 权限，需要在原先的 755 前面加上 4，也就是 4755：&lt;/p>
+&lt;p>$ chmod 4755 filename&lt;/p>
+&lt;p>同样，可以用 2 和 1 来设置 SGID 和 SBIT 权限。设置完成后分别会用 s, s, t 代替文件权限中的 x。&lt;/p>
+&lt;p>其实，还可能出现 S 和 T 的情况。S 和 t 是替代 x 这个权限的，但是，如果它本身没有 x 这个权限，添加 SUID、SGID、SBIT 权限后就会显示为大写 S 或大写 T。比如我们为一个权限为 666 的文件添加 SUID、SGID、SBIT 权限：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/edkdwi/1616166799251-393acd61-c504-4ed7-8c1c-c58e7a2171f4.png" alt="">&lt;/p>
+&lt;p>执行 chmod 7666 nickfile，因为 666 表示 &amp;ldquo;-rw-rw-rw&amp;rdquo;，均没有 x 权限，所以最后变成了 &amp;ldquo;-rwSrwSrwT&amp;rdquo;。&lt;/p>
+&lt;p>通过符号类型改变权限&lt;/p>
+&lt;p>除了使用数字来修改权限，还可以使用符号：&lt;/p>
+&lt;p>$ chmod u+s testfile # 为 testfile 文件加上 SUID 权限。 $ chmod g+s testdir # 为 testdir 目录加上 SGID 权限。 $ chmod o+t testdir # 为 testdir 目录加上 SBIT 权限。&lt;/p>
+&lt;p>总结&lt;/p>
+&lt;p>SUID、SGID、SBIT 权限都是为了实现特殊功能而设计的，其目的是弥补 ugo 权限无法实现的一些使用场景。&lt;/p>
+&lt;p>阅读原文&lt;/p></description></item><item><title>Docs: TCP Wrappers</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/tcp-wrappers/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/tcp-wrappers/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;h2 id="参考">参考：&lt;/h2>
+&lt;/blockquote>
+&lt;p>注意：CentOS8 及 RHEL8 不再支持 TCP_Wrappers！！！！使用 firewalld 代替！！&lt;/p>
+&lt;p>&lt;strong>Transmission Control ProtocolWrappers(简称 TCP_Wrappers)&lt;/strong> 是一个基于主机的网络访问控制表系统，用于过滤对类 Unix 系统（如 Linux 或 BSD）的网络访问。&lt;/p>
+&lt;p>其能将主机或子网 IP 地址、名称及 ident 查询回复作为筛选标记，实现访问控制。&lt;/p>
+&lt;h2 id="tcp_wrappers-特点">&lt;strong>Tcp_Wrappers 特点&lt;/strong>&lt;/h2>
+&lt;ul>
+&lt;li>工作在第四层（传输层）的 TCP 协议&lt;/li>
+&lt;li>对有状态连接的特定服务进行安全检测并实现访问控制&lt;/li>
+&lt;li>以库文件形式实现&lt;/li>
+&lt;li>某进程是否接受 libwrap 的控制取决于发起此进程的程序在编译时是否针对 libwrap 进行编译的&lt;/li>
+&lt;/ul>
+&lt;h2 id="判断程序是否支持-tcp_wrappers">&lt;strong>判断程序是否支持 Tcp_Wrappers&lt;/strong>&lt;/h2>
+&lt;p>程序如果调用了 libwrap.so 库，表示支持。&lt;/p>
+&lt;pre>&lt;code>ldd 程序路径|grep libwrap.so
+strings 程序路径|grep libwrap.so
+#ldd /usr/sbin/sshd|grep libwrap.so
+libwrap.so.0 =&amp;gt; /lib64/libwrap.so.0 (0x00007f9851678000)
+#ldd /usr/sbin/vsftpd |grep libwrap.so
+libwrap.so.0 =&amp;gt; /lib64/libwrap.so.0 (0x00007f802ef50000)
+#strings `which sshd`|grep libwrap.so
+libwrap.so.0
+&lt;/code>&lt;/pre>
+&lt;h2 id="tcp_wrappers-的执行处理机制了">TCP_Wrappers 的执行处理机制了&lt;/h2>
+&lt;p>TCP_Wrappers 只需要通过两个文件来处理，/etc/hosts.allow 和/etc/hosts.deny。匹配流程如下图
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cmiwuq/1624581688343-e7b5ceb8-1d56-4b6b-9872-f71462556d23.png" alt="image.png">
+Note：所以，如果想要仅允许一个 ip 可以通过，那么需要在 deny 中拒绝所有，否则只在 allow 添加该 ip，那么其他 ip 在 allow 没匹配到后，会去 deny 查找，如果还是无法匹配，则直接就通过了。&lt;/p>
+&lt;h1 id="tcp_wrappers-使用">TCP_Wrappers 使用&lt;/h1>
+&lt;p>TCP Wrappers 是通过 /etc/hosts.allow 和 /etc/hosts.deny 这两个配置文件来实现一个类似防火墙的机制。&lt;/p>
+&lt;h1 id="tcp_wrappers-关联文件">TCP_Wrappers 关联文件&lt;/h1>
+&lt;p>帮助参考：man 5 hosts_access，man 5 hosts_options
+&lt;strong>/etc/hosts.allow&lt;/strong> #允许访问规则
+&lt;strong>/etc/hosts.deny&lt;/strong> # 拒绝访问规则&lt;/p>
+&lt;p>注意：说明文档中表示此文件也可以实现拒绝的规则，本着见名知义和管理清晰化的指引，这种写法不是讨论的重点。&lt;/p>
+&lt;p>&lt;strong>配置文件的写法: Daemon_List : Client_List [:Shell_Command]&lt;/strong>&lt;/p>
+&lt;p>**Daemon_List **# 单个应用程序的二进制文件名，而不是服务名，如果有多个，用逗号或空格分隔。如 sshd,vsftpd 或 sshd vsftpd&lt;/p>
+&lt;ul>
+&lt;li>可以绑定服务地址,如，sshd@192.168.7.202:ALL(比如一台设备有俩网卡俩地址时)&lt;/li>
+&lt;li>支持通配符&lt;/li>
+&lt;li>内置关键字：
+&lt;ul>
+&lt;li>ALL 所有进程&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>Client_List&lt;/strong> # 客户端列表&lt;/p>
+&lt;ul>
+&lt;li>基于单个 IP 地址：192.168.10.1&lt;/li>
+&lt;li>基于网段 IP 地址：192.168.1. 注意，192.168.1.0 这个写法是错误的。&lt;/li>
+&lt;li>基于主机名：www.hunk.tech .hunk.tech 较少用&lt;/li>
+&lt;li>基于网络/掩码：192.168.0.0/255.255.255.0&lt;/li>
+&lt;li>基于 net/prefixlen: 192.168.1.0/24（仅 CentOS7）&lt;/li>
+&lt;li>基于网络组（NIS 域）：@mynetwork&lt;/li>
+&lt;li>内置关键字：
+&lt;ul>
+&lt;li>ALL 所有主机&lt;/li>
+&lt;li>LOCAL 名称中不带点的主机&lt;/li>
+&lt;li>KNOWN 可以解析的主机名&lt;/li>
+&lt;li>UNKNOWN 无法解析的主机名&lt;/li>
+&lt;li>PARANOID 正、反向查询不匹配或无法解析&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>支持通配符&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>Shell_Command # 执行指令&lt;/strong>
+如：sshd:all:spawn echo &amp;ldquo;&lt;code>date +%%F-%%T&lt;/code> from %a pid=%p to %s&amp;rdquo; &amp;raquo; /app/sshd.log&lt;/p>
+&lt;ul>
+&lt;li>EXCEPT 是排除的意思，一行规则里可以有多个，后面的是对前面的结果集进行排除。
+&lt;ul>
+&lt;li>vsftpd:172.16. EXCEPT 172.16.100.0/24 EXCEPT 172.16.100.1&lt;/li>
+&lt;li>匹配整个 172.16 网段，但是把 172.16.100 的网段排除，在排除 172.16.100 网段中又把 172.16.100.1 的 IP 给排除。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>spawn 启动一个外部程序完成执行的操作，可以支持内置变量。内置变量请 man ,找%的选项
+&lt;ul>
+&lt;li>%a (%A) 客户端 IP&lt;/li>
+&lt;li>%c 客户端信息，可以是 IP 或主机名(如果能解析)&lt;/li>
+&lt;li>%p 服务器进程信息 (PID)&lt;/li>
+&lt;li>%s 连接的服务端的信息&lt;/li>
+&lt;li>%% 当规则中包含%时，使用双%转义&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>twist 特殊扩展
+&lt;ul>
+&lt;li>以指定的命令执行，执行后立即结束该连接。需在 spawn 之后使用。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="应用示例">应用示例&lt;/h1>
+&lt;p>对于 sshd 进程，仅允许 10.10.100.250 访问&lt;/p>
+&lt;pre>&lt;code>[root@lichenhao ~]# cat /etc/hosts.allow
+sshd:10.10.100.250
+[root@lichenhao ~]# cat /etc/hosts.deny
+sshd:ALL
+&lt;/code>&lt;/pre>
+&lt;p>或者&lt;/p>
+&lt;pre>&lt;code>[root@lichenhao ~]# cat /etc/hosts.deny
+sshd:ALL EXCEPT 10.10.100.250
+&lt;/code>&lt;/pre>
+&lt;p>使用的 2 台测试主机网络 IP 配置如下：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>简称&lt;/td>
+&lt;td>主机&lt;/td>
+&lt;td>IP 1&lt;/td>
+&lt;td>IP 2&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>6A&lt;/td>
+&lt;td>6-web-1.hunk.tech&lt;/td>
+&lt;td>192.168.7.201&lt;/td>
+&lt;td>192.168.5.102&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>7B&lt;/td>
+&lt;td>7-web-2.hunk.tech&lt;/td>
+&lt;td>192.168.7.202&lt;/td>
+&lt;td>192.168.5.103&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>默认 hosts.allow 和 hosts.deny 配置文件为空，表示全部允许。&lt;/p>
+&lt;p>拒绝某个 IP 访问：&lt;/p>
+&lt;pre>&lt;code>7B:
+vim /etc/hosts.deny
+sshd:192.168.7.201
+6A:
+#ssh 192.168.7.202
+ssh_exchange_identification: Connection closed by remote host
+配置规则保存后，立即生效
+7B：日志会明确记录
+#tail -n1 /var/log/secure
+Feb 8 11:18:29 7-web-2 sshd[1811]: refused connect from 192.168.7.201 (192.168.7.201)
+&lt;/code>&lt;/pre>
+&lt;p>把每个 ssh 登录日志记录到文件&lt;/p>
+&lt;pre>&lt;code>#vim /etc/hosts.allow
+sshd:all:spawn echo &amp;quot;`date +%%F-%%T` from %a pid=%p to %s&amp;quot; &amp;gt;&amp;gt; /app/sshd.log
+#cat /app/sshd.log
+2018-02-08-15:59:53 from 192.168.7.202 pid=2565 to sshd@192.168.7.202
+#ps aux |grep 2565
+root 2565 0.0 2.3 145696 5328 ? Ss 15:59 0:00 sshd: root@pts/2
+&lt;/code>&lt;/pre>
+&lt;h2 id="自动锁定登录失败的-ip">自动锁定登录失败的 IP&lt;/h2>
+&lt;p>编写脚本 /root/bin/checkip.sh，每 5 分钟检查一次，如果发现通过 ssh 登录失败次数超过 10 次，自动将此远程 IP 放入 Tcp_Wrapper 的黑名单中予以禁止防问&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#!/bin/bash
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#75715e">#定义 休眠时间&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sleeptime&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">300&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#定义 通过ssh登录失败次数&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>num&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">10&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#定义 黑名单文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>file&lt;span style="color:#f92672">=&lt;/span>/etc/hosts.deny
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#无限循环&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">while&lt;/span> true;&lt;span style="color:#66d9ef">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">#将失败登录的记录逐行读入变量&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> lastb | grep ssh|awk -F &lt;span style="color:#e6db74">&amp;#34;[ ]+&amp;#34;&lt;/span> &lt;span style="color:#e6db74">&amp;#39;{print $3}&amp;#39;&lt;/span>|uniq -c | &lt;span style="color:#66d9ef">while&lt;/span> read conn ip;&lt;span style="color:#66d9ef">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">#判断失败次数&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#f92672">[&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$conn&lt;span style="color:#e6db74">&amp;#34;&lt;/span> -ge &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$num&lt;span style="color:#e6db74">&amp;#34;&lt;/span> &lt;span style="color:#f92672">]&lt;/span>;&lt;span style="color:#66d9ef">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">#判断记录的IP是否存在&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> egrep -q ^sshd.*$ip $file
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">#如果不存在记录，将追加记录至指定黑名单文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span> $? -ne &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> echo &lt;span style="color:#e6db74">&amp;#34;sshd:&lt;/span>$ip&lt;span style="color:#e6db74">&amp;#34;&lt;/span> &amp;gt;&amp;gt; $file
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">done&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sleep $sleeptime
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">done&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用 &lt;code>watch -n1 cat /etc/hosts.deny&lt;/code> 来观察动态文件
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cmiwuq/1624581861186-486e5699-5dea-4062-83d7-f7bcb0d874e7.gif" alt="">
+总结：TCP_Wrappers&lt;/p>
+&lt;p>适用于需求简单的应用场景，并且受到监控软件的是否支持 libwrap.so 库局限。&lt;/p></description></item><item><title>Docs: 处理登录信息的工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/%E7%99%BB%E5%BD%95%E4%B8%8E%E7%99%BB%E5%BD%95%E4%BF%A1%E6%81%AF%E5%B7%A5%E5%85%B7/%E5%A4%84%E7%90%86%E7%99%BB%E5%BD%95%E4%BF%A1%E6%81%AF%E7%9A%84%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/%E7%99%BB%E5%BD%95%E4%B8%8E%E7%99%BB%E5%BD%95%E4%BF%A1%E6%81%AF%E5%B7%A5%E5%85%B7/%E5%A4%84%E7%90%86%E7%99%BB%E5%BD%95%E4%BF%A1%E6%81%AF%E7%9A%84%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;ul>
+&lt;li>查看登录日志
+&lt;ul>
+&lt;li>tail /var/log/secure&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>[procps](✏IT 学习笔记/📄1.操作系统/X.Linux%20 管理/Linux%20 系统管理工具/procps%20 工具集.md 管理/Linux 系统管理工具/procps 工具集.md) 工具包中，有一些可以处理登录信息的工具，比如 pkill、w 等&lt;/p>
+&lt;h1 id="faillog--查看用户登录失败信息并处理-varlogfaillog-文件有信息">faillog # 查看用户登录失败信息并处理 /var/log/faillog 文件有信息&lt;/h1>
+&lt;p>**faillog [OPTIONS] **&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>-u # 指定用户名&lt;/li>
+&lt;li>-r # 删除失败信息&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>faillog -u oracle -r #删除 oracle 用户的登录失败信息，以便解锁 oracle 用户&lt;/li>
+&lt;/ul>
+&lt;h1 id="last--用来显示所有登录的信息">last # 用来显示所有登录的信息。&lt;/h1>
+&lt;p>&lt;strong>EXAMPLE&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>last reboot # 查看系统重新引导的时间。i.e.客户查看设备什么时候关机再开机过&lt;/li>
+&lt;/ul>
+&lt;h1 id="lastb--查看登录失败的用户信息">lastb # 查看登录失败的用户信息&lt;/h1>
+&lt;p>lastb 程序在不同的发行版中，所属的 Package 不同。&lt;/p>
+&lt;p>lastb 工具会读取 /var/log/btmp 文件，并把文件内容中记录登录失败的信息列出来。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@lichenhao:~#
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@lichenhao:~# lastb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root ssh:notty 172.19.42.203 Mon Jun &lt;span style="color:#ae81ff">7&lt;/span> 21:49 - 21:49 &lt;span style="color:#f92672">(&lt;/span>00:00&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root ssh:notty 172.19.42.203 Mon Jun &lt;span style="color:#ae81ff">7&lt;/span> 21:24 - 21:24 &lt;span style="color:#f92672">(&lt;/span>00:00&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root ssh:notty 172.19.42.203 Mon Jun &lt;span style="color:#ae81ff">7&lt;/span> 21:22 - 21:22 &lt;span style="color:#f92672">(&lt;/span>00:00&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>btmp begins Mon Jun &lt;span style="color:#ae81ff">7&lt;/span> 21:11:54 &lt;span style="color:#ae81ff">2021&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="lastlog--用来显示系统中所有用户最近一次登陆的信息">lastlog # 用来显示系统中‘所有用户’最近一次登陆的信息&lt;/h1>
+&lt;h1 id="who--通过查询-varrunutmp-文件来显示系统中当前登录的每个用户">who # 通过查询 /var/run/utmp 文件来显示系统中当前登录的每个用户。&lt;/h1>
+&lt;h1 id="users--用单独的一行打印出当前登录的用户每个显示的用户名对应一个登录会话">users # 用单独的一行打印出当前登录的用户，每个显示的用户名对应一个登录会话&lt;/h1></description></item><item><title>Docs: 登录工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/%E7%99%BB%E5%BD%95%E4%B8%8E%E7%99%BB%E5%BD%95%E4%BF%A1%E6%81%AF%E5%B7%A5%E5%85%B7/%E7%99%BB%E5%BD%95%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/%E7%99%BB%E5%BD%95%E4%B8%8E%E7%99%BB%E5%BD%95%E4%BF%A1%E6%81%AF%E5%B7%A5%E5%85%B7/%E7%99%BB%E5%BD%95%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;h2 id="参考">参考：&lt;/h2>
+&lt;/blockquote>
+&lt;h1 id="常见的终端工具">常见的终端工具&lt;/h1>
+&lt;p>xShell # &lt;a href="https://www.netsarang.com/en/xshell/">https://www.netsarang.com/en/xshell/&lt;/a>
+Tabby # &lt;a href="https://github.com/Eugeny/tabby">https://github.com/Eugeny/tabby&lt;/a>&lt;/p>
+&lt;p>X forwarding 工具：&lt;/p>
+&lt;ul>
+&lt;li>xming # &lt;a href="https://sourceforge.net/projects/xming/">https://sourceforge.net/projects/xming/&lt;/a>&lt;/li>
+&lt;li>vcxsrv # &lt;a href="https://sourceforge.net/projects/vcxsrv/">https://sourceforge.net/projects/vcxsrv/&lt;/a>&lt;/li>
+&lt;li>xManager 中的工具&lt;/li>
+&lt;/ul></description></item><item><title>Docs: 配置文件详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man.openbsd.org/sshd_config">官方文档,手册-sshd_config&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://man.openbsd.org/ssh_config">官方文档,手册-ssh_config&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="sshd_config-文件">sshd_config 文件&lt;/h1>
+&lt;p>&lt;strong>Port NUM&lt;/strong> # 设定 sshd 服务监听的端口号&lt;/p>
+&lt;p>**ListenAddress &lt;!-- raw HTML omitted --> **# 设定 sshd 服务监听的 IP 地址(全 0 为所有 IP)&lt;/p>
+&lt;p>&lt;strong>PermitRootLogin &amp;lt;yes|no&amp;gt;&lt;/strong> # 设定是否允许 root 用户通过 ssh 直接登录&lt;/p>
+&lt;p>&lt;strong>AllowUsers &lt;!-- raw HTML omitted -->&lt;/strong> # 设定允许通过 ssh 登录的用户 User1,2,3 等等&lt;/p>
+&lt;p>&lt;strong>AllowGroups &lt;!-- raw HTML omitted -->&lt;/strong> # 设定允许通过 ssh 登录的组 Group1,2,3,等等等&lt;/p>
+&lt;p>&lt;strong>UseDNS {yes|no}&lt;/strong> # 指定登陆时是否进行 DNS 解析&lt;/p>
+&lt;p>&lt;a href="https://man.openbsd.org/sshd_config#KbdInteractiveAuthentication">KbdInteractiveAuthentication&lt;/a> #&lt;/p>
+&lt;blockquote>
+&lt;p>注意：该关键字是已经被启用的 ChallengeResponseAuthentication 关键字的替代品&lt;/p>
+&lt;/blockquote>
+&lt;!-- raw HTML omitted -->
+&lt;h1 id="ssh_config-文件">ssh_config 文件&lt;/h1>
+&lt;p>注意：该配置文件中的配置信息，可以通过 ssh 命令的 -o 选项来覆盖配置文件中关键字的值&lt;/p>
+&lt;p>&lt;strong>AddKeysToAgent&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>AddressFamily&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>BatchMode&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>BindAddress&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>CanonicalDomains&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>CanonicalizeFallbackLocal&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>CanonicalizeHostname&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>CanonicalizeMaxDots&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>CanonicalizePermittedCNAMEs&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>CASignatureAlgorithms&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>CertificateFile&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ChallengeResponseAuthentication&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>CheckHostIP&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>Ciphers&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ClearAllForwardings&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>Compression&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ConnectionAttempts&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ConnectTimeout&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ControlMaster&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ControlPath&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ControlPersist&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>DynamicForward&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>EscapeChar&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ExitOnForwardFailure&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>FingerprintHash&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ForwardAgent&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ForwardX11&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ForwardX11Timeout&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ForwardX11Trusted&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>GatewayPorts&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>GlobalKnownHostsFile&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>GSSAPIAuthentication&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>GSSAPIKeyExchange&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>GSSAPIClientIdentity&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>GSSAPIDelegateCredentials&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>GSSAPIKexAlgorithms&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>GSSAPIRenewalForcesRekey&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>GSSAPIServerIdentity&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>GSSAPITrustDns&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>HashKnownHosts&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>Host&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>HostbasedAuthentication&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>HostbasedKeyTypes&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>HostKeyAlgorithms&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>HostKeyAlias&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>Hostname&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>IdentitiesOnly&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>IdentityAgent&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>IdentityFile&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>IPQoS&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>KbdInteractiveAuthentication&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>KbdInteractiveDevices&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>KexAlgorithms&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>LocalCommand&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>LocalForward&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>LogLevel&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>MACs&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>Match&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>NoHostAuthenticationForLocalhost&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>umberOfPasswordPrompts&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>PasswordAuthentication&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>PermitLocalCommand&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>PKCS11Provider&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>Port&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>PreferredAuthentications&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ProxyCommand&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ProxyJump&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ProxyUseFdpass&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>PubkeyAcceptedKeyTypes&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>PubkeyAuthentication&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>RekeyLimit&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>RemoteCommand&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>RemoteForward&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>RequestTTY&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>SendEnv&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ServerAliveInterval&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>ServerAliveCountMax&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>SetEnv&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>StreamLocalBindMask&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>StreamLocalBindUnlink&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>StrictHostKeyChecking&lt;/strong>&lt;/p>
+&lt;p>If this flag is set to ’’accept-new’’ then ssh will automatically add new host keys to the user known hosts files, but will not permit connections to hosts with changed host keys. If this flag is set to ’’no’’ or ’’off’’, ssh will automatically add new host keys to the user known hosts files and allow connections to hosts with changed hostkeys to proceed, subject to some restrictions. If this flag is set to &lt;strong>ask&lt;/strong> (the default), new host keys will be added to the user known host files only after the user has confirmed that is what they really want to do, and ssh will refuse to connect to hosts whose host key has changed. The host keys of known hosts will be verified automatically in all cases.&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>yes&lt;/strong> # 则 ssh(1) 将永远不会自动将主机密钥添加到 _~/.ssh/known_hosts _文件中，并且拒绝连接主机密钥已更改的主机。尽管当 _/etc/ssh/ssh_known_hosts _文件维护不当或经常与新主机建立连接时可能很烦人，但这可以最大程度地防止中间人（MITM）攻击。此选项强制用户手动添加所有新主机。&lt;/li>
+&lt;li>&lt;strong>accept-new&lt;/strong> # 那么 ssh 会自动将新的主机密钥添加到用户已知的主机文件中，但不允许使用更改的主机密钥连接到主机。&lt;/li>
+&lt;li>&lt;strong>no&lt;/strong> 或 **off **# 则 ssh 会自动将新的主机密钥添加到用户已知的主机文件中，并允许在更改主机密钥的情况下继续进行主机连接。&lt;/li>
+&lt;li>&lt;strong>ask(默认值)&lt;/strong> # 则只有在用户确认他们确实要这样做之后，新的主机密钥才会添加到用户已知的主机文件中，并且 ssh 将拒绝连接到其主机密钥的主机已经改变。在所有情况下，都会自动验证已知主机的主机密钥。&lt;/li>
+&lt;/ul>
+&lt;p>效果如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 严格检查，默认值 ask&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@lichenhao:~# ssh 172.19.42.248
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>The authenticity of host &lt;span style="color:#e6db74">&amp;#39;172.19.42.248 (172.19.42.248)&amp;#39;&lt;/span> can&lt;span style="color:#e6db74">&amp;#39;t be established.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">ECDSA key fingerprint is SHA256:dugyXVC21RvaDTtRp/cBTsqr0MPtjhBJmtjmzZTXljo.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Are you sure you want to continue connecting (yes/no/[fingerprint])? ^C
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># 不严格检查，改为 no
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">root@lichenhao:~# ssh -o &amp;#39;&lt;/span>StrictHostKeyChecking&lt;span style="color:#f92672">=&lt;/span>no&lt;span style="color:#e6db74">&amp;#39; 172.19.42.248
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Warning: Permanently added &amp;#39;&lt;/span>172.19.42.248&lt;span style="color:#e6db74">&amp;#39; (ECDSA) to the list of known hosts.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">root@172.19.42.248&amp;#39;&lt;/span>s password:
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>TCPKeepAlive&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>Tunnel&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>TunnelDevice&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>UpdateHostKeys&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>User&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>UserKnownHostsFile&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>VerifyHostKeyDNS&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>VisualHostKey&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>XAuthLocation&lt;/strong>&lt;/p></description></item><item><title>Docs: 使用 ssh 内网穿透示例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/%E4%BD%BF%E7%94%A8-ssh-%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E7%A4%BA%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/secure-shellssh-%E5%AE%89%E5%85%A8%E5%A4%96%E5%A3%B3%E5%8D%8F%E8%AE%AE/%E4%BD%BF%E7%94%A8-ssh-%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E7%A4%BA%E4%BE%8B/</guid><description>
+&lt;p>&lt;a href="https://hellolzc.github.io/2020/04/port-forwarding-with-ssh/">https://hellolzc.github.io/2020/04/port-forwarding-with-ssh/&lt;/a>&lt;/p>
+&lt;h1 id="例一转发-windows-服务器的远程桌面">例一：转发 windows 服务器的远程桌面&lt;/h1>
+&lt;p>在本地电脑上打开 PowerShell，输入如下命令（参数需要自己修改，参见上一节的解释）：&lt;/p>
+&lt;pre>&lt;code>ssh -L 10080:&amp;lt;内网Windows服务器IP&amp;gt;:3389 user@123.123.123.123 -p 6001
+&lt;/code>&lt;/pre>
+&lt;p>上面这条命令使用帐号 &lt;code>user&lt;/code> 登录了 &lt;code>123.123.123.123&lt;/code> 的 &lt;code>6001&lt;/code> 端口对应的服务器(&lt;code>192.168.0.123&lt;/code>)，并在该服务器上建立一个 ssh 转发，将本地计算机(&lt;code>127.0.0.1&lt;/code>，&lt;code>localhost&lt;/code>)的&lt;code>10080&lt;/code>端口映射到了 &lt;code>&amp;lt;内网Windows服务器IP&amp;gt;&lt;/code> 的 &lt;code>3389&lt;/code> 端口。 回车后，提示输入密码，输入账号 &lt;code>user&lt;/code> 在&lt;code>192.168.0.123&lt;/code>服务器密码。 登录后不要关闭 Powershell 窗口，否则转发会中断。
+   之后便可以用本地地址访问 windows 服务器的远程桌面。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/4a5511e8-8d29-463e-9440-7ce90a5f36ab/1626160308397-254c3e8f-d8ab-409a-891f-bd8419ef5196.png" alt="">
+   为了节约带宽并提高流畅度，可以把桌面背景改成纯色，可以把颜色深度调低，还可以把显示配置里的分辨率调小，一般使用 1600*900 分辨率。 PS：如果是高分屏觉得此分辨率看不清楚可以使用远程桌面自带的缩放功能。在标题栏上点右键即可。
+   同理，如果局域网的个人电脑也开启了远程桌面功能，也可以用这种办法访问。 RDP 协议优化是是很好的，这种办法 1 Mbps 的带宽就可以获得比较流畅的体验&lt;/p>
+&lt;h1 id="例二转发目标服务器的-web-服务">例二：转发目标服务器的 web 服务&lt;/h1>
+&lt;p>tensorboard 和 jupyter notebook 使用的是 http 协议，可以通过端口转发来访问。
+   打开 Powershell，输入如下命令&lt;/p>
+&lt;pre>&lt;code>ssh -L 28186:localhost:28888 user@123.123.123.123 -p 6001
+&lt;/code>&lt;/pre>
+&lt;p>上面这条命令使用帐号 &lt;code>user&lt;/code> 登录了 &lt;code>123.123.123.123&lt;/code> 的 &lt;code>6001&lt;/code> 端口对应的服务器(&lt;code>192.168.0.123&lt;/code>)，并在该服务器上建立一个 ssh 转发，将本地计算机的&lt;code>28186&lt;/code>端口映射到了&lt;code>192.168.0.123&lt;/code> 的 &lt;code>28888&lt;/code> 端口。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/4a5511e8-8d29-463e-9440-7ce90a5f36ab/1626160309047-ab9156ae-5500-4b10-b5d9-c7accdb3a58a.png" alt="">
+   之后再浏览器中输入&lt;code>127.0.0.1:28186&lt;/code>便可以直接访问该端口的网页。&lt;/p>
+&lt;h1 id="例三让服务器使用本地计算机的代理">例三：让服务器使用本地计算机的代理&lt;/h1>
+&lt;p>问：能不能让服务器使用本地计算机的网络呢？比如说，可以让&lt;code>git clone&lt;/code>可以走我的 PC 上的代理？
+   答：可以， 这里假设本地 PC 的&lt;code>8080&lt;/code>端口提供了代理服务, 目标是让服务器 A 上的 Git 可以使用代理，假定你可以直接 ssh 登录服务器 A, 登录账户名为&lt;code>hello&lt;/code>。 使用命令&lt;/p>
+&lt;pre>&lt;code>ssh -R 10800:localhost:8080 hello@&amp;lt;A 的IP&amp;gt;
+&lt;/code>&lt;/pre>
+&lt;p>建立远程转发，就将本地&lt;code>8080&lt;/code>端口的代理转发到 ssh 服务器 A 上的&lt;code>10800&lt;/code>端口了。
+   测试代理设置是否有效：在服务器上执行&lt;/p>
+&lt;pre>&lt;code>ss -lntpd | grep :10800 # 查看端口是否启用
+curl www.google.com --socks5 127.0.0.1:10800 # 测试访问google
+&lt;/code>&lt;/pre>
+&lt;p>Git 使用代理参考&lt;a href="https://hellolzc.github.io/2017/09/git-notes">我之前的博客&lt;/a>。 成功之后想干啥就可以干啥啦 XD&lt;/p>
+&lt;h3 id="其他问题">其他问题&lt;/h3>
+&lt;p>问：那能不能直接转发服务器的 Samba 文件共享服务呢？
+   答：不可以，Windows 不支持使用自定义的端口访问 Samba 服务器。 详见 &lt;a href="https://www.v2ex.com/t/541663">windows 访问 samba 如何指定端口？ - V2EX&lt;/a>
+   问：可以不借助公网服务器建立转发吗？
+   答：可以，可以借助 Teamviewer VPN 功能，使用实验室电脑做跳板。 参考 CSDN 博客(ccproxy 可以从官网上下载，免费版够用)： &lt;a href="https://blog.csdn.net/sky835202/article/details/80180279">teamview+ccproxy 实现远程局域网本地访问- CSDN 博客&lt;/a>&lt;/p>
+&lt;h1 id="一">一&lt;/h1>
+&lt;p>ssh 反向隧道相信大多数同学都比较了解，就算不了解也一定在日常工作中听说过，其实抛开那些专业的术语，通常我们借助 ssh 的反向隧道来实现两个网络隔离的主机间通信。最近小白在远程操作一个私有化的项目时正好用到了这个，简单总结了下便有了此文章。&lt;/p>
+&lt;p>在操作之前，我先将需要的资源列出一个表格，大家在操作前可以先按照如下准备资源：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>代号&lt;/th>
+&lt;th>角色&lt;/th>
+&lt;th>机器位置&lt;/th>
+&lt;th>地址&lt;/th>
+&lt;th>账户&lt;/th>
+&lt;th>ssh 端口&lt;/th>
+&lt;th>sshd&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>A&lt;/td>
+&lt;td>中转机器&lt;/td>
+&lt;td>公网&lt;/td>
+&lt;td>121.41.218.68&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>22&lt;/td>
+&lt;td>启用&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>B&lt;/td>
+&lt;td>客户机器&lt;/td>
+&lt;td>客户内网&lt;/td>
+&lt;td>10.155.0.0/24&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>22&lt;/td>
+&lt;td>启用&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>C&lt;/td>
+&lt;td>我的机器&lt;/td>
+&lt;td>公司 / 家中&lt;/td>
+&lt;td>127.0.0.1&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>22&lt;/td>
+&lt;td>不需要&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>这里为了操作方便机器全部用的 root 账号，大家不要学我 😂&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;code>我的需求很简单，即客户内网 B 中有一批刚装完操作系统的服务器，我需要在公司或者家中的电脑上通过 Ansible Playbook 批量对这些机器进行初始化。&lt;/code>&lt;/p>
+&lt;h2 id="第一步开启-ssh-server-代理功能">第一步：开启 ssh server 代理功能&lt;/h2>
+&lt;p>在位于公网服务器上打开 sshd 的&lt;code>GatewayPorts&lt;/code>开关，并重启 sshd&lt;/p>
+&lt;p>&lt;code>sed -i &amp;quot;s/#GatewayPorts no/GatewayPorts yes/g&amp;quot; /etc/ssh/sshd_config systemctl restart ssh&lt;/code>&lt;/p>
+&lt;p>打开代理功能意味着，当我们在建立 ssh 反向隧道后，监听的地址会从默认的 127.0.0.1 更换成 0.0.0.0，方便 ssh 客户端远程登录。&lt;/p>
+&lt;h2 id="第二步建立-ssh-反向隧道">第二步：建立 ssh 反向隧道&lt;/h2>
+&lt;p>在客户内网 B 中找一台能访问 121.41.218.68 地址的服务器，登录上去，并在终端内执行下述命令：&lt;/p>
+&lt;p>&lt;code>ssh -lroot -p22 -qngfNTR 8822:localhost:22 121.41.218.68 -o ServerAliveInterval=10&lt;/code>&lt;/p>
+&lt;p>这一步的关键信息其实就是在主机 B 和主机 A 之间建立一条 SSH 隧道，隧道端口的映射关系是&lt;code>主机 B:22 &amp;lt;--&amp;gt; 主机 A:8822&lt;/code>&lt;/p>
+&lt;p>之所以加上 ServerAliveInterval=10，是让客户端每 10s 发送一个心跳保持隧道的链接，否则这条连接很容易被重置。&lt;/p>
+&lt;h2 id="第三步本地-ssh-client-代理">第三步：本地 ssh client 代理&lt;/h2>
+&lt;p>目前有了 ssh 的隧道也只能满足我本地主机 C 能通过 121.41.218.68 的 8822 端口 ssh 登录到客户内网的 B 主机，还不能满足我进行批量运行任务的需求。&lt;/p>
+&lt;p>此时，我们就需要在自己电脑上配置 ssh 客户端的 socket 代理来满足需求，配置位于&lt;code>～/.ssh/config&lt;/code>&lt;/p>
+&lt;p>`host hosta
+    HostName 121.41.218.68
+    Port 8822
+    User root&lt;/p>
+&lt;p>host 10.155.0.*
+    User root
+    Port 22
+    ProxyCommand ssh hosta -W %h:%p&lt;/p>
+&lt;p>至此，我就可以在本地用 ansible-playbook 无缝的进行操作了。&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>上述 3 步是整个 ssh 内网穿透的核心流程，如果要做得更加的优雅的话，我们还需要考虑几点优化：&lt;/p>
+&lt;ul>
+&lt;li>为三台机器上的 ssh 客户端分别配置公私钥&lt;/li>
+&lt;li>为主机 B 上的 ssh 方向隧道创建服务进程，避免重启后隧道丢失&lt;/li>
+&lt;li>尽量保证公网主机 A 的网络安全，可单独为隧道端口配置防火墙策略&lt;/li>
+&lt;/ul>
+&lt;p>当然，ssh 反向隧道除了能代理 ssh 服务外，它也能对内网的其他服务做 socket 转发，这里本文就不再展开。总之，建立 SSH 反向隧道这种事情大多数情况都是迫于无奈的临时选择，我们在用完后要及时释放连接，避免长期闲置被不法分子盯上后带来的损失。&lt;/p></description></item><item><title>Docs: 已弃用模块</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/%E5%B7%B2%E5%BC%83%E7%94%A8%E6%A8%A1%E5%9D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/pam%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/%E5%B7%B2%E5%BC%83%E7%94%A8%E6%A8%A1%E5%9D%97/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;h1 id="pam_tally2so-模块">pam_tally2.so 模块&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/pam_tally2.8.html">Manual(手册),pam_tally2(8)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>弃用说明：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/linux-pam/linux-pam/releases/tag/v1.4.0">GitHub,linux-pam 项目 1.4.0 版本中对 pam_tall2 模块的弃用说明&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://access.redhat.com/solutions/62949">https://access.redhat.com/solutions/62949&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/dev-sec/ansible-collection-hardening/issues/377">https://github.com/dev-sec/ansible-collection-hardening/issues/377&lt;/a>&lt;/li>
+&lt;li>由 pam_faillock 模块代替&lt;/li>
+&lt;/ul>
+&lt;p>登录 Tallying(计数器) 模块&lt;/p>
+&lt;p>应用场景：设置 Linux 用户连续 N 次输入错误密码进行登陆时，自动锁定 X 分钟或永久锁定（这里的永久锁定指除非进行手工解锁，否则会一直锁定）。&lt;/p>
+&lt;h2 id="配置">配置&lt;/h2>
+&lt;p>&lt;strong>/var/log/faillog&lt;/strong> #&lt;/p>
+&lt;h2 id="模块参数">模块参数&lt;/h2>
+&lt;ul>
+&lt;li>**deny=INT **# 指定认证失败 deny 次后，将执行后面参数的策略。如锁定 N 秒，如果后面没有其他策略指定时，默认永远锁定，除非手动解锁。&lt;/li>
+&lt;li>**lock_time=INT **# 认证失败时锁定 lock_time 秒&lt;/li>
+&lt;li>**unlock_time=INT **# 锁定 unlock_time 秒后，自动解锁用户；&lt;/li>
+&lt;li>&lt;strong>even_deny_root&lt;/strong> # root 用户在认证出错时，一样被锁定(该功能慎用)&lt;/li>
+&lt;li>**root_unlock_time **# root 用户锁定后，多久会解锁。该选项一般是配合 even_deny_root 一起使用的。&lt;/li>
+&lt;li>&lt;strong>magic_root&lt;/strong> # 如果用户 uid ＝ 0（即 root 账户或相当于 root 的帐户）在帐户认证时调用该模块发现失败时，不计入统计；&lt;/li>
+&lt;li>**no_lock_time **# 不使用.fail_locktime 项在/var/log/faillog 中记录用户 －－－按英文直译不太明白，个人理解即不进行用户锁定；&lt;/li>
+&lt;/ul>
+&lt;h2 id="模块的命令行工具">模块的命令行工具&lt;/h2>
+&lt;h3 id="pam_tally2">pam_tally2&lt;/h3>
+&lt;p>pam_tally2 模块的控制工具，用于查询和操作计数器文件(/var/log/faillog)。e.g.查看用户登录失败的次数、清除用户登录失败的次数等等操作&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>pam_tally2 &amp;ndash;user ftp # 查询 ftp 用户被锁定情况&lt;/li>
+&lt;li>pam_tally2 &amp;ndash;user ftp &amp;ndash;reset=0 # 解锁 ftp 用户&lt;/li>
+&lt;/ul></description></item><item><title>Docs: 账户配置文件</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/account-manager%E8%B4%A6%E6%88%B7%E7%AE%A1%E7%90%86/%E8%B4%A6%E6%88%B7%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/account-manager%E8%B4%A6%E6%88%B7%E7%AE%A1%E7%90%86/%E8%B4%A6%E6%88%B7%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;h2 id="参考">参考：&lt;/h2>
+&lt;/blockquote>
+&lt;h1 id="passwd">passwd&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man5/passwd.5.html">Manual(手册),passwd(5)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root:x:0:0:root:/root:/bin/bash
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>bin:x:1:1:bin:/bin:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>daemon:x:2:2:daemon:/sbin:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>adm:x:3:4:adm:/var/adm:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sync:x:5:0:sync:/sbin:/bin/sync
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>halt:x:7:0:halt:/sbin:/sbin/halt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>operator:x:11:0:operator:/root:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>games:x:12:100:games:/usr/games:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ftp:x:14:50:FTP User:/var/ftp:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nobody:x:99:99:Nobody:/:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>systemd-network:x:192:192:systemd Network Management:/:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dbus:x:81:81:System message bus:/:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>polkitd:x:999:998:User &lt;span style="color:#66d9ef">for&lt;/span> polkitd:/:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sshd:x:74:74:Privilege-separated SSH:/var/empty/sshd:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>postfix:x:89:89::/var/spool/postfix:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>tcpdump:x:72:72::/:/sbin/nologin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>chrony:x:998:996::/var/lib/chrony:/sbin/nologin
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="shadow">shadow&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man5/shadow.5.html">Manual(手册),shadow(5)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>注意：该文件中通常是没有任何 读、写、执行 权限的，不推荐直接使用系统终端直接修改该文件(比如 vi、sed 等命令)，而是通过专用的 &lt;code>chage、useradd、userdel&lt;/code> 等等工具修改本文件&lt;/p>
+&lt;p>shadow 是一个文件，其中包含系统帐户的密码信息和可选的老化信息。如果要维护密码安全，则普通用户不得读取此文件。该文件的每一行包含 9 个字段，以冒号 &lt;code>:&lt;/code> 分隔，顺序如下：&lt;/p>
+&lt;ol>
+&lt;li>**login name(登录名称) **# 操作系统中有效的账户名称&lt;/li>
+&lt;li>&lt;strong>encrypted password(加密的密码)&lt;/strong> # 账户对应的密码，该字段的密码是加密后的字符串。
+&lt;ol>
+&lt;li>该字段可以为空，这种情况下，无需密码即可登录系统。不过一般默认情况，系统的 PAM 模块会阻止这种行为。&lt;/li>
+&lt;li>以 &lt;code>!&lt;/code> 开头的表示密码被锁定&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>**date of last password change(上次更改密码的日期) **# 上次更改密码的日期。该字段的值，是从 1970 年 1 月 1 日开始到上次修改密码时经过的天数。&lt;/li>
+&lt;li>**minimum password age(最小密码期限) **# 简称 MIN_DAYS。自从上次密码修改之后，至少需要 INT 天才可以再次被修改。
+&lt;ol>
+&lt;li>如果不满足天数要求，当使用 passwd 命令修改密码时，则会出现如下报错 &lt;code>You must wait longer to change your password&lt;/code>，并且直接退出程序，终止用户的修改密码操作。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>&lt;strong>maximum password age(最大密码期限)&lt;/strong> # 简称 MAX_DAYS。 密码可以使用的最大天数。如果超过了使用天数，将会被强制更改密码，否则无法登录。值为 -1 则不再限制密码可以使用的最大天数&lt;/li>
+&lt;li>**password warning period(密码警告期限) **# 简称 WARN_DAYS。密码到期前发出警告的天数。值为 0 则表示仅在到期日发出警告，负值或不指定值表示不发出警告。&lt;/li>
+&lt;li>&lt;strong>password inctivity period(密码不活动期限)&lt;/strong> #&lt;/li>
+&lt;li>**account expiration data(账户到期日) **#&lt;/li>
+&lt;li>&lt;strong>reserved field(保留字段)&lt;/strong> #&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root:$6$lWEIpm976ef7vNzK$EI.F1OKITgSvYTFjjEe.qfYbGfKKLXmA9NNQroH3H0ZqLy8wfC914AyvpGtz9p1Ls8I8cg62jxygziZuA30Fl.::0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>bin:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>daemon:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>adm:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lp:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sync:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>shutdown:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>halt:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>mail:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>operator:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>games:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ftp:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nobody:*:18353:0:99999:7:::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>systemd-network:!!:18545::::::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dbus:!!:18545::::::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>polkitd:!!:18545::::::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sshd:!!:18545::::::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>postfix:!!:18545::::::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>tcpdump:!!:18545::::::
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>chrony:!!:18545::::::
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="logindefs">login.defs&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man5/login.defs.5.html">Manual(手册),login.defs(5)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>/etc/login.defs 文件在不同的发行版中，属于不同的包&lt;/p>
+&lt;ul>
+&lt;li>CentOS 发行版中，属于 shadow-utils 包。
+&lt;ul>
+&lt;li>配置文件中的参数用来控制 shadow-utils 包中所有工具的行为&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Ubuntu 发型版中，属于 login 包。
+&lt;ul>
+&lt;li>配置文件中的参数用来控制 login 包中所有工具的行为&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>/etc/login.defs 文件定义了影子密码套件的站点特定配置。该文件是必需的。缺少此文件不会阻止系统运行，但可能会导致不受欢迎的操作。&lt;/p>
+&lt;p>该文件是一个可读的文本文件，文件的每一行描述一个配置参数。这些行由配置名称和值组成，以空格分隔。空白行和注释行将被忽略。注释以“#”井号开头，井号必须是该行的第一个非白色字符。&lt;/p>
+&lt;p>参数值可能有四种类型：字符串、布尔值、数字和长数字。字符串由任何可打印的字符组成。布尔值应该是值是或否。未定义的布尔参数或具有除这些值以外的值的参数将被赋予无值。数字（常规和长整数）可以是十进制值、八进制值（值前面加 0）或十六进制值（值前面加 0x）。常规和长数值参数的最大值取决于机器。&lt;/p>
+&lt;h2 id="参数详解">参数详解&lt;/h2>
+&lt;h3 id="账户密码相关">账户密码相关&lt;/h3>
+&lt;p>&lt;strong>PASS_MAX_DAYS &lt;!-- raw HTML omitted -->&lt;/strong> # 密码可以使用的最大天数。如果超过了使用天数，将会被强制更改密码，否则无法登录。&lt;code>默认值：99999&lt;/code>。值为 -1 则不再限制密码可以使用的最大天数&lt;/p>
+&lt;ul>
+&lt;li>对应 shadow 文件中的第 5 个字段 maximum password age&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>PASS_MIN_DAYS&lt;!-- raw HTML omitted -->&lt;/strong> # 自从上次密码修改之后，至少需要 INT 天才可以再次被修改。&lt;/p>
+&lt;ul>
+&lt;li>对应 shadow 文件中的第 4 个字段 minimum password age&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>PASS_WARN_AGE&lt;!-- raw HTML omitted -->&lt;/strong> # 密码到期前发出警告的天数。值为 0 则表示仅在到期日发出警告，负值或不指定值表示不发出警告。&lt;/p>
+&lt;ul>
+&lt;li>对应 shadow 文件中的第 6 个字段 password warning period&lt;/li>
+&lt;/ul>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>PASS_MAX_DAYS、PASS_MIN_DAYS、PASS_WARN_AGE 这三个参数仅在创建账户时才会生效，当创建账户时，会读取这三个参数的值，并写入到 /etc/shadow 文件的对应字段中。也就是说，如果我修改了这些参数的值，已经存在的账户并不受影响
+&lt;ul>
+&lt;li>如果想要让当前账户获取这些配置，使用 &lt;code>chage&lt;/code> 命令、或者直接修改 /etc/shadow 文件即可。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul></description></item></channel></rss>

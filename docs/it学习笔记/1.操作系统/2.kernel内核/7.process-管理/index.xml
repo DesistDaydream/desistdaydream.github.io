@@ -1,0 +1,1262 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 7.Process 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/</link><description>Recent content in 7.Process 管理 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: D-Bus</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/d-bus/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/d-bus/</guid><description>
+&lt;p>&lt;strong>D-Bus&lt;/strong> 是一个 &lt;strong>IPC&lt;/strong> 及 &lt;strong>RPC&lt;/strong> 机制，可以让多个不同的计算机进程在同一台电脑上同时进行通信。&lt;/p></description></item><item><title>Docs: gRPC</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/rpc/grpc/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/rpc/grpc/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;h2 id="grpc">gRPC&lt;/h2>
+&lt;p>&lt;strong>Google Remote Procedure Calls(谷歌远程过程调用，简称 gRPC)&lt;/strong> 是一个开源的 RPC 系统，最初于 2015 年在 Google 开发，作为下一代 RPC 基础设施 Stubby。它使用 HTTP/2 进行传输，Protocol Buffers 作为接口描述语言，并提供身份验证、双向流和流量控制、阻塞或非阻塞绑定以及取消和超时等功能。它为多种语言生成跨平台的客户端和服务器绑定。最常见的使用场景包括在微服务风格架构中连接服务，或将移动设备客户端连接到后端服务。&lt;/p>
+&lt;p>gRPC 对 HTTP/2 的复杂使用使得无法在浏览器中实现 gRPC 客户端，而是需要代理。&lt;/p>
+&lt;h1 id="grpc-长连接在微服务业务系统中的实践">gRPC 长连接在微服务业务系统中的实践&lt;/h1>
+&lt;p>&lt;a href="https://mp.weixin.qq.com/s/DNHGBCZDdRjBXX0IaIZhwQ">gRPC 长连接在微服务业务系统中的实践&lt;/a>&lt;/p>
+&lt;p>作者 | 张琦&lt;/p>
+&lt;p>长连接和短连接哪个更好， 一直是被人反复讨论且乐此不疲的话题。有人追求短连接的简单可靠， 有人却对长连接的低延时趋之若鹜。那么长连接到底好在哪里， 它是否是解决性能问题的银弹? 本文就从 gRPC 长连接的视角， 为你揭开这层面纱。&lt;/p>
+&lt;p>1 什么是长连接&lt;/p>
+&lt;p>HTTP 长连接, 又称为 HTTP persistent connection, 也称作 HTTP keep-alive 或 HTTP connection reuse, 是指在一条 TCP 连接上发起多个 HTTP 请求 / 应答的一种交互模式。&lt;/p>
+&lt;p>那么什么是长连接, 什么是短连接? 他们和 TCP 有什么关系呢?&lt;/p>
+&lt;p>为了理解这个概念, 我们来看下图中 TCP 连接的三种行为。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;p>图一 展示了 client 和 server 端基于 TCP 协议的一次交互过程， 分为三个阶段: 三次握手， 数据交换和四次挥手。这个过程比较简单， 但是实际应用中存在一个问题。假如 server 处理请求过程非常耗时， 或者不幸突然宕机， 此时 client 会陷入无限等待的状态。为了解决这个问题， TCP 在具体的实现中加入了 keepalive。&lt;/p>
+&lt;p>图二 展示了 keepalive 的工作机制。当该机制开启之后， 系统会为每一个连接设置一个定时器， 不断地发送 ACK 包， 用来探测目标主机是否存活， 当对方主机宕机或者网络中断时， 便能及时的得到反馈并释放资源。&lt;/p>
+&lt;p>在图一和图二中可以看到， 虽然连接的持续时间不同， 但他们的行为类似， 都是完成了一次数据交互后便断开了连接， 如果有更多的请求要发送， 就需要重新建立连接。这种行为模式被称为短连接。&lt;/p>
+&lt;p>那有没有可能在完成数据交互后不断开连接， 而是复用它继续下一次请求呢?&lt;/p>
+&lt;p>图三 展示了这种交互的过程。在 client 和 server 端完成了一次数据交换后， client 通过 keepalive 机制保持该连接， 后面的请求会直接复用该连接， 我们称这种模式为长连接。&lt;/p>
+&lt;p>理解了上面的过程， 我们便可以得出下面的结论：&lt;/p>
+&lt;ol>
+&lt;li>TCP 连接本身并没有长短的区分， 长或短只是在描述我们使用它的方式&lt;/li>
+&lt;li>长 / 短是指多次数据交换能否复用同一个连接， 而不是指连接的持续时间&lt;/li>
+&lt;li>TCP 的 keepalive 仅起到保活探测的作用， 和连接的长短并没有因果关系&lt;/li>
+&lt;/ol>
+&lt;p>需要注意的是， 在 HTTP/1.x 协议中也有 Keep-Alive 的概念。如下图， 通过在报文头部中设置 connection: Keep-Alive 字段来告知对方自己支持并期望使用长连接通信， 这和 TCP keepalive 保活探测的作用是完全不同的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;p>2 长连接的优势&lt;/p>
+&lt;p>相比于短连接，长连接具有：&lt;/p>
+&lt;ol>
+&lt;li>较低的延时。由于跳过了三次握手的过程，长连接比短连接有更低的延迟。&lt;/li>
+&lt;li>较低的带宽占用。由于不用为每个请求建立和关闭连接，长连接交换效率更高，网络带宽占用更少。&lt;/li>
+&lt;li>较少的系统资源占用。server 为了维持连接，会为每个连接创建 socket，分配文件句柄， 在内存中分配读写 buffer，设置定时器进行 keepalive。因此更少的连接数也意味着更少的资源占用。&lt;/li>
+&lt;/ol>
+&lt;p>另外， gRPC 使用 HTTP/2.0 作为传输协议， 从该协议的设计来讲， 长连接也是更推荐的使用方式， 原因如下：&lt;/p>
+&lt;ol>
+&lt;li>HTTP/2.0 的多路复用， 使得连接的复用效率得到了质的提升&lt;/li>
+&lt;/ol>
+&lt;p>HTTP/1.0 开始支持长连接， 如下图 1， 请求会在 client 排队 (request queuing)， 当响应返回之后再发送下一个请求。而这个过程中， 任何一个请求处理过慢都会阻塞整个流程， 这个问题被称为线头阻塞问题， 即 Head-of-line blocking。&lt;/p>
+&lt;p>HTTP/1.1 做出了改进， 允许 client 可以连续发送多个请求， 但 server 的响应必须按照请求发送的顺序依次返回， 称为 Pipelining (server 端响应排队)， 如下图 2。这在一定程度上提高了复用效率， 但并没能解决线头阻塞的问题。&lt;/p>
+&lt;p>HTTP/2.0 引入了分帧分流的机制， 实现了多路复用 (乱序发送乱序接受)， 彻底的解决了线头阻塞， 极大提高了连接复用的效率。如下图 3。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;ol start="2">
+&lt;li>HTTP/2.0 的单个连接维持的成本更高&lt;/li>
+&lt;/ol>
+&lt;p>除了分帧分流之外， HTTP/2.0 还加入了诸如流控制和服务端推送等特性， 这也使得协议变得复杂， 连接的建立和维护成本升高。&lt;/p>
+&lt;p>下图展示了 HTTP/1.1 一次短连接交互的过程。可以看到, 握手和挥手之间, 只发生了两次数据交换, 一次请求 ① 和一次响应 ②。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;p>下图展示了 HTTP/2.0 一次短连接交互过程， 握手和挥手之间， 发生了多达 11 次的数据交换。除了 client 端请求 (header 和 body 分成了两个数据帧， 于第 ⑤⑥ 步分开传输）和 server 端响应 (⑨) 之外， 还夹杂着一些诸如协议确认 (①) ， 连接配置 (②③④) ， 流管理 (⑦⑩) 和探测保活 (⑧⑪) 的过程。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;p>很明显可以看出， HTTP/2.0 的连接更重， 维护成本更高， 使得复用带来的收益更高。&lt;/p>
+&lt;p>3 长连接不是银弹&lt;/p>
+&lt;p>虽然长连接有很多优势， 但并不是所有的场景都适用。在使用长连接之前， 至少有以下两个点需要考虑。&lt;/p>
+&lt;ol>
+&lt;li>client 和 server 的数量&lt;/li>
+&lt;/ol>
+&lt;p>长连接模式下， server 要和每一个 client 都保持连接。如果 client 数量远远超过 server 数量， 与每个 client 都维持一个长连接， 对 server 来说会是一个极大的负担。好在这种场景中， 连接的利用率和复用率往往不高，使用简单且易于管理的短连接是更好的选择。即使用长连接， 也必须设置一个合理的超时机制， 如在空闲时间过长时断开连接， 释放 server 资源。&lt;/p>
+&lt;ol start="2">
+&lt;li>负载均衡机制&lt;/li>
+&lt;/ol>
+&lt;p>现代后端服务端架构中， 为了实现高可用和可伸缩， 一般都会引入单独的模块来提供负载均衡的功能， 称为负载均衡器。根据工作在 OSI 不同的层级， 不同的负载均衡器会提供不同的转发功能。接下来就最常见的 L4 (工作在 TCP 层）和 L7 (工作在应用层， 如 HTTP） 两种负载均衡器来分析。&lt;/p>
+&lt;p>L4 负载均衡器: 原理是将收到的 TCP 报文， 以一定的规则转发给后端的某一个 server。这个转发规则其实是到某个 server 地址的映射。由于它只转发， 而不会进行报文解析， 因此这种场景下 client 会和 server 端握手后直接建立连接， 并且所有的数据报文都只会转发给同一个 server。如下图所示， L4 会将 10.0.0.1:3001 的流量全部转发给 11.0.0.2:3110。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;p>在短连接模式下， 由于连接会不断的建立和关闭， 同一个 client 的流量会被分发到不同的 server。&lt;/p>
+&lt;p>在长连接模式下， 由于连接一旦建立便不会断开， 就会导致流量会被分发到同一个 server。在 client 与 server 数量差距不大甚至 client 少于 server 的情况下， 就会导致流量分发不均。如下图中， 第三个 server 会一直处于空闲的状态。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;p>为了避免这种场景中负载均衡失效的情况， L7 负载均衡器便成了一个更好的选择。&lt;/p>
+&lt;p>L7 负载均衡器: 相比 L4 只能基于连接进行负载均衡， L7 可以进行 HTTP 协议的解析. 当 client 发送请求时， client 会先和 L7 握手， L7 再和后端的一个或几个 server 握手，并根据不同的策略将请求分发给这些 server，实现基于请求的负载均衡. 如下图所示，10.0.0.1 通过长连接发出的多个请求会根据 url， cookies 或 header 被 L7 分发到后端不同的 server。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;p>因此，必须要意识到，虽然长连接可以带来性能的提升，但如果忽略了使用场景或是选择了错误的负载均衡器，结果很可能会适得其反。实践中一定要结合实际情况， 避免因错误的使用导致性能下降或者负载均衡失效的情况发生。&lt;/p>
+&lt;p>4 Biz-UI 团队长连接实践&lt;/p>
+&lt;p>连接的管理&lt;/p>
+&lt;p>Biz-UI 的业务系统采用 Kubernetes + Istio 架构来作为生产平台。Kubernetes 负责服务的部署、升级和管理等较基础的功能。Istio 负责上层的服务治理， 包括流量管理， 熔断， 限流降级和调用链治理等。在这之上，业务系统服务之间则使用 gRPC 进行远程调用。&lt;/p>
+&lt;p>Istio 功能的实现依赖于其使用 sidecar (默认为 Envoy）控制 Pod 的入站出站流量， 从来进行劫持和代理转发。&lt;/p>
+&lt;p>下图展示了 Istio 中两个 service 流量的转发过程。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;p>蓝色部分是 Kubernetes 的一些基本组件， 如集群元数据存储中心 etcd， 提供元数据查询和管理服务的 api-server， 服务注册中心 coreDNS， 负责流量转发的 kube-proxy 和 iptables。&lt;/p>
+&lt;p>黄色的部分是 Istio 引入的 Pilot 和 Envoy 组件。Pilot 通过 list/watch api-server 来为 Envoy 提供服务发现功能。Envoy 则负责接管 Pod 的出站和入站流量， 从而实现连接管理， 熔断限流等功能。和 nginx 类似， Envoy 也是工作在第七层。&lt;/p>
+&lt;p>绿色部分表示提供业务功能的两种服务， 订单服务 (Order) 和用户数据服务 (User)。&lt;/p>
+&lt;p>Order 调用 User 服务的过程为：&lt;/p>
+&lt;ol>
+&lt;li>Order 通过 coreDNS 解析到 User 服务对应的 ClusterIP。&lt;/li>
+&lt;li>当 Order 向该 ClusterIP 发送请求时， 实际上是同 Envoy 代理建立连接。&lt;/li>
+&lt;li>Envoy 根据 Pilot 的路由规则， 从 ClusterIP 对应的多个 User Pod IP 中选择一个， 并同该 Pod 的 Envoy 代理建立连接。&lt;/li>
+&lt;li>最后， User 的 Envoy 代理再与 User 建立连接， 并进行请求转发。&lt;/li>
+&lt;/ol>
+&lt;p>在这个过程中， 总共有三个连接被建立：&lt;/p>
+&lt;ul>
+&lt;li>第一个连接是 Order -&amp;gt; Order Envoy， 是由 Order 建立并控制。&lt;/li>
+&lt;li>第二和第三个连接是 Order Envoy -&amp;gt; User Envoy -&amp;gt; User， 由 Envoy 发起和建立， 不受 Order 控制。默认是工作在长连接模式， 并通过连接池进行维护。&lt;/li>
+&lt;/ul>
+&lt;p>具体实践中， Envoy 会选择建立多个连接的方式来提高可用性。如下面的图示中：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;p>绿色的连接表示由 Envoy 管理的连接。可以看到， Order Envoy 会选择多个上游 User Envoy，并分别与每一个建立两个长连接。同时，每个 User Envoy 也会与 User 建立四条长连接。这个行为是 Envoy 的行为，不受 Order 连接 (蓝色的部分) 的影响。&lt;/p>
+&lt;p>蓝色的连接表示由 Order 管理的连接。可以看到，无论是建立 N 个短连接 (图左上方）还是一个长连接 (图右上方），Order 发出的多个请求都会经过两层长连接分发到不同的 User 实例上，从而实现基于请求的负载均衡。&lt;/p>
+&lt;p>值得注意的是, Order service 中代码的实现决定了蓝色的连接为长连接或短连接, 且不会影响绿色的部分。&lt;/p>
+&lt;p>长连接的实现&lt;/p>
+&lt;p>我们以下面的 proto 文件为例来讲述基于 Go 语言的实现。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">syntax&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;proto3&amp;#34;&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">package&lt;/span> &lt;span style="color:#e6db74">test&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">message&lt;/span> &lt;span style="color:#e6db74">HelloRequest&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">string&lt;/span> &lt;span style="color:#e6db74">message&lt;/span> = &lt;span style="color:#ae81ff">1&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">message&lt;/span> &lt;span style="color:#e6db74">HelloResponse&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">string&lt;/span> &lt;span style="color:#e6db74">response&lt;/span> = &lt;span style="color:#ae81ff">1&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">service&lt;/span> &lt;span style="color:#e6db74">TestService&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">rpc&lt;/span> &lt;span style="color:#e6db74">SayHello&lt;/span> &lt;span style="color:#e6db74">(HelloRequest)&lt;/span> &lt;span style="color:#e6db74">returns&lt;/span> &lt;span style="color:#e6db74">(HelloResponse)&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672"> }&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>proto 生成对应的 client 代码如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">TestServiceClient&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">SayHello&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">in&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">HelloRequest&lt;/span>, &lt;span style="color:#a6e22e">opts&lt;/span> &lt;span style="color:#f92672">...&lt;/span>&lt;span style="color:#a6e22e">grpc&lt;/span>.&lt;span style="color:#a6e22e">CallOption&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>(&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">HelloResponse&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">testServiceClient&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">cc&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">grpc&lt;/span>.&lt;span style="color:#a6e22e">ClientConn&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">NewTestServiceClient&lt;/span>(&lt;span style="color:#a6e22e">cc&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">grpc&lt;/span>.&lt;span style="color:#a6e22e">ClientConn&lt;/span>) &lt;span style="color:#a6e22e">TestServiceClient&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">testServiceClient&lt;/span>{&lt;span style="color:#a6e22e">cc&lt;/span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">c&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">testServiceClient&lt;/span>) &lt;span style="color:#a6e22e">SayHello&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">in&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">HelloRequest&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">opts&lt;/span> &lt;span style="color:#f92672">...&lt;/span>&lt;span style="color:#a6e22e">grpc&lt;/span>.&lt;span style="color:#a6e22e">CallOption&lt;/span>) (&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">HelloResponse&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">out&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> new(&lt;span style="color:#a6e22e">HelloResponse&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">grpc&lt;/span>.&lt;span style="color:#a6e22e">Invoke&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;/test.TestService/SayHello&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">in&lt;/span>, &lt;span style="color:#a6e22e">out&lt;/span>, &lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">cc&lt;/span>, &lt;span style="color:#a6e22e">opts&lt;/span>&lt;span style="color:#f92672">...&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">out&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们可以看到， testServiceClient (以下简称 client）中有一个成员变量 grpc.ClientConn (以下简称 con），它代表了一条 gRPC 连接，用来承担底层发送请求和接受响应的功能。client 和 con 是一对一绑定的，为了连接复用，我们可以把其中任何一个提取成共享变量，将其改写成单例模式。&lt;/p>
+&lt;p>假如将 con 提取成共享变量，那么每次复用的时候，还需为其新建一个 client 对象，因此我们可以直接将 client 提取成共享变量。&lt;/p>
+&lt;p>首先我们定义两个包级别共享变量，&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-javascript" data-lang="javascript">&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">internalTestServiceClientInstance&lt;/span> &lt;span style="color:#a6e22e">proto&lt;/span>.&lt;span style="color:#a6e22e">TestServiceClient&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">internalTestServiceClientMutex&lt;/span> &lt;span style="color:#a6e22e">sync&lt;/span>.&lt;span style="color:#a6e22e">Mutex&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>然后我们构建一个 client 的代理，对外暴露方法调用，对内提供&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-swift" data-lang="swift">&lt;span style="display:flex;">&lt;span>internalTestServiceClientInstance &lt;span style="color:#960050;background-color:#1e0010">的封装。然后按照如下的方式实现&lt;/span> SayHello
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>type internalTestServiceClient &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> dialOptions []grpc.DialOption
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (i &lt;span style="color:#f92672">*&lt;/span>internalTestServiceClient) SayHello(ctx context.Context, req
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">*&lt;/span>proto.HelloRequest, opts ...grpc.CallOption) (&lt;span style="color:#f92672">*&lt;/span>proto.HelloResponse, error) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> useLongConnection := grpcClient.UseLongConnection() &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> len(i.dialOptions) ==
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> useLongConnection &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> internalTestServiceClientInstance &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> internalTestServiceClientInstance.SayHello(ctx, req, opts...)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> c, conn, err := getTestServiceClient(i.dialOptions...)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> err &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, err
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> useLongConnection {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> internalTestServiceClientMutex.Lock()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">defer&lt;/span> internalTestServiceClientMutex.Unlock()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> internalTestServiceClientInstance == &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> internalTestServiceClientInstance = c
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> log.Info(&lt;span style="color:#e6db74">&amp;#34;long connection established for internalTestServiceClient&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> } &lt;span style="color:#66d9ef">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">defer&lt;/span> grpcClient.CloseCon(conn)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> log.Info(&lt;span style="color:#e6db74">&amp;#34;long connection for internalTestServiceClient has been
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">established, going to close current connection&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> } &lt;span style="color:#66d9ef">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">defer&lt;/span> grpcClient.CloseCon(conn)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> c.SayHello(ctx, req, opts...)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这里需要注意的几个点:&lt;/p>
+&lt;ul>
+&lt;li>client 的共享而不是 con 层的共享&lt;/li>
+&lt;li>懒加载&lt;/li>
+&lt;li>DCL 双检查避免连接泄露&lt;/li>
+&lt;li>当使用自定义的 dialOptions 时， 切换到短连接模式&lt;/li>
+&lt;/ul>
+&lt;p>性能测试&lt;/p>
+&lt;p>我们在 Istio 平台下， 对同一个接口在长连接和短连接两种模式下的响应时间和吞吐量进行了压力测试。&lt;/p>
+&lt;p>首先是对响应时间的测试， 结果如下图所示。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;p>对短连接来说， 当并发数 &amp;lt;350 的， 响应时间呈线性增长， 当并发数超过 350 时， 响应时间陡增， 很快达到了 10s 并引发了超时。&lt;/p>
+&lt;p>对长连接来说， 当并发数 &amp;lt;500 时， 响应时间虽然也呈线性增长， 但比短连接要小。当并发数超过 500 时， 响应时间陡增并很快超时。&lt;/p>
+&lt;p>接下来是吞吐量的测试， 结果如下图所示。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/80c0f93c-d902-44cb-90be-a670ed7b9f3d/640" alt="">&lt;/p>
+&lt;p>对短连接来说， 当并发数 &amp;lt;350 时， 吞吐量基本维持在 290， 超过 350 便开始骤减。&lt;/p>
+&lt;p>对长连接来说， 当并发数 &amp;lt;500 时， 吞吐量基本维持在 325， 超过 500 便开始骤减。&lt;/p>
+&lt;p>从测试结果来看， 长连接和短连接都存在明显的性能拐点 (长连接为 500， 短连接为 350)， 在到达拐点之前， 性能变化较为平稳，一旦超过便急剧下降。但无论是从响应时间，QPS， 或是拐点值大小来看， 长连接都明显要优于短连接。&lt;/p>
+&lt;p>5 总结&lt;/p>
+&lt;p>本文深入解释了长连接和短连接概念， 并阐述了长连接的优势及使用时应考虑的问题。结合 Biz-UI 的业务系统， 分析了 Istio 平台中 gRPC 连接的管理方式和长连接基于 Go 语言的实现， 并通过性能测试展示了长连接带来的响应时间和吞吐量上的提升， 为 gRPC 框架中使用长连接提供了有力的理论依据和数据支持。&lt;/p>
+&lt;p>希望此文会对你有所帮助！&lt;/p>
+&lt;p>参考链接&lt;/p>
+&lt;p>【1】[HTTP/2.0 - RFC7540]&lt;/p>
+&lt;p>https:// httpwg.org/specs/rfc7540.html&lt;/p>
+&lt;p>【2】[TCP keepalive]&lt;/p>
+&lt;p>&lt;a href="https://www.freesoft.org/CIE/RFC/1122/71.htm">https://www.freesoft.org/CIE/RFC/1122/71.htm&lt;/a>&lt;/p>
+&lt;p>【3】[HTTP Keep-Alive]&lt;/p>
+&lt;p>&lt;a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Keep-Alive">https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Keep-Alive&lt;/a>&lt;/p>
+&lt;p>【4】[gRPC]&lt;/p>
+&lt;p>&lt;a href="https://grpc.io/">https://grpc.io/&lt;/a>&lt;/p>
+&lt;p>【5】[Istio]&lt;/p>
+&lt;p>&lt;a href="https://istio.io/">https://istio.io/&lt;/a>&lt;/p>
+&lt;p>【6】[Kubernetes]&lt;/p>
+&lt;p>&lt;a href="https://kubernetes.io/">https://kubernetes.io/&lt;/a>&lt;/p>
+&lt;p>【7】[Envoy Doc]&lt;/p>
+&lt;p>&lt;a href="https://www.envoyproxy.io/docs/envoy/latest/">https://www.envoyproxy.io/docs/envoy/latest/&lt;/a>&lt;/p>
+&lt;p>【8】[NGINX Layer 7 Load Balancing]&lt;/p>
+&lt;p>&lt;a href="https://www.nginx.com/resources/glossary/layer-7-load-balancing/">https://www.nginx.com/resources/glossary/layer-7-load-balancing/&lt;/a>&lt;/p>
+&lt;p>作者简介&lt;/p>
+&lt;p>张琦，FreeWheel Biz-UI 团队高级研发工程师, 热衷于新技术的研究与分享，擅长发现与解决后端开发痛点，目前致力于 Go，容器化和无服务化相关的实践。&lt;/p>
+&lt;p>今日推荐文章&lt;/p>
+&lt;p>&lt;a href="http://mp.weixin.qq.com/s?__biz=MzIzNjUxMzk2NQ==&amp;amp;mid=2247501832&amp;amp;idx=1&amp;amp;sn=1ee2d0258141540ea15dfe4ade286a35&amp;amp;chksm=e8d437cadfa3bedcf3726e70ad98d321fd6d565a739b53fe0eb28ac802b939a4e7cd2bbc789f&amp;amp;scene=21#wechat_redirect">Uber 如何解决 2000 多个微服务带来的复杂性问题？&lt;/a>&lt;/p>
+&lt;p>点个在看少个 bug👇&lt;/p></description></item><item><title>Docs: Inter Process Communication(进程间通信)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Inter-process_communication">Wiki,IPC&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Local_Inter-Process_Communication">Wiki,LPC&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/MnIcTR0KKpgnSoA3xaPUSA">公众号,小林 Coding-进程间通信&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>**Inter Process Communication(进程间通信，简称 IPC) **是一种允许多个进程共享数据的机制。IPC 的两个应用可以被分为客户端和服务端，客户端进程请求数据，服务端响应客户端的数据请求。有一些应用本身既是服务器又是客户端，这在分布式计算中，时常可以见到。这些进程可以运行在同一计算机上或网络连接的不同计算机上。&lt;/p>
+&lt;p>IPC 对微内核和 nano 内核的设计过程非常重要。 微内核减少了内核提供的功能数量。 然后通过 IPC 与服务器通信获得这些功能，与普通的宏内核相比，IPC 的数量大幅增加。&lt;/p>
+&lt;p>IPC 可以分为如下两类：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Local Procedure Call(本地过程调用，简称 LPC)&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>Remote Procedure Call(远程过程调用，简称 RPC)&lt;/strong> #&lt;/li>
+&lt;/ul>
+&lt;p>IPC 可以通过多种方式实现：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>file(文件)&lt;/strong> # 多个进程可以通过磁盘上的文件共享数据。&lt;/li>
+&lt;li>**Signal(信号) **# 从一个进程发送到另一个进程的系统消息，通常不用于传输数据，而是用于远程命令伙伴进程。&lt;a href="https://www.yuque.com/go/doc/33222681">详见此处&lt;/a>&lt;/li>
+&lt;li>**pipe(管道) **# 使用标准输入和输出的单向数据通道。写入管道的写入端的数据由操作系统进行缓冲，直到从管道的读取端读取数据为止。通过使用相反“方向”上的两个管道可以实现过程之间的双向通信。详见[exec、xargs、管道等命令](✏IT 学习笔记/📄1.操作系统/4.Terminal%20 与%20Shell/exec,xargs,管道符等组合命令.md 与 Shell/exec,xargs,管道符等组合命令.md)&lt;/li>
+&lt;li>&lt;strong>Socket(套接字)&lt;/strong> # 计算机领域中数据通信的一种约定，或者说是一种方法，《[Socket(套接字)](✏IT 学习笔记/📄1.操作系统/2.Kernel(内核)/7.Process%20 管理/Inter%20Process%20Communication(进程间通信)/Socket(套接字).md Process Communication(进程间通信)/Socket(套接字).md)》。Socket 又分为两种
+&lt;ul>
+&lt;li>Unix Domain Socket&lt;/li>
+&lt;li>Network Socket&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Shared Memory(共享内存)&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>Message Queue(消息队列)&lt;/strong> # 类似于 Socket 的数据流，但这通常保留了信息的边界。通常由操作系统实现，它们允许多个进程读写消息队列，而不需要彼此直接连接。&lt;/li>
+&lt;li>&lt;strong>Mesage Passing(消息传递)&lt;/strong> # 允许多个程序使用消息队列和/或非 OS 托管通道进行通信。常用于并发模型。比如 LPC、RPC 等等。&lt;/li>
+&lt;li>&lt;strong>等等&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;h1 id="ipc-实现方式概述">IPC 实现方式概述&lt;/h1>
+&lt;p>每个进程的用户地址空间都是独立的，一般而言是不能互相访问的，但内核空间是每个进程都共享的，所以进程之间要通信必须通过内核。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/iuxfg7/1619421762395-81aa05bc-0c16-4377-9584-9381c9433c63.png" alt="">&lt;/p>
+&lt;p>Linux 内核提供了不少进程间通信的机制，我们来一起瞧瞧有哪些？&lt;/p>
+&lt;h3 id="管道">管道&lt;/h3>
+&lt;p>如果你学过 Linux 命令，那你肯定很熟悉 &lt;code>|&lt;/code> 这个竖线。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">$ &lt;/span>&lt;span style="color:#a6e22e">ps&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">auxf&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>|&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">grep&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">mysql&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面命令行里的 &lt;code>|&lt;/code> 竖线就是一个&lt;strong>管道&lt;/strong>，它的功能是将前一个命令 &lt;code>ps auxf&lt;/code> 的输出，作为后一个命令 &lt;code>grep mysql&lt;/code> 的输入，从这功能描述，可以看出&lt;strong>管道传输数据是单向的&lt;/strong>，如果想相互通信，我们需要创建两个管道才行。&lt;/p>
+&lt;p>同时，我们得知上面这种管道是没有名字，所以 &lt;code>|&lt;/code> 表示的管道称为&lt;strong>匿名管道&lt;/strong>，用完了就销毁。&lt;/p>
+&lt;p>管道还有另外一个类型是&lt;strong>命名管道&lt;/strong>，也被叫做 &lt;code>FIFO&lt;/code>，因为数据是先进先出的传输方式。&lt;/p>
+&lt;p>在使用命名管道前，先需要通过 &lt;code>mkfifo&lt;/code> 命令来创建，并且指定管道名字：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">$ &lt;/span>&lt;span style="color:#a6e22e">mkfifo&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">myPipe&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>myPipe 就是这个管道的名称，基于 Linux 一切皆文件的理念，所以管道也是以文件的方式存在，我们可以用 ls 看一下，这个文件的类型是 p，也就是 pipe（管道） 的意思：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ ls
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-lprw-r--r--. 1 root    root         0 Jul 17 02:45 myPipe
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>接下来，我们往 myPipe 这个管道写入数据：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ echo &lt;span style="color:#e6db74">&amp;#34;hello&amp;#34;&lt;/span> &amp;gt; myPipe  // 将数据写进管道
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> // 停住了 ...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>你操作了后，你会发现命令执行后就停在这了，这是因为管道里的内容没有被读取，只有当管道里的数据被读完后，命令才可以正常退出。&lt;/p>
+&lt;p>于是，我们执行另外一个命令来读取这个管道里的数据：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat &amp;lt; myPipe  // 读取管道里的数据hello
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到，管道里的内容被读取出来了，并打印在了终端上，另外一方面，echo 那个命令也正常退出了。&lt;/p>
+&lt;p>我们可以看出，&lt;strong>管道这种通信方式效率低，不适合进程间频繁地交换数据&lt;/strong>。当然，它的好处，自然就是简单，同时也我们很容易得知管道里的数据已经被另一个进程读取了。&lt;/p>
+&lt;blockquote>
+&lt;p>那管道如何创建呢，背后原理是什么？&lt;/p>
+&lt;/blockquote>
+&lt;p>匿名管道的创建，需要通过下面这个系统调用：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>int pipe&lt;span style="color:#f92672">(&lt;/span>int fd&lt;span style="color:#f92672">[&lt;/span>2&lt;span style="color:#f92672">])&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这里表示创建一个匿名管道，并返回了两个描述符，一个是管道的读取端描述符 &lt;code>fd[0]&lt;/code>，另一个是管道的写入端描述符 &lt;code>fd[1]&lt;/code>。注意，这个匿名管道是特殊的文件，只存在于内存，不存于文件系统中。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/iuxfg7/1619421762470-c218e6b2-110b-454f-b314-057383247469.png" alt="">
+其实，&lt;strong>所谓的管道，就是内核里面的一串缓存&lt;/strong>。从管道的一段写入的数据，实际上是缓存在内核中的，另一端读取，也就是从内核中读取这段数据。另外，管道传输的数据是无格式的流且大小受限。&lt;/p>
+&lt;p>看到这，你可能会有疑问了，这两个描述符都是在一个进程里面，并没有起到进程间通信的作用，怎么样才能使得管道是跨过两个进程的呢？&lt;/p>
+&lt;p>我们可以使用 &lt;code>fork&lt;/code> 创建子进程，&lt;strong>创建的子进程会复制父进程的文件描述符&lt;/strong>，这样就做到了两个进程各有两个「 &lt;code>fd[0]&lt;/code> 与 &lt;code>fd[1]&lt;/code>」，两个进程就可以通过各自的 fd 写入和读取同一个管道文件实现跨进程通信了。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/iuxfg7/1619421762310-ab6819a4-d922-4393-9591-590864172c59.png" alt="">
+管道只能一端写入，另一端读出，所以上面这种模式容易造成混乱，因为父进程和子进程都可以同时写入，也都可以读出。那么，为了避免这种情况，通常的做法是：&lt;/p>
+&lt;ul>
+&lt;li>父进程关闭读取的 fd[0]，只保留写入的 fd[1]；&lt;/li>
+&lt;li>子进程关闭写入的 fd[1]，只保留读取的 fd[0]；&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/iuxfg7/1619421762492-d45b7c24-a90b-4fda-aea1-feb733f155bf.png" alt="">
+所以说如果需要双向通信，则应该创建两个管道。&lt;/p>
+&lt;p>到这里，我们仅仅解析了使用管道进行父进程与子进程之间的通信，但是在我们 shell 里面并不是这样的。&lt;/p>
+&lt;p>在 shell 里面执行 &lt;code>A | B&lt;/code> 命令的时候，A 进程和 B 进程都是 shell 创建出来的子进程，A 和 B 之间不存在父子关系，它俩的父进程都是 shell。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/iuxfg7/1619421762314-89d01b2d-6ffd-4cd8-9b56-6c6e9e6ffa03.png" alt="">&lt;/p>
+&lt;p>所以说，在 shell 里通过「&lt;code>|&lt;/code>」匿名管道将多个命令连接在一起，实际上也就是创建了多个子进程，那么在我们编写 shell 脚本时，能使用一个管道搞定的事情，就不要多用一个管道，这样可以减少创建子进程的系统开销。&lt;/p>
+&lt;p>我们可以得知，&lt;strong>对于匿名管道，它的通信范围是存在父子关系的进程&lt;/strong>。因为管道没有实体，也就是没有管道文件，只能通过 fork 来复制父进程 fd 文件描述符，来达到通信的目的。&lt;/p>
+&lt;p>另外，&lt;strong>对于命名管道，它可以在不相关的进程间也能相互通信&lt;/strong>。因为命令管道，提前创建了一个类型为管道的设备文件，在进程里只要使用这个设备文件，就可以相互通信。&lt;/p>
+&lt;p>不管是匿名管道还是命名管道，进程写入的数据都是缓存在内核中，另一个进程读取数据时候自然也是从内核中获取，同时通信数据都遵循&lt;strong>先进先出&lt;/strong>原则，不支持 lseek 之类的文件定位操作。&lt;/p>
+&lt;h3 id="消息队列">消息队列&lt;/h3>
+&lt;p>前面说到管道的通信方式是效率低的，因此管道不适合进程间频繁地交换数据。&lt;/p>
+&lt;p>对于这个问题，&lt;strong>消息队列&lt;/strong>的通信模式就可以解决。比如，A 进程要给 B 进程发送消息，A 进程把数据放在对应的消息队列后就可以正常返回了，B 进程需要的时候再去读取数据就可以了。同理，B 进程要给 A 进程发送消息也是如此。&lt;/p>
+&lt;p>再来，&lt;strong>消息队列是保存在内核中的消息链表&lt;/strong>，在发送数据时，会分成一个一个独立的数据单元，也就是消息体（数据块），消息体是用户自定义的数据类型，消息的发送方和接收方要约定好消息体的数据类型，所以每个消息体都是固定大小的存储块，不像管道是无格式的字节流数据。如果进程从消息队列中读取了消息体，内核就会把这个消息体删除。&lt;/p>
+&lt;p>消息队列生命周期随内核，如果没有释放消息队列或者没有关闭操作系统，消息队列会一直存在，而前面提到的匿名管道的生命周期，是随进程的创建而建立，随进程的结束而销毁。&lt;/p>
+&lt;p>消息这种模型，两个进程之间的通信就像平时发邮件一样，你来一封，我回一封，可以频繁沟通了。&lt;/p>
+&lt;p>但邮件的通信方式存在不足的地方有两点，&lt;strong>一是通信不及时，二是附件也有大小限制&lt;/strong>，这同样也是消息队列通信不足的点。&lt;/p>
+&lt;p>&lt;strong>消息队列不适合比较大数据的传输&lt;/strong>，因为在内核中每个消息体都有一个最大长度的限制，同时所有队列所包含的全部消息体的总长度也是有上限。在 Linux 内核中，会有两个宏定义 &lt;code>MSGMAX&lt;/code> 和 &lt;code>MSGMNB&lt;/code>，它们以字节为单位，分别定义了一条消息的最大长度和一个队列的最大长度。&lt;/p>
+&lt;p>&lt;strong>消息队列通信过程中，存在用户态与内核态之间的数据拷贝开销&lt;/strong>，因为进程写入数据到内核中的消息队列时，会发生从用户态拷贝数据到内核态的过程，同理另一进程读取内核中的消息数据时，会发生从内核态拷贝数据到用户态的过程。&lt;/p>
+&lt;h3 id="共享内存">共享内存&lt;/h3>
+&lt;p>消息队列的读取和写入的过程，都会有发生用户态与内核态之间的消息拷贝过程。那&lt;strong>共享内存&lt;/strong>的方式，就很好的解决了这一问题。&lt;/p>
+&lt;p>现代操作系统，对于内存管理，采用的是虚拟内存技术，也就是每个进程都有自己独立的虚拟内存空间，不同进程的虚拟内存映射到不同的物理内存中。所以，即使进程 A 和 进程 B 的虚拟地址是一样的，其实访问的是不同的物理内存地址，对于数据的增删查改互不影响。&lt;/p>
+&lt;p>&lt;strong>共享内存的机制，就是拿出一块虚拟地址空间来，映射到相同的物理内存中&lt;/strong>。这样这个进程写入的东西，另外一个进程马上就能看到了，都不需要拷贝来拷贝去，传来传去，大大提高了进程间通信的速度。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/iuxfg7/1619421762492-966784b1-cbd4-4545-bdae-300663d06a0b.png" alt="">&lt;/p>
+&lt;h3 id="信号量">信号量&lt;/h3>
+&lt;p>用了共享内存通信方式，带来新的问题，那就是如果多个进程同时修改同一个共享内存，很有可能就冲突了。例如两个进程都同时写一个地址，那先写的那个进程会发现内容被别人覆盖了。&lt;/p>
+&lt;p>为了防止多进程竞争共享资源，而造成的数据错乱，所以需要保护机制，使得共享的资源，在任意时刻只能被一个进程访问。正好，&lt;strong>信号量&lt;/strong>就实现了这一保护机制。&lt;/p>
+&lt;p>&lt;strong>信号量其实是一个整型的计数器，主要用于实现进程间的互斥与同步，而不是用于缓存进程间通信的数据&lt;/strong>。&lt;/p>
+&lt;p>信号量表示资源的数量，控制信号量的方式有两种原子操作：&lt;/p>
+&lt;ul>
+&lt;li>一个是 &lt;strong>P 操作&lt;/strong>，这个操作会把信号量减去 -1，相减后如果信号量 &amp;lt;0，则表明资源已被占用，进程需阻塞等待；相减后如果信号量&amp;gt;= 0，则表明还有资源可使用，进程可正常继续执行。&lt;/li>
+&lt;li>另一个是 &lt;strong>V 操作&lt;/strong>，这个操作会把信号量加上 1，相加后如果信号量 &amp;lt;= 0，则表明当前有阻塞中的进程，于是会将该进程唤醒运行；相加后如果信号量&amp;gt; 0，则表明当前没有阻塞中的进程；&lt;/li>
+&lt;/ul>
+&lt;p>P 操作是用在进入共享资源之前，V 操作是用在离开共享资源之后，这两个操作是必须成对出现的。&lt;/p>
+&lt;p>接下来，举个例子，如果要使得两个进程互斥访问共享内存，我们可以初始化信号量为 &lt;code>1&lt;/code>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/iuxfg7/1619421762415-e1c7a414-1ecb-4d66-a920-881ebf3e3e85.png" alt="">&lt;/p>
+&lt;p>具体的过程如下：&lt;/p>
+&lt;ul>
+&lt;li>进程 A 在访问共享内存前，先执行了 P 操作，由于信号量的初始值为 1，故在进程 A 执行 P 操作后信号量变为 0，表示共享资源可用，于是进程 A 就可以访问共享内存。&lt;/li>
+&lt;li>若此时，进程 B 也想访问共享内存，执行了 P 操作，结果信号量变为了 -1，这就意味着临界资源已被占用，因此进程 B 被阻塞。&lt;/li>
+&lt;li>直到进程 A 访问完共享内存，才会执行 V 操作，使得信号量恢复为 0，接着就会唤醒阻塞中的线程 B，使得进程 B 可以访问共享内存，最后完成共享内存的访问后，执行 V 操作，使信号量恢复到初始值 1。&lt;/li>
+&lt;/ul>
+&lt;p>可以发现，信号初始化为 &lt;code>1&lt;/code>，就代表着是&lt;strong>互斥信号量&lt;/strong>，它可以保证共享内存在任何时刻只有一个进程在访问，这就很好的保护了共享内存。&lt;/p>
+&lt;p>另外，在多进程里，每个进程并不一定是顺序执行的，它们基本是以各自独立的、不可预知的速度向前推进，但有时候我们又希望多个进程能密切合作，以实现一个共同的任务。&lt;/p>
+&lt;p>例如，进程 A 是负责生产数据，而进程 B 是负责读取数据，这两个进程是相互合作、相互依赖的，进程 A 必须先生产了数据，进程 B 才能读取到数据，所以执行是有前后顺序的。&lt;/p>
+&lt;p>那么这时候，就可以用信号量来实现多进程同步的方式，我们可以初始化信号量为 &lt;code>0&lt;/code>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/iuxfg7/1619421762560-5bd9c203-120b-4f19-8bd1-4cf3bd2433d3.png" alt="">&lt;/p>
+&lt;p>具体过程：&lt;/p>
+&lt;ul>
+&lt;li>如果进程 B 比进程 A 先执行了，那么执行到 P 操作时，由于信号量初始值为 0，故信号量会变为 -1，表示进程 A 还没生产数据，于是进程 B 就阻塞等待；&lt;/li>
+&lt;li>接着，当进程 A 生产完数据后，执行了 V 操作，就会使得信号量变为 0，于是就会唤醒阻塞在 P 操作的进程 B；&lt;/li>
+&lt;li>最后，进程 B 被唤醒后，意味着进程 A 已经生产了数据，于是进程 B 就可以正常读取数据了。&lt;/li>
+&lt;/ul>
+&lt;p>可以发现，信号初始化为 &lt;code>0&lt;/code>，就代表着是&lt;strong>同步信号量&lt;/strong>，它可以保证进程 A 应在进程 B 之前执行。&lt;/p>
+&lt;h3 id="信号">信号&lt;/h3>
+&lt;p>上面说的进程间通信，都是常规状态下的工作模式。&lt;strong>对于异常情况下的工作模式，就需要用「信号」的方式来通知进程。&lt;/strong>&lt;/p>
+&lt;p>信号跟信号量虽然名字相似度 66.66%，但两者用途完全不一样，就好像 Java 和 JavaScript 的区别。&lt;/p>
+&lt;p>在 Linux 操作系统中， 为了响应各种各样的事件，提供了几十种信号，分别代表不同的意义。我们可以通过 &lt;code>kill -l&lt;/code> 命令，查看所有的信号：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@lichenhao:~# kill -l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 1&lt;span style="color:#f92672">)&lt;/span> SIGHUP 2&lt;span style="color:#f92672">)&lt;/span> SIGINT 3&lt;span style="color:#f92672">)&lt;/span> SIGQUIT 4&lt;span style="color:#f92672">)&lt;/span> SIGILL 5&lt;span style="color:#f92672">)&lt;/span> SIGTRAP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 6&lt;span style="color:#f92672">)&lt;/span> SIGABRT 7&lt;span style="color:#f92672">)&lt;/span> SIGBUS 8&lt;span style="color:#f92672">)&lt;/span> SIGFPE 9&lt;span style="color:#f92672">)&lt;/span> SIGKILL 10&lt;span style="color:#f92672">)&lt;/span> SIGUSR1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>11&lt;span style="color:#f92672">)&lt;/span> SIGSEGV 12&lt;span style="color:#f92672">)&lt;/span> SIGUSR2 13&lt;span style="color:#f92672">)&lt;/span> SIGPIPE 14&lt;span style="color:#f92672">)&lt;/span> SIGALRM 15&lt;span style="color:#f92672">)&lt;/span> SIGTERM
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>16&lt;span style="color:#f92672">)&lt;/span> SIGSTKFLT 17&lt;span style="color:#f92672">)&lt;/span> SIGCHLD 18&lt;span style="color:#f92672">)&lt;/span> SIGCONT 19&lt;span style="color:#f92672">)&lt;/span> SIGSTOP 20&lt;span style="color:#f92672">)&lt;/span> SIGTSTP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>21&lt;span style="color:#f92672">)&lt;/span> SIGTTIN 22&lt;span style="color:#f92672">)&lt;/span> SIGTTOU 23&lt;span style="color:#f92672">)&lt;/span> SIGURG 24&lt;span style="color:#f92672">)&lt;/span> SIGXCPU 25&lt;span style="color:#f92672">)&lt;/span> SIGXFSZ
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>26&lt;span style="color:#f92672">)&lt;/span> SIGVTALRM 27&lt;span style="color:#f92672">)&lt;/span> SIGPROF 28&lt;span style="color:#f92672">)&lt;/span> SIGWINCH 29&lt;span style="color:#f92672">)&lt;/span> SIGIO 30&lt;span style="color:#f92672">)&lt;/span> SIGPWR
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>31&lt;span style="color:#f92672">)&lt;/span> SIGSYS 34&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN 35&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+1 36&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+2 37&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>38&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+4 39&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+5 40&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+6 41&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+7 42&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+8
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>43&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+9 44&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+10 45&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+11 46&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+12 47&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+13
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>48&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+14 49&lt;span style="color:#f92672">)&lt;/span> SIGRTMIN+15 50&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-14 51&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-13 52&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-12
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>53&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-11 54&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-10 55&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-9 56&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-8 57&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-7
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>58&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-6 59&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-5 60&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-4 61&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-3 62&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>63&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX-1 64&lt;span style="color:#f92672">)&lt;/span> SIGRTMAX
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>运行在 shell 终端的进程，我们可以通过键盘输入某些组合键的时候，给进程发送信号。例如&lt;/p>
+&lt;ul>
+&lt;li>Ctrl+C 产生 &lt;code>SIGINT&lt;/code> 信号，表示终止该进程；&lt;/li>
+&lt;li>Ctrl+Z 产生 &lt;code>SIGTSTP&lt;/code> 信号，表示停止该进程，但还未结束；&lt;/li>
+&lt;/ul>
+&lt;p>如果进程在后台运行，可以通过 &lt;code>kill&lt;/code> 命令的方式给进程发送信号，但前提需要知道运行中的进程 PID 号，例如：&lt;/p>
+&lt;ul>
+&lt;li>kill -9 1050 ，表示给 PID 为 1050 的进程发送 &lt;code>SIGKILL&lt;/code> 信号，用来立即结束该进程；&lt;/li>
+&lt;/ul>
+&lt;p>所以，信号事件的来源主要有硬件来源（如键盘 Cltr+C ）和软件来源（如 kill 命令）。&lt;/p>
+&lt;p>信号是进程间通信机制中&lt;strong>唯一的异步通信机制&lt;/strong>，因为可以在任何时候发送信号给某一进程，一旦有信号产生，我们就有下面这几种，用户进程对信号的处理方式。&lt;/p>
+&lt;p>&lt;strong>1. 执行默认操作&lt;/strong>。Linux 对每种信号都规定了默认操作，例如，上面列表中的 SIGTERM 信号，就是终止进程的意思。Core 的意思是 Core Dump，也即终止进程后，通过 Core Dump 将当前进程的运行状态保存在文件里面，方便程序员事后进行分析问题在哪里。&lt;/p>
+&lt;p>&lt;strong>2. 捕捉信号&lt;/strong>。我们可以为信号定义一个信号处理函数。当信号发生时，我们就执行相应的信号处理函数。&lt;/p>
+&lt;p>&lt;strong>3. 忽略信号&lt;/strong>。当我们不希望处理某些信号的时候，就可以忽略该信号，不做任何处理。有两个信号是应用进程无法捕捉和忽略的，即 &lt;code>SIGKILL&lt;/code> 和 &lt;code>SEGSTOP&lt;/code>，它们用于在任何时候中断或结束某一进程。&lt;/p>
+&lt;h3 id="socket">Socket&lt;/h3>
+&lt;p>前面提到的管道、消息队列、共享内存、信号量和信号都是在同一台主机上进行进程间通信，那要想&lt;strong>跨网络与不同主机上的进程之间通信，就需要 Socket 通信了。&lt;/strong>&lt;/p>
+&lt;p>实际上，Socket 通信不仅可以跨网络与不同主机的进程间通信，还可以在同主机上进程间通信。&lt;/p>
+&lt;p>我们来看看创建 socket 的系统调用：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">int&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">socket&lt;/span>(&lt;span style="color:#66d9ef">int&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">domain&lt;/span>,&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#66d9ef">int&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#66d9ef">type&lt;/span>,&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#66d9ef">int&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">protocal&lt;/span>)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>三个参数分别代表：&lt;/p>
+&lt;ul>
+&lt;li>domain 参数用来指定协议族，比如 AF_INET 用于 IPV4、AF_INET6 用于 IPV6、AF_LOCAL/AF_UNIX 用于本机；&lt;/li>
+&lt;li>type 参数用来指定通信特性，比如 SOCK_STREAM 表示的是字节流，对应 TCP、SOCK_DGRAM   表示的是数据报，对应 UDP、SOCK_RAW 表示的是原始套接字；&lt;/li>
+&lt;li>protocal 参数原本是用来指定通信协议的，但现在基本废弃。因为协议已经通过前面两个参数指定完成，protocol 目前一般写成 0 即可；&lt;/li>
+&lt;/ul>
+&lt;p>根据创建 socket 类型的不同，通信的方式也就不同：&lt;/p>
+&lt;ul>
+&lt;li>实现 TCP 字节流通信：socket 类型是 AF_INET 和 SOCK_STREAM；&lt;/li>
+&lt;li>实现 UDP 数据报通信：socket 类型是 AF_INET 和 SOCK_DGRAM；&lt;/li>
+&lt;li>实现本地进程间通信：
+&lt;ul>
+&lt;li>「本地字节流 socket 」类型是 AF_LOCAL 和 SOCK_STREAM&lt;/li>
+&lt;li>「本地数据报 socket 」类型是 AF_LOCAL 和 SOCK_DGRAM。另外，AF_UNIX 和 AF_LOCAL 是等价的，所以 AF_UNIX 也属于本地 socket；&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>接下来，简单说一下这三种通信的编程模式。&lt;/p>
+&lt;blockquote>
+&lt;p>针对 TCP 协议通信的 socket 编程模型&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/iuxfg7/1619421762556-953130dd-bbfe-4a7d-ac0a-31c69ef31771.png" alt="">&lt;/p>
+&lt;ul>
+&lt;li>服务端和客户端初始化 &lt;code>socket&lt;/code>，得到文件描述符；&lt;/li>
+&lt;li>服务端调用 &lt;code>bind&lt;/code>，将绑定在 IP 地址和端口;&lt;/li>
+&lt;li>服务端调用 &lt;code>listen&lt;/code>，进行监听；&lt;/li>
+&lt;li>服务端调用 &lt;code>accept&lt;/code>，等待客户端连接；&lt;/li>
+&lt;li>客户端调用 &lt;code>connect&lt;/code>，向服务器端的地址和端口发起连接请求；&lt;/li>
+&lt;li>服务端 &lt;code>accept&lt;/code> 返回用于传输的 &lt;code>socket&lt;/code> 的文件描述符；&lt;/li>
+&lt;li>客户端调用 &lt;code>write&lt;/code> 写入数据；服务端调用 &lt;code>read&lt;/code> 读取数据；&lt;/li>
+&lt;li>客户端断开连接时，会调用 &lt;code>close&lt;/code>，那么服务端 &lt;code>read&lt;/code> 读取数据的时候，就会读取到了 &lt;code>EOF&lt;/code>，待处理完数据后，服务端调用 &lt;code>close&lt;/code>，表示连接关闭。&lt;/li>
+&lt;/ul>
+&lt;p>这里需要注意的是，服务端调用 &lt;code>accept&lt;/code> 时，连接成功了会返回一个已完成连接的 socket，后续用来传输数据。&lt;/p>
+&lt;p>所以，监听的 socket 和真正用来传送数据的 socket，是「&lt;strong>两个&lt;/strong>」 socket，一个叫作&lt;strong>监听 socket&lt;/strong>，一个叫作&lt;strong>已完成连接 socket&lt;/strong>。&lt;/p>
+&lt;p>成功连接建立之后，双方开始通过 read 和 write 函数来读写数据，就像往一个文件流里面写东西一样。&lt;/p>
+&lt;blockquote>
+&lt;p>针对 UDP 协议通信的 socket 编程模型&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/iuxfg7/1619421762345-95e531c1-8f0d-42d3-80d2-e8981177ed74.png" alt="">&lt;/p>
+&lt;p>UDP 是没有连接的，所以不需要三次握手，也就不需要像 TCP 调用 listen 和 connect，但是 UDP 的交互仍然需要 IP 地址和端口号，因此也需要 bind。&lt;/p>
+&lt;p>对于 UDP 来说，不需要要维护连接，那么也就没有所谓的发送方和接收方，甚至都不存在客户端和服务端的概念，只要有一个 socket 多台机器就可以任意通信，因此每一个 UDP 的 socket 都需要 bind。&lt;/p>
+&lt;p>另外，每次通信时，调用 sendto 和 recvfrom，都要传入目标主机的 IP 地址和端口。&lt;/p>
+&lt;blockquote>
+&lt;p>针对本地进程间通信的 socket 编程模型&lt;/p>
+&lt;/blockquote>
+&lt;p>本地 socket   被用于在&lt;strong>同一台主机上进程间通信&lt;/strong>的场景：&lt;/p>
+&lt;ul>
+&lt;li>本地 socket 的编程接口和 IPv4 、IPv6 套接字编程接口是一致的，可以支持「字节流」和「数据报」两种协议；&lt;/li>
+&lt;li>本地 socket 的实现效率大大高于 IPv4 和 IPv6 的字节流、数据报 socket 实现；&lt;/li>
+&lt;/ul>
+&lt;p>对于本地字节流 socket，其 socket 类型是 AF_LOCAL 和 SOCK_STREAM。&lt;/p>
+&lt;p>对于本地数据报 socket，其 socket 类型是 AF_LOCAL 和 SOCK_DGRAM。&lt;/p>
+&lt;p>本地字节流 socket 和 本地数据报 socket 在 bind 的时候，不像 TCP 和 UDP 要绑定 IP 地址和端口，而是&lt;strong>绑定一个本地文件&lt;/strong>，这也就是它们之间的最大区别。&lt;/p>
+&lt;h3 id="总结">总结&lt;/h3>
+&lt;p>由于每个进程的用户空间都是独立的，不能相互访问，这时就需要借助内核空间来实现进程间通信，原因很简单，每个进程都是共享一个内核空间。&lt;/p>
+&lt;p>Linux 内核提供了不少进程间通信的方式，其中最简单的方式就是管道，管道分为「匿名管道」和「命名管道」。&lt;/p>
+&lt;p>&lt;strong>匿名管道&lt;/strong>顾名思义，它没有名字标识，匿名管道是特殊文件只存在于内存，没有存在于文件系统中，shell 命令中的 &lt;code>|&lt;/code> 竖线就是匿名管道，通信的数据是&lt;strong>无格式的流并且大小受限&lt;/strong>，通信的方式是&lt;strong>单向&lt;/strong>的，数据只能在一个方向上流动，如果要双向通信，需要创建两个管道，再来&lt;strong>匿名管道是只能用于存在父子关系的进程间通信&lt;/strong>，匿名管道的生命周期随着进程创建而建立，随着进程终止而消失。&lt;/p>
+&lt;p>&lt;strong>命名管道&lt;/strong>突破了匿名管道只能在亲缘关系进程间的通信限制，因为使用命名管道的前提，需要在文件系统创建一个类型为 p 的设备文件，那么毫无关系的进程就可以通过这个设备文件进行通信。另外，不管是匿名管道还是命名管道，进程写入的数据都是&lt;strong>缓存在内核&lt;/strong>中，另一个进程读取数据时候自然也是从内核中获取，同时通信数据都遵循&lt;strong>先进先出&lt;/strong>原则，不支持 lseek 之类的文件定位操作。&lt;/p>
+&lt;p>&lt;strong>消息队列&lt;/strong>克服了管道通信的数据是无格式的字节流的问题，消息队列实际上是保存在内核的「消息链表」，消息队列的消息体是可以用户自定义的数据类型，发送数据时，会被分成一个一个独立的消息体，当然接收数据时，也要与发送方发送的消息体的数据类型保持一致，这样才能保证读取的数据是正确的。消息队列通信的速度不是最及时的，毕竟&lt;strong>每次数据的写入和读取都需要经过用户态与内核态之间的拷贝过程。&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>共享内存&lt;/strong>可以解决消息队列通信中用户态与内核态之间数据拷贝过程带来的开销，&lt;strong>它直接分配一个共享空间，每个进程都可以直接访问&lt;/strong>，就像访问进程自己的空间一样快捷方便，不需要陷入内核态或者系统调用，大大提高了通信的速度，享有&lt;strong>最快&lt;/strong>的进程间通信方式之名。但是便捷高效的共享内存通信，&lt;strong>带来新的问题，多进程竞争同个共享资源会造成数据的错乱。&lt;/strong>&lt;/p>
+&lt;p>那么，就需要&lt;strong>信号量&lt;/strong>来保护共享资源，以确保任何时刻只能有一个进程访问共享资源，这种方式就是互斥访问。&lt;strong>信号量不仅可以实现访问的互斥性，还可以实现进程间的同步&lt;/strong>，信号量其实是一个计数器，表示的是资源个数，其值可以通过两个原子操作来控制，分别是 &lt;strong>P 操作和 V 操作&lt;/strong>。&lt;/p>
+&lt;p>与信号量名字很相似的叫&lt;strong>信号&lt;/strong>，它俩名字虽然相似，但功能一点儿都不一样。信号是进程间通信机制中&lt;strong>唯一的异步通信机制&lt;/strong>，信号可以在应用进程和内核之间直接交互，内核也可以利用信号来通知用户空间的进程发生了哪些系统事件，信号事件的来源主要有硬件来源（如键盘 Cltr+C ）和软件来源（如 kill 命令），一旦有信号发生，&lt;strong>进程有三种方式响应信号 1. 执行默认操作、2. 捕捉信号、3. 忽略信号&lt;/strong>。有两个信号是应用进程无法捕捉和忽略的，即 &lt;code>SIGKILL&lt;/code> 和 &lt;code>SEGSTOP&lt;/code>，这是为了方便我们能在任何时候结束或停止某个进程。&lt;/p>
+&lt;p>前面说到的通信机制，都是工作于同一台主机，如果&lt;strong>要与不同主机的进程间通信，那么就需要 Socket 通信了&lt;/strong>。Socket 实际上不仅用于不同的主机进程间通信，还可以用于本地主机进程间通信，可根据创建 Socket 的类型不同，分为三种常见的通信方式，一个是基于 TCP 协议的通信方式，一个是基于 UDP 协议的通信方式，一个是本地进程间通信方式。&lt;/p>
+&lt;p>以上，就是进程间通信的主要机制了。你可能会问了，那线程通信间的方式呢？&lt;/p>
+&lt;p>同个进程下的线程之间都是共享进程的资源，只要是共享变量都可以做到线程间通信，比如全局变量，所以对于线程间关注的不是通信方式，而是关注多线程竞争共享资源的问题，信号量也同样可以在线程间实现互斥与同步：&lt;/p>
+&lt;ul>
+&lt;li>互斥的方式，可保证任意时刻只有一个线程访问共享资源；&lt;/li>
+&lt;li>同步的方式，可保证线程 A 应在线程 B 之前执行；&lt;/li>
+&lt;/ul></description></item><item><title>Docs: RPC</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/rpc/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/rpc/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Remote_procedure_call">Wiki,RPC&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/GRPC">Wiki,gRPC&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://grpc.io/">gRPC 官网&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在&lt;a href="https://en.wikipedia.org/wiki/Distributed_computing">分布式计算&lt;/a>中，&lt;strong>Remote Procedure Call(远程过程调用，简称 RPC)&lt;/strong> 是计算机程序使 &lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E8%A7%A3%E8%B0%9C%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%A7%91%E5%AD%A6/Function(%E5%87%BD%E6%95%B0)/Function(%E5%87%BD%E6%95%B0).md">Subroutine&lt;/a> 在不同的地址空间（通常在共享网络上的另一台计算机上）执行时，被编码为 &lt;strong>Local Procedure Call(本地过程调用)&lt;/strong>，而无需程序员为远程交互显式编写细节。也就是说，程序员可以为程序编写相同的代码，而不用关心自己编写的程序将会被本地调用还是远程调用。&lt;/p>
+&lt;p>其实 LPC 和 RPC 并不是对比的最佳选择，两者都 IPC 的一种方式，也就是说都是两个进程间通讯的一种方式，可能来说，LPC 与 RPC 最大的区别在于是否基于 TCP/IP 来让两个进程进行通信。而如果从网络间两个进程通信的角度看，RPC 又可以与 HTTP 进行对比。&lt;/p>
+&lt;p>从某种角度来说， HTTP 其实就是一种 RPC&lt;/p>
+&lt;ul>
+&lt;li>HTTP 发起请求的 URL 就是 RPC 发起请求的函数名&lt;/li>
+&lt;li>请求体就是函数的参数&lt;/li>
+&lt;li>响应体就是函数的函数中的处理逻辑或返回值&lt;/li>
+&lt;/ul>
+&lt;p>只不过 HTTP 是一个协议(也可以说是一种交互标准)，而 RPC 是一种方式、方法，可以使用 HTTP 来进行 RPC 通信，也可以使用其他协议进行 RPC 通信。如果使用 HTTP 标准进行 RPC 通信，那 RPC 的 C/S 之间就是通过文本格式进行交互；但是 RPC 通信最常使用的是 Protobuf 数据格式进行通信。&lt;/p>
+&lt;blockquote>
+&lt;p>这里说的使用“HTTP 进行 RPC 通信”指的是使用 xml、json 等格式的数据进行 RPC 通信。而在很多 RPC 框架中，RPC 之间交互的信息与 HTTP 之间交互的信息，是可以互通的！~&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>RPC 最常见的场景就是“微服务”&lt;/strong>，将一个大而全的产品拆分成多个服务，如果通过 HTTP 调用，那么调用函数时就需要转换为调用 URL，对于关联性非常难强的多个服务来说，这种交互是灾难性的，如果网络上的多个服务之间，可以直接通过函数调用，那么代码写起来，也是非常简洁的。&lt;/p>
+&lt;p>通常来说，如果想要调用第三方平台提供的接口，使用 HTTP，而一个产品中关联性非常强，甚至可以合并成一个服务的多个服务之间的接口调用，就要使用 RPC 了，公司内服务之间的 RPC 调用，可以通过定制化的协议来使得通信更高效。&lt;/p></description></item><item><title>Docs: Signal(信号)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/signal%E4%BF%A1%E5%8F%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/signal%E4%BF%A1%E5%8F%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Signal">Wiki,Signal&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Signal(信号)&lt;/strong> 是 &lt;a href="https://www.yuque.com/go/doc/33222674">IPC(进程间通信)&lt;/a> 的一种受限形式。信号是发送到进程或同一进程内的特定线程的异步通知，目的是将发生的事件通知给它。发送信号后，操作系统会中断目标进程的正常执行流程以传递信号。在任何非原子指令中，执行都可以中断。如果该进程先前已注册了&lt;strong>信号处理程序&lt;/strong>，则将执行该例程。否则，将执行默认信号处理程序。&lt;/p>
+&lt;p>信号类似于中断，区别在于中断由处理器介导并由内核处理，而信号由内核介导（可能通过系统调用）并由进程处理。内核可能会将中断作为信号传递给引起中断的进程（典型示例为 SIGSEGV，SIGBUS，SIGILL 和 SIGFPE）。&lt;/p>
+&lt;p>信号类型&lt;/p>
+&lt;p>Linux 系统共定义了 64 种信号，分为两大类：可靠信号与不可靠信号，前 32 种信号为不可靠信号，后 32 种为可靠信号。&lt;/p>
+&lt;p>1.1 概念&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>不可靠信号： 也称为非实时信号，不支持排队，信号可能会丢失, 比如发送多次相同的信号, 进程只能收到一次. 信号值取值区间为 1~31；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>可靠信号： 也称为实时信号，支持排队, 信号不会丢失, 发多少次, 就可以收到多少次. 信号值取值区间为 32~64&lt;/p>
+&lt;p>1.2 信号表&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>在终端，可通过 kill -l 查看所有的 signal 信号&lt;/p>
+&lt;blockquote>
+&lt;p>使用时，这些信号开头的 3 个大写字符(SIG)可以省略&lt;/p>
+&lt;/blockquote>
+&lt;pre>&lt;code>[root@master-1 libexec]# kill -l
+1) SIGHUP 2) SIGINT 3) SIGQUIT 4) SIGILL 5) SIGTRAP
+6) SIGABRT 7) SIGBUS 8) SIGFPE 9) SIGKILL 10) SIGUSR1
+11) SIGSEGV 12) SIGUSR2 13) SIGPIPE 14) SIGALRM 15) SIGTERM
+16) SIGSTKFLT 17) SIGCHLD 18) SIGCONT 19) SIGSTOP 20) SIGTSTP
+21) SIGTTIN 22) SIGTTOU 23) SIGURG 24) SIGXCPU 25) SIGXFSZ
+26) SIGVTALRM 27) SIGPROF 28) SIGWINCH 29) SIGIO 30) SIGPWR
+31) SIGSYS 34) SIGRTMIN 35) SIGRTMIN+1 36) SIGRTMIN+2 37) SIGRTMIN+3
+38) SIGRTMIN+4 39) SIGRTMIN+5 40) SIGRTMIN+6 41) SIGRTMIN+7 42) SIGRTMIN+8
+43) SIGRTMIN+9 44) SIGRTMIN+10 45) SIGRTMIN+11 46) SIGRTMIN+12 47) SIGRTMIN+13
+48) SIGRTMIN+14 49) SIGRTMIN+15 50) SIGRTMAX-14 51) SIGRTMAX-13 52) SIGRTMAX-12
+53) SIGRTMAX-11 54) SIGRTMAX-10 55) SIGRTMAX-9 56) SIGRTMAX-8 57) SIGRTMAX-7
+58) SIGRTMAX-6 59) SIGRTMAX-5 60) SIGRTMAX-4 61) SIGRTMAX-3 62) SIGRTMAX-2
+63) SIGRTMAX-1 64) SIGRTMAX
+&lt;/code>&lt;/pre>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>取值&lt;/th>
+&lt;th>名称&lt;/th>
+&lt;th>解释&lt;/th>
+&lt;th>默认动作&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>1&lt;/td>
+&lt;td>SIGHUP&lt;/td>
+&lt;td>挂起&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>2&lt;/td>
+&lt;td>SIGINT&lt;/td>
+&lt;td>中断&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>3&lt;/td>
+&lt;td>SIGQUIT&lt;/td>
+&lt;td>退出&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>4&lt;/td>
+&lt;td>SIGILL&lt;/td>
+&lt;td>非法指令&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>5&lt;/td>
+&lt;td>SIGTRAP&lt;/td>
+&lt;td>断点或陷阱指令&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>6&lt;/td>
+&lt;td>SIGABRT&lt;/td>
+&lt;td>abort 发出的信号&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>7&lt;/td>
+&lt;td>SIGBUS&lt;/td>
+&lt;td>非法内存访问&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>8&lt;/td>
+&lt;td>SIGFPE&lt;/td>
+&lt;td>浮点异常&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>9&lt;/td>
+&lt;td>SIGKILL&lt;/td>
+&lt;td>kill 信号&lt;/td>
+&lt;td>不能被忽略、处理和阻塞&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>10&lt;/td>
+&lt;td>SIGUSR1&lt;/td>
+&lt;td>用户信号 1&lt;/td>
+&lt;td>程序自定义的信号，常用这种信号来处理日志或加载配置文件。比如 docker 用这种信号来生成日志&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>11&lt;/td>
+&lt;td>SIGSEGV&lt;/td>
+&lt;td>无效内存访问&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>12&lt;/td>
+&lt;td>SIGUSR2&lt;/td>
+&lt;td>用户信号 2&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>13&lt;/td>
+&lt;td>SIGPIPE&lt;/td>
+&lt;td>管道破损，没有读端的管道写数据&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>14&lt;/td>
+&lt;td>SIGALRM&lt;/td>
+&lt;td>alarm 发出的信号&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>15&lt;/td>
+&lt;td>SIGTERM&lt;/td>
+&lt;td>终止信号&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>16&lt;/td>
+&lt;td>SIGSTKFLT&lt;/td>
+&lt;td>栈溢出&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>17&lt;/td>
+&lt;td>SIGCHLD&lt;/td>
+&lt;td>子进程退出&lt;/td>
+&lt;td>默认忽略&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>18&lt;/td>
+&lt;td>SIGCONT&lt;/td>
+&lt;td>进程继续&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>19&lt;/td>
+&lt;td>SIGSTOP&lt;/td>
+&lt;td>进程停止&lt;/td>
+&lt;td>不能被忽略、处理和阻塞&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>20&lt;/td>
+&lt;td>SIGTSTP&lt;/td>
+&lt;td>进程停止&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>21&lt;/td>
+&lt;td>SIGTTIN&lt;/td>
+&lt;td>进程停止，后台进程从终端读数据时&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>22&lt;/td>
+&lt;td>SIGTTOU&lt;/td>
+&lt;td>进程停止，后台进程想终端写数据时&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>23&lt;/td>
+&lt;td>SIGURG&lt;/td>
+&lt;td>I/O 有紧急数据到达当前进程&lt;/td>
+&lt;td>默认忽略&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>24&lt;/td>
+&lt;td>SIGXCPU&lt;/td>
+&lt;td>进程的 CPU 时间片到期&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>25&lt;/td>
+&lt;td>SIGXFSZ&lt;/td>
+&lt;td>文件大小的超出上限&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>26&lt;/td>
+&lt;td>SIGVTALRM&lt;/td>
+&lt;td>虚拟时钟超时&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>27&lt;/td>
+&lt;td>SIGPROF&lt;/td>
+&lt;td>profile 时钟超时&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>28&lt;/td>
+&lt;td>SIGWINCH&lt;/td>
+&lt;td>窗口大小改变&lt;/td>
+&lt;td>默认忽略&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>29&lt;/td>
+&lt;td>SIGIO&lt;/td>
+&lt;td>I/O 相关&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>30&lt;/td>
+&lt;td>SIGPWR&lt;/td>
+&lt;td>关机&lt;/td>
+&lt;td>默认忽略&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>31&lt;/td>
+&lt;td>SIGSYS&lt;/td>
+&lt;td>系统调用异常&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>对于 signal 信号，绝大部分的默认处理都是终止进程或停止进程，或 dump 内核映像转储。 上述的 31 的信号为非实时信号，其他的信号 32-64 都是实时信号。&lt;/p>
+&lt;h2 id="信号产生">信号产生&lt;/h2>
+&lt;p>信号来源分为硬件类和软件类：&lt;/p>
+&lt;p>2.1 硬件方式&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>用户输入：比如在终端上按下组合键 ctrl+C，产生 SIGINT 信号；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>硬件异常：CPU 检测到内存非法访问等异常，通知内核生成相应信号，并发送给发生事件的进程；&lt;/p>
+&lt;p>2.2 软件方式&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>通过系统调用，发送 signal 信号：kill()，raise()，sigqueue()，alarm()，setitimer()，abort()&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>kernel,使用 kill_proc_info(）等&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>native,使用 kill() 或者 raise()等&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>java,使用 Procees.sendSignal()等&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="信号注册和注销">信号注册和注销&lt;/h2>
+&lt;p>3.1 注册&lt;/p>
+&lt;p>在进程 task_struct 结构体中有一个未决信号的成员变量 struct sigpending pending。每个信号在进程中注册都会把信号值加入到进程的未决信号集。&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>非实时信号发送给进程时，如果该信息已经在进程中注册过，不会再次注册，故信号会丢失；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>实时信号发送给进程时，不管该信号是否在进程中注册过，都会再次注册。故信号不会丢失；&lt;/p>
+&lt;p>3.2 注销&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>非实时信号：不可重复注册，最多只有一个 sigqueue 结构；当该结构被释放后，把该信号从进程未决信号集中删除，则信号注销完毕；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>实时信号：可重复注册，可能存在多个 sigqueue 结构；当该信号的所有 sigqueue 处理完毕后，把该信号从进程未决信号集中删除，则信号注销完毕；&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="信号处理">信号处理&lt;/h2>
+&lt;p>内核处理进程收到的 signal 是在当前进程的上下文，故进程必须是 Running 状态。当进程唤醒或者调度后获取 CPU，则会从内核态转到用户态时检测是否有 signal 等待处理，处理完，进程会把相应的未决信号从链表中去掉。&lt;/p>
+&lt;p>4.1 处理时机&lt;/p>
+&lt;p>signal 信号处理时机： 内核态 -&amp;gt; signal 信号处理 -&amp;gt; 用户态：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>在内核态，signal 信号不起作用；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>在用户态，signal 所有未被屏蔽的信号都处理完毕；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>当屏蔽信号，取消屏蔽时，会在下一次内核转用户态的过程中执行；&lt;/p>
+&lt;p>4.2 处理方式&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>进程对信号的处理方式： 有 3 种&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>默认 接收到信号后按默认的行为处理该信号。 这是多数应用采取的处理方式。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>自定义 用自定义的信号处理函数来执行特定的动作&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>忽略 接收到信号后不做任何反应。&lt;/p>
+&lt;p>4.3 信号安装&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>进程处理某个信号前，需要先在进程中安装此信号。安装过程主要是建立信号值和进程对相应信息值的动作。&lt;/p>
+&lt;p>信号安装函数&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>signal()：不支持信号传递信息，主要用于非实时信号安装；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>sigaction():支持信号传递信息，可用于所有信号安装；&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>其中 sigaction 结构体&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>sa_handler:信号处理函数&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>sa_mask：指定信号处理程序执行过程中需要阻塞的信号；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>sa_flags：标示位&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>SA_RESTART：使被信号打断的 syscall 重新发起。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>SA_NOCLDSTOP：使父进程在它的子进程暂停或继续运行时不会收到 SIGCHLD 信号。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>SA_NOCLDWAIT：使父进程在它的子进程退出时不会收到 SIGCHLD 信号，这时子进程如果退出也不会成为僵 尸进程。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>SA_NODEFER：使对信号的屏蔽无效，即在信号处理函数执行期间仍能发出这个信号。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>SA_RESETHAND：信号处理之后重新设置为默认的处理方式。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>SA_SIGINFO：使用 sa_sigaction 成员而不是 sa_handler 作为信号处理函数。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>函数原型：&lt;/p>
+&lt;p>int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>signum：要操作的 signal 信号。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>act：设置对 signal 信号的新处理方式。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>oldact：原来对信号的处理方式。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>返回值：0 表示成功，-1 表示有错误发生。&lt;/p>
+&lt;p>4.4 信号发送&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>kill()：用于向进程或进程组发送信号；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>sigqueue()：只能向一个进程发送信号，不能像进程组发送信号；主要针对实时信号提出，与 sigaction()组合使用，当然也支持非实时信号的发送；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>alarm()：用于调用进程指定时间后发出 SIGALARM 信号；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>setitimer()：设置定时器，计时达到后给进程发送 SIGALRM 信号，功能比 alarm 更强大；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>abort()：向进程发送 SIGABORT 信号，默认进程会异常退出。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>raise()：用于向进程自身发送信号；&lt;/p>
+&lt;p>4.5 信号相关函数&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>信号集操作函数&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>sigemptyset(sigset_t *set)：信号集全部清 0；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>sigfillset(sigset_t *set)： 信号集全部置 1，则信号集包含 linux 支持的 64 种信号；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>sigaddset(sigset_t *set, int signum)：向信号集中加入 signum 信号；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>sigdelset(sigset_t *set, int signum)：向信号集中删除 signum 信号；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>sigismember(const sigset_t *set, int signum)：判定信号 signum 是否存在信号集中。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>信号阻塞函数&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>sigprocmask(int how, const sigset_t *set, sigset_t *oldset))； 不同 how 参数，实现不同功能&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>SIG_BLOCK：将 set 指向信号集中的信号，添加到进程阻塞信号集；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>SIG_UNBLOCK：将 set 指向信号集中的信号，从进程阻塞信号集删除；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>SIG_SETMASK：将 set 指向信号集中的信号，设置成进程阻塞信号集；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>sigpending(sigset_t *set))：获取已发送到进程，却被阻塞的所有信号；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>sigsuspend(const sigset_t *mask))：用 mask 代替进程的原有掩码，并暂停进程执行，直到收到信号再恢复原有掩码并继续执行进程。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="kill-命令行工具--用来将指定的信号发送到指定的进程或进程组">kill 命令行工具 # 用来将指定的信号发送到指定的进程或进程组&lt;/h1>
+&lt;p>kill 命令将指定的信号发送到指定的进程或进程组。 如果未指定信号，则发送 TERM 信号。 TERM 信号将杀死不捕获该信号的进程。对于其他过程，由于无法捕获该信号，可能需要使用 KILL（9）信号。&lt;/p>
+&lt;p>大多数现代 Shell 具有内置的 kill 函数，其用法与此处描述的命令非常相似。 &amp;lsquo;-a&amp;rsquo; 和&amp;rsquo;-p&amp;rsquo; 选项以及通过命令名称指定进程的可能性是 本地扩展。&lt;/p>
+&lt;p>如果 sig 为 0，则不发送信号，但仍执行错误检查。&lt;/p>
+&lt;p>“信号 0”有点像精神上的“ ping”。在 shell 程序脚本中使用 kill -0 PID 是判断 PID 是否有效的好方法。信号 0 仅用于检查进程是否存在。&lt;/p>
+&lt;h2 id="kill--s-signal-p--q-sigval--a----pid">kill [-s signal|-p] [-q sigval] [-a] [&amp;ndash;] pid&amp;hellip;&lt;/h2>
+&lt;p>kill -l [signal]&lt;/p></description></item><item><title>Docs: Socket(套接字)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/socket%E5%A5%97%E6%8E%A5%E5%AD%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/socket%E5%A5%97%E6%8E%A5%E5%AD%97/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Socket">Wiki,Socket&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Unix_domain_socket">Wiki,Unix domain Socket&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Network_socket">Wiki,Network Scoket&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Socket(套接字)&lt;/strong> &lt;strong>是数据通信的基石&lt;/strong>。是计算机领域中数据通信的一种约定，或者说是一种方法。通过 Socket 这种方法，计算机内的进程可以互相交互数据，不同计算机之间也可以互相交互数据。&lt;/p>
+&lt;p>Socket(套接字) 原意是&lt;code>插座&lt;/code>，所以 Socket 就像插座的作用一样，只要把插头插上，就能让设备获得电力。同理，只要两个程序通过 Socket 互相套接，也就是说两个程序都插在同一个 Socket 上，那么这两个程序就能交互数据。&lt;/p>
+&lt;p>在计算机领域，Socket 有多种类型&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Unix Domain Socket(简称 UDS)&lt;/strong> # 用于同一台设备的不同进程间互相通信&lt;/li>
+&lt;li>&lt;strong>Network Socket&lt;/strong> # 用于进程在网络间互相通信&lt;/li>
+&lt;li>&lt;strong>Berkeley Sockets API&lt;/strong> # Unix Domain Socket 与 Network Socket 的 API&lt;/li>
+&lt;/ul>
+&lt;p>在软件上，Socket 负责套接计算机中的数据(可以想象成套接管，套接管即为套管，是用来把两个管连接起来的东西，套接字就是把计算机中的字(即最小数据)连接起来，且只把头部连接起来，套管也是，只把两根很长的管的头端套起来接上)&lt;/p>
+&lt;ol>
+&lt;li>在系统层面，socket 可以连接系统中的两个进程，进程与进程本身是互相独立的，如果需要传递消息，那么就需要两个进程各自打开一个接口(API)，socket 把两个进程的 api 套住使之连接起来，即可实现进程间的通信。该 socket 是抽象的，虚拟的，只是通过编程函数来实现进程的 API 功能，如果进程没有 API，那么就无法通过 socket 与其余进程通信。&lt;/li>
+&lt;li>当然，一个进程也可以监听一个名为 _.scok 的文件，这个文件就像 API 一样，其他程序想与该进程交互，只要指定该 _.sock 文件，然后对这个 sock 文件进行读写即可。&lt;/li>
+&lt;li>在网络层面，socket 负责把不在同一主机上的进程(比如主机 A 的进程 C 和主机 B 的进程 D)连接起来，而两个不同主机上的进程如何被套接起来呢，套接至少需要提供一个头端来让套接管(字)包裹住才行。这时候(协议，IP，端口,例如：ftp://192.168.0.1:22)共同组成了网络上的进程标示，该进程逻辑上的头端即为紫色部分的端口号，不同主机的两个进程可以通过套接字把端口号套起来连接，来使两个网络上不同主机的进程进行通信，该同能同样是在程序编程的时候用函数写好的，程序启动为进程的时候，则该接口会被拿出来监听。&lt;/li>
+&lt;/ol>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/nlg3b5/1619421243110-2db70bc6-f358-459c-b9a9-e199658b151a.png" alt="">
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/nlg3b5/1619421247179-b40abf99-2621-4f4e-aa6e-1d68bfe9e74b.png" alt="">&lt;/p>
+&lt;h2 id="unix-domain-socket">Unix Domain Socket&lt;/h2>
+&lt;p>&lt;strong>Unix Domain Socket&lt;/strong> 是 &lt;strong>IPC&lt;/strong> 的一种实现方式。Socket 原本是为了网络通信设计的，但后来在 Socket 的框架上发展出一种 IPC 机制，就是 Unix Domain Socket。虽然 Netork Socket 也可用于统一台主机的进程间通信(通过 loopback 地址 127.0.0.1)，但是 Unix Domain Socket 用于 IPC 更有效率，因为不需要经过网络协议栈，不需要打包拆包、计算校验和、维护序号和应答等，只是将应用层数据从一个进程拷贝到另一个进程。这是因为 IPC 机制本质上是可靠的通讯，而网络协议是为不可靠通讯设计的。&lt;/p>
+&lt;p>Unix Domain Socket 是全双工的，API 接口语义丰富，相比其它 IPC 机制有明显的优越性，目前已成为使用最广泛的 IPC 机制，比如 X Window 服务器和 GUI 程序之间就是通过 UNIX domain socket 通讯的。&lt;/p>
+&lt;p>Unix domain socket 是 POSIX 标准中的一个组件，所以不要被名字迷惑，linux 系统也是支持它的。&lt;/p>
+&lt;h2 id="network-socket">Network Socket&lt;/h2>
+&lt;p>详见 [Network Socket](✏IT 学习笔记/🌐4.数据通信/数据通信/Network%20Socket.md Socket.md)&lt;/p>
+&lt;h2 id="berkeley-sockets-api">Berkeley Sockets API&lt;/h2>
+&lt;p>**Berkeley Sockets **是 Network Socket 和 Unix Domain Sockets 的 应用程序编程接口（API），用于进程间通信（IPC）。通常将其实现为可链接模块的库。它起源于 1983 年发布的 4.2BSD Unix 操作系统。&lt;/p>
+&lt;p>套接字是网络通信路径的本地终结点的抽象表示（句柄）。Berkeley 套接字 API 将其表示为 Unix 哲学中的文件描述符（文件句柄），该描述符为输入和输出到数据流提供通用接口。&lt;/p>
+&lt;p>伯克利套接字几乎没有任何改动，从_事实上的_标准演变为 POSIX 规范的组件。术语 **POSIX 套接字 **在本质上是_Berkeley 套接字的_同义词，但是它们也称为_BSD 套接字_，这是对 Berkeley Software Distribution 中的第一个实现的认可。&lt;/p></description></item><item><title>Docs: Unix Domain Socket 与 Network Socket 对比</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/socket%E5%A5%97%E6%8E%A5%E5%AD%97/unix-domain-socket-%E4%B8%8E-network-socket-%E5%AF%B9%E6%AF%94/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/inter-process-communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/socket%E5%A5%97%E6%8E%A5%E5%AD%97/unix-domain-socket-%E4%B8%8E-network-socket-%E5%AF%B9%E6%AF%94/</guid><description>
+&lt;p>原文链接：&lt;a href="https://mp.weixin.qq.com/s/fHzKYlW0WMhP2jxh2H_59A">https://mp.weixin.qq.com/s/fHzKYlW0WMhP2jxh2H_59A&lt;/a>&lt;/p>
+&lt;p>大家好，我是飞哥！&lt;/p>
+&lt;p>很多读者在看完&lt;a href="https://mp.weixin.qq.com/s?__biz=MjM5Njg5NDgwNA==&amp;amp;mid=2247485270&amp;amp;idx=1&amp;amp;sn=503534e9f0560bfcfbd4539e028e0d57&amp;amp;scene=21#wechat_redirect">《127.0.0.1 之本机网络通信过程知多少 ?》&lt;/a>这一篇后，让我讲讲 Unix Domain Socket。好了，今天就安排！&lt;/p>
+&lt;p>在本机网络 IO 中，我们讲到过基于普通 socket 的本机网络通信过程中，其实在内核工作流上并没有节约太多的开销。该走的系统调用、协议栈、邻居系统、设备驱动（虽然说对于本机网络 loopback 设备来说只是一个软件虚拟的东东）全都走了一遍。其工作过程如下图&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/44128591-f23c-4d0b-83f5-5a87293b7df9/640" alt="">&lt;/p>
+&lt;p>那么我们今天来看另外一种本机网络 IO 通信方式 &amp;ndash; Unix Domain Socket。看看这种方式在性能开销上和基于 127.0.0.1 的本机网络 IO 有没有啥差异呢。&lt;/p>
+&lt;p>本文中，我们将分析 Unix Domain Socket 的内部工作原理。你将理解为什么这种方式的性能比 127.0.0.1 要好很多。最后我们还给出了实际的性能测试对比数据。&lt;/p>
+&lt;p>相信你已经迫不及待了，别着急，让我们一一展开细说！&lt;/p>
+&lt;h2 id="一使用方法">一、使用方法&lt;/h2>
+&lt;p>Unix Domain Socket（后面统一简称 UDS） 使用起来和传统的 socket 非常的相似。区别点主要有两个地方需要关注。&lt;/p>
+&lt;p>第一，在创建 socket 的时候，普通的 socket 第一个参数 family 为 AF_INET， 而 UDS 指定为 AF_UNIX 即可。&lt;/p>
+&lt;p>第二，Server 的标识不再是 ip 和 端口，而是一个路径，例如 /dev/shm/fpm-cgi.sock。&lt;/p>
+&lt;p>其实在平时我们使用 UDS 并不一定需要去写一段代码，很多应用程序都支持在本机网络 IO 的时候配置。例如在 Nginx 中，如果要访问的本机 fastcgi 服务是以 UDS 方式提供服务的话，只需要在配置文件中配置这么一行就搞定了。&lt;/p>
+&lt;p>&lt;code>fastcgi_pass unix:/dev/shm/fpm-cgi.sock;&lt;/code>&lt;/p>
+&lt;p>如果 对于一个 UDS 的 server 来说，它的代码示例大概结构如下，大家简单了解一下。只是个示例不一定可运行。&lt;/p>
+&lt;p>`int main()
+{
+ //  创建  unix domain socket
+ int fd = socket(AF_UNIX, SOCK_STREAM, 0);&lt;/p>
+&lt;p>//  绑定监听
+ char *socket_path = &amp;ldquo;./server.sock&amp;rdquo;;
+ strcpy(serun.sun_path, socket_path); 
+ bind(fd, serun, &amp;hellip;);
+ listen(fd, 128);&lt;/p>
+&lt;p>while(1){
+  //接收新连接
+  conn = accept(fd, &amp;hellip;);&lt;/p>
+&lt;p>//收发数据
+  read(conn, &amp;hellip;);
+  write(conn, &amp;hellip;);
+ }
+}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>基于 UDS 的 client 也是和普通 socket 使用方式差不太多，创建一个 socket，然后 connect 即可。&lt;/p>
+&lt;p>&lt;code>int main(){  sock = socket(AF_UNIX, SOCK_STREAM, 0);  connect(sockfd, ...) }&lt;/code>&lt;/p>
+&lt;h2 id="二连接过程">二、连接过程&lt;/h2>
+&lt;p>总的来说，基于 UDS 的连接过程比 inet 的 socket 连接过程要简单多了。客户端先创建一个自己用的 socket，然后调用 connect 来和服务器建立连接。&lt;/p>
+&lt;p>在 connect 的时候，会申请一个新 socket 给 server 端将来使用，和自己的 socket 建立好连接关系以后，就放到服务器正在监听的 socket 的接收队列中。这个时候，服务器端通过 accept 就能获取到和客户端配好对的新 socket 了。&lt;/p>
+&lt;p>总的 UDS 的连接建立流程如下图。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/44128591-f23c-4d0b-83f5-5a87293b7df9/640" alt="">&lt;/p>
+&lt;p>内核源码中最重要的逻辑在 connect 函数中，我们来简单展开看一下。unix 协议族中定义了这类 socket 的所有方法，它位于 net/unix/af_unix.c 中。&lt;/p>
+&lt;p>&lt;code>//file: net/unix/af_unix.c static const struct proto_ops unix_stream_ops = {  .family = PF_UNIX,  .owner = THIS_MODULE,  .bind =  unix_bind,  .connect = unix_stream_connect,  .socketpair = unix_socketpair,  .listen = unix_listen,  ... };&lt;/code>&lt;/p>
+&lt;p>我们找到 connect 函数的具体实现，unix_stream_connect。&lt;/p>
+&lt;p>`//file: net/unix/af_unix.c
+static int unix_stream_connect(struct socket _sock, struct sockaddr _uaddr,
+          int addr_len, int flags)
+{
+ struct sockaddr_un _sunaddr = (struct sockaddr_un _)uaddr;&lt;/p>
+&lt;p>&amp;hellip;&lt;/p>
+&lt;p>// 1.  为服务器侧申请一个新的  socket  对象
+ newsk = unix_create1(sock_net(sk), NULL);&lt;/p>
+&lt;p>// 2.  申请一个  skb，并关联上  newsk
+ skb = sock_wmalloc(newsk, 1, 0, GFP_KERNEL);
+ &amp;hellip;&lt;/p>
+&lt;p>// 3.  建立两个  sock  对象之间的连接
+ unix_peer(newsk) = sk;
+ newsk-&amp;gt;sk_state  = TCP_ESTABLISHED;
+ newsk-&amp;gt;sk_type  = sk-&amp;gt;sk_type;
+ &amp;hellip;
+ sk-&amp;gt;sk_state = TCP_ESTABLISHED;
+ unix_peer(sk) = newsk;&lt;/p>
+&lt;p>// 4.  把连接中的一头（新  socket）放到服务器接收队列中
+ __skb_queue_tail(&amp;amp;other-&amp;gt;sk_receive_queue, skb);
+}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>主要的连接操作都是在这个函数中完成的。和我们平常所见的 TCP 连接建立过程，这个连接过程简直是太简单了。没有三次握手，也没有全连接队列、半连接队列，更没有啥超时重传。&lt;/p>
+&lt;p>直接就是将两个 socket 结构体中的指针互相指向对方就行了。就是 unix_peer(newsk) = sk 和  unix_peer(sk)= newsk 这两句。&lt;/p>
+&lt;p>&lt;code>//file: net/unix/af_unix.c #define unix_peer(sk) (unix_sk(sk)-&amp;gt;peer)&lt;/code>&lt;/p>
+&lt;p>当关联关系建立好之后，通过 __skb_queue_tail 将 skb 放到服务器的接收队列中。注意这里的 skb 里保存着新 socket 的指针，因为服务进程通过 accept 取出这个 skb 的时候，就能获取到和客户进程中 socket 建立好连接关系的另一个 socket。&lt;/p>
+&lt;p>怎么样，UDS 的连接建立过程是不是很简单！？&lt;/p>
+&lt;h2 id="三发送过程">三、发送过程&lt;/h2>
+&lt;p>看完了连接建立过程，我们再来看看基于 UDS 的数据的收发。这个收发过程一样也是非常的简单。发送方是直接将数据写到接收方的接收队列里的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/44128591-f23c-4d0b-83f5-5a87293b7df9/640" alt="">&lt;/p>
+&lt;p>我们从 send 函数来看起。send 系统调用的源码位于文件 net/socket.c 中。在这个系统调用里，内部其实真正使用的是 sendto 系统调用。它只干了两件简单的事情，&lt;/p>
+&lt;p>第一是在内核中把真正的 socket 找出来，在这个对象里记录着各种协议栈的函数地址。第二是构造一个 struct msghdr 对象，把用户传入的数据，比如 buffer 地址、数据长度啥的，统统都装进去. 剩下的事情就交给下一层，协议栈里的函数 inet_sendmsg 了，其中 inet_sendmsg 函数的地址是通过 socket 内核对象里的 ops 成员找到的。大致流程如图。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/44128591-f23c-4d0b-83f5-5a87293b7df9/640" alt="">&lt;/p>
+&lt;p>在进入到协议栈 inet_sendmsg 以后，内核接着会找到 socket 上的具体协议发送函数。对于 Unix Domain Socket 来说，那就是 unix_stream_sendmsg。我们来看一下这个函数&lt;/p>
+&lt;p>`//file:
+static int unix_stream_sendmsg(struct kiocb _kiocb, struct socket _sock,
+          struct msghdr *msg, size_t len)
+{
+ // 1.申请一块缓存区
+ skb = sock_alloc_send_skb(sk, size, msg-&amp;gt;msg_flags&amp;amp;MSG_DONTWAIT,
+      &amp;amp;err);&lt;/p>
+&lt;p>// 2.拷贝用户数据到内核缓存区
+ err = memcpy_fromiovec(skb_put(skb, size), msg-&amp;gt;msg_iov, size);&lt;/p>
+&lt;p>// 3.  查找 socket peer
+ struct sock *other = NULL;
+ other = unix_peer(sk);&lt;/p>
+&lt;p>// 4.直接把  skb 放到对端的接收队列中
+ skb_queue_tail(&amp;amp;other-&amp;gt;sk_receive_queue, skb);&lt;/p>
+&lt;p>// 5.发送完毕回调
+ other-&amp;gt;sk_data_ready(other, size);
+}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>和复杂的 TCP 发送接收过程相比，这里的发送逻辑简单简单到令人发指。申请一块内存（skb），把数据拷贝进去。根据 socket 对象找到另一端，&lt;strong>直接把 skb 给放到对端的接收队列里了&lt;/strong>&lt;/p>
+&lt;p>接收函数主题是 unix_stream_recvmsg，这个函数中只需要访问它自己的接收队列就行了，源码就不展示了。所以在本机网络 IO 场景里，基于 Unix Domain Socket 的服务性能上肯定要好一些的。&lt;/p>
+&lt;h2 id="四性能对比">四、性能对比&lt;/h2>
+&lt;p>为了验证 Unix Domain Socket 到底比基于 127.0.0.1 的性能好多少，我做了一个性能测试。在网络性能对比测试，最重要的两个指标是延迟和吞吐。我从 Github 上找了个好用的测试源码：https://github.com/rigtorp/ipc-bench。我的测试环境是一台 4 核 CPU，8G 内存的 KVM 虚机。&lt;/p>
+&lt;p>在延迟指标上，对比结果如下图。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/44128591-f23c-4d0b-83f5-5a87293b7df9/640" alt="">&lt;/p>
+&lt;p>可见在小包（100 字节）的情况下，UDS 方法的“网络” IO 平均延迟只有 2707 纳秒，而基于 TCP（访问 127.0.0.1）的方式下延迟高达 5690 纳秒。耗时整整是前者的两倍。&lt;/p>
+&lt;p>在包体达到 100 KB 以后，UDS 方法延迟 24 微秒左右（1 微秒等于 1000 纳秒），TCP 是 32 微秒，仍然高一截。这里低于 2 倍的关系了，是因为当包足够大的时候，网络协议栈上的开销就显得没那么明显了。&lt;/p>
+&lt;p>再来看看吞吐效果对比。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/44128591-f23c-4d0b-83f5-5a87293b7df9/640" alt="">&lt;/p>
+&lt;p>在小包的情况下，带宽指标可以达到 854 M，而基于 TCP 的 IO 方式下只有 386 M。数据就解读到这里。&lt;/p>
+&lt;h2 id="五总结">五、总结&lt;/h2>
+&lt;p>本文分析了基于 Unix Domain Socket 的连接创建、以及数据收发过程。其中数据收发的工作过程如下图。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/44128591-f23c-4d0b-83f5-5a87293b7df9/640" alt="">&lt;/p>
+&lt;p>相对比本机网络 IO 通信过程上，它的工作过程要清爽许多。其中 127.0.0.1 工作过程如下图。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/44128591-f23c-4d0b-83f5-5a87293b7df9/640" alt="">&lt;/p>
+&lt;p>我们也对比了 UDP 和 TCP 两种方式下的延迟和性能指标。在包体不大于 1KB 的时候，UDS 的性能大约是 TCP 的两倍多。&lt;strong>所以，在本机网络 IO 的场景下，如果对性能敏感，飞哥建议你使用 Unix Domain Socket。&lt;/strong>&lt;/p></description></item><item><title>Docs: 进程、线程、线程池</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/%E8%BF%9B%E7%A8%8B%E7%BA%BF%E7%A8%8B%E7%BA%BF%E7%A8%8B%E6%B1%A0/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/%E8%BF%9B%E7%A8%8B%E7%BA%BF%E7%A8%8B%E7%BA%BF%E7%A8%8B%E6%B1%A0/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/qE3zs4JMDj1qHvlb3rydOQ">公众号-码农的荒岛求生，看完这篇文章还不懂高并发中的线程与线程池你来打我&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="一切要从-cpu-说起">一切要从 CPU 说起&lt;/h1>
+&lt;p>你可能会有疑问，讲多线程为什么要从 CPU 说起呢？原因很简单，&lt;strong>在这里没有那些时髦的概念，你可以更加清晰的看清问题的本质&lt;/strong>。&lt;/p>
+&lt;p>CPU 并不知道线程、进程之类的概念。&lt;/p>
+&lt;p>CPU 只知道两件事:&lt;/p>
+&lt;ol>
+&lt;li>从内存中取出指令&lt;/li>
+&lt;li>执行指令，然后回到 1&lt;/li>
+&lt;/ol>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>你看，在这里 CPU 确实是不知道什么进程、线程之类的概念。&lt;/p>
+&lt;p>接下来的问题就是 CPU 从哪里取出指令呢？答案是来自一个被称为 Program Counter(简称 PC) 的寄存器，也就是我们熟知的程序计数器，在这里大家不要把寄存器想的太神秘，你可以简单的把寄存器理解为内存，只不过存取速度更快而已。&lt;/p>
+&lt;p>PC 寄存器中存放的是什么呢？这里存放的是指令在内存中的地址，什么指令呢？是 CPU 将要执行的下一条指令。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>那么是谁来设置 PC 寄存器中的指令地址呢？&lt;/p>
+&lt;p>原来 PC 寄存器中的地址默认是自动加 1 的，这当然是有道理的，因为大部分情况下 CPU 都是一条接一条顺序执行，当遇到 if、else 时，这种顺序执行就被打破了，CPU 在执行这类指令时会根据计算结果来动态改变 PC 寄存器中的值，这样 CPU 就可以正确的跳转到需要执行的指令了。&lt;/p>
+&lt;p>聪明的你一定会问，那么 PC 中的初始值是怎么被设置的呢？&lt;/p>
+&lt;p>在回答这个问题之前我们需要知道 CPU 执行的指令来自哪里？是来自内存，废话，内存中的指令是从磁盘中保存的可执行程序加载过来的，磁盘中可执行程序是编译器生成的，编译器又是从哪里生成的机器指令呢？答案就是&lt;strong>我们定义的函数&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>注意是函数，&lt;strong>函数被编译后才会形成 CPU 执行的指令&lt;/strong>，那么很自然的，我们该如何让 CPU 执行一个函数呢？显然我们只需要找到函数被编译后形成的第一条指令就可以了，第一条指令就是函数入口。&lt;/p>
+&lt;p>现在你应该知道了吧，我们想要 CPU 执行一个函数，那么&lt;strong>只需要把该函数对应的第一条机器指令的地址写入 PC 寄存器就可以了&lt;/strong>，这样我们写的函数就开始被 CPU 执行起来啦。&lt;/p>
+&lt;p>你可能会有疑问，这和线程有什么关系呢？&lt;/p>
+&lt;h1 id="从-cpu-到操作系统">从 CPU 到操作系统&lt;/h1>
+&lt;p>上一小节中我们明白了 CPU 的工作原理，我们想让 CPU 执行某个函数，那么只需要把函数对应的第一条机器执行装入 PC 寄存器就可以了，&lt;strong>这样即使没有操作系统我们也可以让 CPU 执行程序&lt;/strong>，虽然可行但这是一个非常繁琐的过程，我们需要：&lt;/p>
+&lt;ul>
+&lt;li>在内存中找到一块大小合适的区域装入程序&lt;/li>
+&lt;li>找到函数入口，设置好 PC 寄存器让 CPU 开始执行程序&lt;/li>
+&lt;/ul>
+&lt;p>这两个步骤绝不是那么容易的事情，如果每次在执行程序时程序员自己手动实现上述两个过程会疯掉的，因此聪明的程序员就会想干脆直接写个程序来自动完成上面两个步骤吧。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>机器指令需要加载到内存中执行，因此需要记录下内存的起始地址和长度；同时要找到函数的入口地址并写到 PC 寄存器中，想一想这是不是需要一个数据结构来记录下这些信息：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">struct&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">***&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">void&lt;/span>&lt;span style="color:#f92672">*&lt;/span> start_addr;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">int&lt;/span> len;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">void&lt;/span>&lt;span style="color:#f92672">*&lt;/span> start_point;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">   &lt;/span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>};
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>接下来就是起名字时刻。&lt;/p>
+&lt;p>这个数据结构总要有个名字吧，这个结构体用来记录什么信息呢？记录的是程序在被加载到内存中的运行状态，程序从磁盘加载到内存跑起来叫什么好呢？干脆就叫**进程 (Process)**好了，我们的指导原则就是一定要听上去比较神秘，总之大家都不容易弄懂就对了，我将其称为 “&lt;strong>弄不懂原则&lt;/strong>”。&lt;/p>
+&lt;p>就这样进程诞生了。&lt;/p>
+&lt;p>CPU 执行的第一个函数也起个名字，第一个要被执行的函数听起来比较重要，干脆就叫&lt;strong>main 函数&lt;/strong>吧。&lt;/p>
+&lt;p>完成上述两个步骤的程序也要起个名字，根据 “弄不懂原则” 这个 “简单” 的程序就叫&lt;strong>操作系统&lt;/strong>(Operating System) 好啦。&lt;/p>
+&lt;p>就这样操作系统诞生了，程序员要想运行程序再也不用自己手动加载一遍了。&lt;/p>
+&lt;p>现在进程和操作系统都有了，一切看上去都很完美。&lt;/p>
+&lt;h1 id="从单核到多核如何充分利用多核">从单核到多核，如何充分利用多核&lt;/h1>
+&lt;p>人类的一大特点就是生命不息折腾不止，从单核折腾到了多核。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>这时，假设我们想写一个程序并且要分利用多核该怎么办呢？&lt;/p>
+&lt;p>有的同学可能会说不是有进程吗，多开几个进程不就可以了？听上去似乎很有道理，但是主要存在这样几个问题：&lt;/p>
+&lt;ul>
+&lt;li>进程是需要占用内存空间的 (从上一节能看到这一点)，如果多个进程基于同一个可执行程序，那么这些进程其内存区域中的内容几乎完全相同，这显然会造成内存的浪费&lt;/li>
+&lt;li>计算机处理的任务可能是比较复杂的，这就涉及到了进程间通信，由于各个进程处于不同的内存地址空间，进程间通信天然需要借助操作系统，这就在增大编程难度的同时也增加了系统开销&lt;/li>
+&lt;/ul>
+&lt;p>该怎么办呢？&lt;/p>
+&lt;h1 id="从进程到线程">从进程到线程&lt;/h1>
+&lt;p>让我再来仔细的想一想这个问题，所谓进程无非就是内存中的一段区域，这段区域中保存了&lt;strong>CPU 执行的机器指令以及函数运行时的堆栈信息&lt;/strong>，要想让进程运行，就把 main 函数的第一条机器指令地址写入 PC 寄存器，这样进程就运行起来了。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>进程的缺点在于只有一个入口函数，也就是 main 函数，因此进程中的机器指令&lt;strong>只能被一个 CPU 执行&lt;/strong>，那么有没有办法让多个 CPU 来执行同一个进程中的机器指令呢？&lt;/p>
+&lt;p>聪明的你应该能想到，既然我们可以把 main 函数的第一条指令地址写入 PC 寄存器，那么其它函数和 main 函数又有什么区别呢？&lt;/p>
+&lt;p>答案是没什么区别，main 函数的特殊之处无非就在于是 CPU 执行的第一个函数，除此之外再无特别之处，&lt;strong>我们可以把 PC 寄存器指向 main 函数，就可以把 PC 寄存器指向任何一个函数&lt;/strong>。&lt;/p>
+&lt;p>&lt;strong>当我们把 PC 寄存器指向非 main 函数时，线程就诞生了&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>至此我们解放了思想，一个进程内可以有多个入口函数，&lt;strong>也就是说属于同一个进程中的机器指令可以被多个 CPU 同时执行&lt;/strong>。&lt;/p>
+&lt;p>注意，这是一个和进程不同的概念，创建进程时我们需要在内存中找到一块合适的区域以装入进程，然后把 CPU 的 PC 寄存器指向 main 函数，也就是说进程中只有一个&lt;strong>执行流&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>但是现在不一样了，多个 CPU 可以在同一个屋檐下 (进程占用的内存区域) 同时执行属于该进程的多个入口函数，也就是说现在一个进程内可以有&lt;strong>多个执行流&lt;/strong>了。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>总是叫执行流好像有点太容易理解了，再次祭出” 弄不懂原则 “，起个不容易懂的名字，就叫线程吧。&lt;/p>
+&lt;p>这就是线程的由来。&lt;/p>
+&lt;p>操作系统为每个进程维护了一堆信息，用来记录进程所处的内存空间等，这堆信息记为数据集 A。&lt;/p>
+&lt;p>同样的，操作系统也需要为线程维护一堆信息，用来记录线程的入口函数或者栈信息等，这堆数据记为数据集 B。&lt;/p>
+&lt;p>显然数据集 B 要比数据 A 的量要少，同时不像进程，创建一个线程时无需去内存中找一段内存空间，&lt;strong>因为线程是运行在所处进程的地址空间的&lt;/strong>，这块地址空间在程序启动时已经创建完毕，同时线程是程序在运行期间创建的 (进程启动后)，因此当线程开始运行的时候这块地址空间就已经存在了，线程可以直接使用。这就是为什么各种教材上提的创建线程要比创建进程快的原因 (当然还有其它原因)。&lt;/p>
+&lt;p>值得注意的是，有了线程这个概念后，我们只需要进程开启后创建多个线程就可以让所有 CPU 都忙起来，&lt;strong>这就是所谓高性能、高并发的根本所在&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>很简单，只需要创建出数量&lt;strong>合适&lt;/strong>的线程就可以了。&lt;/p>
+&lt;p>另外值得注意的一点是，由于各个线程共享进程的内存地址空间，因此线程之间的通信无需借助操作系统，这给程序员带来极大方便的同时也带来了无尽的麻烦，多线程遇到的多数问题都出自于线程间通信简直太方便了以至于非常容易出错。&lt;strong>出错的根源在于 CPU 执行指令时根本没有线程的概念，&lt;strong>多线程编程面临的&lt;/strong>互斥&lt;/strong>与&lt;strong>同步&lt;/strong>问题需要程序员自己解决，关于互斥与同步问题限于篇幅就不详细展开了，大部分的操作系统资料都有详细讲解。&lt;/p>
+&lt;p>最后需要提醒的是，虽然前面关于线程讲解使用的图中用了多个 CPU，但不是说一定要有多核才能使用多线程，在单核的情况下一样可以创建出多个线程，&lt;strong>原因在于线程是操作系统层面的实现，和有多少个核心是没有关系的&lt;/strong>，CPU 在执行机器指令时也意识不到执行的机器指令属于哪个线程。即使在只有一个 CPU 的情况下，操作系统也可以通过线程调度让各个线程 “同时” 向前推进，方法就是将 CPU 的时间片在各个线程之间来回分配，这样多个线程看起来就是 “同时” 运行了，但实际上任意时刻还是只有一个线程在运行。&lt;/p>
+&lt;h1 id="线程与内存">线程与内存&lt;/h1>
+&lt;p>在前面的讨论中我们知道了线程和 CPU 的关系，也就是把 CPU 的 PC 寄存器指向线程的入口函数，这样线程就可以运行起来了，这就是为什么我们创建线程时必须指定一个入口函数的原因。无论使用任何编程语言，创建一个线程大体相同：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-makefile" data-lang="makefile">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">//&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">设置线程入口函数DoSomething&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">thread = CreateThread(DoSomething);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">//&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">让线程运行起来&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">thread.Run();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>那么线程和内存又有什么关联呢？&lt;/p>
+&lt;p>我们知道函数在被执行的时产生的数据包括&lt;strong>函数参数&lt;/strong>、&lt;strong>局部变量&lt;/strong>、&lt;strong>返回地址&lt;/strong>等信息，这些信息是保存在栈中的，线程这个概念还没有出现时进程中只有一个执行流，因此只有一个栈，这个栈的栈底就是进程的入口函数，也就是 main 函数，假设 main 函数调用了 funA，funcA 又调用了 funcB，如图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>那么有了线程以后了呢？&lt;/p>
+&lt;p>有了线程以后一个进程中就存在多个执行入口，即同时存在多个执行流，那么只有一个执行流的进程需要一个栈来保存运行时信息，那么很显然有多个执行流时就需要有多个栈来保存各个执行流的信息，也就是说&lt;strong>操作系统要为每个线程在进程的地址空间中分配一个栈&lt;/strong>，即每个线程都有独属于自己的栈，能意识到这一点是极其关键的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>同时我们也可以看到，创建线程是要消耗进程内存空间的，这一点也值得注意。&lt;/p>
+&lt;h1 id="线程的使用">线程的使用&lt;/h1>
+&lt;p>现在有了线程的概念，那么接下来作为程序员我们该如何使用线程呢？&lt;/p>
+&lt;p>从生命周期的角度讲，线程要处理的任务有两类：长任务和短任务。&lt;/p>
+&lt;p>&lt;strong>1，长任务，long-lived tasks&lt;/strong>&lt;/p>
+&lt;p>顾名思义，就是任务存活的时间很长，比如以我们常用的 word 为例，我们在 word 中编辑的文字需要保存在磁盘上，往磁盘上写数据就是一个任务，那么这时一个比较好的方法就是专门创建一个写磁盘的线程，该写线程的生命周期和 word 进程是一样的，只要打开 word 就要创建出该写线程，当用户关闭 word 时该线程才会被销毁，这就是长任务。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>这种场景非常适合创建专用的线程来处理某些特定任务，这种情况比较简单。&lt;/p>
+&lt;p>有长任务，相应的就有短任务。&lt;/p>
+&lt;p>&lt;strong>2，短任务，short-lived tasks&lt;/strong>&lt;/p>
+&lt;p>这个概念也很简单，那就是任务的处理时间很短，比如一次网络请求、一次数据库查询等，这种任务可以在短时间内快速处理完成。因此短任务多见于各种 Server，像 web server、database server、file server、mail server 等，这也是互联网行业的同学最常见的场景，这种场景是我们要重点讨论的。&lt;/p>
+&lt;p>这种场景有两个特点：一个是&lt;strong>任务处理所需时间短&lt;/strong>；另一个是&lt;strong>任务数量巨大&lt;/strong>。&lt;/p>
+&lt;p>如果让你来处理这种类型的任务该怎么办呢？&lt;/p>
+&lt;p>你可能会想，这很简单啊，当 server 接收到一个请求后就创建一个线程来处理任务，处理完成后销毁该线程即可，So easy。&lt;/p>
+&lt;p>这种方法通常被称为 thread-per-request，也就是说来一个请求就创建一个线程：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>如果是长任务，那么这种方法可以工作的很好，但是对于大量的短任务这种方法虽然实现简单但是有这样几个缺点：&lt;/p>
+&lt;ol>
+&lt;li>从前几节我们能看到，线程是操作系统中的概念 (这里不讨论用户态线程实现、协程之类)，因此创建线程天然需要借助操作系统来完成，操作系统创建和销毁线程是需要消耗时间的&lt;/li>
+&lt;li>每个线程需要有自己独立的栈，因此当创建大量线程时会消耗过多的内存等系统资源&lt;/li>
+&lt;/ol>
+&lt;p>这就好比你是一个工厂老板 (想想都很开心有没有)，手里有很多订单，每来一批订单就要招一批工人，生产的产品非常简单，工人们很快就能处理完，处理完这批订单后就把这些千辛万苦招过来的工人辞退掉，当有新的订单时你再千辛万苦的招一遍工人，干活儿 5 分钟招人 10 小时，如果你不是励志要让企业倒闭的话大概是不会这么做到的，因此一个更好的策略就是招一批人后就地养着，有订单时处理订单，没有订单时大家可以闲呆着。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>这就是线程池的由来。&lt;/p>
+&lt;h1 id="从多线程到线程池">从多线程到线程池&lt;/h1>
+&lt;p>线程池的概念是非常简单的，无非就是创建一批线程，之后就不再释放了，有任务就提交给这些线程处理，因此无需频繁的创建、销毁线程，同时由于线程池中的线程个数通常是固定的，也不会消耗过多的内存，因此这里的思想就是&lt;strong>复用、可控&lt;/strong>。&lt;/p>
+&lt;h1 id="线程池是如何工作的">线程池是如何工作的&lt;/h1>
+&lt;p>可能有的同学会问，该怎么给线程池提交任务呢？这些任务又是怎么给到线程池中线程呢？&lt;/p>
+&lt;p>很显然，数据结构中的队列天然适合这种场景，提交任务的就是生产者，消费任务的线程就是消费者，实际上这就是经典的&lt;strong>生产者 - 消费者问题&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>现在你应该知道为什么操作系统课程要讲、面试要问这个问题了吧，因为如果你对生产者 - 消费者问题不理解的话，本质上你是无法正确的写出线程池的。&lt;/p>
+&lt;p>限于篇幅在这里博主不打算详细的讲解生产者消费者问题，参考操作系统相关资料就能获取答案。这里博主打算讲一讲一般提交给线程池的任务是什么样子的。&lt;/p>
+&lt;p>一般来说提交给线程池的任务包含两部分：1) &lt;strong>需要被处理的数据&lt;/strong>；2) &lt;strong>处理数据的函数&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">struct&lt;/span> &lt;span style="color:#a6e22e">task&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">void&lt;/span>&lt;span style="color:#f92672">*&lt;/span> data;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> handler handle;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>(注意，你也可以把代码中的 struct 理解成 class，也就是对象。)&lt;/p>
+&lt;p>线程池中的线程会阻塞在队列上，当生产者向队列中写入数据后，线程池中的某个线程会被唤醒，该线程从队列中取出上述结构体 (或者对象)，以结构体(或者对象) 中的数据为参数并调用处理函数：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">while&lt;/span>(true) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">struct&lt;/span> &lt;span style="color:#a6e22e">task&lt;/span> &lt;span style="color:#f92672">=&lt;/span> GetFromQueue();
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> task&lt;span style="color:#f92672">-&amp;gt;&lt;/span>handle(task&lt;span style="color:#f92672">-&amp;gt;&lt;/span>data);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>以上就是线程池最&lt;strong>核心&lt;/strong>的部分。&lt;/p>
+&lt;p>理解这些你就能明白线程池是如何工作的了。&lt;/p>
+&lt;h1 id="线程池中线程的数量">线程池中线程的数量&lt;/h1>
+&lt;p>现在线程池有了，那么线程池中线程的数量该是多少呢？&lt;/p>
+&lt;p>在接着往下看前先自己想一想这个问题。&lt;/p>
+&lt;p>如果你能看到这里说明还没有睡着。&lt;/p>
+&lt;p>要知道线程池的线程过少就不能充分利用 CPU，线程创建的过多反而会造成系统性能下降，内存占用过多，线程切换造成的消耗等等。因此线程的数量既不能太多也不能太少，那到底该是多少呢？&lt;/p>
+&lt;p>回答这个问题，你需要知道线程池处理的任务有哪几类，有的同学可能会说你不是说有两类吗？长任务和短任务，这个是从生命周期的角度来看的，那么从处理任务所需要的资源角度看也有两种类型，这就是没事儿找抽型和。。啊不，是 CPU 密集型和 I/O 密集型。&lt;/p>
+&lt;p>&lt;strong>1，CPU 密集型&lt;/strong>&lt;/p>
+&lt;p>所谓 CPU 密集型就是说处理任务不需要依赖外部 I/O，比如科学计算、矩阵运算等等。在这种情况下只要线程的数量和核数基本相同就可以充分利用 CPU 资源。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>&lt;strong>2，I/O 密集型&lt;/strong>&lt;/p>
+&lt;p>这一类任务可能计算部分所占用时间不多，大部分时间都用在了比如磁盘 I/O、网络 I/O 等。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>这种情况下就稍微复杂一些了，你需要利用性能测试工具评估出用在 I/O 等待上的时间，这里记为 WT(wait time)，以及 CPU 计算所需要的时间，这里记为 CT(computing time)，那么对于一个 N 核的系统，合适的线程数大概是 N * (1 + WT/CT)，假设 I/O 等待时间和计算时间相同，那么你大概需要 2N 个线程才能充分利用 CPU 资源，注意这只是一个理论值，具体设置多少需要根据真实的业务场景进行测试。&lt;/p>
+&lt;p>当然充分利用 CPU 不是唯一需要考虑的点，随着线程数量的增多，内存占用、系统调度、打开的文件数量、打开的 socker 数量以及打开的数据库链接等等是都需要考虑的。&lt;/p>
+&lt;p>因此这里没有万能公式，要&lt;strong>具体情况具体分析&lt;/strong>。&lt;/p>
+&lt;h1 id="线程池不是万能的">线程池不是万能的&lt;/h1>
+&lt;p>线程池仅仅是多线程的一种使用形式，因此多线程面临的问题线程池同样不能避免，像死锁问题、race condition 问题等等，关于这一部分同样可以参考操作系统相关资料就能得到答案，所以基础很重要呀老铁们。&lt;/p>
+&lt;h1 id="线程池使用的最佳实践">线程池使用的最佳实践&lt;/h1>
+&lt;p>线程池是程序员手中强大的武器，互联网公司的各个 server 上几乎都能见到线程池的身影，使用线程池前你需要考虑：&lt;/p>
+&lt;ul>
+&lt;li>充分理解你的任务，是长任务还是短任务、是 CPU 密集型还是 I/O 密集型，如果两种都有，那么一种可能更好的办法是把这两类任务放到不同的线程池中，这样也许可以更好的确定线程数量&lt;/li>
+&lt;li>如果线程池中的任务有 I/O 操作，那么务必对此任务设置超时，否则处理该任务的线程可能会一直阻塞下去&lt;/li>
+&lt;li>线程池中的任务最好不要&lt;strong>同步&lt;/strong>等待其它任务的结果&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>总结&lt;/strong>&lt;/p>
+&lt;p>本节我们从 CPU 开始一路来到常用的线程池，从底层到上层、从硬件到软件。注意，这里通篇没有出现任何特定的编程语言，线程不是语言层面的概念 (依然不考虑用户态线程)，但是当你真正理解了线程后，相信你可以在任何一门语言下用好多线程，你需要理解的是道，此后才是术。&lt;/p>
+&lt;p>希望这篇文章对大家理解线程以及线程池有所帮助。&lt;/p>
+&lt;p>接下的一篇将是与线程池密切配合实现高性能、高并发的又一关键技术：I/O 与 I/O 多路复用，敬请期待。&lt;/p></description></item><item><title>Docs: 判断Linux进程在哪个CPU核运行的4个方法 - 嵌入式Linux中文站</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/%E5%88%A4%E6%96%ADlinux%E8%BF%9B%E7%A8%8B%E5%9C%A8%E5%93%AA%E4%B8%AAcpu%E6%A0%B8%E8%BF%90%E8%A1%8C%E7%9A%844%E4%B8%AA%E6%96%B9%E6%B3%95-%E5%B5%8C%E5%85%A5%E5%BC%8Flinux%E4%B8%AD%E6%96%87%E7%AB%99/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/7.process-%E7%AE%A1%E7%90%86/%E5%88%A4%E6%96%ADlinux%E8%BF%9B%E7%A8%8B%E5%9C%A8%E5%93%AA%E4%B8%AAcpu%E6%A0%B8%E8%BF%90%E8%A1%8C%E7%9A%844%E4%B8%AA%E6%96%B9%E6%B3%95-%E5%B5%8C%E5%85%A5%E5%BC%8Flinux%E4%B8%AD%E6%96%87%E7%AB%99/</guid><description>
+&lt;p>问题：我有个 Linux 进程运行在多核处理器系统上。怎样才能找出哪个 CPU 内核正在运行该进程？&lt;/p>
+&lt;p>当你在 多核 NUMA 处理器上运行需要较高性能的 HPC（高性能计算）程序或非常消耗网络资源的程序时，CPU/memory 的亲和力是限度其发挥最大性能的重要因素之一。在同一 NUMA 节点上调度最相关的进程可以减少缓慢的远程内存访问。像英特尔 Sandy Bridge 处理器，该处理器有一个集成的 PCIe 控制器，你可以在同一 NUMA 节点上调度网络 I/O 负载（如网卡）来突破 PCI 到 CPU 亲和力限制。&lt;/p>
+&lt;p>作为性能优化和故障排除的一部分，你可能想知道特定的进程被调度到哪个 CPU 内核（或 NUMA 节点）上运行。&lt;/p>
+&lt;p>这里有几种方法可以&lt;strong>找出哪个 CPU 内核被调度来运行给定的 Linux 进程或线程&lt;/strong>。&lt;/p>
+&lt;h2 id="方法一">方法一&lt;/h2>
+&lt;p>如果一个进程使用 taskset 命令明确的被固定（pinned）到 CPU 的特定内核上，你可以使用 taskset 命令找出被固定的 CPU 内核：&lt;/p>
+&lt;p>$ taskset -c -p&lt;/p>
+&lt;p>例如, 如果你对 PID 5357 这个进程有兴趣:&lt;/p>
+&lt;p>$ taskset -c -p 5357&lt;/p>
+&lt;p>pid 5357&amp;rsquo;s current affinity list: 5&lt;/p>
+&lt;p>输出显示这个过程被固定在 CPU 内核 5 上。&lt;/p>
+&lt;p>但是，如果你没有明确固定进程到任何 CPU 内核，你会得到类似下面的亲和力列表。&lt;/p>
+&lt;p>pid 5357&amp;rsquo;s current affinity list: 0-11&lt;/p>
+&lt;p>输出表明该进程可能会被安排在从 0 到 11 中的任何一个 CPU 内核。在这种情况下，taskset 不能识别该进程当前被分配给哪个 CPU 内核，你应该使用如下所述的方法。&lt;/p>
+&lt;h2 id="方法二">方法二&lt;/h2>
+&lt;p>ps 命令可以告诉你每个进程/线程目前分配到的 （在“PSR”列）CPU ID。&lt;/p>
+&lt;p>$ ps -o pid,psr,comm -p&lt;/p>
+&lt;p>PID PSR COMMAND&lt;/p>
+&lt;p>5357 10 prog&lt;/p>
+&lt;p>输出表示进程的 PID 为 5357（名为”prog”）目前在 CPU 内核 10 上运行着。如果该过程没有被固定，PSR 列会根据内核可能调度该进程到不同内核而改变显示。&lt;/p>
+&lt;h2 id="方法三">方法三&lt;/h2>
+&lt;p>top 命令也可以显示 CPU 被分配给哪个进程。首先，在 top 命令中使用 P 选项。然后按“f”键，显示中会出现 “Last used CPU” 列。目前使用的 CPU 内核将出现在 “P”（或“PSR”）列下。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>top -p &lt;span style="color:#ae81ff">5357&lt;/span> -H
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/hsfm16/1616167411830-a73b375d-c071-4953-a44d-eb0390f44258.jpeg" alt="">
+相比于 ps 命令，使用 top 命令的好处是，你可以连续监视随着时间的改变， CPU 是如何分配的。&lt;/p>
+&lt;h2 id="方法四">方法四&lt;/h2>
+&lt;p>另一种来检查一个进程/线程当前使用的是哪个 CPU 内核的方法是使用 htop 命令。&lt;/p>
+&lt;p>从命令行启动 htop。按 键，进入”Columns”，在”Available Columns”下会添加 PROCESSOR。&lt;/p>
+&lt;p>每个进程当前使用的 CPU ID 将出现在“CPU”列中。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/hsfm16/1616167411836-ec26f183-e19b-4050-a5bb-5c4b033215cd.jpeg" alt="">&lt;/p>
+&lt;p>请注意，所有以前使用的命令 taskset，ps 和 top 分配 CPU 内核的 IDs 为 0，1，2，…，N-1。然而，htop 分配 CPU 内核 IDs 从 1 开始（直到 N）。&lt;/p></description></item></channel></rss>
