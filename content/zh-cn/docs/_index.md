@@ -10,16 +10,18 @@ menu:
 
 <!-- 本文件添加到 docs 目录下，后，首页右上角将会出现“文档”标签，点击标签可以跳转 -->
 {{% pageinfo %}}
-This is a placeholder page that shows you how to use this template site.
+这是一个占位符页面，展示如何使用此模板网站。
 {{% /pageinfo %}}
 
+这部分是文档的首页
 
-This section is where the user documentation for your project lives - all the information your users need to understand and successfully use your project.
+对于大型文档的集合，建议在本页面标题下添加内容
+Tahis section is where the user documentation for your project lives - all the information your users need to understand and successfully use your project.
 
-For large documentation sets we recommend adding content under the headings in this section, though if some or all of them don’t apply to your project feel free to remove them or add your own. You can see an example of a smaller Docsy documentation site in the [Docsy User Guide](https://docsy.dev/docs/), which lives in the [Docsy theme repo](https://github.com/google/docsy/tree/master/userguide) if you'd like to copy its docs section.
+- [Docsy 用户指南](https://docsy.dev/docs/)
+- [Docsy theme repo](https://github.com/google/docsy/tree/main/userguide) 在这里可以找到 docsy 的示例页面和文档
 
 Other content such as marketing material, case studies, and community updates should live in the [About](/about/) and [Community](/community/) pages.
 
-Find out how to use the Docsy theme in the [Docsy User Guide](https://docsy.dev/docs/). You can learn more about how to organize your documentation (and how we organized this site) in [Organizing Your Content](https://docsy.dev/docs/best-practices/organizing-content/).
-
+You can learn more about how to organize your documentation (and how we organized this site) in [Organizing Your Content](https://docsy.dev/docs/best-practices/organizing-content/).
 
