@@ -2963,135 +2963,7 @@ authentication.
 &lt;p>backup&lt;/p>
 &lt;p>consistency&lt;/p>
 &lt;p>snapshot&lt;/p>
-&lt;p>volume&lt;/p></description></item><item><title>Docs: 1.Redis</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/1.redis/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/1.redis/</guid><description>
-&lt;h1 id="redis-介绍">Redis 介绍&lt;/h1>
-&lt;p>参考：&lt;a href="https://redis.io/">官网&lt;/a>&lt;/p>
-&lt;p>Redis 是一个开源的、网络化的、内存中的、具有持久化的键值数据存储。(是否持久化根据配置决定)&lt;/p>
-&lt;p>Redis 是一个内存数据库, 所有数据默认都存在于内存当中,可以配置“定时以追加或者快照”的方式储存到硬盘中. 由于 redis 是一个内存数据库, 所以读取写入的速度是非常快的, 所以经常被用来做数据, 页面等的缓存。&lt;/p>
-&lt;p>Redis 的组件&lt;/p>
-&lt;ol>
-&lt;li>
-&lt;p>redis-server # 服务端&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>redis-cli # 命令行客户端&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>redis-benchmark # 压测工具&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>redis-check-dump &amp;amp;&amp;amp; redis-check-aof # 检测工具&lt;/p>
-&lt;/li>
-&lt;/ol>
-&lt;p>Redis 的数据类型&lt;/p>
-&lt;p>string(字符串)，hash(哈希)，list(列表)，set(集合) 及 zset(sorted set：有序集合)。&lt;/p>
-&lt;p>后面增加了：&lt;/p>
-&lt;p>Bit arrays (或者说 simply bitmaps)&lt;/p>
-&lt;p>在 2.8.9 版本添加了 HyperLogLog 结构&lt;/p>
-&lt;p>Redis 部署&lt;/p>
-&lt;p>Docker 启动 Redis&lt;/p>
-&lt;pre>&lt;code>docker run -d --name redis \
---network=host \
-redis:5.0.10-alpine
-&lt;/code>&lt;/pre>
-&lt;p>Redis 配置&lt;/p>
-&lt;p>**/etc/redis.conf **# Redis 主程序的配置文件&lt;/p>
-&lt;p>&lt;strong>/var/lib/redis/*&lt;/strong> # 默认的数据存储目录&lt;/p>
-&lt;p>Redis 数据持久化的方式&lt;/p>
-&lt;p>Redis 的数据是保存在内存中的，如果设备宕机，则数据丢失，所以 Redis 提供两种可以将数据从内存中写入硬盘的方式，默认为 RDB，AOF 默认不开启&lt;/p>
-&lt;p>RDB Redis Data Base&lt;/p>
-&lt;p>相关配置在配置文件的 SNAPSHOT 配置环境中。&lt;/p>
-&lt;p>在默认情况下， Redis 将数据库快照保存在名字为 dump.rdb 的二进制文件中。可以对 Redis 进行设置， 让 Redis 在“ N 秒内数据集至少有 M 个 key 改动”这一条件被满足时， 自动保存一次数据集。也可以通过调用 SAVE 或者 BGSAVE ， 手动让 Redis 进行数据集保存操作。&lt;/p>
-&lt;p>这种持久化的方式被称为快照（snapshotting），会将数据保存在一个指定的文件中。&lt;/p>
-&lt;p>RDB 工作原理：&lt;/p>
-&lt;ol>
-&lt;li>
-&lt;p>触发 RDB 后，redis 会调用 fork(),产生一个与主程序同名的子进程。&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>该子进程会将现有内存中的数据写入到一个临时的 RDB 文件中。(文件名一般为：temp-XXX.rdb)&lt;/p>
-&lt;ol>
-&lt;li>Redis 默认会使用 LZF 算法对数据进行压缩。该算法会消耗大量 CPU，可以在配置中关闭压缩功能，但是数据量写入到磁盘后，会占用大量磁盘空间。&lt;/li>
-&lt;/ol>
-&lt;/li>
-&lt;li>
-&lt;p>当子进程完成对临时 RDB 文件的写入时，Redis 用这个临时的 RDB 文件替换原来的 RDB 文件，并删除旧的 RDB 文件。&lt;/p>
-&lt;/li>
-&lt;/ol>
-&lt;p>这种工作方式使得 Redis 可以从写时复制（copy-on-write）机制中获益。&lt;/p>
-&lt;p>RDB 优点：&lt;/p>
-&lt;ul>
-&lt;li>
-&lt;p>RDB 文件是一个很简洁的单文件，它保存了某个时间点的 Redis 数据，很适合用于做备份。你可以设定一个时间点对 RDB 文件进行归档，这样就能在需要的时候很轻易的把数据恢复到不同的版本。&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>基于上面所描述的特性，RDB 很适合用于灾备。单文件很方便就能传输到远程的服务器上。&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>RDB 的性能很好，需要进行持久化时，主进程会 fork 一个子进程出来，然后把持久化的工作交给子进程，自己不会有相关的 I/O 操作。&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>比起 AOF，在数据量比较大的情况下，RDB 的启动速度更快。&lt;/p>
-&lt;/li>
-&lt;/ul>
-&lt;p>RDB 缺点：&lt;/p>
-&lt;ol>
-&lt;li>
-&lt;p>RDB 容易造成数据的丢失。假设每 5 分钟保存一次快照，如果 Redis 因为某些原因不能正常工作，那么从上次产生快照到 Redis 出现问题这段时间的数据就会丢失了。&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>RDB 使用 fork()产生子进程进行数据的持久化，如果数据比较大的话可能就会花费点时间，造成 Redis 停止服务几毫秒。如果数据量很大且 CPU 性能不是很好的时候，停止服务的时间甚至会到 1 秒。&lt;/p>
-&lt;/li>
-&lt;/ol>
-&lt;h2 id="aof-append-only-file">AOF Append Only File&lt;/h2>
-&lt;p>配置文件中配置环境 APPEND ONLY MOD E 可以进项相关配置。&lt;/p>
-&lt;p>默认 redis 使用的是 rdb 方式持久化，这种方式在许多应用中已经足够用了。但是 redis 如果中途宕机，会导致可能有几分钟的数据丢失。&lt;/p>
-&lt;p>Append Only File 是另一种持久化方式，可以提供更好的持久化特性。Redis 会把每次写入的数据在接收后都写入 appendonly.aof 文件，每次启动时 Redis 都会先把这个文件的数据读入内存里，先忽略 RDB 文件。&lt;/p>
-&lt;p>AOF 工作方式：&lt;/p>
-&lt;p>每当 Redis 执行一个改变数据集的命令时（比如 SET）， 这个命令就会被追加到 AOF 文件的末尾。这样的话， 当 Redis 重新启时， 程序就可以通过重新执行 AOF 文件中的命令来达到重建数据集的目的。AOF 重写和 RDB 创建快照一样，都巧妙地利用了写时复制机制:&lt;/p>
-&lt;ol>
-&lt;li>
-&lt;p>Redis 执行 fork() ，现在同时拥有父进程和子进程。&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>子进程开始将新 AOF 文件的内容写入到临时文件。&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>对于所有新执行的写入命令，父进程一边将它们累积到一个内存缓存中，一边将这些改动追加到现有 AOF 文件的末尾,这样样即使在重写的中途发生停机，现有的 AOF 文件也还是安全的。&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>当子进程完成重写工作时，它给父进程发送一个信号，父进程在接收到信号之后，将内存缓存中的所有数据追加到新 AOF 文件的末尾。&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>搞定！现在 Redis 原子地用新文件替换旧文件，之后所有命令都会直接追加到新 AOF 文件的末尾。&lt;/p>
-&lt;/li>
-&lt;/ol>
-&lt;p>AOF 优点：&lt;/p>
-&lt;ol>
-&lt;li>
-&lt;p>使用 AOF 会让你的 Redis 更加耐久: 你可以使用不同的 fsync 策略：无 fsync,每秒 fsync,每次写的时候 fsync.使用默认的每秒 fsync 策略,Redis 的性能依然很好(fsync 是由后台线程进行处理的,主线程会尽力处理客户端请求),一旦出现故障，你最多丢失 1 秒的数据.&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>AOF 文件是一个只进行追加的日志文件,所以不需要写入 seek,即使由于某些原因(磁盘空间已满，写的过程中宕机等等)未执行完整的写入命令,你也也可使用 redis-check-aof 工具修复这些问题.&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>Redis 可以在 AOF 文件体积变得过大时，自动地在后台对 AOF 进行重写： 重写后的新 AOF 文件包含了恢复当前数据集所需的最小命令集合。 整个重写操作是绝对安全的，因为 Redis 在创建新 AOF 文件的过程中，会继续将命令追加到现有的 AOF 文件里面，即使重写过程中发生停机，现有的 AOF 文件也不会丢失。 而一旦新 AOF 文件创建完毕，Redis 就会从旧 AOF 文件切换到新 AOF 文件，并开始对新 AOF 文件进行追加操作。&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>AOF 文件有序地保存了对数据库执行的所有写入操作， 这些写入操作以 Redis 协议的格式保存， 因此 AOF 文件的内容非常容易被人读懂， 对文件进行分析（parse）也很轻松。 导出（export） AOF 文件也非常简单： 举个例子， 如果你不小心执行了 FLUSHALL 命令， 但只要 AOF 文件未被重写， 那么只要停止服务器， 移除 AOF 文件末尾的 FLUSHALL 命令， 并重启 Redis ， 就可以将数据集恢复到 FLUSHALL 执行之前的状态。&lt;/p>
-&lt;/li>
-&lt;/ol>
-&lt;p>AOF 缺点：&lt;/p>
-&lt;ol>
-&lt;li>
-&lt;p>对于相同的数据集来说，AOF 文件的体积通常要大于 RDB 文件的体积。&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>根据所使用的 fsync 策略，AOF 的速度可能会慢于 RDB 。 在一般情况下， 每秒 fsync 的性能依然非常高， 而关闭 fsync 可以让 AOF 的速度和 RDB 一样快， 即使在高负荷之下也是如此。 不过在处理巨大的写入载入时，RDB 可以提供更有保证的最大延迟时间（latency）。&lt;/p>
-&lt;/li>
-&lt;/ol>
-&lt;p>下图是 redis 启动后读取本地存储文件的过程&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gghosd/1616134974086-4020ec57-f508-4a12-b30e-aba72d1730e4.jpeg" alt="">&lt;/p></description></item><item><title>Docs: 1.Server Message Block</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/1.%E5%AD%98%E5%82%A8/%E5%AD%98%E5%82%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E6%9E%B6%E6%9E%84/network-attached-storage%E7%BD%91%E7%BB%9C%E9%99%84%E5%8A%A0%E5%AD%98%E5%82%A8/1.server-message-block/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/1.%E5%AD%98%E5%82%A8/%E5%AD%98%E5%82%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E6%9E%B6%E6%9E%84/network-attached-storage%E7%BD%91%E7%BB%9C%E9%99%84%E5%8A%A0%E5%AD%98%E5%82%A8/1.server-message-block/</guid><description>
+&lt;p>volume&lt;/p></description></item><item><title>Docs: 1.Server Message Block</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/1.%E5%AD%98%E5%82%A8/%E5%AD%98%E5%82%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E6%9E%B6%E6%9E%84/network-attached-storage%E7%BD%91%E7%BB%9C%E9%99%84%E5%8A%A0%E5%AD%98%E5%82%A8/1.server-message-block/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/1.%E5%AD%98%E5%82%A8/%E5%AD%98%E5%82%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E6%9E%B6%E6%9E%84/network-attached-storage%E7%BD%91%E7%BB%9C%E9%99%84%E5%8A%A0%E5%AD%98%E5%82%A8/1.server-message-block/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;a href="https://en.wikipedia.org/wiki/Server_Message_Block">Wiki,SMB&lt;/a>、&lt;a href="https://en.wikipedia.org/wiki/Server_Message_Block">Wiki,Samba&lt;/a>、&lt;a href="https://searchstorage.techtarget.com/definition/Common-Internet-File-System-CIFS">Techtarget&lt;/a>&lt;/p>
@@ -7295,4 +7167,95 @@ ValidatingAdmissionWebhook&lt;/p>
 &lt;p>主机、无数个路由器，甚至是由多个公司、多个网络提供商、多个自治系统组成的复合自治系统呢？&lt;/p>
 &lt;p>这时候，如果还要依靠人工来对边界网关的路由表进行配置和维护，那是绝对不现实的。而这种情况下，BGP 大显身手的时刻就到了。在使用了 BGP 之后，你可以认为，在每个边界网关上都会运行着一个小程序，它们会将各自的路由表信息，通过 TCP 传输给其他的边界网关。而其他边界网关上的这个小程序，则会对收到的这些数据进行分析，然后将需要的信息添加到自己的路由表里。这样，图 2 中 Router 2 的路由表里，就会自动出现 10.10.0.2 和 10.10.0.3 对应的路由规则了。&lt;/p>
 &lt;p>所以说，所谓 BGP，就是在大规模网络中实现节点路由信息共享的一种协议。而 BGP 的这个能力，正好可以取代 Flannel 维护主机上路由表的功能。而且，BGP 这种原生就是为大规模网络环境而实现的协议，其可靠性和可扩展性，远非 Flannel 自己的方案可比。&lt;/p>
-&lt;p>Note：BGP 协议实际上是最复杂的一种路由协议。我在这里的讲述和所举的例子，仅是为了能够帮助你建立对 BGP 的感性认识，并不代表 BGP 真正的实现方式。&lt;/p></description></item></channel></rss>
+&lt;p>Note：BGP 协议实际上是最复杂的一种路由协议。我在这里的讲述和所举的例子，仅是为了能够帮助你建立对 BGP 的感性认识，并不代表 BGP 真正的实现方式。&lt;/p></description></item><item><title>Docs: 3.ICMP</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/3.icmp/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/3.icmp/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/AKiUyMbsGhOZi7cDAhSGkg">公众号,24 张图搞定 ICMP&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h3 id="icmp">ICMP&lt;/h3>
+&lt;p>&lt;strong>IP&lt;/strong> 是尽力传输的网络协议，提供的数据传输服务是&lt;strong>不可靠&lt;/strong>的、无连接的，不能保证数据包能成功到达目的地。那么问题来了：如何确定数据包成功到达目的地？
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956279-d468d429-a172-4d1d-8296-bd855385f80b.png" alt="">不可靠传输
+这需要一个网络层协议，提供错误检测功能和报告机制功能，于是出现了 &lt;strong>ICMP&lt;/strong>（互联网控制消息协议）。ICMP 的主要功能是，&lt;strong>确认 IP 包是否成功送达目的地址&lt;/strong>，&lt;strong>通知发送过程中 IP 包被丢弃的原因&lt;/strong>。有了这些功能，就可以检查网络是否正常、网络配置是否正确、设备是否异常等信息，方便进行&lt;strong>网络问题诊断&lt;/strong>。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956391-eae4cc3c-7eb0-47aa-875a-154dec57c1cf.png" alt="">ICMP 网络诊断功能
+&lt;strong>举个栗子&lt;/strong>：如果在传输过程中，发生了某个错误，设备便会向源设备返回一条 ICMP 消息，告诉它发生的错误类型。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956489-289bd365-0f3c-4891-b798-016dcab13bb4.png" alt="">ICMP 举例
+ICMP 消息是通过 IP 进行传输，但它的目的并不是让 IP 成为一种可靠的协议，而是对传输中发生的问题进行反馈。ICMP 消息的传输同样得不到可靠性保证，也有可能在传输过程中丢失。因此 ICMP 不是传输层的补充，应该把它当做&lt;strong>网络层协议&lt;/strong>。&lt;/p>
+&lt;h4 id="icmp-消息封装">ICMP 消息封装&lt;/h4>
+&lt;p>ICMP 消息使用 IP 来封装，&lt;strong>封装格式&lt;/strong>如下图。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956425-eb063720-58a0-4b78-bfa8-39c2e96d569d.png" alt="">ICMP 封装格式
+其中 &lt;strong>type&lt;/strong>（类型）字段表示 ICMP 消息的类型，&lt;strong>code&lt;/strong>（代码）字段表示 ICMP 消息的具体含义。例如：type 值为 3 表示目的不可达消息（ Destination Unreachable Message ），若 code 值为 0 表示目的网络不可达（ Network Unreachable ）。常见的 ICMP 消息类型如下图。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956257-cc3d7e06-5c0f-4f20-9026-48917ba962ee.png" alt="">ICMP 消息类型
+从功能上，ICMP 的消息可分为两类：一类是通知出错原因的&lt;strong>错误消息&lt;/strong>，另一类是用于诊断的&lt;strong>查询消息&lt;/strong>。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956583-0a4b1076-322c-4b5f-bd43-8b5364ce42a4.png" alt="">错误消息和查询消息&lt;/p>
+&lt;h4 id="常见的-icmp-消息类型">常见的 ICMP 消息类型&lt;/h4>
+&lt;ul>
+&lt;li>&lt;strong>回送请求消息&lt;/strong>（ Echo Request ）：是由源设备（主机或路由器等）向一个指定的目的设备发出的请求。这种消息用来测试目的地是否可达。&lt;/li>
+&lt;li>&lt;strong>回送响应消息&lt;/strong>（ Echo Reply ）：对 Echo Request 的响应。目的设备发送 Echo Reply 来响应收到的 Echo Request 。最常用的 ping 命令就是使用 Echo Request 和 Echo Reply 来实现的。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956612-4e223795-e42d-4c78-8be6-48000ccc7632.png" alt="">回送消息&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>目的不可达&lt;/strong>（ Destination Unreachable ）：路由器无法将 IP 包发送给目的地址时，会给源设备返回一个 Destination Unreachable 消息，并在消息中显示不可达的具体原因。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956380-16033d96-d332-4f13-9a3a-3d24a50b113d.png" alt="">目的不可达实际情况下，经常会遇到的错误代码是 1 ，表示主机不可达，它是指路由表中没有目的设备的信息，或目的设备没有连接到网络。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956460-afdf7e80-77ee-4e32-8e0d-749e9bc5c483.png" alt="">目的不可达类型&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>参数问题&lt;/strong>（ Parameter Problem ）：路由器发现 IP 包头出现错误或非法值后，向源设备发送一个 Parameter Problem 消息。这个消息包含有问题的 IP 头，或错误字段的提示信息。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956530-5dcf521e-a938-4961-b7b1-00d735a998b6.png" alt="">参数问题消息&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>重定向&lt;/strong>（ Redirect ）：如果路由器发现一条更优的路径发送数据，那么它就会返回一个 Redirect 消息给主机。这个消息包含了最合适的路由信息和源数据。
+实际情况下，这种 Redirect 消息会引发路由问题，所以不进行这种设置。比如：路由器的路由表不准确时，ICMP 有可能就无法正常工作。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956439-255f3c69-1653-431d-81a4-9592520ed469.png" alt="">重定向&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>超时&lt;/strong>（ Time Exceeded ）：IP 包中有一个字段是 TTL（生存周期），它的值每经过一次路由器就减 1 ，直到减到 0 时 IP 包会被丢弃。这时，路由器会发送一个 Time Exceeded 消息给源设备，并通知 IP 包已被丢弃。
+设置 TTL 的主要目的，是当路由发生环路时，避免 IP 包无休止的在网络上转发。还可以用 TTL 控制 IP 包的可达范围，比如设置一个较小的 TTL 值。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956563-69d4450f-834a-4f6e-9ae0-f54f6ad81866.png" alt="">超时&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>时间戳请求/时间戳响应&lt;/strong>（ Timestamp Request / Timestamp Reply ）：时间戳可以记录 ICMP 消息一次往返所需的时间。源设备发送一个带有发送时间的 Timestamp Request 消息，目的设备收到后，发送一个带有原设备发送时间、目的设备接收时间以及目的设备发送时间的 Timestamp Reply 消息。源设备收到 Timestamp Reply 时，并同时记录到达时间。这些时间戳可以估计网络上的传输时间。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956537-0334836c-2e44-4f22-83c5-b81cf4d3031a.png" alt="">时间戳&lt;/p>
+&lt;h3 id="icmp-的应用">ICMP 的应用&lt;/h3>
+&lt;p>ICMP 被广泛应用于网络测试，最常用的 &lt;strong>ping&lt;/strong> 和 &lt;strong>tracert&lt;/strong> 网络测试工具，都是使用 ICMP 协议实现的。&lt;/p>
+&lt;h4 id="ping">ping&lt;/h4>
+&lt;p>ping 是 ICMP 最著名的一个应用，通过 ping 可以&lt;strong>测试网络的可达性&lt;/strong>，即网络上的报文能否成功到达目的地。使用 ping 命令时，源设备向目的设备发送 &lt;em>Echo request&lt;/em> 消息，目的地址是目的设备的 IP 地址。目的设备收到 &lt;em>Echo request&lt;/em> 消息后，向源设备回应一个 &lt;em>Echo reply&lt;/em> 消息，可知目的设备是可达的。也可以通过 ping 命令来判断目标主机是否启用。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956406-67c2d46c-ad49-4904-8ead-569eaeb0ef80.png" alt="">ping
+如果中间某个路由器没有到达目的网络的路由，便会向源设备回应一个 &lt;em>Destination Unreachable&lt;/em> 消息，告知目的设备不可达。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956546-e4b22038-cd77-4ba6-a18a-8f58b0961db2.png" alt="">ping 目的不可达
+如果源主机在一定时间内无法收到回应报文，就认为目的设备不可达，并显示超时。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956386-8c862599-839b-4eba-a995-b9267f202d65.png" alt="">超时
+需要注意的是 ping 过程是双向的消息通信，只有双向都成功传输时，才能说明通信是正常的。另外主机也可能因为防火墙拦截，导致 ping 不通。&lt;/p>
+&lt;h4 id="tracert">tracert&lt;/h4>
+&lt;p>ping 工具只能测试目的设备的连通性，但是看不到数据包的传输路径。所以在网络不通的情况下，无法知道网络问题发生在哪个位置。tracert 工具可以查看数据包的&lt;strong>整条传输路径&lt;/strong>，包括途中经过的&lt;strong>中间设备&lt;/strong>。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956431-46f8e00a-d012-428d-8bcc-247f97e0b7a6.png" alt="">tracert
+IP 头部的 &lt;strong>TTL&lt;/strong> 字段是为避免数据包循环转发而设计的。每经过一个路由器，数据包头中的 TTL 值减 1 。如果 TTL 值为 0 则丢弃报文，并向源设备回应一个 Time Exceeded 消息，告知错误类型。tracert 就是基于 TTL 字段和 ICMP 协议实现的。在 Windows 中命令是 &lt;strong>tracert&lt;/strong> ，在 Unix 、MacOS 中命令是 &lt;strong>traceroute&lt;/strong> 。
+使用 tracert 命令时，源设备的 tracert &lt;strong>逐跳发送数据包&lt;/strong>，并等待每一个响应报文。发送第一个数据包时，TTL 值设为 1 。第一个路由器收到数据包后 TTL 值减 1 ，随即丢弃数据包，并返回一个 &lt;em>Time Exceeded&lt;/em> 消息。源设备的 tracert 收到响应报文后，取出源 IP 地址，即路径上的第一个路由器地址。然后 tracert 发送一个 TTL 值为 2 的数据包。第一个路由器将 TTL 值减 1 ，并转发数据包。第二个路由器再将 TTL 值减 1 ，丢弃数据包并返回一个 &lt;em>Time Exceeded&lt;/em> 消息。tracert 收到响应报文后，取出源 IP 地址，即路径上的第二个路由器地址。类似步骤，tracert 逐跳获得每一个路由器的地址，并探测到目的设备的可达性。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956576-de3f09ef-891d-4830-bef8-c84ef221aac4.png" alt="">tracert
+tracert 过程也是双向的消息通信，只有双向都成功传输时，才能正确探测路径。另外主机安装了防火墙，也可能造成路径探测失败。&lt;/p>
+&lt;h3 id="网络实战">网络实战&lt;/h3>
+&lt;h4 id="ping-1">ping&lt;/h4>
+&lt;p>在 Windows 电脑上使用 &lt;strong>ping&lt;/strong> 命令，并查看返回信息。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956590-14d0d35c-c869-48f1-be86-6ffd13a9591e.png" alt="">ping 命令
+同步&lt;strong>抓包&lt;/strong>进行验证。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956373-656b7067-8cd6-4d87-9fcf-f18863eae6ec.png" alt="">ping 抓包
+还可以直接使用 ping 命令，查看 ping 命令的&lt;strong>使用方法&lt;/strong>。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956428-2fb4954b-c839-4523-b3a2-ff3565ba6188.png" alt="">ping 命令用法&lt;/p>
+&lt;h4 id="tracert-1">tracert&lt;/h4>
+&lt;p>在 Windows 电脑上使用 &lt;strong>tracert&lt;/strong> 命令，并查看返回信息。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956498-ede48849-269f-4fe6-883e-1ed11215e544.png" alt="">tracert 命令
+同步&lt;strong>抓包&lt;/strong>进行验证。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956533-997964bf-42cb-4306-92bc-11b97ccd05e9.png" alt="">tracert 抓包
+也可以直接使用 tracert 命令，查看 tracert 命令的&lt;strong>使用方法&lt;/strong>。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/boov5o/1622087956443-84a5971e-0af1-4287-b740-d0160533e903.png" alt="">tracert 用法&lt;/p>
+&lt;hr>
+&lt;p>&lt;strong>饮水思源：&lt;/strong>
+TCP/IP 详解 卷 1：协议 - Kevin R.Fall
+网络基础 - 田果
+图解 TCP/IP - 竹下隆史
+路由交换技术 - 杭州华三通信技术有限公司&lt;/p>
+&lt;h1 id="icmpv6">ICMPv6&lt;/h1>
+&lt;p>ICMPv6 是 IPv6 的基础协议之一，定义在 RFC 2463 中。用来传递报文转发中产生的信息或者错误。ICMPv6 定义的报文被广泛地应用在其他协议中，包括 NDP(邻居发现协议)、PathMTU 发现机制 等等。&lt;/p></description></item></channel></rss>

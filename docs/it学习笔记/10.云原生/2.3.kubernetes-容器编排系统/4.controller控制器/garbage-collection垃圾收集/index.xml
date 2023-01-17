@@ -25,7 +25,7 @@
 &lt;h1 id="熟悉又陌生的-k8s-字段finalizers">熟悉又陌生的 k8s 字段：finalizers&lt;/h1>
 &lt;p>经常操作 Kubernetes 集群的同学肯定对 finalizers 字段不陌生，每当删除 namespace 或 pod 等一些 Kubernetes 资源时，有时资源状态会卡在 Terminating，很长时间无法删除，甚至有时增加 &amp;ndash;force flag 之后还是无法正常删除。这时就需要 edit 该资源，将 finalizers 字段设置为 []，之后 Kubernetes 资源就正常删除了。&lt;/p>
 &lt;p>这是一个比较常见的操作，但是当有人问 finalizers 字段的作用是什么的时候，我是懵逼的，我甚至不知道这个熟悉又陌生的单词怎么读！那么这篇文章就来探索一下 finalizers 这个字段到底是做什么的，在实践中应该怎么应用这个字段。（另外，这个单词读作 [&amp;lsquo;faɪnəlaɪzər]）&lt;/p>
-&lt;p>Finalizers 字段属于 Kubernetes GC 垃圾收集器，是一种删除拦截机制，能够让控制器实现异步的删除前（Pre-delete）回调。其存在于任何一个资源对象的 Meta[1] 中，在 k8s 源码中声明为 []string，该 Slice 的内容为需要执行的拦截器名称。&lt;/p>
+&lt;p>Finalizers 字段属于 Kubernetes GC 垃圾收集器，是一种删除拦截机制，能够让控制器实现异步的删除前（Pre-delete）回调。其存在于任何一个资源对象的 Meta[1] 中，在 k8s 源码中声明为 []STRING，该 Slice 的内容为需要执行的拦截器名称。&lt;/p>
 &lt;p>对带有 Finalizer 的对象的第一个删除请求会为其 metadata.deletionTimestamp 设置一个值，但不会真的删除对象。一旦此值被设置，finalizers 列表中的值就只能被移除。&lt;/p>
 &lt;p>当 metadata.deletionTimestamp 字段被设置时，负责监测该对象的各个控制器会通过轮询对该对象的更新请求来执行它们所要处理的所有 Finalizer。当所有 Finalizer 都被执行过，资源被删除。&lt;/p>
 &lt;p>metadata.deletionGracePeriodSeconds 的取值控制对更新的轮询周期。&lt;/p>
@@ -120,6 +120,6 @@
 &lt;h1 id="finalizers-字段的处理">finalizers 字段的处理&lt;/h1>
 &lt;p>快速清空对象中的 finalizers 字段&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl get namespace test -o json &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> | tr -d &lt;span style="color:#e6db74">&amp;#34;\n&amp;#34;&lt;/span> | sed &lt;span style="color:#e6db74">&amp;#34;s/\&amp;#34;finalizers\&amp;#34;: \[[^]]\+\]/\&amp;#34;finalizers\&amp;#34;: []/&amp;#34;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> | tr -d &lt;span style="color:#e6db74">&amp;#34;\n&amp;#34;&lt;/span> | sed &lt;span style="color:#e6db74">&amp;#34;s/\&amp;#34;finalizers\&amp;#34;: [[^]]\+\]/\&amp;#34;finalizers\&amp;#34;: []/&amp;#34;&lt;/span> &lt;span style="color:#ae81ff">\
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> | kubectl replace --raw /api/v1/namespaces/test/finalize -f -
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>
