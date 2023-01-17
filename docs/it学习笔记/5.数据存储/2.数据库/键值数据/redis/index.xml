@@ -1,0 +1,407 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Redis</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/</link><description>Recent content in Redis on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 1.Redis</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/1.redis/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/1.redis/</guid><description>
+&lt;h1 id="redis-介绍">Redis 介绍&lt;/h1>
+&lt;p>参考：&lt;a href="https://redis.io/">官网&lt;/a>&lt;/p>
+&lt;p>Redis 是一个开源的、网络化的、内存中的、具有持久化的键值数据存储。(是否持久化根据配置决定)&lt;/p>
+&lt;p>Redis 是一个内存数据库, 所有数据默认都存在于内存当中,可以配置“定时以追加或者快照”的方式储存到硬盘中. 由于 redis 是一个内存数据库, 所以读取写入的速度是非常快的, 所以经常被用来做数据, 页面等的缓存。&lt;/p>
+&lt;p>Redis 的组件&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>redis-server # 服务端&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>redis-cli # 命令行客户端&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>redis-benchmark # 压测工具&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>redis-check-dump &amp;amp;&amp;amp; redis-check-aof # 检测工具&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>Redis 的数据类型&lt;/p>
+&lt;p>string(字符串)，hash(哈希)，list(列表)，set(集合) 及 zset(sorted set：有序集合)。&lt;/p>
+&lt;p>后面增加了：&lt;/p>
+&lt;p>Bit arrays (或者说 simply bitmaps)&lt;/p>
+&lt;p>在 2.8.9 版本添加了 HyperLogLog 结构&lt;/p>
+&lt;p>Redis 部署&lt;/p>
+&lt;p>Docker 启动 Redis&lt;/p>
+&lt;pre>&lt;code>docker run -d --name redis \
+--network=host \
+redis:5.0.10-alpine
+&lt;/code>&lt;/pre>
+&lt;p>Redis 配置&lt;/p>
+&lt;p>**/etc/redis.conf **# Redis 主程序的配置文件&lt;/p>
+&lt;p>&lt;strong>/var/lib/redis/*&lt;/strong> # 默认的数据存储目录&lt;/p>
+&lt;p>Redis 数据持久化的方式&lt;/p>
+&lt;p>Redis 的数据是保存在内存中的，如果设备宕机，则数据丢失，所以 Redis 提供两种可以将数据从内存中写入硬盘的方式，默认为 RDB，AOF 默认不开启&lt;/p>
+&lt;p>RDB Redis Data Base&lt;/p>
+&lt;p>相关配置在配置文件的 SNAPSHOT 配置环境中。&lt;/p>
+&lt;p>在默认情况下， Redis 将数据库快照保存在名字为 dump.rdb 的二进制文件中。可以对 Redis 进行设置， 让 Redis 在“ N 秒内数据集至少有 M 个 key 改动”这一条件被满足时， 自动保存一次数据集。也可以通过调用 SAVE 或者 BGSAVE ， 手动让 Redis 进行数据集保存操作。&lt;/p>
+&lt;p>这种持久化的方式被称为快照（snapshotting），会将数据保存在一个指定的文件中。&lt;/p>
+&lt;p>RDB 工作原理：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>触发 RDB 后，redis 会调用 fork(),产生一个与主程序同名的子进程。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>该子进程会将现有内存中的数据写入到一个临时的 RDB 文件中。(文件名一般为：temp-XXX.rdb)&lt;/p>
+&lt;ol>
+&lt;li>Redis 默认会使用 LZF 算法对数据进行压缩。该算法会消耗大量 CPU，可以在配置中关闭压缩功能，但是数据量写入到磁盘后，会占用大量磁盘空间。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>
+&lt;p>当子进程完成对临时 RDB 文件的写入时，Redis 用这个临时的 RDB 文件替换原来的 RDB 文件，并删除旧的 RDB 文件。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>这种工作方式使得 Redis 可以从写时复制（copy-on-write）机制中获益。&lt;/p>
+&lt;p>RDB 优点：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>RDB 文件是一个很简洁的单文件，它保存了某个时间点的 Redis 数据，很适合用于做备份。你可以设定一个时间点对 RDB 文件进行归档，这样就能在需要的时候很轻易的把数据恢复到不同的版本。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>基于上面所描述的特性，RDB 很适合用于灾备。单文件很方便就能传输到远程的服务器上。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>RDB 的性能很好，需要进行持久化时，主进程会 fork 一个子进程出来，然后把持久化的工作交给子进程，自己不会有相关的 I/O 操作。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>比起 AOF，在数据量比较大的情况下，RDB 的启动速度更快。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>RDB 缺点：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>RDB 容易造成数据的丢失。假设每 5 分钟保存一次快照，如果 Redis 因为某些原因不能正常工作，那么从上次产生快照到 Redis 出现问题这段时间的数据就会丢失了。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>RDB 使用 fork()产生子进程进行数据的持久化，如果数据比较大的话可能就会花费点时间，造成 Redis 停止服务几毫秒。如果数据量很大且 CPU 性能不是很好的时候，停止服务的时间甚至会到 1 秒。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h2 id="aof-append-only-file">AOF Append Only File&lt;/h2>
+&lt;p>配置文件中配置环境 APPEND ONLY MOD E 可以进项相关配置。&lt;/p>
+&lt;p>默认 redis 使用的是 rdb 方式持久化，这种方式在许多应用中已经足够用了。但是 redis 如果中途宕机，会导致可能有几分钟的数据丢失。&lt;/p>
+&lt;p>Append Only File 是另一种持久化方式，可以提供更好的持久化特性。Redis 会把每次写入的数据在接收后都写入 appendonly.aof 文件，每次启动时 Redis 都会先把这个文件的数据读入内存里，先忽略 RDB 文件。&lt;/p>
+&lt;p>AOF 工作方式：&lt;/p>
+&lt;p>每当 Redis 执行一个改变数据集的命令时（比如 SET）， 这个命令就会被追加到 AOF 文件的末尾。这样的话， 当 Redis 重新启时， 程序就可以通过重新执行 AOF 文件中的命令来达到重建数据集的目的。AOF 重写和 RDB 创建快照一样，都巧妙地利用了写时复制机制:&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>Redis 执行 fork() ，现在同时拥有父进程和子进程。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>子进程开始将新 AOF 文件的内容写入到临时文件。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>对于所有新执行的写入命令，父进程一边将它们累积到一个内存缓存中，一边将这些改动追加到现有 AOF 文件的末尾,这样样即使在重写的中途发生停机，现有的 AOF 文件也还是安全的。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>当子进程完成重写工作时，它给父进程发送一个信号，父进程在接收到信号之后，将内存缓存中的所有数据追加到新 AOF 文件的末尾。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>搞定！现在 Redis 原子地用新文件替换旧文件，之后所有命令都会直接追加到新 AOF 文件的末尾。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>AOF 优点：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>使用 AOF 会让你的 Redis 更加耐久: 你可以使用不同的 fsync 策略：无 fsync,每秒 fsync,每次写的时候 fsync.使用默认的每秒 fsync 策略,Redis 的性能依然很好(fsync 是由后台线程进行处理的,主线程会尽力处理客户端请求),一旦出现故障，你最多丢失 1 秒的数据.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>AOF 文件是一个只进行追加的日志文件,所以不需要写入 seek,即使由于某些原因(磁盘空间已满，写的过程中宕机等等)未执行完整的写入命令,你也也可使用 redis-check-aof 工具修复这些问题.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Redis 可以在 AOF 文件体积变得过大时，自动地在后台对 AOF 进行重写： 重写后的新 AOF 文件包含了恢复当前数据集所需的最小命令集合。 整个重写操作是绝对安全的，因为 Redis 在创建新 AOF 文件的过程中，会继续将命令追加到现有的 AOF 文件里面，即使重写过程中发生停机，现有的 AOF 文件也不会丢失。 而一旦新 AOF 文件创建完毕，Redis 就会从旧 AOF 文件切换到新 AOF 文件，并开始对新 AOF 文件进行追加操作。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>AOF 文件有序地保存了对数据库执行的所有写入操作， 这些写入操作以 Redis 协议的格式保存， 因此 AOF 文件的内容非常容易被人读懂， 对文件进行分析（parse）也很轻松。 导出（export） AOF 文件也非常简单： 举个例子， 如果你不小心执行了 FLUSHALL 命令， 但只要 AOF 文件未被重写， 那么只要停止服务器， 移除 AOF 文件末尾的 FLUSHALL 命令， 并重启 Redis ， 就可以将数据集恢复到 FLUSHALL 执行之前的状态。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>AOF 缺点：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>对于相同的数据集来说，AOF 文件的体积通常要大于 RDB 文件的体积。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>根据所使用的 fsync 策略，AOF 的速度可能会慢于 RDB 。 在一般情况下， 每秒 fsync 的性能依然非常高， 而关闭 fsync 可以让 AOF 的速度和 RDB 一样快， 即使在高负荷之下也是如此。 不过在处理巨大的写入载入时，RDB 可以提供更有保证的最大延迟时间（latency）。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>下图是 redis 启动后读取本地存储文件的过程&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gghosd/1616134974086-4020ec57-f508-4a12-b30e-aba72d1730e4.jpeg" alt="">&lt;/p></description></item><item><title>Docs: 1.Redis</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/1.redis/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/1.redis/</guid><description/></item><item><title>Docs: 2.Redis 配置详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/2.redis-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/2.redis-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://redis.io/topics/config">官方文档&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>Redis 可以在不使用配置文件的情况下使用内置的默认配置启动。但是一般情况，都会使用一个 Redis 的配置文件(文件名通常是 redis.conf)来启动 Redis。Redis 启动后，会将 redis.conf 文件的内容加载到内存中，通过 Redis 客户端的 &lt;strong>config get *&lt;/strong> 命令，即可获取当前已经加载到内存中的配置。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>127.0.0.1:6379&amp;gt; config get *
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 1&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#e6db74">&amp;#34;dbfilename&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 2&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#e6db74">&amp;#34;dump.rdb&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 3&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#e6db74">&amp;#34;requirepass&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 4&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 5&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#e6db74">&amp;#34;masterauth&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 6&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>....... 后略
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>配置文件的写法非常简单。redis.conf 由 &lt;strong>Directives(指令)&lt;/strong> 组成，每条指令一行。而 Directives 分为两部分&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Keyword(关键字)&lt;/strong> # 该指令的含义&lt;/li>
+&lt;li>&lt;strong>Arguments(参数)&lt;/strong> # Redis 执行该指令时的行为&lt;/li>
+&lt;/ul>
+&lt;p>格式如下：&lt;/p>
+&lt;pre>&lt;code># 关键字 参数(多个参数以空格分隔)
+Keyword Argument1 Argument2 ... ArugmentN
+&lt;/code>&lt;/pre>
+&lt;h2 id="通过命令函参数传递配置">通过命令函参数传递配置&lt;/h2>
+&lt;p>通过命令行传递参数的格式与 redis.conf 文件中配置格式完全相同，只不过关键字前面有个 &lt;code>--&lt;/code> 前缀。比如：&lt;/p>
+&lt;pre>&lt;code>redis-server --port 6380 --replicaof 127.0.0.1 6379
+&lt;/code>&lt;/pre>
+&lt;p>生成的内存中配置如下：&lt;/p>
+&lt;pre>&lt;code>127.0.0.1:6380&amp;gt; config get &amp;quot;replicaof&amp;quot;
+1) &amp;quot;replicaof&amp;quot;
+2) &amp;quot;127.0.0.1 6379&amp;quot;
+127.0.0.1:6380&amp;gt; config get &amp;quot;port&amp;quot;
+1) &amp;quot;port&amp;quot;
+2) &amp;quot;6380&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;h3 id="其他基本示例">其他基本示例&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>Usage: ./redis-server &lt;span style="color:#f92672">[&lt;/span>/path/to/redis.conf&lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#f92672">[&lt;/span>options&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ./redis-server - &lt;span style="color:#f92672">(&lt;/span>read config from stdin&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ./redis-server -v or --version
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ./redis-server -h or --help
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ./redis-server --test-memory &amp;lt;megabytes&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Examples:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ./redis-server &lt;span style="color:#f92672">(&lt;/span>run the server with default conf&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ./redis-server /etc/redis/6379.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ./redis-server --port &lt;span style="color:#ae81ff">7777&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ./redis-server --port &lt;span style="color:#ae81ff">7777&lt;/span> --replicaof 127.0.0.1 &lt;span style="color:#ae81ff">8888&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ./redis-server /etc/myredis.conf --loglevel verbose
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="启动-redis-后修改配置">启动 Redis 后修改配置&lt;/h2>
+&lt;p>Redis 支持在线热更新配置，可以通过 config set ARGUMENT 命令来更改当前配置，若想要配置永久生效，则使用 config rewrite 命令将内存中的配置重写到启动 Redis 时指定的 redis.conf 文件中。但是，并非配置中的所有指令都支持这种方式。&lt;/p>
+&lt;h2 id="简单的配置文件示例">简单的配置文件示例&lt;/h2>
+&lt;pre>&lt;code>dir &amp;quot;/data&amp;quot;
+port 6379
+maxmemory 1G
+maxmemory-policy volatile-lru
+min-replicas-max-lag 5
+min-replicas-to-write 1
+rdbchecksum yes
+rdbcompression yes
+repl-diskless-sync yes
+save 900 1
+requirepass redis
+masterauth &amp;quot;redis&amp;quot;
+replica-announce-port 6379
+replica-announce-ip &amp;quot;10.105.180.122&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;h1 id="redisconf-文件详解">redis.conf 文件详解&lt;/h1>
+&lt;h2 id="includes-配置环境">Includes 配置环境&lt;/h2>
+&lt;ul>
+&lt;li>**include /PATH/TO/FILE **# Redis 启动时，除了加载 redis.conf 文件外，还会加载 include 指令指定的文件。&lt;/li>
+&lt;/ul>
+&lt;h2 id="network-配置环境">Network 配置环境&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>bind 127.0.0.1&lt;/strong> # 监听的地址&lt;/li>
+&lt;li>&lt;strong>port 6379&lt;/strong> # redis 监听的端口，默认 6379&lt;/li>
+&lt;li>&lt;strong>tcp-backlog 511&lt;/strong> # tcp 的等待队列&lt;/li>
+&lt;li>&lt;strong>timeout 0&lt;/strong> # 客户端连接超时时长。&lt;code>默认值：0&lt;/code>，不会超时&lt;/li>
+&lt;/ul>
+&lt;h2 id="general-配置环境">General 配置环境&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>daemonize yes|no&lt;/strong> # 指定是否在后台运行&lt;/li>
+&lt;li>&lt;strong>databases 16&lt;/strong> # 可使用的 databases，默认 16 个&lt;/li>
+&lt;li>&lt;strong>logfile /PATH/TO/FILE&lt;/strong> # 指定 redis 记录日志文件位置&lt;/li>
+&lt;/ul>
+&lt;h2 id="snapshotting-配置环境-rdb-功能">Snapshotting 配置环境 RDB 功能&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>save TIME NUM&lt;/strong> # 在 TIME 秒内有 NUM 个键改变，就做一次快照&lt;/li>
+&lt;li>&lt;strong>stop-writes-on-bgsave-error yes|no&lt;/strong> # 当 RDB 持久化出现错误后，是否依然进行继续进行工作，yes：不能进行工作，no：可以继续进行工作，可以通过 info 中的 rdb_last_bgsave_status 了解 RDB 持久化是否有错误&lt;/li>
+&lt;li>&lt;strong>rdbcompression yes|no&lt;/strong> # 是否压缩 rdb 文件，rdb 文件压缩使用 LZF 压缩算法。压缩需要一些 cpu 的消耗；不压缩需要更多的磁盘空间&lt;/li>
+&lt;li>&lt;strong>rdbchecksum yes|no&lt;/strong> # 是否校验 rdb 文件。从 rdb 格式的第五个版本开始，在 rdb 文件的末尾会带上 CRC64 的校验和。这跟有利于文件的容错性，但是在保存 rdb 文件的时候，会有大概 10%的性能损耗，所以如果你追求高性能，可以关闭该配置。&lt;/li>
+&lt;li>&lt;strong>dbfilename FileName&lt;/strong> # 指定 snapshot 文件的文件名。默认为 dump.rbd&lt;/li>
+&lt;li>&lt;strong>dir PATH&lt;/strong> # 指定 snapshot 文件的保存路径(注意：PATH 是目录，不是文件，具体文件名通过 dbfilename 关键字配置)。默认为 /var/lib/redis/ 目录&lt;/li>
+&lt;/ul>
+&lt;h2 id="replication-配置环境">Replication 配置环境&lt;/h2>
+&lt;ul>
+&lt;li>**replicof 192.168.1.2 6379 **# 启动主从模式，并设定自己为从服务器，主服务器 IP 为 192.168.1.2，主服务器端口为 6379&lt;/li>
+&lt;li>&lt;strong>slave-read-only no&lt;/strong> # 作为从服务器是否只读，默认不只读&lt;/li>
+&lt;/ul>
+&lt;h2 id="security-配置环境">Security 配置环境&lt;/h2>
+&lt;ul>
+&lt;li>**requirepass PASSWORD **# 配置认证密码为 PASSWORD&lt;/li>
+&lt;/ul>
+&lt;h2 id="limits-配置环境">Limits 配置环境&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>maxmemory BYTES&lt;/strong> # 指定 redis 可使用的最大内存量，单位是 bytes。如果达到限额，则需要配合 maxmemory-policy 配置指定的策略删除 key。note：slave 的输出缓冲区是不计算在 maxmemory 内的。所以为了防止主机内存使用完，建议设置的 maxmemory 需要更小一些。&lt;/li>
+&lt;li>&lt;strong>maxmemory-policy POLICY&lt;/strong> # 指定 redis 超过内存限额之后的策略，包括以下几种
+&lt;ul>
+&lt;li>volatile-lru：利用 LRU 算法移除设置过过期时间的 key。&lt;/li>
+&lt;li>volatile-random：随机移除设置过过期时间的 key。&lt;/li>
+&lt;li>volatile-ttl：移除即将过期的 key，根据最近过期时间来删除（辅以 TTL）&lt;/li>
+&lt;li>allkeys-lru：利用 LRU 算法移除任何 key。&lt;/li>
+&lt;li>allkeys-random：随机移除任何 key。&lt;/li>
+&lt;li>noeviction：不移除任何 key，只是返回一个写错误。&lt;/li>
+&lt;li>Note:上面的这些驱逐策略，如果 redis 没有合适的 key 驱逐，对于写命令，还是会返回错误。redis 将不再接收写请求，只接收 get 请求。写命令包括：set setnx setex append incr decr rpush lpush rpushx lpushx linsert lset rpoplpush sadd sinter sinterstore sunion sunionstore sdiff sdiffstore zadd zincrby zunionstore zinterstore hset hsetnx hmset hincrby incrby decrby getset mset msetnx exec sort。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="append-only-mode-配置环境-aof-功能配置">Append Only Mode 配置环境 AOF 功能配置&lt;/h2>
+&lt;h2 id="lua-scripting-配置环境">LUA Scripting 配置环境&lt;/h2>
+&lt;h2 id="redis-cluster-配置环境">Redis Cluster 配置环境&lt;/h2>
+&lt;h2 id="slow-log-配置环境">SLOW LOG 配置环境&lt;/h2>
+&lt;h2 id="latency-monitor-配置环境">LATENCY MONITOR 配置环境&lt;/h2>
+&lt;h2 id="event-notification-配置环境">EVENT NOTIFICATION 配置环境&lt;/h2>
+&lt;h2 id="advanced-config-配置环境">ADVANCED CONFIG 配置环境&lt;/h2></description></item><item><title>Docs: Redis Operator</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-operator/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-operator/</guid><description>
+&lt;h1 id="通过-operator-部署一套生产可用的-redis-集群">通过 Operator 部署一套生产可用的 Redis 集群&lt;/h1>
+&lt;p>该部署方式基于 &lt;a href="https://github.com/spotahome/redis-operator">spotahome 的 redis-operator 项目&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://github.com/spotahome/redis-operator/blob/master/api/redisfailover/v1/types.go">这里是&lt;/a> crd 可用字段的信息&lt;/p>
+&lt;h3 id="创建名称空间">创建名称空间&lt;/h3>
+&lt;pre>&lt;code>kubectl create ns redis
+&lt;/code>&lt;/pre>
+&lt;h3 id="创建-operator">创建 operator&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>curl -LO https://raw.githubusercontent.com/spotahome/redis-operator/master/example/operator/all-redis-operator-resources.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 修改 ClusterRoleBinding 的 namespace 为 redis&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sed -i &lt;span style="color:#e6db74">&amp;#39;s/namespace: default/namespace: redis/g&amp;#39;&lt;/span> all-redis-operator-resources.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 添加 ServiceAccount namespace 为 redis&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sed -i &lt;span style="color:#e6db74">&amp;#39;/^kind: ServiceAccount/{N;a\ namespace: redis
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">}&amp;#39;&lt;/span> all-redis-operator-resources.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 添加 Deployment namespace 为 redis&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sed -i &lt;span style="color:#e6db74">&amp;#39;/^kind: Deployment/{N;a\ namespace: redis
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">}&amp;#39;&lt;/span> all-redis-operator-resources.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl apply -f all-redis-operator-resources.yaml
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="配置-redis-密码认证xa">配置 redis 密码认证
+&lt;/h3>
+&lt;pre>&lt;code># “密码”修改为自己想设置的密码
+echo -n &amp;quot;密码&amp;quot; &amp;gt; password
+kubectl create -n redis secret generic redis-auth --from-file=password
+&lt;/code>&lt;/pre>
+&lt;h3 id="部署-redisxa">部署 redis
+&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &amp;gt; redis.yaml &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">apiVersion: databases.spotahome.com/v1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">kind: RedisFailover
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">metadata:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> name: tj-test
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> namespace: redis
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">spec:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> sentinel:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> replicas: 3
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> resources:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> requests:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> cpu: 100m
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> limits:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> memory: 100Mi
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> redis:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> hostNetwork: true
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> dnsPolicy: ClusterFirstWithHostNet
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> replicas: 3
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> customConfig:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> - &amp;#34;maxmemory 1073741824&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> resources:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> requests:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> cpu: 500m
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> memory: 500Mi
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> limits:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> cpu: 1000m
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> memory: 1000Mi
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> auth:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> secretPath: redis-auth
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl apply -f redis.yaml
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="暴露-sentinelxa">暴露 sentinel
+&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &amp;gt; sentinel-external-service.yaml &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">apiVersion: v1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">kind: Service
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">metadata:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> labels:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> app.kubernetes.io/component: sentinel
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> app.kubernetes.io/managed-by: redis-operator
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> app.kubernetes.io/name: tj-test
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> app.kubernetes.io/part-of: redis-failover
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> redisfailovers.databases.spotahome.com/name: tj-test
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> name: rfs-tj-test-external
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> namespace: redis
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">spec:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> ports:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> - name: sentinel
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> port: 26379
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> nodePort: 36379
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> type: NodePort
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> selector:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> app.kubernetes.io/component: sentinel
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> app.kubernetes.io/name: tj-test
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> app.kubernetes.io/part-of: redis-failover
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl apply -f sentinel-external-service.yaml
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="配置可观察性xa">配置可观察性
+&lt;/h3>
+&lt;p>部署 exporter 并配置 podmonitor，创建 redis svc 以供&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">cat &amp;gt; redis-metrics-service.yaml &amp;lt;&amp;lt;EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">apps/v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Deployment&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">redis-exporter&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">monitoring&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">k8s-app&lt;/span>: &lt;span style="color:#ae81ff">redis-exporter&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">matchLabels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">k8s-app&lt;/span>: &lt;span style="color:#ae81ff">redis-exporter&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">template&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">k8s-app&lt;/span>: &lt;span style="color:#ae81ff">redis-exporter&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">redis-exporter&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">oliver006/redis_exporter:latest&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">args&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">redis.addr=redis://rfr-tj-test-external.redis.svc.cluster.local:6379&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">redis.password=修改为Redis密码&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ports&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">containerPort&lt;/span>: &lt;span style="color:#ae81ff">9121&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">http&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>---
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">monitoring.coreos.com/v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">PodMonitor&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">redis-exporter&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">monitoring&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">podMetricsEndpoints&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">interval&lt;/span>: &lt;span style="color:#ae81ff">30s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">http&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">relabelings&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">sourceLabels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">__meta_kubernetes_pod_name&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">action&lt;/span>: &lt;span style="color:#ae81ff">replace&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">targetLabel&lt;/span>: &lt;span style="color:#ae81ff">instance&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">regex&lt;/span>: &lt;span style="color:#ae81ff">(.*redis.*)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">matchLabels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">k8s-app&lt;/span>: &lt;span style="color:#ae81ff">redis-exporter&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespaceSelector&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">any&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>---
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Service&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">app.kubernetes.io/component&lt;/span>: &lt;span style="color:#ae81ff">redis&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">rfr-tj-test-external&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">redis&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">clusterIP&lt;/span>: &lt;span style="color:#ae81ff">None&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ports&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">sentinel&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">6379&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">app.kubernetes.io/component&lt;/span>: &lt;span style="color:#ae81ff">redis&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">kubectl apply -f redis-metrics-service.yaml&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Redis 高可用</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E9%AB%98%E5%8F%AF%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E9%AB%98%E5%8F%AF%E7%94%A8/</guid><description/></item><item><title>Docs: Redis 高可用</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E9%AB%98%E5%8F%AF%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E9%AB%98%E5%8F%AF%E7%94%A8/</guid><description/></item><item><title>Docs: Redis 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E7%AE%A1%E7%90%86/</guid><description/></item><item><title>Docs: Redis 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E7%AE%A1%E7%90%86/</guid><description/></item><item><title>Docs: Redis 命令行工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description/></item><item><title>Docs: Redis 命令行工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/redis/redis-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description/></item></channel></rss>

@@ -1,0 +1,429 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 构建 OCI Image</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/</link><description>Recent content in 构建 OCI Image on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: BuildKit 构建工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/buildkit-%E6%9E%84%E5%BB%BA%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/buildkit-%E6%9E%84%E5%BB%BA%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/moby/buildkit">GitHub 项目，moby/buildkit&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.docker.com/develop/develop-images/build_enhancements/">官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>BuildKit 是 Docker 上游社区(Moby)推出的下一代镜像构建神器，可以更加快速，有效，安全地构建容器镜像。Docker v18.06 已经集成了该组件。BuildKit 可用于多种导出格式（例如 OCI 或 Docker）以及前端支持（Dockerfile），并提供高效缓存和运行并行构建操作等功能。BuildKit 仅需要容器运行时就能执行，当前受支持的运行时包括 Containerd 和 Runc。&lt;/p>
+&lt;h2 id="构建步骤优化">构建步骤优化&lt;/h2>
+&lt;p>Docker 提供的原始构建最令人沮丧的问题之一是 Dockerfile 指令执行构建步骤的顺序性。在引入多阶段构建之后，可以将构建步骤分组为单独的逻辑构建任务在同一个 Dockerfile 中。&lt;/p>
+&lt;p>有时，这些构建阶段是彼此完全独立的，这意味着它们可以并行执行-或根本不需要执行。遗憾的是，传统的 Docker 镜像构建无法满足这种灵活性。这意味着构建时间通常会比绝对必要的时间更长。&lt;/p>
+&lt;p>相比之下，BuildKit 会创建一个构建步骤之间的依赖关系图，并使用该图来确定可以忽略构建的哪些元素;可以并行执行的元素;需要顺序执行的元素。这可以更有效地执行构建，这对开发人员来说很有价值，因为他们可以迭代其应用程序的镜像构建。&lt;/p>
+&lt;h3 id="高效灵活的缓存">高效灵活的缓存&lt;/h3>
+&lt;p>虽然在旧版 Docker 镜像构建中缓存构建步骤非常有用，但效率却不如预期。作为对构建后端的重写，BuildKit 在此方面进行了改进，并提供了更快，更准确的缓存机制。使用为构建生成的依赖关系图，并且基于指令定义和构建步骤内容。&lt;/p>
+&lt;p>BuildKit 提供的另一个巨大好处是以构建缓存导入和导出的形式出现，正如 Kaniko 和 Makisu 允许将构建缓存推送到远程注册表一样，BuildKit 也是如此，但是 BuildKit 使您可以灵活地将缓存嵌入到内部注册表中。镜像（内联）并将它们放在一起（虽然不是每个注册表都支持），或者将它们分开导入。也可以将缓存导出到本地目录以供以后使用。&lt;/p>
+&lt;p>当从头开始建立构建环境而没有任何先前的构建历史时，导入构建缓存的能力就发挥了自己的作用：导入“预热”缓存，对于临时 CI/CD 环境特别有用。&lt;/p>
+&lt;h3 id="工件">工件&lt;/h3>
+&lt;p>当使用旧版 Docker 镜像构建器构建镜像时，将生成的镜像添加到 Docker 守护进程管理的本地镜像的缓存中。需要单独的&lt;code>docker push&lt;/code>将该镜像上载到远程容器镜像注册表。新的工件构建工具通过允许您在构建调用时指定镜像推送来增强体验，BuildKit 也不例外，它还允许以几种不同格式输出镜像；本地目录中的文件，本地 tarball，一个本地 OCI 镜像 tarball，一个 Docker 镜像 tarball，一个存储在本地缓存中的 Docker 镜像以及一个推送到注册表的 Docker 镜像，有很多格式！&lt;/p>
+&lt;h3 id="扩展语法">扩展语法&lt;/h3>
+&lt;p>对于 docker 构建体验而言，经常重复出现的众多功能请求之一就是安全处理镜像构建过程中所需的机密信息。Moby 项目抵制了这一要求很多年了，但是，借助 BuildKit 灵活的“前端”定义，为 Buildkit 提供了一个实验性前端，它扩展了 Dockerfile 语法。扩展后的语法为 RUN Dockerfile 指令提供了有用的补充，其中包括安全性功能。&lt;/p>
+&lt;pre>&lt;code>RUN --mount=type=secret,id=top-secret-passwd my_command
+&lt;/code>&lt;/pre>
+&lt;p>引用实验性前端的 Dockerfile 可以为 RUN 指令临时挂载秘钥。使用 &lt;code>--secret&lt;/code> 标志将秘钥提供给构建，用于 docker build。使用 ssh mount 类型可以转发 SSH 代理连接以实现安全 SSH 身份验证。&lt;/p>
+&lt;h3 id="buildkit-使用场景">BuildKit 使用场景&lt;/h3>
+&lt;p>BuildKit 还有许多其他功能，可以极大地改善构建容器镜像的技巧。如果它是适用于许多不同环境的通用工具，那么如何使用它呢？&lt;/p>
+&lt;p>根据您工作的环境，这个问题的答案是多种多样的。让我们来看看。&lt;/p>
+&lt;p>Docker&lt;/p>
+&lt;p>尽管目前 BuildKit 不是 Docker 的默认构建工具，但是完全可以考虑将其作为 Docker（v18.09 +）的首选构建工具。当然目前在 windows 平台是不支持的。&lt;/p>
+&lt;p>临时方案是设置环境变量&lt;code>DOCKER_BUILDKIT=1&lt;/code>。如果是想永久生效的话，将&lt;code>&amp;quot;features&amp;quot;:{&amp;quot;buildkit&amp;quot;: true}&lt;/code> 添加到 docker 守护进程的配置文件中。在此配置中，由于 Docker 守护程序中的当前限制，Docker 并未充分展现 BuildKit 的全部功能。因此，Docker 客户端 CLI 已扩展为提供插件框架，该框架允许使用插件扩展提供了可用的 CLI 功能。一个名为&lt;code>Buildx&lt;/code>的实验性插件会绕过守护程序中的旧版构建函数，并使用 BuildKit 后端进行所有构建，它提供所有熟悉的镜像构建命令和功能，但通过一些特定于 BuildKit 的附加功能对其进行了扩充。&lt;/p>
+&lt;p>BuildKit 以及 Buildx 的都支持多个构建器实例，这是一项重要功能，这实际上意味着可以共享一个构建器实例场以进行构建;也许是一个项目被分配了一组构建器实例。&lt;/p>
+&lt;pre>&lt;code>$ docker buildx ls
+NAME/NODE DRIVER/ENDPOINT STATUS PLATFORMS
+default * docker
+default default running linux/amd64, linux/386
+&lt;/code>&lt;/pre>
+&lt;p>默认情况下，Buildx 插件以 docker 驱动程序为目标，该驱动程序使用 Docker 守护程序提供的 BuildKit 库具有其固有的局限性。另一个驱动程序是 docker-container，它可以透明地在容器内启动 BuildKit 以执行构建。 BuildKit 中提供的功能 CLI：这是否是理想的工作流程，完全取决于个人或公司的选择。&lt;/p>
+&lt;p>Kubernetes&lt;/p>
+&lt;p>越来越多的组织将构建放到 Kubernetes 当中，通常将容器镜像构建作为 CI/CD 工作流的一部分出现在 pod 中。在 Kubernetes 中运行 BuildKit 实例时，有一个每种部署策略都有其优缺点，每种策略都适合不同的目的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gg5yyl/1616121909927-de523c03-e2e7-4541-b2af-0bde7004e81d.png" alt="">&lt;/p>
+&lt;p>除了使用 Docker CLI 为 BuildKit 启动面向开发人员的构建之外，构建还可以通过多种 CI/CD 工具触发。使用 BuildKit 进行的容器镜像构建可以作为 Tekton Pipeline Task 执行。&lt;/p>
+&lt;h3 id="结论">结论&lt;/h3>
+&lt;p>本文主要讲了 BuildKit 诸多特性和使用场景。&lt;/p>
+&lt;p>目前类似的工具不少，如 Redhat 的 Buildah，Google 的 Kaniko 或 Docker 的 BuildKit。&lt;/p>
+&lt;p>不过 BuildKit 是官方提供，和 docker 本身结合比较好。&lt;/p>
+&lt;h1 id="部署-buildkit">部署 Buildkit&lt;/h1>
+&lt;h2 id="docker-启用-buildkitk">Docker 启用 Buildkitk&lt;/h2>
+&lt;p>可以通过两种方式启用 Buildkit 功能&lt;/p>
+&lt;ol>
+&lt;li>构建之前添加环境变量 &lt;code>export DOCKER_BUILDKIT=1&lt;/code>&lt;/li>
+&lt;li>在 /etc/docker/deamon.json 配置中，添加 &lt;code>&amp;quot;features&amp;quot;: { &amp;quot;buildkit&amp;quot;: true }&lt;/code>。&lt;/li>
+&lt;/ol></description></item><item><title>Docs: Dockerfile 样例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/dockerfile-%E6%A0%B7%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/dockerfile-%E6%A0%B7%E4%BE%8B/</guid><description>
+&lt;p>生成一个具有基本网络工具的容器，可以用来测试&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-dockerfile" data-lang="dockerfile">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">FROM&lt;/span>&lt;span style="color:#e6db74"> centos:centos7.8.2003&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">ENV&lt;/span> LANG&lt;span style="color:#f92672">=&lt;/span>zh_CN.UTF-8 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>LANGUAGE&lt;span style="color:#f92672">=&lt;/span>zh_CN:zh &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>LC_ALL&lt;span style="color:#f92672">=&lt;/span>zh_CN.UTF-8&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">RUN&lt;/span> yum install -y epel-release.noarch &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> yum install -y iproute bind-utils nginx glibc-common tcpdump telnet &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> yum clean all &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>rm -rf /tmp/* rm -rf /var/cache/yum/* &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> localedef -c -f UTF-8 -i zh_CN zh_CN.UTF-8 &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">COPY&lt;/span> index.html /usr/share/nginx/html&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">EXPOSE&lt;/span>&lt;span style="color:#e6db74"> 80/tcp&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">CMD&lt;/span> [&lt;span style="color:#e6db74">&amp;#34;/usr/sbin/nginx&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;-g&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;daemon off;&amp;#34;&lt;/span>]&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao test&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat index.html&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&amp;lt;meta charset&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;utf-8&amp;#34;&lt;/span>/&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&amp;lt;h1&amp;gt;网络测试容器 desist-daydream 1&amp;lt;/h1&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用 alpine 版本让镜像更小&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-dockerfile" data-lang="dockerfile">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">FROM&lt;/span>&lt;span style="color:#e6db74"> nginx:stable-alpine&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">RUN&lt;/span> sed -i &lt;span style="color:#e6db74">&amp;#39;s/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g&amp;#39;&lt;/span> /etc/apk/repositories &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> apk add --no-cache busybox-extras curl iproute2 tcpdump&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">COPY&lt;/span> index.html /usr/share/nginx/html&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用 multi-stage 功能构建镜像&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-dockerfile" data-lang="dockerfile">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">FROM&lt;/span>&lt;span style="color:#e6db74"> golang&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">WORKDIR&lt;/span>&lt;span style="color:#e6db74"> /root/caredaily&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">COPY&lt;/span> caredaily/ ./&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">RUN&lt;/span> go build .&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">FROM&lt;/span>&lt;span style="color:#e6db74"> ubuntu&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">WORKDIR&lt;/span>&lt;span style="color:#e6db74"> /root/caredaily&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">COPY&lt;/span> --from&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">0&lt;/span> /root/caredaily/caredaily ./&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">COPY&lt;/span> --from&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">0&lt;/span> /root/caredaily/templates/ ./templates/&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">CMD&lt;/span> [&lt;span style="color:#e6db74">&amp;#34;./caredaily&amp;#34;&lt;/span>]&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Dockerfile 样例&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-dockerfile" data-lang="dockerfile">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">FROM&lt;/span>&lt;span style="color:#e6db74"> nginx:1.14-alpine&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">ENV&lt;/span> NGX_DOC_ROOT&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;/data/web/html&amp;#34;&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">ADD&lt;/span> entrypoint.sh /bin/&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">CMD&lt;/span> [&lt;span style="color:#e6db74">&amp;#34;/usr/sbin/nginx&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;-g&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;daemon off;&amp;#34;&lt;/span>]&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">ENTRYPOINT&lt;/span> [&lt;span style="color:#e6db74">&amp;#34;/bin/sh&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;-c&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;/bin/entrypoint.sh&amp;#34;&lt;/span>]&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>/entrypoint.sh&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#75715e">#!/bin/bash&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>cat &amp;gt; /etc/nginx/conf.d/www.conf &amp;lt;&amp;lt; EOF&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>server &lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span> server_name &lt;span style="color:#e6db74">${&lt;/span>HOSTNAME&lt;span style="color:#e6db74">}&lt;/span>;&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span> listen &lt;span style="color:#e6db74">${&lt;/span>IP&lt;span style="color:#66d9ef">:-&lt;/span>0.0.0.0&lt;span style="color:#e6db74">}&lt;/span>:&lt;span style="color:#e6db74">${&lt;/span>PORT&lt;span style="color:#66d9ef">:-&lt;/span>80&lt;span style="color:#e6db74">}&lt;/span>;&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span> root &lt;span style="color:#e6db74">${&lt;/span>NGX_DOC_ROOT&lt;span style="color:#66d9ef">:-&lt;/span>/usr/share/nginx/html&lt;span style="color:#e6db74">}&lt;/span>;&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#f92672">}&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>exec &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$@&lt;span style="color:#e6db74">&amp;#34;&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-dockerfile" data-lang="dockerfile">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">FROM&lt;/span>&lt;span style="color:#e6db74"> busybox:lastest&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">ENV&lt;/span> WEB_SERVER_PACKAGE nginx-1.15.2.tar.gz &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>DOC_ROOT&lt;span style="color:#f92672">=&lt;/span>/data/web/html/&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">ADD&lt;/span> http://fnginx.org/download/&lt;span style="color:#e6db74">${&lt;/span>WEB_SERVER_PACKAGE&lt;span style="color:#e6db74">}&lt;/span> /usr/local/src&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">RUN&lt;/span> cd /usr/local/src/ &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>tar -xf &lt;span style="color:#e6db74">${&lt;/span>WEB_SERVER_PACKAGE&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> yum install epel-release &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> yum makecahe &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> yum install -y nginx&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">COPY&lt;/span> index.html &lt;span style="color:#e6db74">${&lt;/span>DOC_ROOT&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">VOLUME&lt;/span>&lt;span style="color:#e6db74"> /data/mysql&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">EXPOSE&lt;/span>&lt;span style="color:#e6db74"> 80/tcp&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Dockerfile 指令详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/dockerfile-%E6%8C%87%E4%BB%A4%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/dockerfile-%E6%8C%87%E4%BB%A4%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.docker.com/engine/reference/builder/">官方文档&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/">官方文档-构建镜像的最佳实践&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="from--指定-base-镜像">FROM # 指定 base 镜像。&lt;/h1>
+&lt;p>&lt;code>FROM&lt;/code> 指令将会初始化一个新的构建阶段，并设置用于后续指令所使用的 BaseImage(基础镜像)。&lt;strong>所以一个有效的 Dockerfile 必须从 FROM 指令开始&lt;/strong>。&lt;code>ARG&lt;/code> 是唯一一个可以在 &lt;code>FROM&lt;/code> 指令前面的指令，除此以外，&lt;code>FROM&lt;/code> 可以说是&lt;strong>必须存在的基础字段且为 DokerFile 文件的第一个非注释行。&lt;/strong>&lt;/p>
+&lt;p>一个 Dockerfile 中可以有多个 &lt;code>FROM&lt;/code> 指令，每出现一个 &lt;code>FROM&lt;/code> 指令，即表示一个老阶段的结束，一个新阶段的开始。&lt;/p>
+&lt;h2 id="syntax语法">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>from [&amp;ndash;platform=&lt;!-- raw HTML omitted -->] &lt;!-- raw HTML omitted -->[:&lt;!-- raw HTML omitted --> | @[DIGEST] ] [AS &lt;!-- raw HTML omitted -->]&lt;/strong>
+附加指令：&lt;/p>
+&lt;ol>
+&lt;li>**AS &lt;!-- raw HTML omitted --> **# 为当前构建阶段起一个名字。该附加指令有如下几种用法：
+&lt;ol>
+&lt;li>在开始构建之前，可是使用 &amp;ndash;target 指令指定指定要从 STRING 这个阶段开始构建镜像。&lt;/li>
+&lt;li>在构建中，&lt;code>COPY&lt;/code> 指令可以使用 &amp;ndash;from=&lt;!-- raw HTML omitted --> 参数来指定数据源是来自某个构建阶段内的数据，也就是说，&lt;code>COPY&lt;/code> 指令不止可以从宿主机拷贝文件到容器中，还可以从上一个构建阶段的容器中，拷贝其内容到当前容器中。这也为多阶段构建模式中，减少镜像体积打下来坚实基础。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>&lt;strong>TAG 和 DIGEST&lt;/strong> # 该附加指令是可选的，若不指定镜像的 TAG，则默认使用 latest。&lt;/li>
+&lt;/ol>
+&lt;h2 id="用法">用法&lt;/h2>
+&lt;p>Docker 还存在一个特殊的镜像，名为 scratch。这个镜像是虚拟的概念，并不实际存在，它表示一个空白的镜像。&lt;/p>
+&lt;ol>
+&lt;li>如果以 scratch 为基础镜像的话，意味着本次构建阶段不以任何镜像为基础，接下来所写的指令将作为镜像第一层开始存在。&lt;/li>
+&lt;li>不以任何系统为基础，直接将可执行文件复制进镜像的做法并不罕见，比如 coreos/etcd。对于 Linux 下静态编译的程序来说，并不需要有操作系统提供运行时支持，所需的一切库都已经在可执行文件里了，因此直接 FROM scratch 会让镜像体积更加小巧。使用 Go 语言 开发的应用很多会使用这种方式来制作镜像，这也是为什么有人认为 Go 是特别适合容器微服务架构的语言的原因之一。&lt;/li>
+&lt;/ol>
+&lt;h1 id="label--为镜像添加标签">LABEL # 为镜像添加标签&lt;/h1>
+&lt;h2 id="syntax语法-1">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>label &lt;!-- raw HTML omitted -->=&lt;!-- raw HTML omitted --> &lt;!-- raw HTML omitted -->=&lt;!-- raw HTML omitted --> &lt;!-- raw HTML omitted -->=&lt;!-- raw HTML omitted --> &amp;hellip;&lt;/strong>&lt;/p>
+&lt;h2 id="用法-1">用法&lt;/h2>
+&lt;p>代替曾经的 MAINTANER 指令。可以通过这种方式来添加维护者信息：&lt;code>LABEL maintainer=&amp;quot;SvenDowideit@home.org.au&amp;quot;&lt;/code>&lt;/p>
+&lt;h1 id="env--设置环境变量环境变量可被后面的指令使用">ENV # 设置环境变量，环境变量可被后面的指令使用。&lt;/h1>
+&lt;p>调用格式为：$VariableName或${VariableName}
+定义格式 #Key 是变量名，Value 是变量的值，这是一个键值对的格式&lt;/p>
+&lt;ol>
+&lt;li>ENV Key Value #Key 之后的所有内容均被视为 Value 的一部分(包括各种特殊符号和空格等)，因此，一次只能定义一个变量&lt;/li>
+&lt;li>ENV Key=Value Value &amp;hellip; #一次给变量定义多个值，每个 Value 以空格分割，如果 Value 值中有空格，需要加\进行转义或者给 Value 加引号；另外反斜线也可用于续行&lt;/li>
+&lt;/ol>
+&lt;p>注意：在 run 的时候如果指定了变量变量的值，则会顶替调做 Image 时候用 ENV 指定的变量的值&lt;/p>
+&lt;h1 id="workdir--设置当前构建阶段的工作目录">WORKDIR # 设置当前构建阶段的工作目录&lt;/h1>
+&lt;p>为该命令后面的 RUN, CMD, ENTRYPOINT, ADD 或 COPY 指令设置镜像中的当前工作目录。&lt;/p>
+&lt;h1 id="run--在构建-image-时运行指定的命令">RUN # 在构建 Image 时运行指定的命令。&lt;/h1>
+&lt;h2 id="syntax语法-2">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>run &lt;!-- raw HTML omitted -->&lt;/strong>
+COMMAND 通常是一个 shell 命令，且 Docker 会以 &lt;code>/bin/sh -c&lt;/code> 来运行这个命令，这意味着此进程在容器中的 PID 不为 1，不能接收 Unix 信号，因此当使用 docker stop 命令停止 Container 时，此进程接收不到 SIGTERM 信号&lt;/p>
+&lt;p>&lt;strong>run [&amp;ldquo;Executable&amp;rdquo;,&amp;ldquo;Param1&amp;rdquo;,&amp;ldquo;Param2&amp;rdquo;,&amp;hellip;..]&lt;/strong>
+Executable 是可执行的命令，参数是一个 JSON 格式的数组，不过这种格式指定的命令不会以“/bin/sh -c”来发起，因此常见的 shell 操作(如通配符，管道符等等)不会进行；如果要运行的命令想用 shell 特性，则可以写成如下格式 RUN [&amp;quot;/bin/sh&amp;quot;,&amp;quot;-c&amp;quot;,&amp;ldquo;Executable&amp;rdquo;,&amp;ldquo;Param1&amp;rdquo;,&amp;ldquo;Param2&amp;rdquo;,&amp;hellip;..]&lt;/p>
+&lt;h2 id="用法-2">用法&lt;/h2>
+&lt;p>&lt;code>RUN&lt;/code> 指令通常用来在本次构建阶段运行系统命令，以安装某些包或配置某些文件，比如使用 yum、apt、apk 等包管理工具安装，执行 go build 等命令构建代码，等等等等。&lt;/p>
+&lt;h1 id="copy--从指定的文件拷贝到镜像中">COPY # 从指定的文件拷贝到镜像中。&lt;/h1>
+&lt;h2 id="syntax语法-3">Syntax(语法)&lt;/h2>
+&lt;p>SRC 指源文件，即需要复制的源文件或目录，支持用通配符；DEST 指目标路径，即即将创建的 IMAGE 中的系统路径(若不适用绝对路径，则默认使用 WORKDIR 指令中指定的目录为起始路径)&lt;/p>
+&lt;ol>
+&lt;li>copy [] SRC1 SRC2 DEST&lt;/li>
+&lt;/ol>
+&lt;p>注意：src 的来源可以有两个地方&lt;/p>
+&lt;ol>
+&lt;li>只能指定 build context 中的文件或目录；如果指定了多个 SRC 或在 SRC 使用了通配符，则 DEST 必须是一个目录且以/结尾&lt;/li>
+&lt;li>为 &lt;code>COPY&lt;/code> 指令添加 &amp;ndash;from 参数，可以让 src 从指定的构建阶段中获取源文件或目录。&lt;/li>
+&lt;/ol>
+&lt;h2 id="用法-3">用法&lt;/h2>
+&lt;h1 id="add--与-copy-类似">ADD # 与 COPY 类似&lt;/h1>
+&lt;p>与 COPT 指令的区别&lt;/p>
+&lt;ol>
+&lt;li>如果 SRC 为 URL 且 DEST 不以/结尾，则 SRC 指定的文件将被下载并直接被创建为 DEST；如果 DEST 以/结尾，则文件名 URL 指定的文件将被直接下载并保存为 DEST/FileName&lt;/li>
+&lt;li>如果 SRC 是一个 tar 文件，则该文件会被展开为一个目录，类似于&amp;quot;tar -x&amp;quot;命令但是通过 URL 获取的 tar 文件不会自动展开.&lt;/li>
+&lt;li>如果 SRC 有有多个，或使用了通配符，则 DEST 必须是一个以/结尾的目录路径，如果 DEST 不以/结尾，则被视作一个普通文件，SRC 的内容将被直接写入到 DEST&lt;/li>
+&lt;/ol>
+&lt;h1 id="volume-用于在-image-中创建一个挂载点目录">VOLUME #用于在 Image 中创建一个挂载点目录&lt;/h1>
+&lt;p>以便挂载 Docker host 上的 Volume 或者其他 Container 上的 Volume
+通过 VOLUME 命令创建的 Image 在启动成 Container 后，会在 host 上生成一个目录，以便让 Container 中 VOLUME 定义的目录与 host 目录关联&lt;/p>
+&lt;p>VOLUME MountPoint&lt;/p>
+&lt;h1 id="user--用于指定运行-image-时的或运行-dockerfile-中任何-runcmdentrypoint-指令的程序时的用户名或-uid">USER # 用于指定运行 Image 时的或运行 Dockerfile 中任何 RUN、CMD、ENTRYPOINT 指令的程序时的用户名或 UID&lt;/h1>
+&lt;p>默认情况使用 root，如果想指定特殊用户，则在/etc/passwd 文件中有该用户才可以&lt;/p>
+&lt;h1 id="healthcheck-健康检查">HEALTHCHECK #健康检查&lt;/h1>
+&lt;h1 id="expose--指定容器中的进程会监听某个端口docker-可以将该端口暴露出来">EXPOSE # 指定容器中的进程会监听某个端口，Docker 可以将该端口暴露出来。&lt;/h1>
+&lt;p>指定完成后就算运行成 Container 也不会暴露端口，需要在 run 的时候指定-P 选项&lt;/p>
+&lt;h1 id="entrypoint--用于为容器指定默认运行程序从而使得容器像是一个单独的可执行程序">ENTRYPOINT # 用于为容器指定默认运行程序，从而使得容器像是一个单独的可执行程序。&lt;/h1>
+&lt;p>Dockerfile 中可以有多个 ENTRYPOINT 指令，但只有最后一个生效。
+注意：&lt;strong>ENTRYPOINT 不会被 docker run 之后的参数替换&lt;/strong>，CMD 指令的内容 或 docker run 命令最后手动添加的参数会被当做 ENTRYPOINT 指令设定的命令的参数。&lt;/p>
+&lt;h2 id="syntax语法-4">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>ENTRYPOINT [&amp;ldquo;executable&amp;rdquo;, &amp;ldquo;param-1&amp;rdquo;, &amp;ldquo;param-2&amp;rdquo;,&amp;hellip;&amp;ldquo;param-n&amp;rdquo;]&lt;/strong>
+注意：语法中 &lt;code>[]&lt;/code> 符号不代表其内的内容是可选的，而是表示 &lt;code>[]&lt;/code> 这个符号是语法中的一部分。&lt;/p>
+&lt;ul>
+&lt;li>executable # 将要执行的具体二进制程序名&lt;/li>
+&lt;li>param-x # executable 的命令行参数&lt;/li>
+&lt;/ul>
+&lt;h2 id="用法-4">用法&lt;/h2>
+&lt;p>&lt;code>ENTRYPOINT&lt;/code> 指令的最佳用途是设置镜像的主命令，就好像这个镜像在运行时就是在执行这条命令似的，然后使用 &lt;code>CMD&lt;/code> 指令为该命令添加标志。
+假如现在有这么一个 Dockerfile，其中一部分是这样的：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-dockerfile" data-lang="dockerfile">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">ENTRYPOINT&lt;/span> [&lt;span style="color:#e6db74">&amp;#34;s3cmd&amp;#34;&lt;/span>]&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">CMD&lt;/span> [&lt;span style="color:#e6db74">&amp;#34;--help&amp;#34;&lt;/span>]&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这两条指令，其实就相当于这个镜像在运行时，执行了这么一条命令：&lt;code>s3cmd --help&lt;/code>。&lt;/p>
+&lt;p>举个例子吧：&lt;/p>
+&lt;pre>&lt;code># 这是用 CMD 的情况
+[root@ansible exporter]# docker run -p=8081:8081 lchdzh/xsky-exporter:v0.1 --web.listen-address=&amp;quot;:8081&amp;quot;
+docker: Error response from daemon: OCI runtime create failed: container_linux.go:349: starting container process caused &amp;quot;exec: \&amp;quot;--web.listen-address=:8081\&amp;quot;: executable file not found in $PATH&amp;quot;: unknown.
+# 这是用 ENTRYPOINT 的情况
+[root@ansible exporter]# docker run -p=8081:8081 lchdzh/xsky-exporter:v0.1 --web.listen-address=&amp;quot;:8081&amp;quot;
+time=&amp;quot;2020-12-30 05:41:52&amp;quot; level=info msg=&amp;quot;Scraper enabled cluster_info&amp;quot;
+time=&amp;quot;2020-12-30 05:41:52&amp;quot; level=info msg=&amp;quot;Listening on address :8081&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>ENTRYPOINT 与 CMD 的比较&lt;/p>
+&lt;ol>
+&lt;li>ENTRYPOINT 一般用于设置 Container 启动后的第一个命令，这对一个 Container 来说是固定的&lt;/li>
+&lt;li>CMD 一般用于设置 Container 启动的第一个命令的默认参数，这对一个 Container 来说是可以变化的&lt;/li>
+&lt;li>这俩个设置用于设定云原生应用的配置文件具体思路如下,现在以 Nginx 为例
+&lt;ol>
+&lt;li>使用一个写入配置文件的脚本做 ENTRYPOINT 的指令&lt;/li>
+&lt;li>使用软件的运行命令作为 CMD 的指令&lt;/li>
+&lt;li>在 a 中的脚本最后加上 exec $@以引用命令的所有参数，这样当 CMD 作为 ENTRYPOINT 的参数时，ENTRYPOINT 的指令执行完成之后会自动退出 shell 并运行 CMD 的指令，且 CMD 的命令也成为了该 Container 的 PID 为 1 的进程，并且注意让 nginx 在前台运行以保证容器的长时间运行。这样的话 ENTRYPOINT 的配置文件也带入进去了。然后只需要在 run 的时候指明变量的值，就可以实现不同环境使用不同配置的功能&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;h1 id="cmd--启动-container-时运行指定的命令">CMD # 启动 Container 时运行指定的命令。&lt;/h1>
+&lt;p>Dockerfile 中可以有多个 CMD 指令，但只有最后一个生效。&lt;/p>
+&lt;blockquote>
+&lt;p>注意：CMD 会被 docker run 命令最后的参数替换掉。&lt;/p>
+&lt;/blockquote>
+&lt;p>CMD Command #与 RUN 相同&lt;/p>
+&lt;p>CMD [&amp;ldquo;Executable&amp;rdquo;,&amp;ldquo;Param1&amp;rdquo;,&amp;ldquo;Param2&amp;rdquo;,&amp;hellip;..] #与 RUN 相同&lt;/p>
+&lt;p>CMD [&amp;ldquo;Param1&amp;rdquo;,&amp;ldquo;Param2&amp;rdquo;,&amp;hellip;..] #用于为 ENTRYPOINT 指令提供默认参数&lt;/p>
+&lt;h1 id="其他">其他&lt;/h1>
+&lt;h2 id="onbuild">ONBUILD&lt;/h2>
+&lt;h2 id="stopsignal">STOPSIGNAL&lt;/h2>
+&lt;h2 id="shell">SHELL&lt;/h2></description></item><item><title>Docs: Multi-Stage Builds(多阶段构建)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/multi-stage-builds%E5%A4%9A%E9%98%B6%E6%AE%B5%E6%9E%84%E5%BB%BA/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/multi-stage-builds%E5%A4%9A%E9%98%B6%E6%AE%B5%E6%9E%84%E5%BB%BA/</guid><description>
+&lt;p>参考：&lt;a href="https://docs.docker.com/develop/develop-images/multistage-build/">&lt;strong>官方文档&lt;/strong>&lt;/a>&lt;/p>
+&lt;p>对于刚接触容器的人来说，他们很容易被自己构建的 Docker 镜像体积吓到，我只需要一个几 MB 的可执行文件而已，为何镜像的体积会达到 &lt;code>1 GB&lt;/code> 以上？本文将会介绍几个奇技淫巧来帮助你精简镜像，同时又不牺牲开发人员和运维人员的操作便利性。本系列文章将分为三个部分：第一部分着重介绍多阶段构建（multi-stage builds），因为这是镜像精简之路至关重要的一环。在这部分内容中，我会解释静态链接和动态链接的区别，它们对镜像带来的影响，以及如何避免那些不好的影响。中间会穿插一部分对 &lt;code>Alpine&lt;/code> 镜像的介绍。第二部分将会针对不同的语言来选择适当的精简策略，其中主要讨论 &lt;code>Go&lt;/code>，同时也涉及到了 &lt;code>Java&lt;/code>，&lt;code>Node&lt;/code>，&lt;code>Python&lt;/code>，&lt;code>Ruby&lt;/code> 和 &lt;code>Rust&lt;/code>。这一部分也会详细介绍 Alpine 镜像的避坑指南。什么？你不知道 &lt;code>Alpine&lt;/code> 镜像有哪些坑？我来告诉你。第三部分将会探讨适用于大多数语言和框架的通用精简策略，例如使用常见的基础镜像、提取可执行文件和减小每一层的体积。同时还会介绍一些更加奇特或激进的工具，例如 &lt;code>Bazel&lt;/code>，&lt;code>Distroless&lt;/code>，&lt;code>DockerSlim&lt;/code> 和 &lt;code>UPX&lt;/code>，虽然这些工具在某些特定场景下能带来奇效，但大多情况下会起到反作用。&lt;/p>
+&lt;p>本文介绍第一部分。&lt;/p>
+&lt;p>&lt;strong>01&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>万恶之源&lt;/strong>&lt;/p>
+&lt;p>我敢打赌，每一个初次使用自己写好的代码构建 Docker 镜像的人都会被镜像的体积吓到，来看一个例子。&lt;/p>
+&lt;p>让我们搬出那个屡试不爽的 &lt;code>hello world&lt;/code> C 程序：&lt;/p>
+&lt;pre>&lt;code>/* hello.c */
+int main () {
+puts(&amp;quot;Hello, world!&amp;quot;);
+return 0;
+}
+&lt;/code>&lt;/pre>
+&lt;p>并通过下面的 Dockerfile 构建镜像：&lt;/p>
+&lt;pre>&lt;code>FROM gcc
+COPY hello.c .
+RUN gcc -o hello hello.c
+CMD [&amp;quot;./hello&amp;quot;]
+&lt;/code>&lt;/pre>
+&lt;p>然后你会发现构建成功的镜像体积远远超过了 &lt;code>1 GB&lt;/code>。。。因为该镜像包含了整个 &lt;code>gcc&lt;/code> 镜像的内容。如果使用 &lt;code>Ubuntu&lt;/code> 镜像，安装 C 编译器，最后编译程序，你会得到一个大概 &lt;code>300 MB&lt;/code> 大小的镜像，比上面的镜像小多了。但还是不够小，因为编译好的可执行文件还不到 &lt;code>20 KB&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ ls -l hello
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rwxr-xr-x &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">16384&lt;/span> Nov &lt;span style="color:#ae81ff">18&lt;/span> 14:36 hello
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>类似地，Go 语言版本的 &lt;code>hello world&lt;/code> 会得到相同的结果：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> &lt;span style="color:#e6db74">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span> () {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Hello, world!&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用基础镜像 &lt;code>golang&lt;/code> 构建的镜像大小是 &lt;code>800 MB&lt;/code>，而编译后的可执行文件只有 &lt;code>2 MB&lt;/code> 大小：&lt;/p>
+&lt;pre>&lt;code>$ ls -l hello
+-rwxr-xr-x 1 root root 2008801 Jan 15 16:41 hello
+&lt;/code>&lt;/pre>
+&lt;p>还是不太理想，有没有办法大幅度减少镜像的体积呢？往下看。&lt;/p>
+&lt;p>&lt;strong>02&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>多阶段构建&lt;/strong>&lt;/p>
+&lt;p>要想大幅度减少镜像的体积，多阶段构建是必不可少的。多阶段构建的想法很简单：“我不想在最终的镜像中包含一堆 C 或 Go 编译器和整个编译工具链，我只要一个编译好的可执行文件！”&lt;/p>
+&lt;p>多阶段构建可以由多个 &lt;code>FROM&lt;/code> 指令识别，每一个 &lt;code>FROM&lt;/code> 语句表示一个新的构建阶段，阶段名称可以用 &lt;code>AS&lt;/code> 参数指定，例如：&lt;/p>
+&lt;pre>&lt;code>FROM gcc AS mybuildstage
+COPY hello.c .
+RUN gcc -o hello hello.c
+FROM ubuntu
+COPY --from=mybuildstage hello .
+CMD [&amp;quot;./hello&amp;quot;]
+&lt;/code>&lt;/pre>
+&lt;p>本例使用基础镜像 &lt;code>gcc&lt;/code> 来编译程序 &lt;code>hello.c&lt;/code>，然后启动一个新的构建阶段，它以 &lt;code>ubuntu&lt;/code> 作为基础镜像，将可执行文件 &lt;code>hello&lt;/code> 从上一阶段拷贝到最终的镜像中。最终的镜像大小是 &lt;code>64 MB&lt;/code>，比之前的 &lt;code>1.1 GB&lt;/code> 减少了 &lt;code>95%&lt;/code>：&lt;/p>
+&lt;pre>&lt;code>? → docker images minimage
+REPOSITORY TAG ... SIZE
+minimage hello-c.gcc ... 1.14GB
+minimage hello-c.gcc.ubuntu ... 64.2MB
+&lt;/code>&lt;/pre>
+&lt;p>还能不能继续优化？当然能。在继续优化之前，先提醒一下：&lt;/p>
+&lt;p>在声明构建阶段时，可以不必使用关键词 &lt;code>AS&lt;/code>，最终阶段拷贝文件时可以直接使用序号表示之前的构建阶段（从零开始）。也就是说，下面两行是等效的：&lt;/p>
+&lt;pre>&lt;code>COPY --from=mybuildstage hello .
+COPY --from=0 hello .
+&lt;/code>&lt;/pre>
+&lt;p>如果 &lt;code>Dockerfile&lt;/code> 内容不是很复杂，构建阶段也不是很多，可以直接使用序号表示构建阶段。一旦 Dockerfile 变复杂了，构建阶段增多了，最好还是通过关键词 &lt;code>AS&lt;/code> 为每个阶段命名，这样也便于后期维护。&lt;/p>
+&lt;h3 id="使用经典的基础镜像">&lt;strong>使用经典的基础镜像&lt;/strong>&lt;/h3>
+&lt;p>我强烈建议在构建的第一阶段使用经典的基础镜像，这里经典的镜像指的是 &lt;code>CentOS&lt;/code>，&lt;code>Debian&lt;/code>，&lt;code>Fedora&lt;/code> 和 &lt;code>Ubuntu&lt;/code> 之类的镜像。你可能还听说过 Alpine 镜像，不要用它！至少暂时不要用，后面我会告诉你有哪些坑。&lt;code>COPY --from&lt;/code> 使用绝对路径从上一个构建阶段拷贝文件时，使用的路径是相对于上一阶段的&lt;strong>根目录&lt;/strong>的。如果你使用 &lt;code>golang&lt;/code> 镜像作为构建阶段的基础镜像，就会遇到类似的问题。假设使用下面的 Dockerfile 来构建镜像：&lt;/p>
+&lt;pre>&lt;code>FROM golang
+COPY hello.go .
+RUN go build hello.go
+FROM ubuntu
+COPY --from=0 hello .
+CMD [&amp;quot;./hello&amp;quot;]
+&lt;/code>&lt;/pre>
+&lt;p>你会看到这样的报错：&lt;/p>
+&lt;pre>&lt;code>COPY failed: stat /var/lib/docker/overlay2/1be...868/merged/hello: no such file or directory
+&lt;/code>&lt;/pre>
+&lt;p>这是因为 &lt;code>COPY&lt;/code> 命令想要拷贝的是 &lt;code>/hello&lt;/code>，而 &lt;code>golang&lt;/code> 镜像的 &lt;code>WORKDIR&lt;/code> 是 &lt;code>/go&lt;/code>，所以可执行文件的真正路径是 &lt;code>/go/hello&lt;/code>。当然你可以使用绝对路径来解决这个问题，但如果后面基础镜像改变了 &lt;code>WORKDIR&lt;/code> 怎么办？你还得不断地修改绝对路径，所以这个方案还是不太优雅。最好的方法是在第一阶段指定 &lt;code>WORKDIR&lt;/code>，在第二阶段使用绝对路径拷贝文件，这样即使基础镜像修改了 &lt;code>WORKDIR&lt;/code>，也不会影响到镜像的构建。例如：&lt;/p>
+&lt;pre>&lt;code>FROM golang
+WORKDIR /src
+COPY hello.go .
+RUN go build hello.go
+FROM ubuntu
+COPY --from=0 /src/hello .
+CMD [&amp;quot;./hello&amp;quot;]
+&lt;/code>&lt;/pre>
+&lt;p>最后的效果还是很惊人的，将镜像的体积直接从 &lt;code>800 MB&lt;/code> 降低到了 &lt;code>66 MB&lt;/code>：&lt;/p>
+&lt;pre>&lt;code>? → docker images minimage
+REPOSITORY TAG ... SIZE
+minimage hello-go.golang ... 805MB
+minimage hello-go.golang.ubuntu-workdir ... 66.2MB
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>03&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>FROM scratch 的魔力&lt;/strong>&lt;/p>
+&lt;p>回到我们的 &lt;code>hello world&lt;/code>，C 语言版本的程序大小为 &lt;code>16 kB&lt;/code>，Go 语言版本的程序大小为 &lt;code>2 MB&lt;/code>，那么我们到底能不能将镜像缩减到这么小？能否构建一个只包含我需要的程序，没有任何多余文件的镜像？答案是肯定的，你只需要将多阶段构建的第二阶段的基础镜像改为 &lt;code>scratch&lt;/code> 就好了。&lt;code>scratch&lt;/code> 是一个虚拟镜像，不能被 pull，也不能运行，因为它表示空、nothing！这就意味着新镜像的构建是从零开始，不存在其他的镜像层。例如：&lt;/p>
+&lt;pre>&lt;code>FROM golang
+COPY hello.go .
+RUN go build hello.go
+FROM scratch
+COPY --from=0 /go/hello .
+CMD [&amp;quot;./hello&amp;quot;]
+&lt;/code>&lt;/pre>
+&lt;p>这一次构建的镜像大小正好就是 &lt;code>2 MB&lt;/code>，堪称完美！然而，但是，使用 &lt;code>scratch&lt;/code> 作为基础镜像时会带来很多的不便，且听我一一道来。&lt;/p>
+&lt;h3 id="缺少-shell">&lt;strong>缺少 shell&lt;/strong>&lt;/h3>
+&lt;p>&lt;code>scratch&lt;/code> 镜像的第一个不便是没有 &lt;code>shell&lt;/code>，这就意味着 &lt;code>CMD/RUN&lt;/code> 语句中不能使用字符串，例如：&lt;/p>
+&lt;pre>&lt;code>...
+FROM scratch
+COPY --from=0 /go/hello .
+CMD ./hello
+&lt;/code>&lt;/pre>
+&lt;p>如果你使用构建好的镜像创建并运行容器，就会遇到下面的报错：&lt;/p>
+&lt;pre>&lt;code>docker: Error response from daemon: OCI runtime create failed: container_linux.go:345: starting container process caused &amp;quot;exec: \&amp;quot;/bin/sh\&amp;quot;: stat /bin/sh: no such file or directory&amp;quot;: unknown.
+&lt;/code>&lt;/pre>
+&lt;p>从报错信息可以看出，镜像中并不包含 &lt;code>/bin/sh&lt;/code>，所以无法运行程序。这是因为当你在  &lt;code>CMD/RUN&lt;/code> 语句中使用字符串作为参数时，这些参数会被放到 &lt;code>/bin/sh&lt;/code> 中执行，也就是说，下面这两条语句是等效的：&lt;/p>
+&lt;pre>&lt;code>CMD ./hello
+CMD /bin/sh -c &amp;quot;./hello&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>解决办法其实也很简单：**使用 JSON 语法取代字符串语法。**例如，将 &lt;code>CMD ./hello&lt;/code> 替换为 &lt;code>CMD [&amp;quot;./hello&amp;quot;]&lt;/code>，这样 Docker 就会直接运行程序，不会把它放到 shell 中运行。&lt;/p>
+&lt;h3 id="缺少调试工具">&lt;strong>缺少调试工具&lt;/strong>&lt;/h3>
+&lt;p>&lt;code>scratch&lt;/code> 镜像不包含任何调试工具，&lt;code>ls&lt;/code>、&lt;code>ps&lt;/code>、&lt;code>ping&lt;/code> 这些统统没有，当然了，shell 也没有（上文提过了），你无法使用 &lt;code>docker exec&lt;/code> 进入容器，也无法查看网络堆栈信息等等。如果想查看容器中的文件，可以使用 &lt;code>docker cp&lt;/code>；如果想查看或调试网络堆栈，可以使用 &lt;code>docker run --net container:&lt;/code>，或者使用 &lt;code>nsenter&lt;/code>；为了更好地调试容器，Kubernetes 也引入了一个新概念叫 &lt;strong>Ephemeral Containers[1]&lt;/strong>，但现在还是 Alpha 特性。&lt;/p>
+&lt;p>虽然有这么多杂七杂八的方法可以帮助我们调试容器，但它们会将事情变得更加复杂，我们追求的是简单，越简单越好。&lt;/p>
+&lt;p>折中一下可以选择 &lt;code>busybox&lt;/code> 或 &lt;code>alpine&lt;/code> 镜像来替代 &lt;code>scratch&lt;/code>，虽然它们多了那么几 MB，但从整体来看，这只是牺牲了少量的空间来换取调试的便利性，还是很值得的。&lt;/p>
+&lt;h3 id="缺少-libc">&lt;strong>缺少 libc&lt;/strong>&lt;/h3>
+&lt;p>这是最难解决的问题。使用 &lt;code>scratch&lt;/code> 作为基础镜像时，Go 语言版本的 &lt;code>hello world&lt;/code> 跑得很欢快，C 语言版本就不行了，或者换个更复杂的 Go 程序也是跑不起来的（例如用到了网络相关的工具包），你会遇到类似于下面的错误：&lt;/p>
+&lt;pre>&lt;code>standard_init_linux.go:211: exec user process caused &amp;quot;no such file or directory&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>从报错信息可以看出缺少文件，但没有告诉我们到底缺少哪些文件，其实这些文件就是程序运行所必需的动态库（dynamic library）。&lt;/p>
+&lt;p>那么，什么是动态库？为什么需要动态库？&lt;/p>
+&lt;p>所谓动态库、静态库，指的是程序编译的&lt;strong>链接阶段&lt;/strong>，链接成可执行文件的方式。&lt;strong>静态库&lt;/strong>指的是在链接阶段将汇编生成的目标文件.o 与引用到的库一起链接打包到可执行文件中，因此对应的链接方式称为&lt;strong>静态链接&lt;/strong>（static linking）。而动态库在程序编译时并不会被连接到目标代码中，而是在程序运行是才被载入，因此对应的链接方式称为&lt;strong>动态链接&lt;/strong>（dynamic linking）。&lt;/p>
+&lt;p>90 年代的程序大多使用的是静态链接，因为当时的程序大多数都运行在软盘或者盒式磁带上，而且当时根本不存在标准库。这样程序在运行时与函数库再无瓜葛，移植方便。但对于 Linux 这样的分时系统，会在在同一块硬盘上并发运行多个程序，这些程序基本上都会用到标准的 C 库，这时使用动态链接的优点就体现出来了。使用动态链接时，可执行文件不包含标准库文件，只包含到这些库文件的索引。例如，某程序依赖于库文件 &lt;code>libtrigonometry.so&lt;/code> 中的 &lt;code>cos&lt;/code> 和 &lt;code>sin&lt;/code> 函数，该程序运行时就会根据索引找到并加载 &lt;code>libtrigonometry.so&lt;/code>，然后程序就可以调用这个库文件中的函数。&lt;/p>
+&lt;p>使用动态链接的好处显而易见：&lt;/p>
+&lt;ol>
+&lt;li>&lt;/li>
+&lt;/ol>
+&lt;p>节省磁盘空间，不同的程序可以共享常见的库。&lt;/p>
+&lt;ol start="2">
+&lt;li>&lt;/li>
+&lt;/ol>
+&lt;p>节省内存，共享的库只需从磁盘中加载到内存一次，然后在不同的程序之间共享。&lt;/p>
+&lt;ol start="3">
+&lt;li>&lt;/li>
+&lt;/ol>
+&lt;p>更便于维护，库文件更新后，不需要重新编译使用该库的所有程序。&lt;/p>
+&lt;p>严格来说，动态库与共享库（shared libraries）相结合才能达到节省内存的功效。Linux 中动态库的扩展名是 &lt;code>.so&lt;/code>（ &lt;code>shared object&lt;/code>），而 Windows 中动态库的扩展名是 &lt;code>.DLL&lt;/code>（&lt;strong>Dynamic-link library[2]&lt;/strong>）。回到最初的问题，默认情况下，C 程序使用的是动态链接，Go 程序也是。上面的 &lt;code>hello world&lt;/code> 程序使用了标准库文件 &lt;code>libc.so.6&lt;/code>，所以只有镜像中包含该文件，程序才能正常运行。使用 &lt;code>scratch&lt;/code> 作为基础镜像肯定是不行的，使用 &lt;code>busybox&lt;/code> 和 &lt;code>alpine&lt;/code> 也不行，因为 &lt;code>busybox&lt;/code> 不包含标准库，而 alpine 使用的标准库是 &lt;code>musl libc&lt;/code>，与大家常用的标准库 &lt;code>glibc&lt;/code> 不兼容，后续的文章会详细解读，这里就不赘述了。&lt;/p>
+&lt;p>那么该如何解决标准库的问题呢？有三种方案。&lt;/p>
+&lt;p>&lt;strong>1、使用静态库&lt;/strong>&lt;/p>
+&lt;p>我们可以让编译器使用静态库编译程序，办法有很多，如果使用 gcc 作为编译器，只需加上一个参数 &lt;code>-static&lt;/code>：&lt;/p>
+&lt;pre>&lt;code>$ gcc -o hello hello.c -static
+&lt;/code>&lt;/pre>
+&lt;p>编译完的可执行文件大小为 &lt;code>760 kB&lt;/code>，相比于之前的 &lt;code>16kB&lt;/code> 是大了好多，这是因为可执行文件中包含了其运行所需要的库文件。编译完的程序就可以跑在 &lt;code>scratch&lt;/code> 镜像中了。&lt;/p>
+&lt;p>如果使用 alpine 镜像作为基础镜像来编译，得到的可执行文件会更小（&amp;lt; 100kB），下篇文章会详述。&lt;/p>
+&lt;p>&lt;strong>2、拷贝库文件到镜像中&lt;/strong>&lt;/p>
+&lt;p>为了找出程序运行需要哪些库文件，可以使用 &lt;code>ldd&lt;/code> 工具：&lt;/p>
+&lt;pre>&lt;code>$ ldd hello
+linux-vdso.so.1 (0x00007ffdf8acb000)
+libc.so.6 =&amp;gt; /usr/lib/libc.so.6 (0x00007ff897ef6000)
+/lib64/ld-linux-x86-64.so.2 =&amp;gt; /usr/lib64/ld-linux-x86-64.so.2 (0x00007ff8980f7000)
+&lt;/code>&lt;/pre>
+&lt;p>从输出结果可知，该程序只需要 &lt;code>libc.so.6&lt;/code> 这一个库文件。&lt;code>linux-vdso.so.1&lt;/code> 与一种叫做  &lt;strong>VDSO[3]&lt;/strong> 的机制有关，用来加速某些系统调用，可有可无。&lt;code>ld-linux-x86-64.so.2&lt;/code> 表示动态链接器本身，包含了所有依赖的库文件的信息。你可以选择将 &lt;code>ldd&lt;/code> 列出的所有库文件拷贝到镜像中，但这会很难维护，特别是当程序有大量依赖库时。对于 &lt;code>hello world&lt;/code> 程序来说，拷贝库文件完全没有问题，但对于更复杂的程序（例如使用到 DNS 的程序），就会遇到令人费解的问题：&lt;code>glibc&lt;/code>（GNU C library）通过一种相当复杂的机制来实现 DNS，这种机制叫 &lt;code>NSS&lt;/code>（Name Service Switch, 名称服务开关）。它需要一个配置文件 &lt;code>/etc/nsswitch.conf&lt;/code> 和额外的函数库，但使用 &lt;code>ldd&lt;/code> 时不会显示这些函数库，因为这些库在程序运行后才会加载。如果想让 DNS 解析正确工作，必须要拷贝这些额外的库文件（&lt;code>/lib64/libnss_*&lt;/code>）。&lt;/p>
+&lt;p>我个人不建议直接拷贝库文件，因为它非常难以维护，后期需要不断地更改，而且还有很多未知的隐患。&lt;/p>
+&lt;p>3、使用 &lt;code>busybox:glibc&lt;/code> 作为基础镜像有一个镜像可以完美解决所有的这些问题，那就是 &lt;code>busybox:glibc&lt;/code>。它只有 &lt;code>5 MB&lt;/code> 大小，并且包含了 &lt;code>glibc&lt;/code> 和各种调试工具。如果你想选择一个合适的镜像来运行使用动态链接的程序，&lt;code>busybox:glibc&lt;/code> 是最好的选择。&lt;/p>
+&lt;p>注意：如果你的程序使用到了除标准库之外的库，仍然需要将这些库文件拷贝到镜像中。&lt;/p>
+&lt;p>&lt;strong>04&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>总结&lt;/strong>&lt;/p>
+&lt;p>最后来对比一下不同构建方法构建的镜像大小：&lt;/p>
+&lt;ul>
+&lt;li>&lt;/li>
+&lt;/ul>
+&lt;p>原始的构建方法：1.14 GB&lt;/p>
+&lt;ul>
+&lt;li>&lt;/li>
+&lt;/ul>
+&lt;p>使用 &lt;code>ubuntu&lt;/code> 镜像的多阶段构建：64.2 MB&lt;/p>
+&lt;ul>
+&lt;li>&lt;/li>
+&lt;/ul>
+&lt;p>使用 &lt;code>alpine&lt;/code> 镜像和静态 &lt;code>glibc&lt;/code>：6.5 MB&lt;/p>
+&lt;ul>
+&lt;li>&lt;/li>
+&lt;/ul>
+&lt;p>使用 &lt;code>alpine&lt;/code> 镜像和动态库：5.6 MB&lt;/p>
+&lt;ul>
+&lt;li>&lt;/li>
+&lt;/ul>
+&lt;p>使用 &lt;code>scratch&lt;/code> 镜像和静态 &lt;code>glibc&lt;/code>：940 kB&lt;/p>
+&lt;ul>
+&lt;li>&lt;/li>
+&lt;/ul>
+&lt;p>使用 &lt;code>scratch&lt;/code> 镜像和静态 &lt;code>musl libc&lt;/code>：94 kB&lt;/p>
+&lt;p>最终我们将镜像的体积减少了 &lt;code>99.99%&lt;/code>。&lt;/p>
+&lt;p>但我不建议使用 sratch 作为基础镜像，因为调试起来非常麻烦，但如果你喜欢，那我也不会拦着你。&lt;/p>
+&lt;p>下篇文章将会着重介绍 Go 语言的镜像精简策略，其中会花很大的篇幅来讨论 alpine 镜像，因为它实在是太酷了，在使用它之前必须得摸清它的底细。&lt;/p>
+&lt;h3 id="脚注">&lt;strong>脚注&lt;/strong>&lt;/h3>
+&lt;p>[1]&lt;strong>Ephemeral Containers: &lt;a href="https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/">https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/&lt;/a>&lt;/strong>&lt;/p>
+&lt;p>[2]&lt;strong>Dynamic-link library: &lt;a href="https://en.wikipedia.org/wiki/Dynamic-link_library">https://en.wikipedia.org/wiki/Dynamic-link_library&lt;/a>&lt;/strong>&lt;/p>
+&lt;p>[3]&lt;strong>VDSO: &lt;a href="https://en.wikipedia.org/wiki/VDSO">https://en.wikipedia.org/wiki/VDSO&lt;/a>&lt;/strong>&lt;/p></description></item></channel></rss>

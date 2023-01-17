@@ -1,0 +1,375 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Libvirt</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/</link><description>Recent content in Libvirt on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Libvirt 对接 Hypervisor</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/libvirt-%E5%AF%B9%E6%8E%A5-hypervisor/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/libvirt-%E5%AF%B9%E6%8E%A5-hypervisor/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://libvirt.org/uri.html">https://libvirt.org/uri.html&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Libvirt 支持多不同类型的虚拟化（通常称为 &lt;strong>Drviers(驱动程序)&lt;/strong> 或 &lt;strong>Hypervisors(虚拟机监视器)&lt;/strong>），因此我们需要一种方法来连接到指定的 Hypervisors。另外，我们可能希望引用网络上远程的 Hypervisors。&lt;/p>
+&lt;p>为此，&lt;strong>Libvirt 使用的 RFC 2396 中 定义的 URI 来实现此功能&lt;/strong>&lt;/p>
+&lt;p>注意：由于常用 QEMU-KVM 类型虚拟化，所以后文介绍的都以 KVM 虚拟化为主，Xen 类型会单独注明。&lt;/p>
+&lt;h2 id="uri-格式">URI 格式&lt;/h2>
+&lt;pre>&lt;code>Hypervisor[+Transport]://[UserName@][HostName][:PORT]/PATH[?Extraparameters]
+&lt;/code>&lt;/pre>
+&lt;p>Hypervisor # 虚拟化类型，可用的值有：&lt;/p>
+&lt;ul>
+&lt;li>qemu&lt;/li>
+&lt;li>xen&lt;/li>
+&lt;li>test # 专门测试的，libvirt 自带&lt;/li>
+&lt;/ul>
+&lt;p>Transport # 连接方式。默认为 unix&lt;/p>
+&lt;ul>
+&lt;li>unix&lt;/li>
+&lt;li>ssh&lt;/li>
+&lt;li>tcp&lt;/li>
+&lt;li>libssh、libssh2&lt;/li>
+&lt;li>auto&lt;/li>
+&lt;li>netcat&lt;/li>
+&lt;li>native&lt;/li>
+&lt;li>ext&lt;/li>
+&lt;li>tls&lt;/li>
+&lt;/ul>
+&lt;h3 id="本地-uri-格式示例">本地 URI 格式示例&lt;/h3>
+&lt;pre>&lt;code>qemu:///system # 连接到系统模式守护程序。
+qemu:///session # 连接到会话模式守护程序。
+&lt;/code>&lt;/pre>
+&lt;p>（如果这样做 libvirtd &lt;del>-&lt;/del>-help，守护程序将打印出以各种不同方式监听的 Unix 域套接字的路径）。&lt;/p>
+&lt;h3 id="远程-uri-格式示例">远程 URI 格式示例&lt;/h3>
+&lt;pre>&lt;code># 通过非标准Unix套接字连接到本地qemu实例（在这种情况下，显式提供了Unix套接字的完整路径）。
+qemu+unix:///system?socket=/opt/libvirt/run/libvirt/libvirt-sock
+# 连接到提供本地主机端口5000上未加密的TCP / IP连接的libvirtd守护程序，并使用具有默认设置的测试驱动程序。
+test+tcp://localhost:5000/default
+# 使用与libssh2驱动程序的ssh连接连接到远程主机，并使用其他known_hosts文件。
+qemu+libssh2://user@host/system?known_hosts=/home/user/.ssh/known_hosts
+# 使用与libssh驱动程序的ssh连接连接到远程主机，并使用其他known_hosts文件。
+qemu+libssh://user@host/system?known_hosts=/home/user/.ssh/known_hosts
+&lt;/code>&lt;/pre>
+&lt;h3 id="测试-uri-格式示例">测试 URI 格式示例&lt;/h3>
+&lt;pre>&lt;code>test:///default connects to a default set of host definitions built into the driver.
+test:///path/to/host/definitions connects to a set of host definitions held in the named file.
+&lt;/code>&lt;/pre>
+&lt;h2 id="uri-中额外的参数详解">URI 中额外的参数详解&lt;/h2>
+&lt;p>可以将额外的参数作为查询字符串的一部分（后面的部分?）添加到远程 URI 中。远程 URI 了解下面显示的其他参数。任何其他内容都未经修改地传递到后端。请注意，参数值必须是 URI 转义的。&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>名称&lt;/td>
+&lt;td>运输工具&lt;/td>
+&lt;td>含义&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>name&lt;/td>
+&lt;td>任何运输&lt;/td>
+&lt;td>传递给远程 virConnectOpen 函数的名称。该名称通常是通过从远程 URI 中删除传输，主机名，端口号，用户名和其他参数形成的，但是在某些非常复杂的情况下，最好显式提供名称。&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>例： name=qemu:///system&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>tls_priority&lt;/td>
+&lt;td>tls&lt;/td>
+&lt;td>无效的 GNUTLS 优先级字符串&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>例： tls_priority=NORMAL:-VERS-SSL3.0&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>mode&lt;/td>
+&lt;td>Unix，ssh，libssh，libssh2&lt;/td>
+&lt;td>auto&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>自动确定守护程序
+direct
+连接到每个驱动程序守护程序
+legacy
+连接到 libvirtd
+也可以设置 libvirt.conf 为 remote_mode | |
+| | | | 例： mode=direct |
+| command | ssh，ext | 外部命令。对于外部运输，这是必需的。对于 ssh，默认值为 ssh。在 PATH 中搜索命令。 | |
+| | | | 例： command=/opt/openssh/bin/ssh |
+| socket | Unix，ssh，libssh2，libssh | Unix 域套接字的路径，它将覆盖已编译的缺省值。对于 ssh 传输，这将传递到远程 netcat 命令（请参阅下一个）。 | |
+| | | | 例： socket=/opt/libvirt/run/libvirt/libvirt-sock |
+| netcat | ssh，libssh2，libssh | 远程计算机上的 netcat 命令的名称。默认值为 nc。对于 ssh 传输，libvirt 构造一个 ssh 命令，如下所示：
+命令 -p 端口 [-l 用户名 ] 主机名 netcat -U 套接字
+其中 port，username，hostname 可以指定为远程 URI 的一部分，而 command，netcat 和 socket 来自额外的参数（或合理的默认值）。 | |
+| | | | 例： netcat=/opt/netcat/bin/nc |
+| keyfile | ssh，libssh2，libssh | 用于对远程计算机进行身份验证的私钥文件的名称。如果不使用此选项，则使用默认密钥。 | |
+| | | | 例： keyfile=/root/.ssh/example_key |
+| no_verify | ssh，tls | SSH：如果设置为非零值，则禁用客户端的严格主机密钥检查，使其自动接受新的主机密钥。现有主机密钥仍将被验证。
+TLS：如果设置为非零值，则将禁用客户端对服务器证书的检查。请注意，要禁用服务器对客户机证书或 IP 地址的检查，必须 更改 libvirtd 配置。 | |
+| | | | 例： no_verify=1 |
+| no_tty | ssh | 如果设置为非零值，如果它无法自动登录到远程计算机（例如，使用 ssh-agent 等），它将阻止 ssh 询问密码。当您无权访问终端时（例如在使用 libvirt 的图形程序中），请使用此选项。 | |
+| | | | 例： no_tty=1 |
+| pkipath | tls | 指定客户端的 x509 证书路径。如果缺少任何 CA 证书，客户端证书或客户端密钥，则连接将失败并出现致命错误。 | |
+| | | | 例： pkipath=/tmp/pki/client |
+| known_hosts | libssh2，libssh | 验证主机密钥所依据的 known_hosts 文件的路径。尽管 LibSSH2 不支持所有密钥类型，但 LibSSH2 和 libssh 支持 OpenSSH 风格的 known_hosts 文件，因此，使用由 OpenSSH 二进制文件创建的文件可能会导致截断 known_hosts 文件。因此，对于 LibSSH2，建议使用默认的 known_hosts 文件，该文件位于 libvirt 的客户端本地配置目录中，例如：〜/ .config / libvirt / known_hosts。注意：使用绝对路径。 | |
+| | | | 例： known_hosts=/root/.ssh/known_hosts |
+| sshauth | libssh2，libssh | 用逗号分隔的身份验证方法列表。默认值（是“ agent，privkey，password，keyboard-interactive”。保留方法的顺序。某些方法可能需要其他参数。 | |
+| | | | 例： sshauth=privkey,agent |&lt;/p>
+&lt;h1 id="连接-hypervisor-方式">连接 Hypervisor 方式&lt;/h1>
+&lt;p>官方文档：&lt;a href="https://libvirt.org/drvqemu.html">https://libvirt.org/drvqemu.html&lt;/a>&lt;/p>
+&lt;p>要连接 QEMU Hypervisor，则必须运行 libvirtd 守护进程(systemctl start libvirtd)，该守护进程的目的是管理 qemu 实例&lt;/p>
+&lt;p>Libvirt 的 KVM/QEMU 驱动程序将会探测 /usr/bin 目录是否存在&lt;code>qemu&lt;/code>, &lt;code>qemu-system-x86_64&lt;/code>, &lt;code>qemu-system-microblaze&lt;/code>, &lt;code>qemu-system-microblazeel&lt;/code>, &lt;code>qemu-system-mips&lt;/code>,&lt;code>qemu-system-mipsel&lt;/code>, &lt;code>qemu-system-sparc&lt;/code>,&lt;code>qemu-system-ppc&lt;/code>。来决定如何连接 QEMU emulator。&lt;/p>
+&lt;p>Libvirt 的 KVM/QEMU 驱动程序&lt;del>将会&lt;/del>探测 /usr/bin 目录是否存在&lt;code>qemu-kvm&lt;/code>，以及 /dev/kvm 驱动是否存在。来绝对如何连接 KVM hypervisor。&lt;/p>
+&lt;h2 id="以-libvirt-的-配置文件-或-命令行选项-连接-hypervisor">以 libvirt 的 配置文件 或 命令行选项 连接 Hypervisor&lt;/h2>
+&lt;p>这里以 virsh 命令行工具作为示例，其他基于 Libvirt API 的第三方工具，都是同样的道理&lt;/p>
+&lt;ol>
+&lt;li>使用 -c 或者 &amp;ndash;connect 选项。比如：
+&lt;ol>
+&lt;li>virsh -c test:///default list&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>在客户端配置文件(/etc/libvirt/libvirt.conf)中，设定&lt;code>uri_default&lt;/code>关键字的值&lt;/li>
+&lt;/ol>
+&lt;h2 id="以代码方式通过-libvirt-api-连接-hypervisor">以代码方式通过 Libvirt API 连接 Hypervisor&lt;/h2>
+&lt;p>URI 作为 &lt;code>name&lt;/code> 参数传递给 virConnectOpen 或 virConnectOpenReadOnly 函数。例如：&lt;/p>
+&lt;pre>&lt;code>virConnectPtr conn = virConnectOpenReadOnly (&amp;quot;test:///default&amp;quot;);
+&lt;/code>&lt;/pre>
+&lt;p>如果传递给 virConnectOpen* 的 URI 为 NULL，则 libvirt 将使用以下逻辑来确定要使用的 URI。&lt;/p>
+&lt;ol>
+&lt;li>&lt;code>LIBVIRT_DEFAULT_URI&lt;/code> 环境变量&lt;/li>
+&lt;li>在客户端配置文件(/etc/libvirt/libvirt.conf)中，&lt;code>uri_default&lt;/code>关键字的值&lt;/li>
+&lt;li>依次探查每个 hypervisor 程序，直到找到有效的虚拟机监控程序&lt;/li>
+&lt;/ol>
+&lt;h1 id="应用实例">应用实例&lt;/h1>
+&lt;h2 id="通过-libvirt-远程管理虚拟机">通过 libvirt 远程管理虚拟机&lt;/h2>
+&lt;p>2 台主机：&lt;/p>
+&lt;p>node4: 192.168.1.166&lt;/p>
+&lt;p>node5: 192.168.1.143&lt;/p>
+&lt;p>node4 作为远程 libvirt 的服务器，上面有已经创建的虚拟机，现在 node5 上通过以下 2 种方式管理远程服务器上的虚拟机：&lt;/p>
+&lt;ol>
+&lt;li>通过 qemu+ssh 方式&lt;/li>
+&lt;li>通过 qemu+tcp 方式&lt;/li>
+&lt;/ol>
+&lt;p>node5 上安装 libvirt 及相关工具包，我这里安装了这些，&lt;/p>
+&lt;pre>&lt;code>yum groupinstall &amp;quot;Virtualization&amp;quot;
+yum install libvirt libvirt-python python-virtinst virt-viewer
+&lt;/code>&lt;/pre>
+&lt;p>通过 qemu+ssh 连接方式比较简单，只需 node5 能用 ssh 远程访问 node4 即可,&lt;/p>
+&lt;p>命令如下：&lt;/p>
+&lt;pre>&lt;code>virsh -c qemu+ssh://root@192.168.1.166/system
+&lt;/code>&lt;/pre>
+&lt;p>如果 2 个节点设置了互信，免密钥登录，可直接执行 virsh 相关命令，&lt;/p>
+&lt;pre>&lt;code>[root@node5 ~]# virsh -c qemu+ssh://root@192.168.1.166/system list
+Id 名称 状态
+----------------------------------------------------
+3 vm01 running
+&lt;/code>&lt;/pre>
+&lt;p>下面介绍通过 qemu+tcp 方式登录远程节点的 virsh：&lt;/p>
+&lt;p>node4 上&lt;/p>
+&lt;p>修改/etc/sysconfig/libvirtd,开启以下 2 个配置项：&lt;/p>
+&lt;pre>&lt;code>[root@node4 ~]# egrep -v &amp;quot;^#|^$&amp;quot; /etc/sysconfig/libvirtd
+LIBVIRTD_CONFIG=/etc/libvirt/libvirtd.conf
+LIBVIRTD_ARGS=&amp;quot;--listen
+&lt;/code>&lt;/pre>
+&lt;p>修改配置文件，&lt;/p>
+&lt;pre>&lt;code>vim /etc/libvirt/libvirtd.conf
+listen_tls = 0
+listen_tcp = 1
+tcp_port =&amp;quot;16509&amp;quot;
+listen_addr =&amp;quot;0.0.0.0&amp;quot;
+auth_tcp =&amp;quot;none&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>重启 libvirtd 并查看监听的端口，&lt;/p>
+&lt;pre>&lt;code># /etc/init.d/libvirtd restart
+# netstat -anltp|grep 16509
+tcp 0 0 0.0.0.0:16509 0.0.0.0:* LISTEN 28843/libvirtd
+&lt;/code>&lt;/pre>
+&lt;p>node5 上远程访问（需要确保可以访问 node4 的 16509 tcp 端口）：&lt;/p>
+&lt;pre>&lt;code>[root@node5 ~]# virsh -c qemu+tcp://192.168.1.166/system list
+Id 名称 状态
+----------------------------------------------------
+3 vm01 running
+&lt;/code>&lt;/pre>
+&lt;h2 id="配置-uri-别名">配置 URI 别名&lt;/h2>
+&lt;p>为了简化管理员的工作，可以在 libvirt 客户端配置文件中设置 URI 别名。该配置文件/etc/libvirt/libvirt.conf 适用于 root 用户或$XDG_CONFIG_HOME/libvirt/libvirt.conf 任何非特权用户。在此文件中，以下语法可用于设置别名&lt;/p>
+&lt;p>uri_aliases = [ “ hail = qemu + ssh：//root@hail.cloud.example.com/system”， “ sleet = qemu + ssh：//root@sleet.cloud.example.com/system”，]&lt;/p>
+&lt;p>URI 别名应该是由字符组成的字符串 a-Z, 0-9, _, -。继= 可以是任何 libvirt 的 URI 字符串，包括任意 URI 参数。URI 别名将适用于任何打开 libvirt 连接的应用程序，除非它已将 VIR_CONNECT_NO_ALIASES 参数明确传递给 virConnectOpenAuth。如果传入的 URI 包含允许的别名字符集之外的字符，则不会尝试别名查找。&lt;/p></description></item><item><title>Docs: Libvirt 客户端库</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/libvirt-%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%BA%93/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/libvirt-%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%BA%93/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://libvirt.org/bindings.html">官方文档，binding&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Libvirt 直接支持 C 和 C++，并且具有可用于其他语言的绑定：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>C#&lt;/strong>：Arnaud Champion 开发&lt;a href="https://libvirt.org/csharp.html">C# 绑定&lt;/a>。&lt;/li>
+&lt;li>&lt;strong>Go&lt;/strong>：Daniel Berrange 开发了&lt;a href="https://pkg.go.dev/libvirt.org/go/libvirt">Go 绑定&lt;/a>。&lt;/li>
+&lt;li>&lt;strong>Java&lt;/strong>：Daniel Veillard 开发&lt;a href="https://libvirt.org/java.html">Java 绑定&lt;/a>。&lt;/li>
+&lt;li>&lt;strong>OCaml&lt;/strong>：Richard Jones 开发&lt;a href="https://libvirt.org/ocaml/">OCaml 绑定&lt;/a>。&lt;/li>
+&lt;li>&lt;strong>Perl&lt;/strong>：Daniel Berrange 开发&lt;a href="https://search.cpan.org/dist/Sys-Virt/">Perl 绑定&lt;/a>。&lt;/li>
+&lt;li>&lt;strong>PHP&lt;/strong>：Radek Hladik 于 2010 年开始开发&lt;a href="https://libvirt.org/php">PHP 绑定&lt;/a>。2011 年 2 月，绑定开发已作为 libvirt-php 项目移至 libvirt.org 网站。该项目现在由 Michal Novotny 维护，并且很大程度上基于 Radek 的版本。有关更多信息，包括发布补丁到 libvirt-php 的信息，请参阅&lt;a href="https://libvirt.org/php">PHP 绑定&lt;/a>站点。&lt;/li>
+&lt;li>&lt;strong>Python&lt;/strong>：Libvirt 的 python 绑定从 1.2.0 版本开始被拆分为一个单独的 &lt;a href="https://gitlab.com/libvirt/libvirt-python">包&lt;/a>，旧版本直接支持 Python 语言。如果您的 libvirt 是作为软件包安装的，而不是由您从源代码编译的，请确保您安装了适当的软件包。这在 RHEL/Fedora 上 被命名为&lt;strong>libvirt-python ，在 Ubuntu 上被命名为&lt;/strong>&lt;a href="https://packages.ubuntu.com/search?keywords=python-libvirt">python-libvirt&lt;/a> ，并且在其他人上可能有不同的命名。有关使用信息，请参阅&lt;a href="https://libvirt.org/python.html">Python API 绑定&lt;/a> 页面。&lt;/li>
+&lt;li>&lt;strong>Ruby&lt;/strong>：Chris Lalancette 开发&lt;a href="https://libvirt.org/ruby/">Ruby 绑定&lt;/a>。&lt;/li>
+&lt;/ul>
+&lt;p>集成 API 模块：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>D-Bus&lt;/strong>：Pavel Hrdina 开发&lt;a href="https://libvirt.org/dbus.html">D-Bus API&lt;/a>。&lt;/li>
+&lt;/ul>
+&lt;p>有关在&lt;strong>Windows 上使用 libvirt 的信息，&lt;/strong> &lt;a href="https://libvirt.org/windows.html">请参阅 Windows 支持页面&lt;/a>。&lt;/p>
+&lt;h1 id="go-库">Go 库&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/libvirt/libvirt-go-module">GitHub 项目，libvirt/libvirt-go-module&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="python-库">Python 库&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://libvirt.org/docs/libvirt-appdev-guide-python/en-US/html/index.html">libvirt 官方文档，使用 Python 开发 Libvirt 应用程序指南&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;a href="https://blog.51cto.com/u_10616534/1878609">https://blog.51cto.com/u_10616534/1878609&lt;/a>
+&lt;a href="https://cloud.tencent.com/developer/article/1603833">https://cloud.tencent.com/developer/article/1603833&lt;/a>&lt;/p></description></item><item><title>Docs: Libvirt 配置详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/libvirt-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/libvirt-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;h2 id="参考">参考：&lt;/h2>
+&lt;/blockquote>
+&lt;p>/etc/libvirt/libvirt.conf&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 设置别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uri_aliases &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#f92672">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">&amp;#34;vs-1=qemu+ssh://10.10.100.201/system&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 可以对 10.10.100.201 使用 virsh 命令&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>virsh -c vs-1 list
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: virsh 命令行工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/virsh-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/virsh-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://libvirt.org/manpages/virsh.html">官方文档，手册-virsh&lt;/a>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/libvirt/libvirt/blob/master/docs/manpages/virsh.rst">GitHub 位置，libvirt/libvirt/docs/manpages/virsh.rst&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>virsh 是 libvirt 核心发行版的一部分，通过 libvirt 的 API 管理虚拟机的命令行工具。
+virsh 有两种使用方式&lt;/p>
+&lt;ul>
+&lt;li>virsh + 子命令&lt;/li>
+&lt;li>交互式 shell。不加任何子命令时，进入交互式 shell&lt;/li>
+&lt;/ul>
+&lt;h1 id="syntax语法">Syntax(语法)&lt;/h1>
+&lt;p>&lt;strong>virsh [OPTION]&amp;hellip; [COMMAND_STRING]&lt;/strong>
+&lt;strong>virsh [OPTION]&amp;hellip; COMMAND [ARG]&amp;hellip;&lt;/strong>
+注意：&lt;/p>
+&lt;ul>
+&lt;li>DOMAIN 的说明：libvirt 使用 domain 代指 VM，所有关于 domain 的描述都可以理解为 VM 或者 instance&lt;/li>
+&lt;li>当指定要操作某个特定 DOMAIN 的时候，可以使用该 DOMAIN 的 ID 号、NAME、UUID，三者任选其一&lt;/li>
+&lt;li>想要查看 VM 的信息，可以在 virsh 的 shell 中使用 help 命令，找 list 和 info 的关键字，help 中是以不同类型的命令进行分类的比如 DOMAIN 相关的，监控信息，网络存储等&lt;/li>
+&lt;/ul>
+&lt;h2 id="options">OPTIONS&lt;/h2>
+&lt;ul>
+&lt;li>-c | &amp;ndash;connect=URI hypervisor connection URI&lt;/li>
+&lt;li>-d | &amp;ndash;debug=NUM debug level [0-4]&lt;/li>
+&lt;li>-e | &amp;ndash;escape &lt;!-- raw HTML omitted --> set escape sequence for console&lt;/li>
+&lt;li>-k | &amp;ndash;keepalive-interval=NUM #keepalive interval in seconds, 0 for disable&lt;/li>
+&lt;li>-K | &amp;ndash;keepalive-count=NUM #number of possible missed keepalive messages&lt;/li>
+&lt;li>-l | &amp;ndash;log=FILE output logging to file&lt;/li>
+&lt;li>-q | &amp;ndash;quiet quiet mode&lt;/li>
+&lt;li>-r | &amp;ndash;readonly connect readonly&lt;/li>
+&lt;li>-t | &amp;ndash;timing print timing information&lt;/li>
+&lt;/ul>
+&lt;h1 id="command">COMMAND&lt;/h1>
+&lt;p>Note：其中各种命令用法，详见 virsh 命令行工具目录下每个子命令的专题文章&lt;/p>
+&lt;h2 id="generic-commandsit-学习笔记10云原生12实现虚拟化的工具虚拟化管理libvirtvirsh20-命令行工具通用命令md-命令行工具通用命令md通用命令">[Generic commands](✏IT 学习笔记/☁️10.云原生/1.2.实现虚拟化的工具/虚拟化管理/Libvirt/virsh%20 命令行工具/通用命令.md 命令行工具/通用命令.md)(通用命令)&lt;/h2>
+&lt;p>通用命令与 domain 无关&lt;/p>
+&lt;h2 id="domain-commandsit-学习笔记10云原生12实现虚拟化的工具虚拟化管理libvirtvirsh20-命令行工具domain20-命令md-命令行工具domain-命令md虚拟机命令">[Domain commands](✏IT 学习笔记/☁️10.云原生/1.2.实现虚拟化的工具/虚拟化管理/Libvirt/virsh%20 命令行工具/Domain%20 命令.md 命令行工具/Domain 命令.md)(虚拟机命令)&lt;/h2>
+&lt;p>The following commands manipulate domains directly, as stated previously most commands take domain as the first parameter. The domain can be specified as a short integer, a name or a full UUID.&lt;/p>
+&lt;h2 id="device-commandsit-学习笔记10云原生12实现虚拟化的工具虚拟化管理libvirtvirsh20-命令行工具device20-命令md-命令行工具device-命令md设备命令">[Device commands](✏IT 学习笔记/☁️10.云原生/1.2.实现虚拟化的工具/虚拟化管理/Libvirt/virsh%20 命令行工具/Device%20 命令.md 命令行工具/Device 命令.md)(设备命令)&lt;/h2>
+&lt;p>Device 命令用以控制与 domains 关联的设备。The domain can be specified as a short integer, a name or a full UUID. To better understand the values allowed as options for the command reading the documentation at &lt;a href="https://libvirt.org/formatdomain.html">https://libvirt.org/formatdomain.html&lt;/a> on the format of the device sections to get the most accurate set of accepted values.&lt;/p>
+&lt;h2 id="nodedev-commandshttpslibvirtorgmanpagesvirshhtmlnodedev-commands">&lt;a href="https://libvirt.org/manpages/virsh.html#nodedev-commands">NodeDev commands&lt;/a>()&lt;/h2>
+&lt;h2 id="virtual-network-commandsit-学习笔记10云原生12实现虚拟化的工具虚拟化管理libvirtvirsh20-命令行工具virtual20network20-命令md-命令行工具virtual-network-命令md虚拟网络命令">[Virtual Network commands](✏IT 学习笔记/☁️10.云原生/1.2.实现虚拟化的工具/虚拟化管理/Libvirt/virsh%20 命令行工具/Virtual%20Network%20 命令.md 命令行工具/Virtual Network 命令.md)(虚拟网络命令)&lt;/h2>
+&lt;p>The following commands manipulate networks. Libvirt has the capability to define virtual networks which can then be used by domains and linked to actual network devices. For more detailed information about this feature see the documentation at &lt;a href="https://libvirt.org/formatnetwork.html">https://libvirt.org/formatnetwork.html&lt;/a> . Many of the commands for virtual networks are similar to the ones used for domains, but the way to name a virtual network is either by its name or UUID.&lt;/p>
+&lt;h2 id="network-port-commands">NETWORK PORT COMMANDS&lt;/h2>
+&lt;h2 id="interface-commandsit-学习笔记10云原生12实现虚拟化的工具虚拟化管理libvirtvirsh20-命令行工具interface20-命令md-命令行工具interface-命令md接口命令">[Interface commands](✏IT 学习笔记/☁️10.云原生/1.2.实现虚拟化的工具/虚拟化管理/Libvirt/virsh%20 命令行工具/Interface%20 命令.md 命令行工具/Interface 命令.md)(接口命令)&lt;/h2>
+&lt;p>The following commands manipulate host interfaces. Often, these host interfaces can then be used by name within domain &lt;!-- raw HTML omitted --> elements (such as a system-created bridge interface), but there is no requirement that host interfaces be tied to any particular guest configuration XML at all.
+Many of the commands for host interfaces are similar to the ones used for domains, and the way to name an interface is either by its name or its MAC address. However, using a MAC address for an &lt;em>iface&lt;/em> argument only works when that address is unique (if an interface and a bridge share the same MAC address, which is often the case, then using that MAC address results in an error due to ambiguity, and you must resort to a name instead).&lt;/p>
+&lt;h2 id="storage-pool-commands">STORAGE POOL COMMANDS&lt;/h2>
+&lt;ol>
+&lt;li>一个 storage pool 包括很多 storage volume，storage volume 有单独的一组命令进行管理&lt;/li>
+&lt;li>storage pool 就是存放 s torage volume 的地方，是一个目录，详见 1.5.Storage Virtualization.note 中的 kvm 的存储虚拟化&lt;/li>
+&lt;li>存储池默认目录为/var/lib/libvirt/images/，这个目录会存放所有 VM 的文件，通过 libvirt 创建完虚拟机后生成的 image 都会放在 default 目录下&lt;/li>
+&lt;/ol>
+&lt;h2 id="volume-commands">VOLUME COMMANDS&lt;/h2>
+&lt;ol>
+&lt;li>存储卷就是 VM 上的一块物理硬盘，一个物理硬盘是通过一个文件的形式表现的，修改这个文件，就可以修改这个硬盘的内容。详见 1.5.Storage Virtualization.note 中的 kvm 的存储虚拟化&lt;/li>
+&lt;li>storage volume 管理命令可以调整硬盘大小、类型等，还能增删改查指定的硬盘&lt;/li>
+&lt;/ol>
+&lt;h2 id="secret-commands">SECRET COMMANDS&lt;/h2>
+&lt;h2 id="snapshot-commands快照命令">Snapshot commands(快照命令)&lt;/h2>
+&lt;p>The following commands manipulate domain snapshots. Snapshots take the disk, memory, and device state of a domain at a point-of-time, and save it for future use. They have many uses, from saving a &amp;ldquo;clean&amp;rdquo; copy of an OS image to saving a domain&amp;rsquo;s state before a potentially destructive operation. Snapshots are identified with a unique name. See &lt;a href="https://libvirt.org/formatsnapshot.html">https://libvirt.org/formatsnapshot.html&lt;/a> for documentation of the XML format used to represent properties of snapshots.&lt;/p>
+&lt;h2 id="checkpoint-commands">CHECKPOINT COMMANDS&lt;/h2>
+&lt;h2 id="nwfilter-commands">NWFILTER COMMANDS&lt;/h2>
+&lt;h2 id="nwfilter-binding-commands">NWFILTER BINDING COMMANDS&lt;/h2>
+&lt;h2 id="hypervisor-specific-commands">HYPERVISOR-SPECIFIC COMMANDS&lt;/h2></description></item><item><title>Docs: virsh 命令行工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/virsh-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/virsh-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description/></item><item><title>Docs: XML 文件详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/xml-%E6%96%87%E4%BB%B6%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/xml-%E6%96%87%E4%BB%B6%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://libvirt.org/format.html">https://libvirt.org/format.html&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>virt-xml-validate 是一个简单的检验 XML 文档的工具，直接在命令后面加上 XML 文档的 /PATH/FILE 即可对该文件进行检验，确保其在传递给 libvirt 时是正确的。&lt;/p></description></item><item><title>Docs: 使用 libvirt API 的其他应用程序</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/%E4%BD%BF%E7%94%A8-libvirt-api-%E7%9A%84%E5%85%B6%E4%BB%96%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/%E4%BD%BF%E7%94%A8-libvirt-api-%E7%9A%84%E5%85%B6%E4%BB%96%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://libvirt.org/apps.html">官网，使用 libvirt 的应用程序&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="virt-host-validate--虚拟化宿主机环境检验">virt-host-validate # 虚拟化宿主机环境检验&lt;/h1>
+&lt;h1 id="virt-manager--图形化模式的虚拟机管理工具">virt-manager # 图形化模式的虚拟机管理工具&lt;/h1>
+&lt;p>virt-manager 是一个图形化的应用程序，通过 libvirt 管理虚拟机。&lt;/p>
+&lt;p>virt-manager 提供了多个配套的工具&lt;/p>
+&lt;ul>
+&lt;li>virt-install # 是一个命令行工具，它提供了一种将操作系统配置到虚拟机中的简单方法。&lt;/li>
+&lt;li>virt-viewer # 是一个轻量级的 UI 界面，用于与虚拟客户操作系统的图形显示进行交互。它可以显示 VNC 或 SPICE，并使用 libvirt 查找图形连接详细信息。&lt;/li>
+&lt;li>virt-clone # 是一个用于克隆现有非活动客户的命令行工具。它复制磁盘映像，并使用指向复制磁盘的新名称、UUID 和 MAC 地址定义配置。&lt;/li>
+&lt;li>virt-xml # 是一个命令行工具，用于使用 virt-install 的命令行选项轻松编辑 libvirt 域 XML。&lt;/li>
+&lt;li>virt-bootstrap # 是一个命令行工具，提供了一种简单的方法来为基于 libvirt 的容器设置根文件系统。&lt;/li>
+&lt;/ul>
+&lt;p>详见 [《virt-manager》](✏IT 学习笔记/☁️10.云原生/1.2.实现虚拟化的工具/虚拟化管理/Libvirt/使用%20libvirt%20API%20 的其他应用程序/virt-manager.md libvirt API 的其他应用程序/virt-manager.md) 章节&lt;/p>
+&lt;h1 id="libguestfs是一组用于访问和修改虚拟机vm磁盘映像的工具">libguestfs：是一组用于访问和修改虚拟机（VM）磁盘映像的工具。&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;/blockquote>
+&lt;p>可以使用它来查看和编辑 guest 虚拟机内的文件，更改 VM 的脚本， 监视磁盘使用/免费统计信息， 创建 guest 虚拟机，P2V， V2V，执行备份，克隆 VM，构建 VM，格式化磁盘，调整磁盘大小等等。&lt;/p>
+&lt;p>使用 yum 安装即可直接使用：yum install libguestfs-tools&lt;/p></description></item><item><title>Docs: 使用 libvirt API 的其他应用程序</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/%E4%BD%BF%E7%94%A8-libvirt-api-%E7%9A%84%E5%85%B6%E4%BB%96%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/%E4%BD%BF%E7%94%A8-libvirt-api-%E7%9A%84%E5%85%B6%E4%BB%96%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F/</guid><description/></item><item><title>Docs: 问题实例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/libvirt/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8B/</guid><description>
+&lt;h1 id="heading">&lt;/h1>
+&lt;h1 id="dnsmasq-cannot-read-varliblibvirtdnsmasqdefaultconf-permission-denied">dnsmasq: cannot read /var/lib/libvirt/dnsmasq/default.conf: Permission denied&lt;/h1>
+&lt;p>参考连接：&lt;a href="https://forum.level1techs.com/t/solved-virtual-network-issue-virsh-net-start-default/136141">https://forum.level1techs.com/t/solved-virtual-network-issue-virsh-net-start-default/136141&lt;/a>&lt;/p>
+&lt;p>该问题常出现在移动 /var/lib/libvirt 目录下的内容到新的磁盘上之后出现，是由于 SELinux 的策略导致的&lt;/p>
+&lt;p>I solved this so I figured I’d post the fix (to my specific problem) in case anybody else runs into this. This was happening due to an SELinux policy violation. Here is what I did:&lt;/p>
+&lt;p>$ sudo setenforce 0 # disable SELinux momentarily$ sudo virsh net-start default # this worked which meant SELinux was involved$ sudo setenforce 1 # renable SELinux$ sudo ausearch -m AVC,USER_AVC,SELINUX_ERR -ts recent # inspect the SELinux alerts if you&amp;rsquo;re interested&lt;/p>
+&lt;p>Then I remembered…I’d created a new logical volume for /var/lib/libvirt to host all virtual machine configs and then just copied all of the original directories over - this was my mistake - SELinux somehow knows they are copied files and was denying access. (I really don’t understand SELinux…) To fix, I needed to restore the permissions:&lt;/p>
+&lt;pre>&lt;code>$ restorecon -rv /var/lib/libvirt
+&lt;/code>&lt;/pre>
+&lt;p>Then the network started right up.&lt;/p>
+&lt;p>Any suggestions on good resources on learning about SELinux?&lt;/p></description></item></channel></rss>

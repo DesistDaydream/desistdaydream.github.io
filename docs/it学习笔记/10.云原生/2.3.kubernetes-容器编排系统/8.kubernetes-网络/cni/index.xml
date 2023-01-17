@@ -1,0 +1,450 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – CNI</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/</link><description>Recent content in CNI on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Calico</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/calico/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/calico/</guid><description>
+&lt;h1 id="calico-基本概念">Calico 基本概念&lt;/h1>
+&lt;h1 id="imagepnghttpsnotes-learningoss-cn-beijingaliyuncscombgb09a1616118512894-684263a6-9d81-4a8a-8be3-088fd6aedef1png">&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bgb09a/1616118512894-684263a6-9d81-4a8a-8be3-088fd6aedef1.png" alt="image.png">&lt;/h1>
+&lt;p>基于以 BGP 协议构建网络，主要由三个部分组成&lt;/p>
+&lt;p>第一部分：Calico 的 CNI 插件。这是 Calico 与 Kubernetes 对接的部分&lt;/p>
+&lt;p>第二部分：Felix，一个 DaemonSet。负责在 Host 上插入路由规则(即：写入 Linux 内核的 FIB(转发信息库 Forwarding information base)，以及维护 Calico 所需的网络设备等工作&lt;/p>
+&lt;p>第三部分：BIRD，BGP Client。专门负责在集群内分发路由规则信息&lt;/p>
+&lt;p>Calico 利用 Linux 内核原生的路由和 iptables 防火墙功能。进出各个容器，虚拟机和主机的所有流量都会在路由到目标之前遍历这些内核规则。&lt;/p>
+&lt;ol>
+&lt;li>calicoctl：允许您从简单的命令行界面实现高级策略和网络。&lt;/li>
+&lt;li>orchestrator plugins：提供与各种流行协调器的紧密集成和同步。&lt;/li>
+&lt;li>key/value store：保存 Calico 的策略和网络配置状态。比如 etcd&lt;/li>
+&lt;li>calico/node：在每个主机上运行，从 key/value store 中读取相关的策略和网络配置信息，并在 Linux 内核中实现它。&lt;/li>
+&lt;li>Dikastes/Envoy：可选的 Kubernetes sidecar，通过相互 TLS 身份验证保护工作负载到工作负载的通信，并实施应用层策略。&lt;/li>
+&lt;/ol>
+&lt;h2 id="calico-bgp-工作原理">Calico BGP 工作原理&lt;/h2>
+&lt;p>实际上，Calico 项目提供的网络解决方案，与 Flannel 的 host-gw 模式，几乎是完全一样的。也就是说，Calico 也会在每台宿主机上，添加一个格式如下所示的路由规则：&lt;/p>
+&lt;pre>&lt;code>&amp;lt; 目的容器 IP 地址段 &amp;gt; via &amp;lt; 网关的 IP 地址 &amp;gt; dev eth0
+&lt;/code>&lt;/pre>
+&lt;p>其中，网关的 IP 地址，正是目的容器所在宿主机的 IP 地址。&lt;/p>
+&lt;p>而正如前所述，这个三层网络方案得以正常工作的核心，是为每个容器的 IP 地址，找到它所对应的、“下一跳”的网关。不过，不同于 Flannel 通过 Etcd 和宿主机上的 flanneld 来维护路由信息的做法，Calico 项目使用了一个“重型武器”来自动地在整个集群中分发路由信息。这个“重型武器”，就是 BGP。详见：BGP 协议&lt;/p>
+&lt;p>Calico 项目的架构由三个部分组成：&lt;/p>
+&lt;ol>
+&lt;li>Calico 的 CNI 插件。这是 Calico 与 Kubernetes 对接的部分。&lt;/li>
+&lt;li>Felix。它是一个 DaemonSet，负责在宿主机上插入路由规则（即：写入 Linux 内核的 FIB 转发信息库），以及维护 Calico 所需的网络设备等工作。&lt;/li>
+&lt;li>BIRD。它就是 BGP 的客户端，专门负责在集群里分发路由规则信息。&lt;/li>
+&lt;/ol>
+&lt;p>除了对路由信息的维护方式之外，Calico 项目与 Flannel 的 host-gw 模式的另一个不同之处，就是它不会在宿主机上创建任何网桥设备。这时候，Calico 的工作方式，可以用一幅示意图来描述，如下所示（在接下来的讲述中，我会统一用“BGP 示意图”来指代它）
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bgb09a/1617285084820-0455ddc1-9808-4eb4-955f-2c37a3697372.png" alt="image.png">&lt;/p>
+&lt;p>其中的绿色实线标出的路径，就是一个 IP 包从 Node 1 上的 Container 1，到达 Node 2 上的 Container 4 的完整路径。可以看到，Calico 的 CNI 插件会为每个容器设置一个 Veth Pair 设备，然后把其中的一端放置&lt;/p>
+&lt;p>在宿主机上（它的名字以 cali 前缀开头）。此外，由于 Calico 没有使用 CNI 的网桥模式，Calico 的 CNI 插件还需要在宿主机上为每个容器的 Veth Pair 设备配置一条路由规则，用于接收传入的 IP 包。比如，宿主机 Node 2 上的 Container 4 对应的路由规则，如下所示&lt;/p>
+&lt;pre>&lt;code># 发往 10.233.2.3 的 IP 包，应该进入 cali5863f3 设备
+10.233.2.3 dev cali5863f3 scope link
+&lt;/code>&lt;/pre>
+&lt;p>Note：基于上述原因，Calico 项目在宿主机上设置的路由规则，肯定要比 Flannel 项目多得多(因为没有单独的网桥来连接这些 veth 设备，也就没法通过网桥来自动将数据包交给对应的容器，只能为每一个 veth 单独配置路由信息)。不过，Flannel host-gw 模式使用 CNI 网桥的主要原因，其实是为了跟 VXLAN 模式保持一致。否则的话，Flannel 就需要维护两套 CNI 插件了。&lt;/p>
+&lt;p>有了这样的 Veth Pair 设备之后，容器发出的 IP 包就会经过 Veth Pair 设备出现在宿主机上。&lt;/p>
+&lt;p>然后，宿主机网络栈就会根据路由规则的下一跳 IP 地址，把它们转发给正确的网关。接下来的流程就跟 Flannel host-gw 模式完全一致了。&lt;/p>
+&lt;p>其中，这里最核心的“下一跳”路由规则，就是由 Calico 的 Felix 进程负责维护的。这些路由规则信息，则是通过 BGP Client 也就是 BIRD 组件，使用 BGP 协议传输而来的。&lt;/p>
+&lt;p>而这些通过 BGP 协议传输的消息，你可以简单地理解为如下格式：&lt;/p>
+&lt;pre>&lt;code>[BGP 消息]
+我是宿主机 192.168.1.2
+10.233.2.0/24 网段的容器都在我这里
+这些容器的下一跳地址是我
+&lt;/code>&lt;/pre>
+&lt;p>不难发现，Calico 项目实际上将集群里的所有节点，都当作是边界路由器来处理，它们一起组成了一个全连通的网络，互相之间通过 BGP 协议交换路由规则。这些节点，我们称为 BGP Peer。&lt;/p>
+&lt;h3 id="route-reflector-的出现">Route Reflector 的出现&lt;/h3>
+&lt;p>需要注意的是，Calico 维护的网络在默认配置下，是一个被称为“Node-to-Node Mesh”的模式。这时候，每台宿主机上的 BGP Client 都需要跟其他所有节点的 BGP Client 进行通信以便交换路由信息。但是，随着节点数量 N 的增加，这些连接的数量就会以 N² 的规模快速增长，从而给集群本身的网络带来巨大的压力。&lt;/p>
+&lt;p>所以，Node-to-Node Mesh 模式一般推荐用在少于 100 个节点的集群里。而在更大规模的集群中，你需要用到的是一个叫作 Route Reflector 的模式。&lt;/p>
+&lt;p>在这种模式下，Calico 会指定一个或者几个专门的节点，来负责跟所有节点建立 BGP 连接从而学习到全局的路由规则。而其他节点，只需要跟这几个专门的节点交换路由信息，就可以获得整个集群的路由规则信息了。&lt;/p>
+&lt;p>这些专门的节点，就是所谓的 Route Reflector 节点，它们实际上扮演了“中间代理”的角色，从而把 BGP 连接的规模控制在 N 的数量级上。&lt;/p>
+&lt;h3 id="k8s-节点跨网段的解决方案">k8s 节点跨网段的解决方案&lt;/h3>
+&lt;p>此外，我在前面提到过，Flannel host-gw 模式最主要的限制，就是要求集群宿主机之间是二层连通的。而这个限制对于 Calico 来说，也同样存在。&lt;/p>
+&lt;p>举个例子，假如我们有两台处于不同子网的宿主机 Node 1 和 Node 2，对应的 IP 地址分别是 192.168.1.2 和 192.168.2.2。需要注意的是，这两台机器通过路由器实现了三层转发，所以这两个 IP 地址之间是可以相互通信的。而我们现在的需求，还是 Container 1 要访问 Container 4。按照我们前面的讲述，Calico 会尝试在 Node 1 上添加如下所示的一条路由规则：&lt;/p>
+&lt;pre>&lt;code>10.233.2.0/16 via 192.168.2.2 eth0
+&lt;/code>&lt;/pre>
+&lt;p>但是，这时候问题就来了。&lt;/p>
+&lt;p>上面这条规则里的下一跳地址是 192.168.2.2，可是它对应的 Node 2 跟 Node 1 却根本不在一个子网里，没办法通过二层网络把 IP 包发送到下一跳地址。&lt;/p>
+&lt;p>在这种情况下，你就需要为 Calico 打开 IPIP 模式。我把这个模式下容器通信的原理，总结成了一副示意图，如下所示（接下来我会称之为：IPIP 示意图）：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bgb09a/1617285101992-492a004e-7a36-4cd2-8d66-a2ec3772827b.jpeg" alt="image.jpeg">&lt;/p>
+&lt;p>在 Calico 的 IPIP 模式下，Felix 进程在 Node 1 上添加的路由规则，会稍微不同，如下所示：&lt;/p>
+&lt;pre>&lt;code>10.233.2.0/24 via 192.168.2.2 tunl0
+&lt;/code>&lt;/pre>
+&lt;p>可以看到，尽管这条规则的下一跳地址仍然是 Node 2 的 IP 地址，但这一次，要负责将 IP 包发出去的设备，变成了 tunl0。注意，是 T-U-N-L-0，而不是 Flannel UDP 模式使用的 T-UN-0（tun0），这两种设备的功能是完全不一样的。&lt;/p>
+&lt;p>Calico 使用的这个 tunl0 设备，是一个 IP 隧道（IP tunnel）设备。在上面的例子中，&lt;/p>
+&lt;ol>
+&lt;li>IP 包进入 IP 隧道设备之后，就会被 Linux 内核的 IPIP 驱动接管。&lt;/li>
+&lt;li>IPIP 驱动会将这个 IP 包直接封装在一个宿主机网络的 IP 包中，类似 flannel 中 vxlan 的封装过程。其中，经过封装后的新的 IP 包的目的地址正是原 IP 包的下一跳地址，即 Node 2 的 IP 地址：192.168.2.2。而原 IP 包本身，则会被直接封装成新 IP 包的 Payload。&lt;/li>
+&lt;li>这样，原先从容器到 Node 2 的 IP 包，就被伪装成了一个从 Node 1 到 Node 2 的 IP 包。&lt;/li>
+&lt;li>由于宿主机之间已经使用路由器配置了三层转发，也就是设置了宿主机之间的“下一跳”。所以这个 IP 包在离开 Node 1 之后，就可以经过路由器，最终“跳”到 Node 2 上。&lt;/li>
+&lt;li>这时，Node 2 的网络内核栈会使用 IPIP 驱动进行解包，从而拿到原始的 IP 包。然后，原始 IP 包就会经过路由规则和 Veth Pair 设备到达目的容器内部。&lt;/li>
+&lt;/ol>
+&lt;h3 id="如何让外部真正的数通设备路由器三层交换机也加入到集群的-bgp-中">如何让外部真正的数通设备(路由器、三层交换机)也加入到集群的 BGP 中&lt;/h3>
+&lt;p>以上，就是 Calico 项目主要的工作原理了。&lt;/p>
+&lt;p>不难看到，当 Calico 使用 IPIP 模式的时候，集群的网络性能会因为额外的封包和解包工作而下降。在实际测试中，Calico IPIP 模式与 Flannel VXLAN 模式的性能大致相当。所以，在实际使用时，如非硬性需求，我建议你将所有宿主机节点放在一个子网里，避免使用 IPIP。&lt;/p>
+&lt;p>不过，通过上面对 Calico 工作原理的讲述，你应该能发现这样一个事实：如果 Calico 项目能够让宿主机之间的路由设备（也就是网关），也通过 BGP 协议“学习”到 Calico 网络里的路由规则，那么从容器发出的 IP 包，不就可以通过这些设备路由到目的宿主机了么？&lt;/p>
+&lt;p>比如，只要在上面“IPIP 示意图”中的 Node 1 上，添加如下所示的一条路由规则：&lt;/p>
+&lt;pre>&lt;code>10.233.2.0/24 via 192.168.1.1 eth0
+&lt;/code>&lt;/pre>
+&lt;p>然后，在 Router 1 上（192.168.1.1），添加如下所示的一条路由规则：&lt;/p>
+&lt;pre>&lt;code>10.233.2.0/24 via 192.168.2.1 eth0
+&lt;/code>&lt;/pre>
+&lt;p>那么 Container 1 发出的 IP 包，就可以通过两次“下一跳”，到达 Router 2（192.168.2.1）了。以此类推，我们可以继续在 Router 2 上添加“下一条”路由，最终把 IP 包转发到 Node 2&lt;/p>
+&lt;p>上。&lt;/p>
+&lt;p>遗憾的是，上述流程虽然简单明了，但是在 Kubernetes 被广泛使用的公有云场景里，却完全不可行。&lt;/p>
+&lt;p>这里的原因在于：公有云环境下，宿主机之间的网关，肯定不会允许用户进行干预和设置。&lt;/p>
+&lt;p>不过，在私有部署的环境下，宿主机属于不同子网（VLAN）反而是更加常见的部署状态。这时候，想办法将宿主机网关也加入到 BGP Mesh 里从而避免使用 IPIP，就成了一个非常迫切的需求。&lt;/p>
+&lt;p>而在 Calico 项目中，它已经为你提供了两种将宿主机网关设置成 BGP Peer 的解决方案。&lt;/p>
+&lt;ol>
+&lt;li>第一种方案，就是所有宿主机都跟宿主机网关建立 BGP Peer 关系。
+&lt;ol>
+&lt;li>这种方案下，Node 1 和 Node 2 就需要主动跟宿主机网关 Router 1 和 Router 2 建立 BGP 连接。从而将类似于 10.233.2.0/24 这样的路由信息同步到网关上去。需要注意的是，这种方式下，Calico 要求宿主机网关必须支持一种叫作 Dynamic Neighbors 的 BGP 配置方式。这是因为，在常规的路由器 BGP 配置里，运维人员必须明确给出所有 BGP Peer 的 IP 地址。考虑到 Kubernetes 集群可能会有成百上千个宿主机，而且还会动态地添加和删除节点，这时候再手动管理路由器的 BGP 配置就非常麻烦了。而 Dynamic Neighbors 则允许你给路由器配置一个网段，然后路由器就会自动跟该网段里的主机建立起 BGP Peer 关系。&lt;/li>
+&lt;li>不过，相比之下，我更愿意推荐第二种方案。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>第二种方案，是使用一个或多个独立组件负责搜集整个集群里的所有路由信息，然后通过 BGP 协议同步给网关。
+&lt;ol>
+&lt;li>而我们前面提到，在大规模集群中，Calico 本身就推荐使用 Route Reflector 节点的方式进行组网。所以，这里负责跟宿主机网关进行沟通的独立组件，直接由 Route Reflector 兼任即可。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>更重要的是，这种情况下网关的 BGP Peer 个数是有限并且固定的。所以我们就可以直接把这些独立组件配置成路由器的 BGP Peer，而无需 Dynamic Neighbors 的支持。&lt;/li>
+&lt;li>当然，这些独立组件的工作原理也很简单：它们只需要 WATCH Etcd 里的宿主机和对应网段的变化信息，然后把这些信息通过 BGP 协议分发给网关即可。&lt;/li>
+&lt;/ol>
+&lt;h1 id="calico-配置">Calico 配置&lt;/h1>
+&lt;h1 id="calicoctl-命令行工具是使用说明">Calicoctl 命令行工具是使用说明&lt;/h1>
+&lt;p>calicoctl 命令行工具用于管理 Calico 网络和安全策略，查看和管理后端配置以及管理 Calico 节点实例&lt;/p>
+&lt;p>安装方式：&lt;/p>
+&lt;ol>
+&lt;li>kubectl apply -f \ &lt;a href="https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/calicoctl.yaml">https://docs.projectcalico.org/v3.4/getting-started/kubernetes/installation/hosted/calicoctl.yaml&lt;/a>&lt;/li>
+&lt;li>alias calicoctl=&amp;ldquo;kubectl exec -i -n kube-system calicoctl /calicoctl &amp;ndash; &amp;quot;&lt;/li>
+&lt;li>然后可以直接使用别名来使用该命令，calico 对应的 etcd 后端 ip 以及 etcd 证书已经在 calicoctl 的 pod 中定义完成&lt;/li>
+&lt;/ol>
+&lt;p>配置文件路径：/etc/calico/calicoctl.cfg #该路径一般是对于使用二进制方式把 calicoctl 命令文件放在 linux 的$PATH 中来使用&lt;/p>
+&lt;p>calicoctl [OPTIONS] &lt;!-- raw HTML omitted --> [&lt;!-- raw HTML omitted -->&amp;hellip;]&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ol>
+&lt;li>-h &amp;ndash;help #Show this screen.&lt;/li>
+&lt;li>-l &amp;ndash;log-level=&lt;!-- raw HTML omitted --> #Set the log level (one of panic, fatal, error,warn, info, debug) [default: panic]&lt;/li>
+&lt;/ol>
+&lt;p>COMMAND&lt;/p>
+&lt;p>create Create a resource by filename or stdin.&lt;/p>
+&lt;p>calicoctl create &amp;ndash;filename=&lt;!-- raw HTML omitted --> [&amp;ndash;skip-exists] [&amp;ndash;config=&lt;!-- raw HTML omitted -->] [&amp;ndash;namespace=&lt;!-- raw HTML omitted -->]&lt;/p>
+&lt;p>replace Replace a resource by filename or stdin.&lt;/p>
+&lt;p>apply Apply a resource by filename or stdin. This creates a resource if it does not exist, and replaces a resource if it does exists.&lt;/p>
+&lt;p>delete Delete a resource identified by file, stdin or resource type and name.&lt;/p>
+&lt;p>get Get a resource identified by file, stdin or resource type and name.&lt;/p>
+&lt;ol>
+&lt;li>EXAMPLE&lt;/li>
+&lt;/ol>
+&lt;p>convert Convert config files between different API versions.&lt;/p>
+&lt;p>ipam IP address management.&lt;/p>
+&lt;p>node Calico node management.&lt;/p>
+&lt;p>version Display the version of calicoctl.&lt;/p></description></item><item><title>Docs: Cilium</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/cilium/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/cilium/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/cilium/cilium">GitHub 项目，cilium/cilium&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://cilium.io/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.cilium.io/en/latest/">官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;a href="https://docs.google.com/presentation/d/1cZJ-pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit#slide=id.g7608b8c2de_0_0">https://docs.google.com/presentation/d/1cZJ-pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit#slide=id.g7608b8c2de_0_0&lt;/a>
+&lt;a href="https://www.youtube.com/watch?v=bIRwSIwNHC0">https://www.youtube.com/watch?v=bIRwSIwNHC0&lt;/a>
+&lt;a href="http://arthurchiao.art/blog/ebpf-and-k8s-zh/">http://arthurchiao.art/blog/ebpf-and-k8s-zh/&lt;/a>&lt;/p>
+&lt;h1 id="heading">&lt;/h1></description></item><item><title>Docs: Cilium</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/cilium/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/cilium/</guid><description/></item><item><title>Docs: Flannel</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/flannel/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/flannel/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/flannel-io/flannel">GitHub 项目&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Flannel 是一种专为 Kubernetes 设计的，简单、易于配置的 3 层网络结构，并且为 Kubernetes 提供了 CNI 插件。&lt;/p>
+&lt;p>支持多种后端：即使用什么方法进行进行数据的接收与发送&lt;/p>
+&lt;ul>
+&lt;li>vxlan&lt;/li>
+&lt;li>host-gw：host gateway&lt;/li>
+&lt;li>UDP&lt;/li>
+&lt;/ul>
+&lt;p>Flannel 在每台主机上运行一个名为 flanneld 的小型二进制程序作为代理，负责从更大的预配置地址空间中为每个主机分配 &lt;strong>subnet lease(子网租期)&lt;/strong>。Flannel 直接使用 Kubernetes API 或 etcd 来存储网络配置、已分配的子网、以及任何辅助数据(比如主机的 IP)&lt;/p>
+&lt;h2 id="子网获取逻辑">子网获取逻辑&lt;/h2>
+&lt;p>代码：&lt;code>./main.go —— WriteSubnetFile()&lt;/code>
+Flannel 启动时，在 &lt;code>./main.go&lt;/code> 中调用 &lt;a href="https://github.com/flannel-io/flannel/blob/v0.15.1/main.go#L746">WriteSubnetFile()&lt;/a> 函数，用来生成 subnet 配置文件(默认在 /run/flannel/subnet.env)。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">......&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">WriteSubnetFile&lt;/span>(&lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">subnetFile&lt;/span>, &lt;span style="color:#a6e22e">config&lt;/span>, &lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">ipMasq&lt;/span>, &lt;span style="color:#a6e22e">bn&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Continue, even though it failed.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Warningf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Failed to write subnet file: %s&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> } &lt;span style="color:#66d9ef">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Infof&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Wrote subnet file to %s&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">subnetFile&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">......&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">WriteSubnetFile&lt;/span>(&lt;span style="color:#a6e22e">path&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>, &lt;span style="color:#a6e22e">config&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">subnet&lt;/span>.&lt;span style="color:#a6e22e">Config&lt;/span>, &lt;span style="color:#a6e22e">ipMasq&lt;/span> &lt;span style="color:#66d9ef">bool&lt;/span>, &lt;span style="color:#a6e22e">bn&lt;/span> &lt;span style="color:#a6e22e">backend&lt;/span>.&lt;span style="color:#a6e22e">Network&lt;/span>) &lt;span style="color:#66d9ef">error&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">......&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">nw&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">Network&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">sn&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">bn&lt;/span>.&lt;span style="color:#a6e22e">Lease&lt;/span>().&lt;span style="color:#a6e22e">Subnet&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Write out the first usable IP by incrementing sn.IP by one
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">sn&lt;/span>.&lt;span style="color:#a6e22e">IncrementIP&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">f&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;FLANNEL_NETWORK=%s\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">nw&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">f&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;FLANNEL_SUBNET=%s\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">sn&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">f&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;FLANNEL_MTU=%d\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">bn&lt;/span>.&lt;span style="color:#a6e22e">MTU&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">f&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;FLANNEL_IPMASQ=%v\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">ipMasq&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">......&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>其中 &lt;code>bn.Lease().Subnet&lt;/code> 就是当前节点被分配的子网，该子网通过 &lt;code>./subnet/subnet.go&lt;/code> 中的 &lt;code>Manage()&lt;/code> 接口中的 &lt;code>AcquireLease()&lt;/code> 方法获取的。后续 Flannel 会根据该文件的内容，为节点生成路由规则。&lt;/p>
+&lt;p>具体 Lease 的获取方法，根据配置存储方式来决定，现阶段主要使用的是直接通过 Kubernetes API 的方式，那么就主要看 &lt;code>./subnet/kube/kube.go&lt;/code> 中的 &lt;code>ksm.AcquireLease()&lt;/code> 方法。其中最主要的就是这一部分：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">kubeSubnetManager&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">nodeName&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">nodeStore&lt;/span> &lt;span style="color:#a6e22e">listers&lt;/span>.&lt;span style="color:#a6e22e">NodeLister&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">......&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">ksm&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">kubeSubnetManager&lt;/span>) &lt;span style="color:#a6e22e">AcquireLease&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">attrs&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">subnet&lt;/span>.&lt;span style="color:#a6e22e">LeaseAttrs&lt;/span>) (&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">subnet&lt;/span>.&lt;span style="color:#a6e22e">Lease&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">cachedNode&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">ksm&lt;/span>.&lt;span style="color:#a6e22e">nodeStore&lt;/span>.&lt;span style="color:#a6e22e">Get&lt;/span>(&lt;span style="color:#a6e22e">ksm&lt;/span>.&lt;span style="color:#a6e22e">nodeName&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">n&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">cachedNode&lt;/span>.&lt;span style="color:#a6e22e">DeepCopy&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">cidr&lt;/span>, &lt;span style="color:#a6e22e">ipv6Cidr&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">net&lt;/span>.&lt;span style="color:#a6e22e">IPNet&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">cidr&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">net&lt;/span>.&lt;span style="color:#a6e22e">ParseCIDR&lt;/span>(&lt;span style="color:#a6e22e">n&lt;/span>.&lt;span style="color:#a6e22e">Spec&lt;/span>.&lt;span style="color:#a6e22e">PodCIDR&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">cidr&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">lease&lt;/span>.&lt;span style="color:#a6e22e">Subnet&lt;/span> = &lt;span style="color:#a6e22e">ip&lt;/span>.&lt;span style="color:#a6e22e">FromIPNet&lt;/span>(&lt;span style="color:#a6e22e">cidr&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">lease&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>其中 &lt;code>cidr&lt;/code> 变量就是 Flannel 为当前节点分配的子网，而 cidr 的值来自于 &lt;code>n.Spec.PodCIDR&lt;/code>，这个是直接通过 kubernetes 的 client-go 调用的 Kubernetes 集群内部给 Node 分配的 CIDR。&lt;/p>
+&lt;blockquote>
+&lt;p>这个 CIDR 通过 kube-controller-manager 的 &lt;code>--cluster-cidr&lt;/code> 标志配置
+并且可以通过 &lt;code>kubectl get node XXX -ojsonpath='{.spec.podCIDR}'&lt;/code> 命令从 Kubernetes 集群中获取到&lt;/p>
+&lt;/blockquote>
+&lt;p>这也就是为什么 Flannel 的 CIDR 配置与 kube-controller-manager 的 CIDR 配置要保证一致的原因。&lt;/p>
+&lt;p>此时，Flannel 就知道如何在当前阶段创建所需的路由了。&lt;/p>
+&lt;blockquote>
+&lt;p>Flannel 中获取 Node 信息的方式与我们平时使用的方式不太一样，并不是 &lt;code>clientset.CoreV1().Nodes().List(context.TODO(), v1.ListOptions{})&lt;/code> 这种通用方式，具体原因未知。Flannel 中通过 &lt;code>listers.NodeLister()&lt;/code> 接口的 &lt;code>Get()&lt;/code> 方法获取信息。而 &lt;code>listers.NodeLister()&lt;/code> 接口的实例化，则是在 &lt;code>newKubeSubnetManager()&lt;/code> 函数中进行的。&lt;/p>
+&lt;/blockquote>
+&lt;h1 id="三种模型">三种模型&lt;/h1>
+&lt;h2 id="udp-模型">UDP 模型&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lmmp31/1616118603039-02bb30c5-6784-4446-98ac-a3fe86c48c28.png" alt="image.png">&lt;/p>
+&lt;h3 id="数据流的走向">数据流的走向&lt;/h3>
+&lt;ul>
+&lt;li>用户态的容器进程发出的 IP 包经过 docker0 网桥进入内核态；&lt;/li>
+&lt;li>IP 包根据路由表进入 TUN（flannel0）设备，从而回到用户态的 flanneld 进程；&lt;/li>
+&lt;li>flanneld 进行 UDP 封包之后重新进入内核态，将 UDP 包通过宿主机的 eth0 发出去。&lt;/li>
+&lt;/ul>
+&lt;p>Flannel 进行 UDP 封装（Encapsulation）和解封装（Decapsulation）的过程，也都是在用户态完成的。在 Linux 操作系统中，上述这些上下文切换和用户态操作的代价其实是比较高的，这也正是造成 Flannel UDP 模式性能不好的主要原因。&lt;/p>
+&lt;p>所以说，我们在进行系统级编程的时候，有一个非常重要的优化原则，就是要减少用户态到内核态的切换次数，并且把核心的处理逻辑都放在内核态进行。这也是为什么，Flannel 后来支持的 VXLAN 模式，逐渐成为了主流的容器网络方案的原因&lt;/p>
+&lt;p>Pod 间通信的情况：&lt;/p>
+&lt;ul>
+&lt;li>pod1 与 pod2 不在同一台主机
+&lt;ul>
+&lt;li>pod1(10.0.14.15)向 pod2(10.0.5.150)发送 ping，查找 pod1 路由表，把数据包发送到 cni0(10.0.14.1)&lt;/li>
+&lt;li>cni0 查找 host1 路由，把数据包转发到 flannel.1&lt;/li>
+&lt;li>flannel.1 虚拟网卡再把数据包转发到它的驱动程序 flannel&lt;/li>
+&lt;li>flannel 程序使用 VXLAN 协议封装这个数据包，向 api-server 查询目的 IP 所在的主机 IP,称为 host2(不清楚什么时候查询)&lt;/li>
+&lt;li>flannel 向查找到的 host2 IP 的 UDP 端口 8472 传输数据包&lt;/li>
+&lt;li>host2 的 flannel 收到数据包后，解包，然后转发给 flannel.1 虚拟网卡&lt;/li>
+&lt;li>flannel.1 虚拟网卡查找 host2 路由表，把数据包转发给 cni0 网桥，cni0 网桥再把数据包转发给 pod2&lt;/li>
+&lt;li>pod2 响应给 pod1 的数据包与 1-7 步类似&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>pod1 与 pod2 在同一台主机
+&lt;ul>
+&lt;li>pod1 和 pod2 在同一台主机的话，由 cni0 网桥直接转发请求到 pod2，不需要经过 flannel。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="vxlan-型后端">VxLan 型后端&lt;/h2>
+&lt;p>VXLAN，即 Virtual Extensible LAN(虚拟可扩展局域网)，是 Linux 内核本身就支持的一种网络虚拟化技术。VXLAN 可以在内核中实现上面 UDP 模型中 flanneld 进程的封装和解封装工作，从而通过与前面相似的隧道机制，构建出叠加网络(Overlay NetworkTunnel 隧道技术与 overlay 叠加网络.note)。Overlay 技术实际上是一种隧道封装技术，一个数据包(内部)封装在另一个数据包内(也就是本身的 IP 外面又套了一个 IP);被封装的包转发到隧道端点后再被拆装。原来的包就发送到了目的地。叠加网络就是使用这种所谓“包内之包”的技术安全地将一个网络隐藏在另一个网络中，然后将网络区段进行迁移。&lt;/p>
+&lt;p>VXLAN 的设计思想是：在现有的三层网络之上，覆盖一层虚拟的，由内核 VXLAN 模块负责维护的二层网络，使得连接在这个二层网络上的主机(虚拟机或者容器都可以)之间，可以像在同一个局域网里那样通信。虽然这些主机可能分布在不同的宿主机上，甚至是分布在不同的物理机房里。这里面的二层是逻辑上的而是，是指的在&lt;/p>
+&lt;p>为了能在二层网络上打通隧道，VXLAN 会在 Host 上设置一个特殊的网络设备作为隧道的两端，这个设备叫做 VTEP(VXLAN Tunnel End Point 虚拟隧道端点)。VTEP 设备的作用，与 UDP 类型的 flanneld 进程非常相似，只不过 VTEP 进行封装和解封装的对象是二层数据帧，而且这个过程是在内核里完成(因为 VXLAN 本身就是 Linux 内核中的一个模块)。而 VTEP 设备之间的交互，就是二层交互(不同网段可以理解为不同 VLAN 的交互)，想让他们互通，则是 VXLAN 模块来实现的。&lt;/p>
+&lt;p>下图是基于 VTEP 设备进行隧道通信的流程，每台宿主机上的 flannel.1 的设备就是 VTEP 设备，既有 IP，也有 MAC
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lmmp31/1616118613885-1f230a8b-ecaa-4ffb-a094-d331200fa1e3.png" alt="image.png">
+flannel 会维护这么几个数据：&lt;/p>
+&lt;ul>
+&lt;li>宿主机到对端 VTEP 设备的路由信息。记录要访问的其他宿主机上的容器的网段，下一跳是对端宿主机的 VTEP 设备的 IP，要通过 flannel.1 设备&lt;/li>
+&lt;li>宿主机 flannel.1 设备学习到的 arp 记录。记录其他宿主机的 VTEP 设备的 IP 与 MAC 对应关系&lt;/li>
+&lt;li>桥设备的 FDB 数据。记录要发送到其他宿主机的 VTEP 设备需要经过哪个宿主机的 IP(通过 VTEP 设备的 MAC 地址来确定)&lt;/li>
+&lt;/ul>
+&lt;p>该模型与 GRE 协议类似，10.168.0.2 就是 GRE 的外网网卡，10.244.0.0 就是 tun 设备的 IP，只不过 GRE 是人为规定好了对端的 IP，而该文章将说的是由 flannel 来维护整个叠加网络的信息，可以不仅仅局限于两台设备。&lt;/p>
+&lt;h3 id="数据流的走向-1">数据流的走向&lt;/h3>
+&lt;p>pod1 与 pod2 不在同一台主机&lt;/p>
+&lt;ul>
+&lt;li>Container-1 发出请求后，目的地址是 10.244.1.3，经过 cni0，然后被路由到 flannel.1(VTEP) 设备进行处理。flannel 会根据所规定的子网，自动生成路由，让所有符合其子网的目的地址，都会经过 flannel.1 设备。可以把 container-1 发出的数据包称为“原始 IP 包”。这个“原始 IP 包”到达 flannel.1 设备，也就是来到了隧道的入口。此时开始了 VXLAN 的封装工作
+&lt;ul>
+&lt;li>添加 Inner Ethernet Header。为了能够将“原始 IP 包”封装并发送到正确的宿主机上，VXLAN 就需要找到这条隧道的出口(i.e.目的宿主机的 VTEP 设备)，这个设备的信息，就是由每台宿主机的 flanneld 进程维护的。当 node2 启动并加入 flannel 网络后，node1 上会添加一条路由：10.144.1.0/24 via 10.244.1.0 dev flannel.1。这个 10.244.1.0 就是 node2 上的 VTEP 设备的 IP 地址。（可以把 node1 的 VTEP 设备成为“源 VTEP 设备”，node2 的 VTEP 设备成为“目的 VTEP 设备”）。这些 VTEP 设备之间，就需要想办法组成一个虚拟的二层网络。flanneld 进程在 node2 节点启动时，还会在 node1 上添加 arp 记录，记录“目的 VTEP 设备”的 IP 与 MAC(假设为 5e:f8:4f:00:e3:37，可以通过 ip neigh show dev flannel.1 命令查看)。有了这个“目的 VTEP 设备”的 MAC 地址，VXLAN 就可以在内核开始二层封包工作了，VXLAN 模块会在“原始 IP 包”外添上一个“目的 VTEP 设备”的 MAC 地址(Inner Ethernet Header)。但是只有一个 MAC 地址，对于宿主机网络来说没有实际意义，并不能在宿主机的网络里传输，所以需要进一步封装，让其成为宿主机网络里一个普通的数据包，以便通过 eth0 网卡。&lt;/li>
+&lt;li>添加 VXLAN Header。为了让数据包可以变成宿主机网络里的普通数据包，VXLAN 模块会再给数据包加上一个特殊的 VXLAN 头(VXLAN Header)，用来表示这个数据包实际上是一个 VXLAN 要使用的包。而这个 VXLAN 头里有一个重要的标志，叫做 VNI，它是 VTEP 设备识别某个数据帧是不是应该归自己处理的标志。而在 flannel 中，VNI 的默认值为 1，所以宿主机上的 VTEP 设备都叫做 flannel.1 的原因，这里面的 1，就是 VNI 的值。(其实，添加这个 VXLAN 头，就是为了让宿主机在看到这个数据包是由 VXLAN 程序来发出的，而不是由 container 发出的，因为宿主机无法才开 VXLAN 的头部信息，所以也就读不了 VXLAN 下面的真实目的 IP 和 MAC)(说白了，可以把实现 VXLAN 功能的 flannel 当做一个运行在 linux 上的程序，数据包是由这个 flannel 发出来的。其余 VXLAN 的机制也是同理)&lt;/li>
+&lt;li>添加 Outer UDP Header。然后 Linux 内核会把这个数据帧封装进一个 UDP 包，跟 UDP 模型一样，在宿主机看来，会认为自己的 flannel.1 设备只是在向外另外一台宿主机的 flannel.1 设备，发起了一次普通的 UDP 链接，并不会知道这个 UDP 包里，还有一个完成的二层数据帧（从宿主机看，就是 vxlan 这个模块或者说 flannel.1 设备，发送了一份数据，数据内容是什么，Linux 内核不关心）。不过，flannel.1 设备知道另一端设备的 MAC 地址，但是却不知道对应的宿主机地址是什么，那么这个 UDP 包应该发给哪台宿主机呢？&lt;/li>
+&lt;li>添加 Outer IP Header。在这种情况下，flannel.1 实际上扮演了一个网桥的角色，网桥设备进行转发的依据，来自于一个 FDB(Forwarding Database)的转发数据库，这个 FDB 的信息也是由 flanneld 进程维护的，当 node2 加入 flannel 网络后，会在 node1 的 FDB 记录对端 VTEP 的信息 5e:f8:4f:00:e3:37 dev flannel.1 dst 10.168.0.3 self permanent(可以通过 bridge fdb show flannel.1 | grep 5e:f8:4f:00:e3:37 命令查到,意思是：MAC 地址为“目的 VTEP”设备的数据包，会经过 flannel.1 设备，发送到目的地是 10.168.0.3 的主机上)。所以接下来的流程就是一个正产的宿主机网络上的封包工作，flannel.1 设备会把 FDB 的信息告诉 Linux 内核要发送个谁，Linux 内核的网络栈就会进行后续封装，把对端 VTEP 设备的 MAC 地址所在的 IP 封装到数据包的头部。&lt;/li>
+&lt;li>添加 Outer Ethernet Header。Linux 内核在这个数据包前面加上 Node2 的 MAC 地址，这个 MAC 是本身设备网络栈 ARP 表要学习到的，无需 flannel 维护。&lt;/li>
+&lt;li>这时候，封包工作完成了。实际上就是 flannel.1 设备发送了一个数据给宿主机，至于数据中的内容，则是宿主机不关心的。当对端宿主机把最外层的封装解开后，发现 VXLAN 的标记，自然会交由本机可以处理 VXLAN 的网络设备来进行处理。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Node1 上的 flannel.1 设备把封装好后的数据帧从 node1 的 eth0 网卡发出去&lt;/li>
+&lt;li>node2 收到数据帧后，拆开发现 VXLAN 头，根据 VNI 值交给本地的 flannel.1 设备，flannel.1 设备进一步拆包获取“原始 IP 包”，并把该包送入对应的 Container-2 中。&lt;/li>
+&lt;li>Container-2 的响应，与前面的描述一样，只不过是从 node2 开始封装，到 node1 后解封装&lt;/li>
+&lt;/ul>
+&lt;p>pod1 与 pod2 在同一台主机&lt;/p>
+&lt;ul>
+&lt;li>pod1 和 pod2 在同一台主机的话，由 cni0 网桥直接转发请求到 pod2，不需要经过 flannel。&lt;/li>
+&lt;/ul>
+&lt;p>pod 到 service 的网络&lt;/p>
+&lt;ul>
+&lt;li>创建一个 service 时，相应会创建一个指向这个 service 的域名，域名规则为{服务名}.{namespace}.svc.{集群名称}。之前 service ip 的转发由 iptables 和 kube-proxy 负责，目前基于性能考虑，全部为 iptables 维护和转发。iptables 则由 kubelet 维护。
+&lt;ul>
+&lt;li>pod1 向 service ip 10.16.0.10:53 发送 udp 请求，查找路由表，把数据包转发给网桥 cni0(10.0.14.1)&lt;/li>
+&lt;li>在数据包进入 cnio 网桥时，数据包经过 PREROUTING 链，然后跳至 KUBE-SERVICES 链&lt;/li>
+&lt;li>KUBE-SERVICES 链中一条匹配此数据包的规则，跳至 KUBE-SVC-TCOU7JCQXEZGVUNU 链&lt;/li>
+&lt;li>KUBE-SVC-TCOU7JCQXEZGVUNU 不做任何操作，跳至 KUBE-SEP-L5MHPWJPDKD7XIFG 链&lt;/li>
+&lt;li>KUBE-SEP-L5MHPWJPDKD7XIFG 里对此数据包作了 DNAT 到 10.0.0.46:53，其中 10.0.0.46 即为 kube-dns 的 pod ip&lt;/li>
+&lt;li>查找与 10.0.0.46 匹配的路由，转发数据包到 flannel.1&lt;/li>
+&lt;li>之后的数据包流向就与上面的 pod1 到 pod2 的网络一样了&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>pod 到外网&lt;/p>
+&lt;ul>
+&lt;li>pod 向 qq.com 发送请求&lt;/li>
+&lt;li>查找路由表,转发数据包到宿主的网卡&lt;/li>
+&lt;li>宿主网卡完成 qq.com 路由选择后，iptables 执行 MASQUERADE，把源 IP 更改为宿主网卡的 IP&lt;/li>
+&lt;li>向 qq.com 服务器发送请求&lt;/li>
+&lt;/ul>
+&lt;h2 id="host-gw-型后端">Host-GW 型后端&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lmmp31/1616118626150-5a2dc6c9-df90-4487-b957-d4b0bfb60f50.png" alt="image.png">&lt;/p>
+&lt;p>假设现在，Node 1 上的 Infra-container-1，要访问 Node 2 上的 Infra-container-2。当你设置 Flannel 使用 host-gw 模式之后，flanneld 会在宿主机上创建这样一条规则，以&lt;/p>
+&lt;p>Node 1 为例：&lt;/p>
+&lt;pre>&lt;code>$ ip route
+...
+10.244.1.0/24 via 10.168.0.3 dev eth0
+&lt;/code>&lt;/pre>
+&lt;p>这条路由规则的含义是：目的 IP 地址属于 10.244.1.0/24 网段的 IP 包，应该经过本机的 eth0 设备发出去（即：dev eth0）；并且，它下一跳地址（next-hop）是 10.168.0.3（即：via 10.168.0.3）。&lt;/p>
+&lt;p>所谓下一跳地址就是：如果 IP 包从主机 A 发到主机 B，需要经过路由设备 X 的中转。那么 X 的 IP 地址就应该配置为主机 A 的下一跳地址。&lt;/p>
+&lt;p>而从 host-gw 示意图中我们可以看到，这个下一跳地址对应的，正是我们的目的宿主机 Node2。一旦配置了下一跳地址，那么接下来，当 IP 包从网络层进入链路层封装成帧的时候，eth0 设备就会使用下一跳地址对应的 MAC 地址，作为该数据帧的目的 MAC 地址。显然，这个 MAC 地址，正是 Node 2 的 MAC 地址。&lt;/p>
+&lt;p>这样，这个数据帧就会从 Node 1 通过宿主机的二层网络顺利到达 Node 2 上。&lt;/p>
+&lt;p>而 Node 2 的内核网络栈从二层数据帧里拿到 IP 包后，会“看到”这个 IP 包的目的 IP 地址是 10.244.1.3，即 Infra-container-2 的 IP 地址。这时候，根据 Node 2 上的路由表，该目的地址会匹配到第二条路由规则（也就是 10.244.1.0 对应的路由规则），从而进入 cni0 网桥，进而进入到 Infra-container-2 当中。&lt;/p>
+&lt;h3 id="host-gw-模式的工作原理">host-gw 模式的工作原理&lt;/h3>
+&lt;p>其实就是将每个 Flannel 子网（Flannel Subnet，比如：10.244.1.0/24）的“下一跳”，设置成了该子网对应的宿主机的 IP 地址。也就是说，这台“主机”（Host）会充当这条容器通信路径里的“网关”（Gateway）。这也正是“host-gw”的含义。&lt;/p>
+&lt;p>Flannel 子网和主机的信息，都是保存在 etcd 当中的，flanneld 只需要监控这些数据的变化，然后实时更新路由表即可&lt;/p>
+&lt;p>host-gw 型与 vxlan 型的区别：&lt;/p>
+&lt;ul>
+&lt;li>host-gw 模型没有 flannel.1 设备来对数据包进行封装，直接添加的路由，所以性能更好(因为少了封装解封装的步骤)。&lt;/li>
+&lt;li>Note：但是这也导致 Host-GW 型后端有个前提，Host 必须在二层互通，否则数据包经过 Host 的 eth 网卡后，无法路由。&lt;/li>
+&lt;/ul>
+&lt;p>Note:在了解过 Calico 的工作方式之后，其实会有这么一个疑问，calico 的 bgp 与 flannel 的 host-gw 原理其实一样，但是为什么 host-gw 要多了一个 cni 网桥呢? veth 设备出来的数据包明明可以不再经过 cni 往前直接进入宿主机网络栈发出。原因是：Flannel host-gw 模式使用 CNI 网桥的主要原因，其实是为了跟 VXLAN 模式保持一致。否则的话，Flannel 就需要维护两套 CNI 插件了。&lt;/p>
+&lt;h1 id="flannel-关联文件与配置">Flannel 关联文件与配置&lt;/h1>
+&lt;p>&lt;strong>/etc/kube-flannel/net-conf.json&lt;/strong> # 在 flannel 的容器内进入该目录，可以看到 configmap 中的信息&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>kubectl get configmaps -n kube-system kube-flannel-cfg -o yaml&lt;/strong> # 通过容器部署的 flannel 的配置文件,其中包括 cni-conf.json 和 net-conf.json 两个配置文件。可以看到 flannel 的基本信息，包括后端类型&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>/run/flannel/subnet.env&lt;/strong> # 读取 net-conf.json 配置文件，加载 /run/flannel/subnet.env 环境变量信息。基于加载的信息，生成适用于其 delegate 的 ipam 和 CNI bridge 的 netconf 文件；其中指定 ipam 使用 host-local，CNI bridge type 为 bridge。调用 deletgate（CNI bridge type）对应的二进制文件来挂载容器到网桥上。&lt;/p>
+&lt;ul>
+&lt;li>Note:该文件会由将 Flannel 分配的子网信息都记录下来，并交给每个节点的 cni0 或者 flannel0 使用，如果想要修改 flannel 配置，则需要删除每个节点上的这个文件，该文件内容如下所示&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>[root@master-1 CNI]# cat /run/flannel/subnet.env
+FLANNEL_NETWORK=10.252.0.0/16
+FLANNEL_SUBNET=10.252.0.1/24
+FLANNEL_MTU=1500
+FLANNEL_IPMASQ=true
+&lt;/code>&lt;/pre>
+&lt;h1 id="配置详解">配置详解&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://github.com/flannel-io/flannel/blob/master/Documentation/configuration.md">https://github.com/flannel-io/flannel/blob/master/Documentation/configuration.md&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>net-conf.json 配置文件：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Network&lt;/strong> # flannel 使用的 CIDR(无类域间路由无类域间路由)格式的网络地址，用于为 Pod 配置网络功能，比如 flannel 使用默认的 10.244.0.0/16 网段，然后需要给每个节点分配一个网段，即使用了 SubnetLen 的配置。&lt;/li>
+&lt;li>&lt;strong>SubnetLen&lt;/strong> # 把 Network 切分子网供各个节点使用时，使用多长的掩码进行切分。&lt;code>默认值：24&lt;/code>。比如给 node1 分配 10.244.1.0/24,给 Node2 分配 10.244.2.0/24 等&lt;/li>
+&lt;li>&lt;strong>SubnetMin&lt;/strong> # 指定切分子网时候的起始 IP&lt;/li>
+&lt;li>&lt;strong>SubnetMax&lt;/strong> # 指定切分子网时候的结束 IP&lt;/li>
+&lt;li>&lt;strong>Backend&lt;/strong> # vxlan，host-gw，udp(Backend 下面还有一个字段 Type，在该字段填写那 3 种类型中的一种的名称)&lt;/li>
+&lt;/ul>
+&lt;p>配置示例：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Network&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10.0.0.0/8&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;SubnetLen&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">20&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;SubnetMin&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10.10.0.0&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;SubnetMax&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10.99.0.0&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Backend&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Type&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;udp&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Port&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">7890&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="flannel-命令行参数">Flannel 命令行参数&lt;/h2>
+&lt;ul>
+&lt;li>-etcd-cafile string # SSL Certificate Authority file used to secure etcd communication&lt;/li>
+&lt;li>-etcd-certfile string # SSL certification file used to secure etcd communication&lt;/li>
+&lt;li>-etcd-endpoints string # a comma-delimited list of etcd endpoints (default &amp;ldquo;http://127.0.0.1:4001,http://127.0.0.1:2379&amp;rdquo;)&lt;/li>
+&lt;li>-etcd-keyfile string # SSL key file used to secure etcd communication&lt;/li>
+&lt;li>-etcd-password string # password for BasicAuth to etcd&lt;/li>
+&lt;li>-etcd-prefix string # etcd prefix (default &amp;ldquo;/coreos.com/network&amp;rdquo;)&lt;/li>
+&lt;li>-etcd-username string # username for BasicAuth to etcd&lt;/li>
+&lt;li>-healthz-ip string # the IP address for healthz server to listen (default &amp;ldquo;0.0.0.0&amp;rdquo;)&lt;/li>
+&lt;li>-healthz-port int # the port for healthz server to listen(0 to disable)&lt;/li>
+&lt;li>**-iface &lt;!-- raw HTML omitted --> **# 用于主机间通信的网络设备名称或者 IP。可以指定多个网络设备，Flannel 会按顺序检查，并使用找到的第一个网络设备
+&lt;ul>
+&lt;li>注意：这个参数指定的网络设备，就是 Flannel 建立静态路由条目时所使用的网络设备。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>**-iface-regex &lt;!-- raw HTML omitted --> **# 用于主机间通信的网络设备的正则表达式
+&lt;ul>
+&lt;li>可以多次指定以按顺序检查每个正则表达式。返回找到的第一个匹配项。在检查 iface 选项指定的特定接口后，将检查正则表达式。&lt;/li>
+&lt;li>比如 &lt;code>^(eth0|bond1)$&lt;/code> 这种格式，可以让具有不通网络设备名称的设备被统一&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>-ip-masq # setup IP masquerade rule for traffic destined outside of overlay network&lt;/li>
+&lt;li>-iptables-forward-rules # add default accept rules to FORWARD chain in iptables (default true)&lt;/li>
+&lt;li>-iptables-resync int # resync period for iptables rules, in seconds (default 5)&lt;/li>
+&lt;li>-kube-annotation-prefix string # Kubernetes annotation prefix. Can contain single slash &amp;ldquo;/&amp;rdquo;, otherwise it will be appended at the end. (default &amp;ldquo;flannel.alpha.coreos.com&amp;rdquo;)&lt;/li>
+&lt;li>-kube-api-url string # Kubernetes API server URL. Does not need to be specified if flannel is running in a pod.&lt;/li>
+&lt;li>-kube-subnet-mgr # contact the Kubernetes API for subnet assignment instead of etcd.&lt;/li>
+&lt;li>-kubeconfig-file string # kubeconfig file location. Does not need to be specified if flannel is running in a pod.&lt;/li>
+&lt;li>-log_backtrace_at value # when logging hits line file:N, emit a stack trace&lt;/li>
+&lt;li>-net-config-path string # path to the network configuration file (default &amp;ldquo;/etc/kube-flannel/net-conf.json&amp;rdquo;)&lt;/li>
+&lt;li>-public-ip string # IP accessible by other nodes for inter-host communication&lt;/li>
+&lt;li>-subnet-file string # filename where env variables (subnet, MTU, &amp;hellip; ) will be written to (default &amp;ldquo;/run/flannel/subnet.env&amp;rdquo;)&lt;/li>
+&lt;li>-subnet-lease-renew-margin int # subnet lease renewal margin, in minutes, ranging from 1 to 1439 (default 60)&lt;/li>
+&lt;li>-v value # log level for V logs&lt;/li>
+&lt;li>-vmodule value # comma-separated list of pattern=N settings for file-filtered logging&lt;/li>
+&lt;/ul>
+&lt;h1 id="清理-flannel">清理 flannel&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>ifconfig cni0 down
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ip link delete cni0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ifconfig flannel.1 down
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ip link delete flannel.1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>rm -rf /var/lib/cni/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>rm -f /etc/cni/net.d/*
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="flannel-问题总结">Flannel 问题总结&lt;/h1>
+&lt;h2 id="不支持-ipv6">不支持 IPv6&lt;/h2>
+&lt;p>&lt;a href="https://github.com/flannel-io/flannel/issues/248">https://github.com/flannel-io/flannel/issues/248&lt;/a>&lt;/p>
+&lt;h2 id="误删-cni0-网络设备后恢复">误删 cni0 网络设备后恢复&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>原文：&lt;a href="https://mp.weixin.qq.com/s/TDdatl6Mzfc_4VdTSXDv4A">公众号-k8s 中文社区，一起误删 cni0 虚拟网卡引发的 k8s 事故&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>误操作的命令：&lt;code>ip link del cni0&lt;/code>&lt;/p>
+&lt;p>由于 flannel 使用的是 vxlan 模式，所以创建 cni0 网桥的时候需要注意 mtu 值的设置。如下，创建 cni0 网桥：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 创建cni0设备，指定类型为网桥&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># ip link add cni0 type bridge&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># ip link set dev cni0 up&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>// 为cni0设置ip地址，这个地址是pod的网关地址，需要和flannel.1对应网段
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># ifconfig cni0 172.28.0.1/25&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>// 为cni0设置mtu为1450
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># ifconfig cni0 mtu 1450 up&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>// 查看创建情况
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># ifconfig cni0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cni0: flags&lt;span style="color:#f92672">=&lt;/span>4163&amp;lt;UP,BROADCAST,RUNNING,MULTICAST&amp;gt; mtu &lt;span style="color:#ae81ff">1450&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> inet 172.28.0.1 netmask 255.255.255.128 broadcast 172.28.0.127
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ether 0e:5e:b9:62:0d:60 txqueuelen &lt;span style="color:#ae81ff">1000&lt;/span> &lt;span style="color:#f92672">(&lt;/span>Ethernet&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> RX packets &lt;span style="color:#ae81ff">487334&lt;/span> bytes &lt;span style="color:#ae81ff">149990594&lt;/span> &lt;span style="color:#f92672">(&lt;/span>149.9 MB&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> RX errors &lt;span style="color:#ae81ff">0&lt;/span> dropped &lt;span style="color:#ae81ff">0&lt;/span> overruns &lt;span style="color:#ae81ff">0&lt;/span> frame &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TX packets &lt;span style="color:#ae81ff">629306&lt;/span> bytes &lt;span style="color:#ae81ff">925100055&lt;/span> &lt;span style="color:#f92672">(&lt;/span>925.1 MB&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TX errors &lt;span style="color:#ae81ff">0&lt;/span> dropped &lt;span style="color:#ae81ff">0&lt;/span> overruns &lt;span style="color:#ae81ff">0&lt;/span> carrier &lt;span style="color:#ae81ff">0&lt;/span> collisions &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>// 此时查看路由表，也已经有了去往本机pod网段的cni0信息
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># route -n | grep cni0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>172.28.0.0 0.0.0.0 255.255.255.128 U &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> cni0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>挂载网络设备&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">for&lt;/span> veth in &lt;span style="color:#66d9ef">$(&lt;/span>ip addr | grep veth | grep -v master | awk -F&lt;span style="color:#e6db74">&amp;#39;[@|:]&amp;#39;&lt;/span> &lt;span style="color:#e6db74">&amp;#39;{print $2}&amp;#39;&lt;/span> | sed &lt;span style="color:#e6db74">&amp;#39;s/ //g&amp;#39;&lt;/span>&lt;span style="color:#66d9ef">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ip link set dev $veth master cni0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">done&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>

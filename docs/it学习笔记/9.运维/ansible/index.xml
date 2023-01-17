@@ -1,0 +1,1199 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Ansible</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/</link><description>Recent content in Ansible on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Ansible</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.ansible.com/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/ansible/ansible">GitHub 项目&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/index.html">官方文档&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/qu0vPgyNBbRlTtf1pMtq7Q">公众号,程序员面试吧-快速入门 Ansible 自动化运维工具&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.zsythink.net/archives/tag/ansible/">https://www.zsythink.net/archives/tag/ansible/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Ansible is a radically simple IT automation platform that makes your applications and systems easier to deploy and maintain. Automate everything from code deployment to network configuration to cloud management, in a language that approaches plain English, using SSH, with no agents to install on remote systems
+Ansible 是一个非常简单的 IT 自动化系统。它处理配置管理、应用程序部署、云供应、临时任务执行、网络自动化和多节点编排。Ansible 可以轻松得批量进行复杂的更改，例如使用负载均衡器进行零停机滚动更新。而这一过程使用 SSH 实现，无需在远程系统上安装代理程序。
+Ansible 的主要目标是简单易用。它还非常注重安全性和可靠性，具有最少的移动部件，使用 OpenSSH 进行传输（使用其他传输和拉模式作为替代），以及一种围绕人类可审计性设计的语言 - 即使是那些不熟悉的人该程序。&lt;/p>
+&lt;h2 id="概念">概念&lt;/h2>
+&lt;p>&lt;strong>Control node(控制节点)&lt;/strong> # 任何安装了 Ansible 的机器都可以称为控制节点。在控制节点中可以通过调用 &lt;code>ansible&lt;/code> 或 &lt;code>ansible-playbook&lt;/code> 命令来运行 Ansible 相关命令和 Playbooks。
+&lt;strong>Managed nodes(受管理节点)&lt;/strong> # 使用 Ansible 管理的 网络设备 或 服务器。受管理节点有时候也称为 &lt;strong>hosts&lt;/strong>。
+&lt;strong>Inventory(库存)&lt;/strong> # 库存是一个受管理节点的列表。库存有时候也称为 &lt;strong>hostfile&lt;/strong>。Inventory 还可以用来组织受管理节点，将每个节点进行分组，以便于扩展
+&lt;strong>Collections&lt;/strong> # 2.10 版本之后的新概念。Collections 是 Ansible 内容的分发格式，可以包括 Playbooks、Role、Modules、Plugins。新版中，Modules 就被托管于 Collections 中。&lt;/p>
+&lt;ul>
+&lt;li>随着 Ansible 的发展，越来越多的模块、插件被开发并加入到 Ansible 的大家庭，这时候难免会出现命名上的冲突，或者调用上的重复。所以，从 2.10 版本之后，提出了 Collections 的概念。
+&lt;ul>
+&lt;li>Collections 最大的一个功能就是将模块分类，比如以前 核心模块 command，现在的全名就叫 ansible.builtin.command，前面的 ansible.builtin 就是 command 的 Collections。这种全名称为 &lt;strong>Full Qualified Class Name(完全限定类名，简称 FQCN)&lt;/strong>。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>Tasks(任务)&lt;/strong> # Ansible 工作的最小单元，Ansible 对受管理节点执行的操作，称为任务。
+&lt;strong>Modules(模块)&lt;/strong> # 模块就是 Ansible 用来执行 Tasks 的代码。
+&lt;strong>Playbooks(剧本)&lt;/strong> # 一个被保存起来的有序的 Tasks 列表，通过重复运行 Playbooks，可以方便得重复一组任务。Playbooks 中还可以包含变量、模板、条件语句、控制循环，从本质上来说，编写一个 Playbooks，就好像编写一个脚本代码一样。&lt;/p>
+&lt;p>Playbooks 是 Ansible 的精髓，如果把 Ansible 当做一门语言，那么就成可以称为 Playbooks 脚本编程语言。&lt;/p>
+&lt;h1 id="ansible-的核心组件">Ansible 的核心组件&lt;/h1>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ot4g6f/1616125280904-828340be-8634-4a3f-a97b-d4600818bd6e.jpeg" alt="">&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>ansible core&lt;/strong> #核心组件，ansible 本身&lt;/li>
+&lt;li>&lt;strong>host inventory&lt;/strong> # 主机库存，Ansible 所管理的主机清单，一个文本文件&lt;/li>
+&lt;li>**Modules **# 模块。ansible 的 modules 是实现 ansible 的核心，
+&lt;ul>
+&lt;li>&lt;strong>core modules&lt;/strong> # 核心模块
+&lt;ul>
+&lt;li>ansible 执行任何命令，都是通过 module 来完成；比如 ansible 让被管理机创建一个用户，那么就会去 core modules 中调用一个能实现创建用户功能的模块，来执行这个操作。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>custom modules&lt;/strong> # 自定义模块
+&lt;ul>
+&lt;li>可以使用任何编程语言来编写模块，只要符合 ansible 的标准即可，可以实现 ansible 本身不具备的功能&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="ansible-关联文件与配置">Ansible 关联文件与配置&lt;/h1>
+&lt;p>/etc/ansible/ansible.cfg # ansible 使用时调用的配置文件
+/etc/ansible/hosts # Inventory 的默认配置文件。该文件可以定义被管理主机的 IP，port 等，都可以定义在该文件中，具体格式如下&lt;/p>
+&lt;ul>
+&lt;li>单独 host，任何未分组的主机，需要在定义主机组之前定义各单独的 host，可以是 IP 地址或者主机名&lt;/li>
+&lt;li>主机组，定义一个主机组，组名用[]括起来，可以定义多个主机组；当使用 ansible 命令的时候，可以使用组名来对该组内所有主机进行操作&lt;/li>
+&lt;li>配置文件说明：详见：[inventory 配置文件详解](✏IT 学习笔记/🛠️9.运维/Ansible/Inventory%20 配置文件详解.md 配置文件详解.md)&lt;/li>
+&lt;/ul></description></item><item><title>Docs: Ansible Modules(模块)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-modules%E6%A8%A1%E5%9D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-modules%E6%A8%A1%E5%9D%97/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/modules.html">官方文档，用户指南-传统目录-使用模块&lt;/a>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/2.9/user_guide/modules.html">2.9 版本&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Modules(模块)&lt;/strong> 也被称为 &lt;strong>Task Plugins(任务插件)&lt;/strong> 或 &lt;strong>Library Plugins(插件库)&lt;/strong>，Modules 是可以从 Ansible 的命令行或 Playbook 的任务中使用的代码块。Ansible 通常在受管理节点上执行每个模块以完成任务，并收集返回值。&lt;/p>
+&lt;blockquote>
+&lt;p>注意：在 Ansible 2.10 及以上的版本中，大多数模块都被托管到 &lt;strong>Collections(集合)&lt;/strong> 中。&lt;/p>
+&lt;/blockquote>
+&lt;p>我们可以通过命令行使用模块执行任务，比如&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>ansible webservers -m service -a &lt;span style="color:#e6db74">&amp;#34;name=httpd state=started&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ansible webservers -m ping
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ansible webservers -m command -a &lt;span style="color:#e6db74">&amp;#34;/sbin/reboot -t now&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>也可以在 Playbooks 中使用模块执行任务，比如&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">restart webserver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">service&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">httpd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">state&lt;/span>: &lt;span style="color:#ae81ff">restarted&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>等效于&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>ansible webservers -m service -a &lt;span style="color:#e6db74">&amp;#34;name=httpd state=started&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>每个模块都可以接受参数，以空格分割的 &lt;code>KEY=VALUE&lt;/code> 格式。&lt;/p>
+&lt;blockquote>
+&lt;p>注意：在命令行中使用模块与在 Playbooks 中使用模块时，可以传递的参数不太一样，比如 command 或 shell 模块，只需要传递需要运行的命令这个参数即可，但是在 Playbooks 中使用这两个模块，还可以传递其他参数。&lt;/p>
+&lt;/blockquote>
+&lt;p>所有模块执行完成后，都会有返回一个 JSON 格式的数据，这意味着可以使用任何编程语言编写模块。模块应该是幂等的，如果检测到当前状态与所需要的最终状态匹配，则应该避免再进行任何更改。&lt;/p>
+&lt;p>下面我们拿一个最简单的模块举例，ansible.builtin.command 模块，当我们使用 command 模块时，可以为其传递参数，在其执行完任务之后，还会有返回值。&lt;/p>
+&lt;h2 id="简单示例">简单示例&lt;/h2>
+&lt;p>假如现在有这么一个 Playbooks&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">command&lt;/span>: &lt;span style="color:#ae81ff">whoami&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">register&lt;/span>: &lt;span style="color:#ae81ff">info&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">debug&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">debug&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">msg&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;{{info}}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这个 Playbooks 的意思就是在受管理节点上执行 &lt;code>whoami&lt;/code> 命令，并将返回值保存到 info 变量中，通过 debug 模块，将 info 变量中的内容输出出来，效果如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>[&lt;span style="color:#960050;background-color:#1e0010">lichenhao@hw-cloud-xngy-jump-server-linux&lt;/span>&lt;span style="color:#ae81ff">-2&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">~/projects/DesistDaydream/ehualu/ansible/playbook&lt;/span>]&lt;span style="color:#960050;background-color:#1e0010">$&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">ansible-playbook&lt;/span> &lt;span style="color:#ae81ff">90&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">-test.yaml&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">PLAY&lt;/span> [&lt;span style="color:#960050;background-color:#1e0010">test&lt;/span>] &lt;span style="color:#960050;background-color:#1e0010">*******************************************************************************************************************************************************************&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">TASK&lt;/span> [&lt;span style="color:#ae81ff">90&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">-test&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">:&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">test&lt;/span>] &lt;span style="color:#960050;background-color:#1e0010">*********************************************************************************************************************************************************&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">changed:&lt;/span> [&lt;span style="color:#960050;background-color:#1e0010">hw-cloud-xngy-jump-server-linux&lt;/span>&lt;span style="color:#ae81ff">-2&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">TASK&lt;/span> [&lt;span style="color:#ae81ff">90&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">-test&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">:&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">debug&lt;/span>] &lt;span style="color:#960050;background-color:#1e0010">********************************************************************************************************************************************************&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">ok:&lt;/span> [&lt;span style="color:#960050;background-color:#1e0010">hw-cloud-xngy-jump-server-linux&lt;/span>&lt;span style="color:#ae81ff">-2&lt;/span>] &lt;span style="color:#960050;background-color:#1e0010">=&amp;gt;&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;info&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;ansible_facts&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;discovered_interpreter_python&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/usr/bin/python3&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;changed&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;cmd&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;whoami&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;delta&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0:00:00.002447&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;end&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2021-10-09 23:05:10.491190&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;failed&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;rc&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">0&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;start&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2021-10-09 23:05:10.488743&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;stderr&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;stderr_lines&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;stdout&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;root&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;stdout_lines&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;root&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">PLAY&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">RECAP&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">********************************************************************************************************************************************************************&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">hw-cloud-xngy-jump-server-linux&lt;/span>&lt;span style="color:#ae81ff">-2&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">:&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">ok=&lt;/span>&lt;span style="color:#ae81ff">2&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">changed=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">unreachable=&lt;/span>&lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">failed=&lt;/span>&lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">skipped=&lt;/span>&lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">rescued=&lt;/span>&lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">ignored=&lt;/span>&lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们对比&lt;a href="https://docs.ansible.com/ansible/latest/collections/ansible/builtin/command_module.html#return-values">官方文档中 command 模块的返回值&lt;/a>，可以看到，与文档中的返回值保持一致。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/shqrrv/1633792369531-e531b4d1-5c2b-427c-ade8-6207d5d6020b.png" alt="image.png">&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>所以，这也是为什么将 Moduels 称为代码的原因，&lt;strong>所谓的 Modules，本质上就是代码写出来的程序，就像 Functions&lt;/strong>，具有形参，可以接受实参，执行完成后，还会有返回值。Ansible 通过模块执行完一个任务之后，就会处理这些返回值，将其 或保存、或展示、或丢弃 等等。同时，在 Playbooks 中，还可以通过判断语句，根据返回值的内容，决定下一个任务的运行模式。&lt;/p>
+&lt;p>我们可以通过 &lt;code>ansible-doc -l&lt;/code> 命令查看所有可用的模块，或者从&lt;a href="https://docs.ansible.com/ansible/latest/collections/index.html#list-of-collections">官方文档-Collections 文档&lt;/a>中查看所有模块
+还可以使用&lt;code> ansible-doc MODULE&lt;/code> 命令查看指定模块的文档&lt;/p>
+&lt;h1 id="模块分类">模块分类&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/2.9/modules/modules_by_category.html">官方文档 2.9，用户指南-使用模块-模块索引&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/collections/index_module.html">官方文档 2.10+，所有模块和插件的索引-所有模块的索引&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在 2.10 版本之前，模块的分类非常清晰；2.10 版本之后，由于模块被合并到集合中，所以很多已经分类的模块被合并到 &lt;a href="https://docs.ansible.com/ansible/latest/collections/index_module.html#ansible-builtin">builtin(内置) 模块&lt;/a>这个类别中，在这里则不再进行细致划分，非常乱。。。。&lt;/p>
+&lt;p>模块的保存位置（ansible python module location）也产生了变化：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ansible --version&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ansible 2.9.6
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> config file &lt;span style="color:#f92672">=&lt;/span> /etc/ansible/ansible.cfg
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> configured module search path &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#f92672">[&lt;/span>&lt;span style="color:#e6db74">&amp;#39;/home/lichenhao/.ansible/plugins/modules&amp;#39;&lt;/span>, &lt;span style="color:#e6db74">&amp;#39;/usr/share/ansible/plugins/modules&amp;#39;&lt;/span>&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ansible python module location &lt;span style="color:#f92672">=&lt;/span> /usr/lib/python3/dist-packages/ansible
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> executable location &lt;span style="color:#f92672">=&lt;/span> /usr/bin/ansible
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> python version &lt;span style="color:#f92672">=&lt;/span> 3.8.10 &lt;span style="color:#f92672">(&lt;/span>default, Jun &lt;span style="color:#ae81ff">22&lt;/span> 2022, 20:18:18&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#f92672">[&lt;/span>GCC 9.4.0&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/shqrrv/1669781692961-2dda8a1f-3eec-4687-beb3-fa3d141c1b5e.png" alt="image.png">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ansible --version&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ansible &lt;span style="color:#f92672">[&lt;/span>core 2.13.6&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> config file &lt;span style="color:#f92672">=&lt;/span> /etc/ansible/ansible.cfg
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> configured module search path &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#f92672">[&lt;/span>&lt;span style="color:#e6db74">&amp;#39;/root/.ansible/plugins/modules&amp;#39;&lt;/span>, &lt;span style="color:#e6db74">&amp;#39;/usr/share/ansible/plugins/modules&amp;#39;&lt;/span>&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ansible python module location &lt;span style="color:#f92672">=&lt;/span> /root/.local/lib/python3.8/site-packages/ansible
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ansible collection location &lt;span style="color:#f92672">=&lt;/span> /root/.ansible/collections:/usr/share/ansible/collections
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> executable location &lt;span style="color:#f92672">=&lt;/span> /usr/bin/ansible
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> python version &lt;span style="color:#f92672">=&lt;/span> 3.8.10 &lt;span style="color:#f92672">(&lt;/span>default, Jun &lt;span style="color:#ae81ff">22&lt;/span> 2022, 20:18:18&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#f92672">[&lt;/span>GCC 9.4.0&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> jinja version &lt;span style="color:#f92672">=&lt;/span> 3.1.2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> libyaml &lt;span style="color:#f92672">=&lt;/span> True
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/shqrrv/1669781684010-2cc9f6a7-cb1e-4e93-bf81-e41ef417c23c.png" alt="image.png">&lt;/p></description></item><item><title>Docs: Ansible Modules(模块)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-modules%E6%A8%A1%E5%9D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-modules%E6%A8%A1%E5%9D%97/</guid><description/></item><item><title>Docs: Ansible UI</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-ui/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-ui/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/ansible/awx">Github 项目,ansible/awx&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote></description></item><item><title>Docs: Ansible Variables(变量)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-variables%E5%8F%98%E9%87%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-variables%E5%8F%98%E9%87%8F/</guid><description>
+&lt;h1 id="group_vars-概述">group_vars 概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/playbooks_variables.html">官方文档,传统目录-使用变量&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/playbooks_variables.html#variable-precedence-where-should-i-put-a-variable">官方文档,传统目录-使用变量-变量优先级&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>虽然通过自动化可以使事情更简单、更可重复，但是并非所有系统都完全相同。在某些情况下，观察到一个系统的行为或状态可能会影响到配置其他系统的方式。比如，我们可能需要找出一个系统的 IP 地址，并将这个 IP 地址作为另一个系统中配置的值。&lt;/p>
+&lt;p>基于上述目的，Ansible 可以通过 &lt;strong>Variables(变量)&lt;/strong> 来管理各个系统之间的差异。&lt;/p>
+&lt;p>Ansible 的变量就跟编程语言中的变量概念一样，同样可以定义、引用。我们使用标准的 YAML 语法创建变量，包括列表和字典；可以这么说，YAML 中每个字段的 key 就是变量名，value 就是变量的值。我们可以在 Playbooks、Inventory、甚至命令行中定义与引用变量。我们还可以在 Playbooks 运行期间，将任务的返回值注册为变量，以创建一个新的变量。&lt;/p>
+&lt;p>创建变量后，我们可以在 模块的参数、模板、控制结构 中使用这些变量。在 &lt;a href="https://github.com/ansible/ansible-examples">GitHub 中有一个 Ansible 示例的目录&lt;/a>，可以看到很多 Ansible 使用变量的例子&lt;/p>
+&lt;p>下面的示例就是在命令行中使用 debug 模块，查看了一下 inventory_hostname 这个默认变量的值&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible -i ../inventory/ all -m debug -a &lt;span style="color:#e6db74">&amp;#39;msg={{inventory_hostname}}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw-cloud-xngy-jump-server-linux-2 | SUCCESS &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;hw-cloud-xngy-jump-server-linux-2&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="变量的优先级">变量的优先级&lt;/h2>
+&lt;p>变量可以是自带的，就是由人们自行定义的，可以在多个地方定义变量，(e.g.在某些文件里定义变量、通过命令行传递变量等等。由于 ansible 所要处理的的文件有很多，不同类型的文件下定义的变量的优先级也不同)&lt;/p>
+&lt;p>下面的优先级列表由低到高，最下面的变量优先级最高&lt;/p>
+&lt;ul>
+&lt;li>command line values (eg “-u user”)&lt;/li>
+&lt;li>&lt;strong>role defaults&lt;/strong> # 定义在 &lt;code>${ROLE}/defaults/main.yaml&lt;/code> 中的默认变量&lt;/li>
+&lt;li>&lt;strong>inventory file or script group vars&lt;/strong> # Inventory 文件中的组变量，即.&lt;code>[XXX:vars]&lt;/code>&lt;/li>
+&lt;li>&lt;strong>inventory group_vars/all&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>playbook group_vars/all&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>inventory group_vars/*&lt;/strong> # 存放 Inventory 文件的目录下的 &lt;code>group_vars/&lt;/code> 目录&lt;/li>
+&lt;li>&lt;strong>playbook group_vars/*&lt;/strong> # Playbook 根目录下的 &lt;code>group_vars/&lt;/code> 目录&lt;/li>
+&lt;li>&lt;strong>inventory file or script host vars&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>inventory host_vars/*&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>playbook host_vars/*&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>host facts / cached set_facts&lt;/strong> #&lt;/li>
+&lt;li>play vars #&lt;/li>
+&lt;li>play vars_prompt #&lt;/li>
+&lt;li>play vars_files #&lt;/li>
+&lt;li>&lt;strong>role vars&lt;/strong> # 定义在 &lt;code>${ROLE}/vars/main.yml&lt;/code> 中的变量&lt;/li>
+&lt;li>block vars (only for tasks in block) #&lt;/li>
+&lt;li>task vars (only for the task) #&lt;/li>
+&lt;li>include_vars #&lt;/li>
+&lt;li>set_facts / registered vars #&lt;/li>
+&lt;li>role (and include_role) params #&lt;/li>
+&lt;li>include params #&lt;/li>
+&lt;li>extra vars (always win precedence) # 通过 ansible-playbook -e 指定的变量&lt;/li>
+&lt;/ul>
+&lt;p>Note：可以说 ansible playbook 中写的所有内容都是变量。都是可以引用的，只不过引用的方式不同。&lt;/p>
+&lt;h1 id="变量的定义与引用">变量的定义与引用&lt;/h1>
+&lt;p>变量名应为字母、数字、下划线。并且始终应该以字母开头。可以在 Inventory、Playbooks、命令行 中定义变量。Ansible 会加载它找到的每个可能的变量，然后根据&lt;a href="#ZixgX">变量优先级规则&lt;/a>选择要应用的变量&lt;/p>
+&lt;p>可以通过 -e 选项直接定义一个变量，比如 &lt;code>ansible -e &amp;quot;test_var=hello_world&amp;quot;&lt;/code>，这里定义了 test_var 变量，变量的值为 hello_world。&lt;/p>
+&lt;p>Ansible 使用 Jinja2 语法引用变量。Jinjia2 使用 &lt;code>{{ VarName }}&lt;/code> 来引用变量，比如&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible -i ../inventory/ all --extra-vars &lt;span style="color:#e6db74">&amp;#34;test_var=hello_world&amp;#34;&lt;/span> -m debug -a &lt;span style="color:#e6db74">&amp;#39;msg={{test_var}}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw-cloud-xngy-jump-server-linux-2 | SUCCESS &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;hello_world&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面的例子中，我们定义了一个名为 test_var 的变量，变量的值为 hello_world，并使用 debug 模块，引用 test_var 变量。&lt;/p>
+&lt;p>这只是最简单的变量的使用方式，命令行中不适合设置复杂格式的变量，更为复杂的类型的变量，通常在 YAML 或 JSON 格式的文件中定义，并直接引用文件即可定义变量(比如使用 &lt;code>--extra-vars &amp;quot;@./test_var.yaml&amp;quot;&lt;/code> 选项，即可通过 test_var.yaml 文件定义变量)&lt;/p>
+&lt;h2 id="变量的类型">变量的类型&lt;/h2>
+&lt;h3 id="list列表变量">List(列表)变量&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ cat test_var.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>region:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- northeast
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- southeast
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- midwest
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible -i ../inventory/ all --extra-vars &lt;span style="color:#e6db74">&amp;#34;@./test_var.yaml&amp;#34;&lt;/span> -m debug -a &lt;span style="color:#e6db74">&amp;#39;msg={{region[1]}}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw-cloud-xngy-jump-server-linux-2 | SUCCESS &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;southeast&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="dictionary字典变量">Dictionary(字典)变量&lt;/h3>
+&lt;p>可以通过两种方式引用字典变量&lt;/p>
+&lt;ul>
+&lt;li>使用方 &lt;code>[]&lt;/code> 进行引用
+&lt;ul>
+&lt;li>foo[&amp;lsquo;field1&amp;rsquo;]&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>使用 &lt;code>.&lt;/code> 进行引用(不推荐使用该方式引用变量，可能会与 Python 语法产生冲突)
+&lt;ul>
+&lt;li>foo.field1&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ cat test_var.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>foo:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> field1: one
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> field2: two
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible -i ../inventory/ all --extra-vars &lt;span style="color:#e6db74">&amp;#34;@./test_var.yaml&amp;#34;&lt;/span> -m debug -a msg&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;{{foo[&amp;#39;field1&amp;#39;]}}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw-cloud-xngy-jump-server-linux-2 | SUCCESS &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;one&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible -i ../inventory/ all --extra-vars &lt;span style="color:#e6db74">&amp;#34;@./test_var.yaml&amp;#34;&lt;/span> -m debug -a msg&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;{{foo.field1}}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw-cloud-xngy-jump-server-linux-2 | SUCCESS &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;one&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Note：如果使用 &lt;code>.&lt;/code> 引用变量可能会引起问题，因为会与 python 字典的属性和方法冲突。所以，尽量使用 &lt;code>[]&lt;/code> 来引用变量&lt;/p>
+&lt;h3 id="registering注册变量">Registering(注册)变量&lt;/h3>
+&lt;p>Registering 类型的变量适用于 Playbooks 中，通过 &lt;code>register&lt;/code> 关键字将任务中的返回值注册为指定的变量，然后可以在 Playbooks 的后续任务中，引用注册的变量
+比如&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>[&lt;span style="color:#ae81ff">lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks]$ cat roles/variables/tasks/main.yaml&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">command&lt;/span>: &lt;span style="color:#ae81ff">whoami&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">register&lt;/span>: &lt;span style="color:#ae81ff">info&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">debug&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">debug&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">msg&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;{{info}}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[&lt;span style="color:#ae81ff">lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks]$ ansible-playbook -i ../inventory/ variables.yaml&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">PLAY [test] **********************************************************************************************************************************************************************************************************************************************************************************************************************************************************&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">TASK [variables &lt;/span>: &lt;span style="color:#ae81ff">test] **********************************************************************************************************************************************************************************************************************************************************************************************************************************************&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">changed&lt;/span>: [&lt;span style="color:#ae81ff">hw-cloud-xngy-jump-server-linux-2]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">TASK [variables &lt;/span>: &lt;span style="color:#ae81ff">debug] *********************************************************************************************************************************************************************************************************************************************************************************************************************************************&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">ok&lt;/span>: [&lt;span style="color:#ae81ff">hw-cloud-xngy-jump-server-linux-2] =&amp;gt; {&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;msg&amp;#34;: &lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;ansible_facts&amp;#34;: &lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;discovered_interpreter_python&amp;#34;: &lt;/span>&lt;span style="color:#e6db74">&amp;#34;/usr/bin/python3&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;changed&amp;#34;: &lt;/span>&lt;span style="color:#66d9ef">true&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;cmd&amp;#34;: &lt;/span>[
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;whoami&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;delta&amp;#34;: &lt;/span>&lt;span style="color:#e6db74">&amp;#34;0:00:00.002390&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;end&amp;#34;: &lt;/span>&lt;span style="color:#e6db74">&amp;#34;2021-10-11 22:57:18.455061&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;failed&amp;#34;: &lt;/span>&lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;rc&amp;#34;: &lt;/span>&lt;span style="color:#ae81ff">0&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;start&amp;#34;: &lt;/span>&lt;span style="color:#e6db74">&amp;#34;2021-10-11 22:57:18.452671&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;stderr&amp;#34;: &lt;/span>&lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;stderr_lines&amp;#34;: &lt;/span>[],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;stdout&amp;#34;: &lt;/span>&lt;span style="color:#e6db74">&amp;#34;root&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;stdout_lines&amp;#34;: &lt;/span>[
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;root&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">PLAY RECAP ***********************************************************************************************************************************************************************************************************************************************************************************************************************************************************&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">hw-cloud-xngy-jump-server-linux-2 &lt;/span>: &lt;span style="color:#ae81ff">ok=2 changed=1 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 test 任务中，我们将 command 模块执行的任务返回值，注册到 info 变量中；然后再 debug 任务中，引用了 info 变量。&lt;/p>
+&lt;p>有关在后续任务的条件中使用注册变量的更多示例，请参阅&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/playbooks_conditionals.html#playbooks-conditionals">条件&lt;/a>。注册变量可以是简单变量、列表变量、字典变量或复杂的嵌套数据结构。每个模块的文档包括 RETURN 描述该模块返回值的部分。要查看特定任务的值，请使用-v.
+注册的变量存储在内存中。您不能缓存已注册的变量以供将来使用。注册的变量仅在当前 playbook 运行的其余部分在主机上有效。&lt;/p>
+&lt;p>注册变量是主机级变量。当您使用循环在任务中注册变量时，注册的变量包含循环中每个项目的值。循环期间放置在变量中的数据结构将包含一个 results 属性，即来自模块的所有响应的列表。有关其工作原理的更深入示例，请参阅有关将寄存器与循环一起使用的&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/playbooks_loops.html#playbooks-loops">循环&lt;/a>部分。&lt;/p>
+&lt;blockquote>
+&lt;p>注意：如果任务失败或被跳过，Ansible 仍会注册一个处于失败或跳过状态的变量，除非根据标签跳过该任务。有关添加和使用标签的信息，请参阅&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#tags">标签&lt;/a>。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="nested嵌套变量">Nested(嵌套)变量&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ cat test_var.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>foo:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- field1:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> name: one
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- field2:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> name: two
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible -i ../inventory/ all --extra-vars &lt;span style="color:#e6db74">&amp;#34;@./test_var.yaml&amp;#34;&lt;/span> -m debug -a msg&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;{{foo[0].field1.name}}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw-cloud-xngy-jump-server-linux-2 | SUCCESS &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;one&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="变量的定义方式">变量的定义方式&lt;/h2>
+&lt;h3 id="在命令行中定义变量">在命令行中定义变量&lt;/h3>
+&lt;p>在使用 &lt;code>ansible&lt;/code> 或 &lt;code>ansible-playbook&lt;/code> 命令时，可以通过 &amp;ndash;extra-vars 或 -e 选项，以在命令行中定义变量&lt;/p>
+&lt;p>可以通过多种方式在命令行定义变量&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>KEY=VALUE&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible -i ../inventory/ all --extra-vars &lt;span style="color:#e6db74">&amp;#34;test_var=hello_world&amp;#34;&lt;/span> -m debug -a &lt;span style="color:#e6db74">&amp;#39;msg={{test_var}}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw-cloud-xngy-jump-server-linux-2 | SUCCESS &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;hello_world&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>&lt;strong>JSON 字符串&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible -i ../inventory/ all --extra-vars &lt;span style="color:#e6db74">&amp;#39;{&amp;#34;test_var&amp;#34;:&amp;#34;hello world&amp;#34;}&amp;#39;&lt;/span> -m debug -a &lt;span style="color:#e6db74">&amp;#39;msg={{test_var}}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw-cloud-xngy-jump-server-linux-2 | SUCCESS &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;hello world&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>&lt;strong>来自 JSON 或 YAML 文件&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ cat test_var.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>test_var: &lt;span style="color:#e6db74">&amp;#39;hello world&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible -i ../inventory/ all --extra-vars &lt;span style="color:#e6db74">&amp;#34;@./test_var.yaml&amp;#34;&lt;/span> -m debug -a &lt;span style="color:#e6db74">&amp;#39;msg={{test_var}}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw-cloud-xngy-jump-server-linux-2 | SUCCESS &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;hello world&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="在-inventory-中定义变量">在 Inventory 中定义变量&lt;/h3>
+&lt;p>详见 [Inventory 配置文件详解](✏IT 学习笔记/🛠️9.运维/Ansible/Inventory%20 配置文件详解.md 配置文件详解.md)&lt;/p>
+&lt;h3 id="在-playbooks-中定义变量">在 Playbooks 中定义变量&lt;/h3>
+&lt;p>基础的定义方式是在一个 play 中使用 vars 关键字定义变量，示例如下&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">host&lt;/span>: &lt;span style="color:#ae81ff">webservers&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">vars&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">http_port&lt;/span>: &lt;span style="color:#ae81ff">80&lt;/span> &lt;span style="color:#75715e"># 定义一个名为http_port的变量，值为80&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tasks&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">debug&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Note: vars 关键字可以用在 host 环境中，也可以用在 tasks 环境中，用在 tasks 环境时，则变量仅对当前任务生效&lt;/p>
+&lt;p>下面是一个在角色中定义字典类型变量的样例：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>[&lt;span style="color:#ae81ff">root@cobbler playbook]# cat roles/test/defaults/main.yml&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">docker&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">version&lt;/span>: &lt;span style="color:#ae81ff">18.06.2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dataDir&lt;/span>: &lt;span style="color:#ae81ff">/var/lib/docker&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">registryMirrors&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">https://ac1rmo5p.mirror.aliyuncs.com&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">execOpts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#39;native.cgroupdriver=systemd&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">insecureRegistries&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">100.64.2.52&lt;/span>:&lt;span style="color:#ae81ff">9999&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">100.64.1.31&lt;/span>:&lt;span style="color:#ae81ff">9999&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="变量的引用方式">变量的引用方式&lt;/h2>
+&lt;p>特殊情况不用加 &lt;code>{{ }}&lt;/code> 而可以直接引用，比如在某些控制结构(比如 when)的语句中。&lt;/p>
+&lt;h1 id="registering-variables注册变量">Registering Variables(注册变量)&lt;/h1>
+&lt;p>通常在剧本中，将给定命令的结果存储在变量中并在以后访问它可能很有用。&lt;/p>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>注册变量只适用于执行本注册任务的 host。假如在 host_A 注册了 Var_A，那么 host_B 想要引用 Var_A，则必须使用 &lt;code>hostvars&lt;/code> 变量。&lt;/li>
+&lt;/ul>
+&lt;p>应用示例：&lt;/p>
+&lt;pre>&lt;code>- hosts: all
+tasks:
+- name: list contents of directory
+command: ls /root/
+register: contents #将该任务执行后的ansible报告的信息保存在名为contents变量中
+- debug:
+msg: &amp;quot;{{contents}}&amp;quot; #输出contents变量
+- debug：
+msg: &amp;quot;{{contents.stdout}}&amp;quot; #输出contents下的stdout变量的值，值为anaconda-ks.cfg\nScripts
+&lt;/code>&lt;/pre>
+&lt;p>比如下面，就是是 contents 变量的值。这其中包括要执行的命令、命令执行的日期、执行结果，等等 ansible 执行该 playbook 后的信息。&lt;/p>
+&lt;pre>&lt;code>TASK [debug] *************************************************************
+ok: [10.10.100.200] =&amp;gt; {
+&amp;quot;msg&amp;quot;: {
+&amp;quot;changed&amp;quot;: true,
+&amp;quot;cmd&amp;quot;: [
+&amp;quot;ls&amp;quot;,
+&amp;quot;/root/&amp;quot;
+],
+&amp;quot;delta&amp;quot;: &amp;quot;0:00:00.004220&amp;quot;,
+&amp;quot;end&amp;quot;: &amp;quot;2019-11-11 15:02:17.326659&amp;quot;,
+&amp;quot;failed&amp;quot;: false,
+&amp;quot;rc&amp;quot;: 0,
+&amp;quot;start&amp;quot;: &amp;quot;2019-11-11 15:02:17.322439&amp;quot;,
+&amp;quot;stderr&amp;quot;: &amp;quot;&amp;quot;,
+&amp;quot;stderr_lines&amp;quot;: [],
+&amp;quot;stdout&amp;quot;: &amp;quot;anaconda-ks.cfg\nScripts&amp;quot;,
+&amp;quot;stdout_lines&amp;quot;: [
+&amp;quot;anaconda-ks.cfg&amp;quot;,
+&amp;quot;Scripts&amp;quot;
+]
+}
+}
+&lt;/code>&lt;/pre>
+&lt;p>还可以将 register 与循环配合使用，通过命令获取的多个值注册到变量中，然后使用循环逐一读取变量的值&lt;/p>
+&lt;pre>&lt;code>- name: retrieve the list of home directories
+command: ls /home
+register: home_dirs
+- name: add home dirs to the backup spooler
+file:
+path: /mnt/bkspool/{{ item }}
+src: /home/{{ item }}
+state: link
+loop: &amp;quot;{{ home_dirs.stdout_lines }}&amp;quot; # loop也可以使用这样的方式来获取每一行的值: &amp;quot;{{ home_dirs.stdout.split() }}&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>这个例子就是查看/mnt/bkspool/目录下的内容，然后将其中所有文件注意拷贝到/home/目录下&lt;/p>
+&lt;h1 id="special-variables特殊的变量">Special Variables(特殊的变量)&lt;/h1>
+&lt;blockquote>
+&lt;p>官方文档：&lt;a href="https://docs.ansible.com/ansible/latest/reference_appendices/special_variables.html">https://docs.ansible.com/ansible/latest/reference_appendices/special_variables.html&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>无论是否定义任何变量，都可以使用 Ansible 提供的特殊变量访问有关主机的信息，一共有如下几种变量类型：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>magic variables(魔法变量)&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>facts variables(事实变量)&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>connection variables(连接变量)&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;h2 id="magic-variables">Magic Variables&lt;/h2>
+&lt;blockquote>
+&lt;p>官方文档：&lt;a href="https://docs.ansible.com/ansible/latest/reference_appendices/special_variables.html#magic">https://docs.ansible.com/ansible/latest/reference_appendices/special_variables.html#magic&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>魔术变量不能随意覆盖并且也没法覆盖，这是一种 Ansbie 提供的&amp;quot;内部变量&amp;quot; ，可以反映 Ansible 所管理主机的最简单的基本状态，比如该主机的主机名、在 inventory 文件中的定义都会转换成这里面变量的值、等等。&lt;/p>
+&lt;p>可以通过目标主机获取到 ansible 管理的所有主机的信息。最常用的魔术变量有以下几个&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>hostvars&lt;/strong> # 每个目标主机下面都包含类似下图的信息。其中是每个组所包含的 hosts
+&lt;ul>
+&lt;li>注意：通过 hostvars 变量，我们还可以获取到其他主机在执行任务是注册的变量，比如在 kubernetes 集群的 master-1 上生成了加入集群的指令，并注册为变量 join_cmd，正常是无法在其他主机直接使用的。这时候就要用到 hostvars 变量了。&lt;/li>
+&lt;li>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/nsvz9y/1616125069735-9fbbff13-76a7-455a-9a5b-291800f65cc1.jpeg" alt="">&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>ansible_play_hosts&lt;/strong> # 一个列表，是当前 play 中活动的主机列表，受序号限制，无法访问的主机不会被当做“活动”主机。
+&lt;ul>
+&lt;li>该变量可以用于 for 循环，对列表中的主机进行遍历，逐一操作。&lt;/li>
+&lt;li>等同于 ansible_play_batch&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>ansible_play_name&lt;/strong> # 当前执行 paly 的名称。i.e.playbook 中 hosts 这个键的值，也就是当前的主机组名称&lt;/li>
+&lt;li>&lt;strong>groups&lt;/strong> # 默认值为 inbentory 下所有组及其组内的 host&lt;/li>
+&lt;li>&lt;strong>group_names&lt;/strong> # 默认值为当前主机所属组的列表。&lt;/li>
+&lt;li>&lt;strong>inventory_hostname&lt;/strong> # 默认值为 inventory 文件中配置的主机名称。即.ansible 的 hosts 文件的第一列内容&lt;/li>
+&lt;li>**inventory_dir **# 默认值为 ansible 保存 hosts 文件的目录的绝对路径。默认路径为/etc/ansible/&lt;/li>
+&lt;li>**play_hosts **# 默认值为当前 play 范围中可用的一组主机名&lt;/li>
+&lt;li>**role_path **# 默认值为当前 role 的目录的绝对路径&lt;/li>
+&lt;/ul>
+&lt;p>应用实例：
+&lt;strong>groups[&amp;quot;{{ansible_play_name}}&amp;quot;]&lt;/strong> # 获取当前 play 下的主机列表&lt;/p>
+&lt;h2 id="fact-variables">Fact Variables&lt;/h2>
+&lt;p>在 ansible 执行任务时，会默认执行名为 Gathering Facts 的任务，以获取目标主机的一些系统信息，如图所示。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/nsvz9y/1616125069706-0662e031-1bfe-478b-bb7d-09cb313f4fe0.jpeg" alt="">
+这些信息以变量的形式体现，每个变量都有其对应的值。可以通过命令 ansible all -m setup 获取这些信息。如下所示&lt;/p>
+&lt;p>ansible_facts 字段下面的所有字段才是可以直接引用的变量&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>[&lt;span style="color:#960050;background-color:#1e0010">root@lichenhao&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">~&lt;/span>]&lt;span style="color:#960050;background-color:#1e0010">#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">ansible&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">all&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">-m&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">setup&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">10.10&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.&lt;/span>&lt;span style="color:#ae81ff">100.249&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">|&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">SUCCESS&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">=&amp;gt;&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;ansible_facts&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;ansible_all_ipv4_addresses&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;10.10.100.249&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;ansible_all_ipv6_addresses&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fe80::47e1:ea44:cfc8:cad0&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;ansible_devices&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;fd0&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;holders&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;host&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;model&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">null&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;partitions&amp;#34;&lt;/span>: {},
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;removable&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;1&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;rotational&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;1&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;scheduler_mode&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;deadline&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;sectors&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;sectorsize&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;512&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;size&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0.00 Bytes&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;support_discard&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;vendor&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;sda&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;holders&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;host&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;SCSI storage controller: LSI Logic / Symbios Logic 53c1030 PCI-X Fusion-MPT Dual Ultra320 SCSI (rev 01)&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;model&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;VMware Virtual S&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;partitions&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;sda1&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;sectors&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;39843840&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;sectorsize&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">512&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;size&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;19.00 GB&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;start&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2048&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;removable&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;rotational&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;1&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;scheduler_mode&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;deadline&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;sectors&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;41943040&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;sectorsize&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;512&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;size&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;20.00 GB&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;support_discard&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;vendor&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;VMware,&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">......后续数据省略&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以在 Playbook 中以 &lt;code>{{ ansible_devices.sda.model }}&lt;/code> 这种方式引用 ansible_devices 下面的 sda 下的 model 变量的值&lt;/p>
+&lt;p>Note：当进行大规模设备使用 ansible 时，如果每台设备都要获取 fact 信息，ansible 的压力会非常大，这时候推荐关闭 fact 功能，可以在 playbook.yaml 文件中使用 gather_facts 字段即可。如下所示&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">hosts&lt;/span>: &lt;span style="color:#ae81ff">WHAT EVER&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">gather_facts&lt;/span>: &lt;span style="color:#66d9ef">no&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="connection-variables">Connection Variables&lt;/h2>
+&lt;h1 id="应用示例">应用示例&lt;/h1>
+&lt;h2 id="获取组中的主机数量">获取组中的主机数量&lt;/h2>
+&lt;pre>&lt;code> vars:
+HOST_COUNT: &amp;quot;{{ groups['组名'] | length }}&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>获取 test 组中主机的总数量&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible -i ../inventory/ all -m debug -a &lt;span style="color:#e6db74">&amp;#34;msg={{ groups[&amp;#39;test&amp;#39;] | length }}&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw-cloud-xngy-jump-server-linux-2 | SUCCESS &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Ansible 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="heading">&lt;/h1>
+&lt;h1 id="实际案例">实际案例：&lt;/h1>
+&lt;h2 id="批量关闭开启虚拟机">批量关闭/开启虚拟机&lt;/h2>
+&lt;pre>&lt;code>- name: 获取虚拟机列表
+virt:
+command: list_vms
+register: info
+- name: 循环开启虚拟机
+virt:
+name: &amp;quot;{{item}}&amp;quot;
+command: start
+loop: &amp;quot;{{info.list_vms}}&amp;quot;
+&lt;/code>&lt;/pre></description></item><item><title>Docs: Ansible 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-%E7%AE%A1%E7%90%86/</guid><description/></item><item><title>Docs: Ansible 命令行工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/command_line_tools.html#command-line-tools">官方文档,用户指南-命令行工具&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/intro_adhoc.html">官方文档,用户指南-传统目录-临时命令简介&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>由于 Ansible 是基于 SSH 远程管理主机，所以让 Ansible 的控制节点需要对受管理节点进行 ssh 的基于密钥的认证(方法详见 ssh 命令)或者在 inventory 文件中指定认证方式。&lt;/p>
+&lt;p>Note：Ansible 的控制节点和受管理节点的 Python 版本需要一致，否则 ansible 命令有时候会执行失败&lt;/p>
+&lt;h1 id="ansible">ansible&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/cli/ansible.html">官方文档，用户指南-使用命令行工具工作-ansible&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>ansible 是 Ansible 的一个 ad-hoc(临时) 命令，可以在一个或多个受管理节点上自动执行单个任务。ansible 命令即简单又快速，但并不具备可重复性，通过 ansible 命令的使用，我们可以了解到 Ansible 的简单性和强大的功能。&lt;strong>并且，可以将类似的操作，直接移植到 Playbooks 中&lt;/strong>。&lt;/p>
+&lt;p>临时命令非常适合很少重复，但是又需要大批量执行的任务，比如重启服务器、复制文件、管理服务、管理用户 等等。我们可以在临时任务中使用所有 Ansible 模块&lt;/p>
+&lt;h2 id="syntax语法">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>ansible &lt;!-- raw HTML omitted --> [OPTIONS]&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>HostPattern&lt;/strong> #主机模式,可以是主机名，主机 IP，组名，还有一个 all(所有 hosts 里定义的主机)&lt;/li>
+&lt;/ul>
+&lt;h3 id="options">OPTIONS&lt;/h3>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;list-hosts&lt;/strong> # 列出所有 HostPattern 定义的被管理 host 并统计数量，一般用于查看组内的主机有多少&lt;/li>
+&lt;li>&lt;strong>-i,&amp;ndash;inventory,&amp;ndash;inventory-file INVENTORY&lt;/strong> # 指定具体的 INVENTORY 路径或文件，而不使用配置中默认的。
+&lt;ul>
+&lt;li>INVENTORY 可以是目录或者文件&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Modules Options(模块选项)&lt;/strong>
+&lt;ul>
+&lt;li>&lt;strong>-a, &amp;ndash;args &amp;lt;MODULE_ARGS&amp;gt;&lt;/strong> # 以空格分割的模块参数。格式为 &lt;code>ARG1=VAL1 ARG2=VAL2......&lt;/code>，注意使用引号，有的 VAL 也需要使用引号引起来&lt;/li>
+&lt;li>只要使用 -m 选项，就必须要是使用 -a 选项&lt;/li>
+&lt;li>&lt;strong>-m, &amp;ndash;module-name &lt;!-- raw HTML omitted -->&lt;/strong> # 执行任务要使用的模块，默认模块为 command。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Privilege Escalation Options(权限提升选项)&lt;/strong>
+&lt;ul>
+&lt;li>&lt;strong>-b, &amp;ndash;become&lt;/strong> # 使用 become 模块执行所有操作。即开启权限提升功能&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="example">EXAMPLE&lt;/h2>
+&lt;ul>
+&lt;li>ansible all &amp;ndash;list-hosts # 列出所有主机&lt;/li>
+&lt;li>测试 k8s_test_master 组的所有主机的连通性
+&lt;ul>
+&lt;li>ansible k8s_test_master -m ping&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>对所有管理主机使用默认模块 command 使用 date 命令
+&lt;ul>
+&lt;li>ansible all -a &amp;lsquo;date&amp;rsquo;
+&lt;ul>
+&lt;li>注：也可以使用 &lt;code>-m 'shell'&lt;/code> 显式得指定 shell 模块。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>将 resolv.conf 文件中的 nameserver 127.0.0.1 替换成 nameserver 10.8.8.8
+&lt;ul>
+&lt;li>ansible all -m lineinfile -a &amp;ldquo;dest=/etc/resolv.conf regexp=&amp;lsquo;nameserver 127.0.1.1&amp;rsquo; line=&amp;lsquo;nameserver 10.8.8.8&amp;rsquo;&amp;rdquo; #&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="常见模块命令示例">常见模块命令示例&lt;/h3>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/intro_adhoc.html#use-cases-for-ad-hoc-tasks">https://docs.ansible.com/ansible/latest/user_guide/intro_adhoc.html#use-cases-for-ad-hoc-tasks&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;ul>
+&lt;li>&lt;strong>文件管理&lt;/strong>
+&lt;ul>
+&lt;li>拷贝文件
+&lt;ul>
+&lt;li>ansible all -m copy -a &amp;ldquo;src=https://desistdaydream.github.io/etc/hosts dest=/tmp/hosts&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>创建目录，类似 mkdir -p 命令
+&lt;ul>
+&lt;li>ansible all -m file -a &amp;ldquo;dest=/tmp/hosts mode=755 owner=lichenhao group=lichenhao state=directory&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>删除文件
+&lt;ul>
+&lt;li>ansible all -m file -a &amp;ldquo;dest=/opt/nginx/config/stream.d/wireguard.conf state=absent&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>包管理&lt;/strong>
+&lt;ul>
+&lt;li>安装最新的 net-snmp-utils 包
+&lt;ul>
+&lt;li>ansible -i inventory/ssc-pool-unicom-ha all -m yum -a &amp;ldquo;name=net-snmp-utils state=latest&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>用户和组管理&lt;/strong>
+&lt;ul>
+&lt;li>创建一个名为 sudo 的组，设置 gid 为 27
+&lt;ul>
+&lt;li>ansible -i inventory/ssc-pool-datalake-ha &lt;em>jxgz&lt;/em> -m group -a &amp;ldquo;name=sudo gid=27&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>cron&lt;/strong> # 添加定时任务
+&lt;ul>
+&lt;li>ansible all -m cron -a &amp;lsquo;minute=*/10 job=&amp;quot;/bin/echo hello&amp;quot; name=&amp;ldquo;test1&amp;rdquo;&amp;rsquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>script&lt;/strong> # 脚本模块，为远程机器执行本地脚本
+&lt;ul>
+&lt;li>ansible -i ./inventory/ssc-pool-unicom-ha all -m script -a &amp;lsquo;scripts.sh&amp;rsquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>setup&lt;/strong> # 收集远程主机的 facts
+&lt;ul>
+&lt;li>ansible all -m setup # 显示所有被管理节点的相关信息，每个被管理节点，在运行管理命令之前通常会将自己主机相关的信息如，OS 版本，IP 等报告给远程的 ansible 主机&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>unarchive&lt;/strong> # 解包
+&lt;ul>
+&lt;li>ansible all -m unarchive -a &amp;ldquo;src=https://desistdaydream.github.io/root/downloads/docker-ehualu-20.10.9.tar.gz dest=/&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="ansible-doc">ansible-doc&lt;/h1>
+&lt;p>显示有关 Ansible 库中安装的模块的信息。 它显示了简短的插件清单及其简短描述，提供了其 DOCUMENTATION 字符串的打印输出，并且可以创建一个简短的“片段”，可以粘贴到 playbook 中。&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-l&lt;/strong> # 显示所有可用模块&lt;/li>
+&lt;li>&lt;strong>-s&lt;/strong> # 显示指定的模块中在 playbook 可以定义的参数，可以当作该模块在命令行界面的使用方法&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;h1 id="ansible-vault">ansible-vault&lt;/h1>
+&lt;p>通过一个密码来加密或解密一个文件或字符串。可以加密 Ansible 使用的任何结构化数据文件。 这可以包括 group_vars/ 或 host_vars/ 清单变量、由 include_vars 或 vars_files 加载的变量，或在 ansible- playbook 命令行上使用 -e @file.yml 或 -e @file.json 传递的变量文件。 还包括角色变量和默认值！&lt;/p>
+&lt;p>由于 Ansible 任务、处理程序和其他对象都是数据，因此它们也可以使用 Vault 进行加密。 如果您不想公开您正在使用的变量，您可以将单个任务文件完全加密。&lt;/p>
+&lt;p>该程序加密文件的逻辑是通过管理员输入的密码，对文件进行加密，若想解密，也需要相同的密码才可以解密。与传统意义上通过算法加密的逻辑不太一样。&lt;/p>
+&lt;h2 id="syntax语法-1">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>ansible-vault COMMAND&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>COMMAND&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>create&lt;/li>
+&lt;li>decrypt&lt;/li>
+&lt;li>edit&lt;/li>
+&lt;li>view&lt;/li>
+&lt;li>encrypt&lt;/li>
+&lt;li>encrypt_string&lt;/li>
+&lt;li>rekey&lt;/li>
+&lt;/ul>
+&lt;h1 id="ansible-inventory">ansible-inventory&lt;/h1>
+&lt;p>显示、转存 Ansible Inventory 信息。默认输出 JSON 格式信息&lt;/p>
+&lt;h2 id="syntax语法-2">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>ansible-inventory OPTIONS &amp;lt;&amp;ndash;list] | &amp;ndash;host HOST | &amp;ndash;graph&amp;gt;&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;list&lt;/strong> # 输出所有主机信息&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;host &lt;!-- raw HTML omitted -->&lt;/strong> # 输出指定主机信息&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;graph&lt;/strong> #&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>OPTIONS&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;export&lt;/strong> # 使用 &amp;ndash;list 时，优化输出内容，以便进行导出；而不是准确表示 Ansible 如何处理清单文件
+&lt;ul>
+&lt;li>用人话说：如果不加 &amp;ndash;export，那么当多个主机共享了 1 个变量时，输出的主机信息，会给每个主机都添加这个变量。不利于人类阅读与维护&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>-i, &amp;ndash;inventory &lt;!-- raw HTML omitted -->&lt;/strong> # 指定主机清单或逗号分割的主机列表&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;output &amp;lt;/PATH/TO/FILE&amp;gt;&lt;/strong> # 使用 &amp;ndash;list 时，将输出的内容保存到指定文件中，而不是输出到标准输出&lt;/li>
+&lt;li>&lt;strong>-y, &amp;ndash;yaml&lt;/strong> # 使用 YAML 格式输出信息&lt;/li>
+&lt;/ul>
+&lt;h2 id="example-1">EXAMPLE&lt;/h2>
+&lt;p>将 Inventory 文件以 YAML 格式输出并保存到文件&lt;/p>
+&lt;ul>
+&lt;li>ansible-inventory -i inventory &amp;ndash;yaml &amp;ndash;list &amp;ndash;output dest_inventory.yaml &amp;ndash;export&lt;/li>
+&lt;/ul></description></item><item><title>Docs: Ansible 配置文件详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/ansible-%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;/blockquote>
+&lt;p>Ansible 的配置文件使用 INI 语法书写&lt;/p>
+&lt;h1 id="defaults">[defaults]&lt;/h1>
+&lt;p>&lt;strong>deprecation_warnings = &lt;!-- raw HTML omitted -->&lt;/strong> # 是否显示某些功能的弃用警告。&lt;code>默认值：TRUE&lt;/code>
+&lt;strong>host_key_checking = &lt;!-- raw HTML omitted -->&lt;/strong> # 主机 SSH 密钥检查。&lt;code>默认值：TRUE&lt;/code>。如果启用检查，则对从未 ssh 登录过的主机执行任务将会失败。
+&lt;strong>inventory = /etc/ansible/hosts&lt;/strong> # 指定 ansible 运行时所用的主机清单路径。默认路径为/etc/ansible/hosts&lt;/p>
+&lt;ul>
+&lt;li>Note：可以指定文件或者路径，当指定路径时，则会从该路径下所有文件中读取 host 信息&lt;/li>
+&lt;/ul>
+&lt;h1 id="inventory">[inventory]&lt;/h1>
+&lt;h1 id="privilege_escalation-权限提升部分">[privilege_escalation] 权限提升部分&lt;/h1>
+&lt;p>&lt;strong>become=&lt;!-- raw HTML omitted -->&lt;/strong> # 是否启用以指定用户执行命令。&lt;code>默认值：False&lt;/code>
+&lt;strong>become_method=&lt;!-- raw HTML omitted -->&lt;/strong> # 提升权限的方式。&lt;code>默认值：sudo&lt;/code>
+&lt;strong>become_user=&lt;!-- raw HTML omitted -->&lt;/strong> # 提升权限所使用的&lt;code>默认值：root&lt;/code>
+&lt;strong>become_ask_pass=&lt;!-- raw HTML omitted -->&lt;/strong> # &lt;code>默认值：True&lt;/code>&lt;/p>
+&lt;h1 id="paramiko_connection">[paramiko_connection]&lt;/h1>
+&lt;h1 id="ssh_connection">[ssh_connection]&lt;/h1>
+&lt;p>&lt;strong>transfer_method = &lt;!-- raw HTML omitted -->&lt;/strong> # 传输文件的机制。&lt;code>默认值：smart&lt;/code>。该指令代替旧版的 scp_if_ssh 指令&lt;/p>
+&lt;ul>
+&lt;li>sftp # 仅使用 sftp&lt;/li>
+&lt;li>scp # 仅使用 scp&lt;/li>
+&lt;li>piped # 仅使用 piped&lt;/li>
+&lt;li>smart # 按照顺序尝试 sftp、scp、piped&lt;/li>
+&lt;/ul>
+&lt;h1 id="persistent_connection">[persistent_connection]&lt;/h1>
+&lt;h1 id="accelerate">[accelerate]&lt;/h1>
+&lt;h1 id="selinux">[selinux]&lt;/h1>
+&lt;h1 id="colors">[colors]&lt;/h1>
+&lt;h1 id="diff">[diff]&lt;/h1></description></item><item><title>Docs: Inventory 配置文件详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/inventory-%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/inventory-%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html">官方文档,用户指南-如何建立你的 Inventory&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Ansible 可同时操作属于一个组的多台主机,组和主机之间的关系通过 Inventory 文件配置。默认的文件路径为 /etc/ansible/hosts，也可以在 &lt;code>ansible&lt;/code>、&lt;code>ansible-playbook&lt;/code> 命令中使用 -i 选项指定其他的 Inventory 文件。&lt;/p>
+&lt;p>除默认文件外,你还可以同时使用多个 inventory 文件(后面会讲到),也可以从动态源,或云上拉取 inventory 配置信息.详见 动态 Inventory.&lt;/p>
+&lt;h2 id="inventory-文件格式">Inventory 文件格式&lt;/h2>
+&lt;p>最常见的格式是 INI 和 YAML 格式，下面这是一个 INI 格式的 Inventory 示例&lt;/p>
+&lt;pre>&lt;code># 例1:定义一个单独的主机。未分组的机器。Note:需要在“例2”中中括号定义组之前指定
+green.example.com
+192.168.100.1
+# 例2:定义一个主机组。组名为webservers的主机集合
+[webservers]
+alpha.example.org
+192.168.1.100
+# 再定义一个主机组。组名为dbservers的主机集合
+[dbservers]
+192.168.2.100
+# 定义一个主机的另一种方式。使用正则表达式来指定多个主机
+www[001:006].example.com #www001.example.com一直到www006.example.com一共6台主机
+db-[a:f]-node.example.com
+# 可以在主机ip或主机名后面添加参数，以此来控制Ansible与远程主机的交互方式。
+# 详细的参数信息见官网：https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#connecting-to-hosts-behavioral-inventory-parameters
+# 指定该主机要执行操作的主机ip、用户名和密码
+www.desistdaydream.com ansible_host=10.10.100.200 ansible_user=&amp;quot;root&amp;quot; ansible_password=&amp;quot;my@password&amp;quot;
+# 例3:组的引用,可以把一个或多个组作为另一个组的子成员。all_host 组包含 webservers 与 dbservers 两个组中所有的 hosts
+[all_host:children]
+webservers
+dbservers
+&lt;/code>&lt;/pre>
+&lt;p>Note：该文件的第一列为一般推荐使用主机名来表示，如果需要指定该主机的 ip 地址，则使用 ansbile_ssh_host 或者 ansible_host 参数来指定 ip。&lt;/p>
+&lt;p>因为，Ansible 默认变量 inventory_hostname 的值为 inventory 文件中第一列的内容，还有另一个变量是 inventory_hostname_short ，这个变量的值是主机名的短格式&lt;/p>
+&lt;p>所以，在 Ansbile 里，自动就会将第一列认定为主机名，如果使用 ip 作为第一列的表示形式，那么与 Ansible 理念不符(至于为什么还可以用 ip 表示，可能是为了大家方便，所以第一列才可以使用 ip 的吧~~~)&lt;/p>
+&lt;p>对应的 YAML 格式 Inventory 文件示例：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 定义一个名为 all_host 的组，通过 children 字段把其他组引入&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">all_host&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 例:组的引用,可以把一个或多个组作为另一个组的子成员。all_host 组包含 webservers 与 dbservers 两个组中所有的 hosts&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">children&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 例:定义一个主机组。组名为 dbservers 的主机集合&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dbservers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hosts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">192.168.2.100&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 定义一个主机的另一种方式。使用正则表达式来指定多个主机&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">db-[a:f]-node.example.com&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">www[001:006].example.com&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 可以在主机ip或主机名后面添加参数，以此来控制Ansible与远程主机的交互方式。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 详细的参数信息见官网：https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#connecting-to-hosts-behavioral-inventory-parameters&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 指定该主机要执行操作的主机ip、用户名和密码&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">www.desistdaydream.com&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ansible_host&lt;/span>: &lt;span style="color:#ae81ff">10.10.100.200&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ansible_password&lt;/span>: &lt;span style="color:#ae81ff">my@password&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ansible_user&lt;/span>: &lt;span style="color:#ae81ff">root&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 例:定义一个主机组。组名为 webservers 的主机集合&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">webservers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hosts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">192.168.1.100&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">alpha.example.org&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 例:定义一个单独的主机。未分组的机器。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">ungrouped&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hosts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">192.168.100.1&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">green.example.com&lt;/span>:
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="主机与组">主机与组&lt;/h2>
+&lt;p>/etc/ansible/hosts 文件使用 INI 语法书写:&lt;/p>
+&lt;pre>&lt;code>mail.example.com
+[webservers]
+foo.example.com
+bar.example.com
+[dbservers]
+one.example.com
+two.example.com
+three.example.com
+&lt;/code>&lt;/pre>
+&lt;p>这里的 &lt;code>[]&lt;/code> 中的字符是组名，用于对系统进行分类,便于对不同系统进行个别的管理。&lt;/p>
+&lt;p>一个系统可以属于不同的组,比如一台服务器可以同时属于 webserver 组 和 dbserver 组.这时属于两个组的变量都可以为这台主机所用,至于变量的优先级关系将于以后的章节中讨论.&lt;/p>
+&lt;p>如果有主机的 SSH 端口不是标准的 22 端口,可在主机名之后加上端口号,用冒号分隔.SSH 配置文件中列出的端口号不会在 paramiko 连接中使用,会在 openssh 连接中使用.&lt;/p>
+&lt;p>端口号不是默认设置时,可明确的表示为:&lt;/p>
+&lt;pre>&lt;code>badwolf.example.com:5309
+&lt;/code>&lt;/pre>
+&lt;p>假设你有一些静态 IP 地址,希望设置一些别名,但不是在系统的 host 文件中设置,又或者你是通过隧道在连接,那么可以设置如下:&lt;/p>
+&lt;pre>&lt;code>jumper ansible_ssh_port=5555 ansible_ssh_host=192.168.1.50
+&lt;/code>&lt;/pre>
+&lt;p>在这个例子中,通过 “jumper” 别名,会连接 192.168.1.50:5555.记住,这是通过 inventory 文件的特性功能设置的变量. 一般而言,这不是设置变量(描述你的系统策略的变量)的最好方式.后面会说到这个问题.&lt;/p>
+&lt;p>一组相似的 hostname , 可简写如下:&lt;/p>
+&lt;pre>&lt;code>[webservers]
+www[01:50].example.com
+&lt;/code>&lt;/pre>
+&lt;p>数字的简写模式中,01:50 也可写为 1:50,意义相同.你还可以定义字母范围的简写模式:&lt;/p>
+&lt;pre>&lt;code>[databases]
+db-[a:f].example.com
+&lt;/code>&lt;/pre>
+&lt;p>对于每一个 host,你还可以选择连接类型和连接用户名:&lt;/p>
+&lt;pre>&lt;code>[targets]
+localhost ansible_connection=local
+other1.example.com ansible_connection=ssh ansible_ssh_user=mpdehaan
+other2.example.com ansible_connection=ssh ansible_ssh_user=mdehaan
+&lt;/code>&lt;/pre>
+&lt;p>所有以上讨论的对于 inventory 文件的设置是一种速记法,后面我们会讨论如何将这些设置保存为 ‘host_vars’ 目录中的独立的文件.&lt;/p>
+&lt;h3 id="默认组">默认组&lt;/h3>
+&lt;p>Inventory 文件中有两个默认的组，名称为：&lt;code>all&lt;/code> 和 &lt;code>ungrouped&lt;/code>(这两个名称是隐藏的)。all 组包含所有主机，ungrouped 组包含除了 all 有之外没有属组的主机。&lt;/p>
+&lt;p>每个主机至少属于 2 个组&lt;/p>
+&lt;ul>
+&lt;li>all 和 ungrouped&lt;/li>
+&lt;li>all 和 某组&lt;/li>
+&lt;/ul>
+&lt;h2 id="主机变量">主机变量&lt;/h2>
+&lt;p>前面已经提到过,分配变量给主机很容易做到,这些变量定义后可在 playbooks 中使用:&lt;/p>
+&lt;pre>&lt;code>[atlanta]
+host1 http_port=80 maxRequestsPerChild=808
+host2 http_port=303 maxRequestsPerChild=909
+&lt;/code>&lt;/pre>
+&lt;h2 id="组变量">组变量&lt;/h2>
+&lt;p>也可以定义属于整个组的变量:&lt;/p>
+&lt;pre>&lt;code>[atlanta]
+host1
+host2
+[atlanta:vars]
+ntp_server=ntp.atlanta.example.com
+&lt;/code>&lt;/pre>
+&lt;p>把一个组作为另一个组的子成员&lt;/p>
+&lt;p>可以把一个组作为另一个组的子成员,以及分配变量给整个组使用. 这些变量可以给 /usr/bin/ansible-playbook 使用,但不能给 /usr/bin/ansible 使用:&lt;/p>
+&lt;pre>&lt;code>[atlanta]
+host1
+host2
+[raleigh]
+host2
+host3
+[southeast:children]
+atlanta
+raleigh
+[southeast:vars]
+some_server=foo.southeast.example.com
+halon_system_timeout=30
+self_destruct_countdown=60
+escape_pods=2
+[usa:children]
+southeast
+northeast
+southwest
+northwest
+&lt;/code>&lt;/pre>
+&lt;p>如果我们需要存储一个列表或 hash 值，或者更喜欢把 host 和 group 的变量分开配置，请看下一节的说明.&lt;/p>
+&lt;h1 id="组织-host_vars主机变量-和-group_vars组变量">组织 host_vars(主机变量) 和 group_vars(组变量)&lt;/h1>
+&lt;p>在 Inventory 主文件中保存所有的变量并不是最佳的方式。我们通常在&lt;strong>独立的文件&lt;/strong>中定义这些变量，这些独立文件与 inventory 文件保持关联. 不同于 inventory 文件(INI 格式)，这些独立文件的格式为 YAML。&lt;/p>
+&lt;p>假设有一个主机名为 ‘foosball’, 主机同时属于两个组&lt;/p>
+&lt;ul>
+&lt;li>raleigh&lt;/li>
+&lt;li>webservers&lt;/li>
+&lt;/ul>
+&lt;p>那么以下配置文件中的变量可以为 ‘foosball’ 主机所用.依次为 ‘raleigh’ 的组变量,’webservers’ 的组变量,’foosball’ 的主机变量:&lt;/p>
+&lt;pre>&lt;code>/etc/ansible/group_vars/raleigh
+/etc/ansible/group_vars/webservers
+/etc/ansible/host_vars/foosball
+&lt;/code>&lt;/pre>
+&lt;blockquote>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>group_vars/&lt;/code> 目录下文件名必须是&lt;strong>组名&lt;/strong>才可以将变量的值应用相同组名的组中的主机
+&lt;ul>
+&lt;li>如上所示：group_vars/raleigh 中的组变量适用于 raleigh 组。&lt;/li>
+&lt;li>文件名也可以使用 all 和 ungrouped 用于为所有主机或所有未分组的主机定义变量。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>举例来说,假设你有一些主机,属于不同的数据中心,并依次进行划分.每一个数据中心使用一些不同的服务器.比如 ntp 服务器, database 服务器等等. 那么 ‘raleigh’ 这个组的组变量定义在文件 ‘/etc/ansible/group_vars/raleigh’ 之中,可能类似这样:&lt;/p>
+&lt;pre>&lt;code>---
+ntp_server: acme.example.org
+database_server: storage.example.org
+&lt;/code>&lt;/pre>
+&lt;p>这些定义变量的文件不是一定要存在,因为这是可选的特性.&lt;/p>
+&lt;p>还有更进一步的运用,你可以为一个主机,或一个组,创建一个目录,目录名就是主机名或组名.目录中的可以创建多个文件, 文件中的变量都会被读取为主机或组的变量.如下 ‘raleigh’ 组对应于 /etc/ansible/group_vars/raleigh/ 目录,其下有两个文件 db_settings 和 cluster_settings, 其中分别设置不同的变量:&lt;/p>
+&lt;pre>&lt;code>/etc/ansible/group_vars/raleigh/db_settings
+/etc/ansible/group_vars/raleigh/cluster_settings
+&lt;/code>&lt;/pre>
+&lt;p>‘raleigh’ 组下的所有主机,都可以使用 ‘raleigh’ 组的变量.当变量变得太多时,分文件定义变量更方便我们进行管理和组织. 还有一个方式也可参考,详见 Ansible Vault 关于组变量的部分. 注意,分文件定义变量的方式只适用于 Ansible 1.4 及以上版本.&lt;/p>
+&lt;p>我们可以将 &lt;code>group_vars/&lt;/code> 和 &lt;code>host_vars/&lt;/code> 目录添加到 playbook 目录下. 如果两个目录下都存在,那么 playbook 目录下的配置会覆盖 inventory 目录的配置.&lt;/p>
+&lt;p>把我们的 Inventory 文件 和 变量 放入 git repo 中,以便跟踪他们的更新,这是一种非常推荐的方式.&lt;/p>
+&lt;h1 id="主机匹配模式">主机匹配模式&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/intro_patterns.html">官方文档，用户指南-传统目录-模式：针对主机和组&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>主机列表的正则匹配
+ansible 支持主机列表的正则匹配&lt;/p>
+&lt;ul>
+&lt;li>全量: &lt;code>all/*&lt;/code>&lt;/li>
+&lt;li>逻辑或: &lt;code>:&lt;/code>&lt;/li>
+&lt;li>逻辑非: &lt;code>!&lt;/code>&lt;/li>
+&lt;li>逻辑与: &lt;code>＆&lt;/code>&lt;/li>
+&lt;li>切片： &lt;code>[]&lt;/code>&lt;/li>
+&lt;li>正则匹配： 以 &lt;code>~&lt;/code> 开头&lt;/li>
+&lt;/ul>
+&lt;p>ansible all -m ping #所有默认 inventory 文件中的机器
+ansible &amp;ldquo;&lt;em>&amp;rdquo; -m ping #同上
+ansible 121.28.13.&lt;/em> -m ping #所有 122.28.13.X 机器
+ansible web1:web2 -m ping #所有属于组 web1 或属于 web2 的机器
+ansible web1:!web2 -m ping #属于组 web1，但不属于 web2 的机器
+ansible web1&amp;amp;web2 -m ping #属于组 web1 又属于 web2 的机器
+ansible webserver[0] -m ping #属于组 webserver 的第 1 台机器
+ansible webserver[0:5] -m ping #属于组 webserver 的第 1 到 4 台机器
+ansible &amp;ldquo;~(beta|web).example.(com|org)&amp;rdquo; -m ping
+&lt;a href="https://blog.51cto.com/kusorz/1936708">
+&lt;/a>&lt;/p>
+&lt;h1 id="inventory-参数详解">Inventory 参数详解&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html#connecting-to-hosts-behavioral-inventory-parameters">官方文档,用户指南-传统目录-如何构建你的 Inventory-连接到主机:Inventory 参数&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>如同前面提到的,通过设置下面的参数,可以控制 ansible 与远程主机的交互方式,&lt;/p>
+&lt;p>ansible_connection #指定 ansible 与远程主机的 connector(连接器)，默认为 ssh 的 smart 类型。&amp;lsquo;smart&amp;rsquo; 方式会根据是否支持 ControlPersist, 来判断&amp;rsquo;ssh&amp;rsquo; 方式是否可行.&lt;/p>
+&lt;ul>
+&lt;li>smart、ssh、paramiko #这三种类型都是 ssh 连接器下的类型。默认为 smart&lt;/li>
+&lt;li>local&lt;/li>
+&lt;li>docker&lt;/li>
+&lt;/ul>
+&lt;p>General 通用连接参数&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>ansible_host&lt;/strong> # 将要连接的远程主机名.可以设为 ip&lt;/li>
+&lt;li>&lt;strong>ansible_port&lt;/strong> # 将要连接的远程主机端口号.默认端口为 22&lt;/li>
+&lt;li>&lt;strong>ansible_user&lt;/strong> # 将要连接的远程主机的用户名&lt;/li>
+&lt;li>&lt;strong>ansible_password&lt;/strong> # 将要连接的远程主机的密码(这种方式并不安全,我们强烈建议使用 &amp;ndash;ask-pass 或 -k 或 SSH 密钥)&lt;/li>
+&lt;/ul>
+&lt;p>只适用于 SSH 连接所用参数&lt;/p>
+&lt;ul>
+&lt;li>**ansible_sudo_pass **# sudo 密码(这种方式并不安全,我们强烈建议使用 &amp;ndash;ask-sudo-pass)&lt;/li>
+&lt;li>&lt;strong>ansible_sudo_exe&lt;/strong> # sudo 命令路径(适用于 1.8 及以上版本)&lt;/li>
+&lt;li>**ansible_ssh_private_key_file **# ssh 使用的私钥文件.适用于有多个密钥,而你不想使用 SSH 代理的情况.&lt;/li>
+&lt;li>**ansible_shell_type **#目标系统的 shell 类型.默认情况下,命令的执行使用 &amp;lsquo;sh&amp;rsquo; 语法,可设置为 &amp;lsquo;csh&amp;rsquo; 或 &amp;lsquo;fish&amp;rsquo;.&lt;/li>
+&lt;/ul>
+&lt;p>权限提升参数&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>ansible_becom=yes|no&lt;/strong> # 是否允许提升权限执行操作。&lt;/li>
+&lt;li>&lt;strong>ansible_become_user=&lt;!-- raw HTML omitted -->&lt;/strong> # 权限提升执行操作时所使用的用户。&lt;code>默认值：root&lt;/code>&lt;/li>
+&lt;li>&lt;strong>ansible_become_password=&lt;!-- raw HTML omitted -->&lt;/strong> # 权限提升执行操作时所使用的用户的密码。(这种方式并不安全,我们强烈建议使用 &amp;ndash;ask-become-pass 或 -K)&lt;/li>
+&lt;/ul>
+&lt;p>远程主机环境参数&lt;/p>
+&lt;ul>
+&lt;li>**ansible_python_interprete **# 目标主机的 python 路径.适用于的情况: 系统中有多个 Python, 或者命令路径不是&amp;quot;/usr/bin/python&amp;quot;,比如 *BSD, 或者 /usr/bin/python
+&lt;ul>
+&lt;li>不是 2.X 版本的 Python.我们不使用 &amp;ldquo;/usr/bin/env&amp;rdquo; 机制,因为这要求远程用户的路径设置正确,且要求 &amp;ldquo;python&amp;rdquo; 可执行程序名不可为 python 以外的名字(实际有可能名为 python26). 与 ansible_python_interpreter 的工作方式相同,可设定如 ruby 或 perl 的路径&amp;hellip;.&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>一个主机文件的例子:&lt;/p>
+&lt;pre>&lt;code>some_host ansible_ssh_port=2222 ansible_ssh_user=manager
+aws_host ansible_ssh_private_key_file=/home/example/.ssh/aws.pem
+freebsd_host ansible_python_interpreter=/usr/local/bin/python
+ruby_module_host ansible_ruby_interpreter=/usr/bin/ruby.1.9.3
+&lt;/code>&lt;/pre>
+&lt;h1 id="加密-inventory-中的密码">加密 Inventory 中的密码&lt;/h1>
+&lt;p>假如现在有如下主机清单&lt;/p>
+&lt;pre>&lt;code>[test]
+hw-cloud-xngy-jump-server-linux-2 ansible_host=192.168.0.249 ansible_port=10022
+[test:vars]
+ansible_user=lichenhao
+ansible_password={{ test_password }}
+ansible_become=yes
+ansible_become_password={{ test_become_password }}
+&lt;/code>&lt;/pre>
+&lt;p>其中的密码，是通过变量引用的，而这些变量所在的文件是可以加密的，加密后，即可保证操作便捷的同时保证安全性
+我们可以在 Inventory 目录下创建一个 group_vars 目录，并在 group_vars 目录创建一个与 主机组名称同名的文件，效果如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>../inventory/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── group_vars
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   └── test
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── test
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 group_vars/test 中，内容应该如下(其中的变量替换成自己的密码)：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>test_password: &lt;span style="color:#e6db74">${&lt;/span>PASSWORD&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>test_become_password: &lt;span style="color:#e6db74">${&lt;/span>PASSWORD&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>然后使用 &lt;code>ansible-vault encrypt group_vars/test&lt;/code> 命令加密该文件，加密后的文件内容如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ANSIBLE_VAULT;1.1;AES256
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">33393764306539363338646334396661323930396235303837663131366562303237666337643864&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>6132363363383364316561326263633564323134336466660a623732613966653036326433313666
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">36356665663962613630393063303361353839313839636332313332666264363265646331333965&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>3164393363643639650a306233376438386333343961313735666161396365663235343430666437
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">64306364646266363563333437323364356332393639323436396136343438383662653133323634&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">33613239316237353839313632383530303638393966363133383834363662353135306563323635&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">386564623764653966303265653136353165&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这时候，我们执行 Playbooks 时，如果不指定解密所需的密码，将会提示如下报错&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible-playbook -i ../inventory/ variables.yaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PLAY &lt;span style="color:#f92672">[&lt;/span>test&lt;span style="color:#f92672">]&lt;/span> *******************************************************************************************************************************************************************
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ERROR! Attempting to decrypt but no vault secrets found
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>只需要添加 &lt;code>--ask-vault-pass&lt;/code> 参数并输入密码，Ansible 即可在运行中解密文件，并获取其中的变量值&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~/projects/DesistDaydream/ansible/playbooks&lt;span style="color:#f92672">]&lt;/span>$ ansible-playbook -i ../inventory/ variables.yaml --ask-vault-pass
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Vault password:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PLAY &lt;span style="color:#f92672">[&lt;/span>test&lt;span style="color:#f92672">]&lt;/span> *******************************************************************************************************************************************************************
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>TASK &lt;span style="color:#f92672">[&lt;/span>variables : test&lt;span style="color:#f92672">]&lt;/span> *******************************************************************************************************************************************************
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>changed: &lt;span style="color:#f92672">[&lt;/span>hw-cloud-xngy-jump-server-linux-2&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>TASK &lt;span style="color:#f92672">[&lt;/span>variables : debug&lt;span style="color:#f92672">]&lt;/span> ******************************************************************************************************************************************************
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ok: &lt;span style="color:#f92672">[&lt;/span>hw-cloud-xngy-jump-server-linux-2&lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>: &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ansible_facts&amp;#34;&lt;/span>: &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;discovered_interpreter_python&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/usr/bin/python3&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;changed&amp;#34;&lt;/span>: true,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;cmd&amp;#34;&lt;/span>: &lt;span style="color:#f92672">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;whoami&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">]&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;delta&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0:00:00.002581&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;end&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2021-10-10 22:10:39.338994&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;failed&amp;#34;&lt;/span>: false,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;rc&amp;#34;&lt;/span>: 0,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;start&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2021-10-10 22:10:39.336413&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;stderr&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;stderr_lines&amp;#34;&lt;/span>: &lt;span style="color:#f92672">[]&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;stdout&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;root&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;stdout_lines&amp;#34;&lt;/span>: &lt;span style="color:#f92672">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;root&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Playbook</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/playbook/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/playbook/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://galaxy.ansible.com/">Ansible Galaxy&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>与通过命令行来执行 Ansbile 任务模式相比，Playbook 是 Ansible 执行任务的另一种方式，而且功能非常强大。&lt;/p>
+&lt;p>playbook 可以通过定义一个或多个文件，然后让 ansible 使用这些文件来完成一系列复杂的任务。如果说通过命令行是对多台设备执行一个任务，那么 Playbook 则是可以对多台设备按顺序执行不同任务。&lt;/p>
+&lt;p>playbook 称为&amp;quot;剧本&amp;quot;。每个 playbook 都包含一个或多个 plays(戏剧)。拿拍电影举例，一部电影会有一部“剧本 playbook”来描述电影情节，而整部电影都是由一场一场的“戏剧 play”拼凑起来的。每一场戏剧又需要执行多种“任务 task”(比如亲嘴、打架、聊天、上床~~~)&lt;/p>
+&lt;p>首先，下面是一个 playbook 的样例。这个 playbook 中包含两个 play，一个叫 webservers，另一个叫 databases。其中 webservers 中包含两个 tasks，一个要使用 yum 模块执行动作，另一个要使用 template 模块，向文件中写入内容&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">hosts&lt;/span>: &lt;span style="color:#ae81ff">webservers&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">remote_user&lt;/span>: &lt;span style="color:#ae81ff">root&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tasks&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ensure apache is at the latest version&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">yum&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">httpd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">state&lt;/span>: &lt;span style="color:#ae81ff">latest&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">write the apache config file&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">template&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">src&lt;/span>: &lt;span style="color:#ae81ff">/srv/httpd.j2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dest&lt;/span>: &lt;span style="color:#ae81ff">/etc/httpd.conf&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">hosts&lt;/span>: &lt;span style="color:#ae81ff">databases&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">remote_user&lt;/span>: &lt;span style="color:#ae81ff">root&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tasks&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ensure postgresql is at the latest version&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">yum&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">postgresql&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">state&lt;/span>: &lt;span style="color:#ae81ff">latest&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ensure that postgresql is started&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">service&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">postgresql&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">state&lt;/span>: { { &lt;span style="color:#ae81ff">item } }&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">with_items&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">started&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 &lt;a href="https://galaxy.ansible.com/">Ansible Galaxy&lt;/a> 网站上，我们可以找到大量的社区已经编写好的 Playbook。&lt;/p>
+&lt;h1 id="playbook-关键字">Playbook 关键字&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.ansible.com/ansible/latest/reference_appendices/playbooks_keywords.html">官方文档，参考与附录-Playbook 关键字&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>关键字是配置 Ansible 行为的几个来源之一。有关每个源的相对优先级的详细信息，请参阅控制 Ansible 的行为方式：优先级规则。
+hosts #
+tasks # 要在 Play 中执行的主要任务列表，这些任务在 &lt;code>roles 关键字定义的任务之后&lt;/code>，以及 &lt;code>post_tasks 关键字定义的任务之前&lt;/code> 执行
+roles #
+name #&lt;/p>
+&lt;h1 id="playbook-语法详解">Playbook 语法详解&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">hosts&lt;/span>: &lt;span style="color:#ae81ff">STRING&lt;/span> &lt;span style="color:#75715e">#指定该playbook要操作的主机&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tasks&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">STRING&lt;/span> &lt;span style="color:#75715e">#(可省略)指定该任务名称&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">MODULES&lt;/span>: &lt;span style="color:#75715e">#指定该任务所要使用的模块名称&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">PARAMETER&lt;/span>: &lt;span style="color:#75715e">#指定该模块参数&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>或&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">hosts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">roles&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">RoleNameOne&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">RoleNameTwo&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="block-将多个-task-合并为一个进行统一处理">block 将多个 task 合并为一个进行统一处理&lt;/h2>
+&lt;p>块允许对任务进行逻辑分组以及进行中的错误处理。您可以应用于单个任务的大多数内容（循环除外）都可以应用于块级，这也使设置任务通用的数据或指令变得更加容易。这并不意味着该指令会影响块本身，而是被块所包含的任务继承。即何时将应用于任务，而不是块本身。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">tasks&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">Install, configure, and start Apache&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">block&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">install httpd and memcached&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">yum&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">httpd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">memcached&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">state&lt;/span>: &lt;span style="color:#ae81ff">present&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">apply the foo config template&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">template&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">src&lt;/span>: &lt;span style="color:#ae81ff">templates/src.j2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dest&lt;/span>: &lt;span style="color:#ae81ff">/etc/foo.conf&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">start service bar and enable it&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">service&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">bar&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">state&lt;/span>: &lt;span style="color:#ae81ff">started&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">enabled&lt;/span>: &lt;span style="color:#66d9ef">True&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">when&lt;/span>: &lt;span style="color:#ae81ff">ansible_facts[&amp;#39;distribution&amp;#39;] == &amp;#39;CentOS&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">become&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">become_user&lt;/span>: &lt;span style="color:#ae81ff">root&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore_errors&lt;/span>: &lt;span style="color:#66d9ef">yes&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="handler-任务处理器用于在执行任务时附加额外的任务">handler 任务处理器，用于在执行任务时附加额外的任务&lt;/h2>
+&lt;p>官方文档：&lt;a href="https://docs.ansible.com/ansible/latest/user_guide/playbooks_intro.html?highlight=handlers#handlers-running-operations-on-change">https://docs.ansible.com/ansible/latest/user_guide/playbooks_intro.html?highlight=handlers#handlers-running-operations-on-change&lt;/a>&lt;/p>
+&lt;p>ansible 执行的每一个 task 都会报告该任务是否改变了目标，即 changed=true 或 changed=false。当 ansible 捕捉到 changed 为 true 的时候，则会触发一个 notify(通知)组件，该组件的作用就是用来调用指定的 handler。&lt;/p>
+&lt;p>handlers 示例：在 task 下定义 notify 来指定要调用的 handlers，需要与后面定义的 handlers 的 name 相同&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">tasks&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">copy template file to remote host&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">template&lt;/span>: &lt;span style="color:#ae81ff">src=https://desistdaydream.github.io/etc/ansible/nginx.conf.j2 dest=/etc/nginx/nginx.conf&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">notify&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">restart nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">test web page&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">copy&lt;/span>: &lt;span style="color:#ae81ff">src=nginx/index.html.j2 dest=/usr/share/nginx/html/index.html&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">notify&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">restart nginx&lt;/span> &lt;span style="color:#75715e"># 与handlers中的name相同才会调用成功&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>handlers 示例：定义 handlers，与定义 task 类似。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">handlers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">restart nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">service&lt;/span>: &lt;span style="color:#ae81ff">name=nginx state=restarted&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test web page&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">shell&lt;/span>: &lt;span style="color:#ae81ff">curl -I http://192.168.100.10/index.html | grep 200 || /bin/false&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面的示例表示：当执行 template 模块的任务时，如果捕捉到 changed=true，那么就会触发 notify，如果分发的 index.html 改变了，那么也重启 nginx(当然这是没必要的，仅做示例演示)&lt;/p>
+&lt;p>Note：notify 是在执行完一个 play 中所有 task 后被触发的，在一个 play 中也只会被触发一次。意味着如果一个 play 中有多个 task 出现了 changed=true，它也只会触发一次。例如上面的示例中，向 nginx 复制配置文件和复制 index.html 时如果都发生了改变，都会触发重启 apache 操作。但是只会在执行完 play 后重启一次，以避免多余的重启。&lt;/p>
+&lt;h2 id="playbook-中的错误处理">playbook 中的错误处理&lt;/h2>
+&lt;p>通常情况下, 当出现失败时 Ansible 会停止在宿主机上执行.有时候,你会想要继续执行下去.为此 你需要像这样编写任务:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">this will not be counted as a failure&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">command&lt;/span>: &lt;span style="color:#ae81ff">/bin/false&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore_errors&lt;/span>: &lt;span style="color:#66d9ef">yes&lt;/span> &lt;span style="color:#75715e"># 使用ignore_errors来忽略该任务失败后终止ansbile的效果&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Playbook</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/playbook/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/9.%E8%BF%90%E7%BB%B4/ansible/playbook/</guid><description/></item></channel></rss>

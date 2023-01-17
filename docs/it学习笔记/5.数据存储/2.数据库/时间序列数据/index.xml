@@ -1,0 +1,97 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 时间序列数据</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/</link><description>Recent content in 时间序列数据 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 通过 Prometheus 理解时间序列数据</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/%E9%80%9A%E8%BF%87-prometheus-%E7%90%86%E8%A7%A3%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/%E9%80%9A%E8%BF%87-prometheus-%E7%90%86%E8%A7%A3%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/</guid><description>
+&lt;h2 id="时间序列time-series简称-series--有序列系列的意思">时间序列(Time Series,简称 series) # 有序列、系列的意思&lt;/h2>
+&lt;p>比如有这么几种描述：一系列的书、这一系列操作、等等。可以通过这种语境来理解 series(比如可以这么描述：这一系列数据)。&lt;/p>
+&lt;p>首先需要明确一个概念：
+**Vector(向量)(**&lt;strong>也称为欧几里得向量、几何向量、矢量)&lt;/strong>，指具有大小和方向的 **Magnitude(量)**。它可以形象化地表示为带箭头的线段。箭头所指：代表向量的方向；线段长度：代表向量的大小。与向量对应的量叫做数量（物理学中称&lt;a href="https://baike.baidu.com/item/%E6%A0%87%E9%87%8F/1530843">标量&lt;/a>），数量（或标量）只有大小，没有方向。&lt;/p>
+&lt;p>Prometheus 会将所有采集到的样本数据以 &lt;strong>TimeSeries(时间序列)&lt;/strong> 的方式保存在内存数据库中，并且定时保存到硬盘上。TimeSeriesData 是按照&lt;strong>时间戳&lt;/strong>和&lt;strong>值&lt;/strong>的序列顺序存放的一条不规则有方向的线段，我们称之为 **Vector(向量)。**每条 TimeSeriesData 通过指标 **MetricsName(指标名称) **和一组 &lt;strong>LabelSet(标签集)&lt;/strong> 作为唯一标识符。如下所示，可以将 TimeSeries 理解为一个以时间为 x 轴、值为 y 轴的数字矩阵；而这个矩阵中的每一个点都是一个 &lt;strong>Sample(样本)&lt;/strong>，相同 MetricName 和 LabelSet 的多个样本之间连成的线段就是时间序列数据。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span> ^
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ . . . . . . . . . . . . . . . . . . - &amp;gt; node_cpu&lt;span style="color:#f92672">{&lt;/span>cpu&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;cpu0&amp;#34;&lt;/span>,mode&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;idle&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ . . . . . . . . . . . . . . . . . - &amp;gt; node_cpu&lt;span style="color:#f92672">{&lt;/span>cpu&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;cpu0&amp;#34;&lt;/span>,mode&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;system&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 值 . . . . . . . . . . . . . . . . . - &amp;gt; node_load1&lt;span style="color:#f92672">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ . . . . . . . . . . . . . . . . . - &amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> v . . . . . . . . . . . . . . . . . . - &amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &amp;lt;------------------ 时间 ----------------&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 TimeSeries(时间序列) 中的每一个点称为一个 Sample(样本)，&lt;strong>Sample(样本) &lt;strong>与&lt;/strong> Metric(指标) 构成了时间序列数据&lt;/strong>，每条时间序列数据由这两部分组成：&lt;/p>
+&lt;blockquote>
+&lt;p>下面这个例子可以看到，Prometheus 返回的时间序列数据主要有两个字段，resultType(结果类型) 与 result(结果)。result 就是这条时间序列的数据内容
+而 result 又分为 metric 和 value。其中 value 就是指的 sample&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 获取 prometheus_http_requests_total 指标。发送GET请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// http://172.38.40.244:30001/api/v1/query?query=prometheus_http_requests_total
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 获取如下结果
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;status&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;success&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;data&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;resultType&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;vector&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;result&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 下面就是这条时间序列的内容
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;metric&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;__name__&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;prometheus_http_requests_total&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;code&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;handler&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/api/v1/label/:name/values&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;instance&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;localhost:8080&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;job&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;prometheus&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;value&amp;#34;&lt;/span>: [&lt;span style="color:#ae81ff">1610437100.544&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;1&amp;#34;&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="metric指标就是-metric-字段">Metric(指标)，就是 metric 字段&lt;/h3>
+&lt;ul>
+&lt;li>一个 Metrics 由 MetricName 和 描述当前样本特征的 LabelSets(所有标签的集合) 组成。&lt;/li>
+&lt;/ul>
+&lt;h3 id="sample样本就是-value-字段">Sample(样本)，就是 value 字段&lt;/h3>
+&lt;p>样本中包括一个时间戳和一个样本值。有时也可以称为 指标值、时间序列值 等等，毕竟在响应体中，value 字段&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;strong>TimesTamp(时间戳)&lt;/strong>：一个精确到毫秒的时间戳。时间戳概念&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>SampleValue(样本值)&lt;/strong>： 一个 float64(也可以是别的类型) 的浮点型数据表示当前样本的值。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>样本也可以当作名词来描述这个序列的值的含义(i.e.一个数字代表了什么事物)。
+怎么好理解怎么来，根据对 prom 的学习的不同阶段会有不同的理解。&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&amp;lt;--------------- metric -----------------------------------------&amp;gt; &amp;lt;-timestamp -&amp;gt;&amp;lt;-value-&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">&amp;#34;__name__&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;http_request_total&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;method&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;get&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;statuscode&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;value&amp;#34;&lt;/span>:&lt;span style="color:#f92672">[&lt;/span>1568996888.215,&lt;span style="color:#e6db74">&amp;#34;2&amp;#34;&lt;/span>&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417561287 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">94334&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;404&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417560938 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">38473&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;404&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417561287 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">38544&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;POST&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417560938 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">4748&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;POST&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417561287 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">4785&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="metric指标-详解">Metric(指标) 详解&lt;/h2>
+&lt;p>指标的样式一：在形式上(输出到某个程序供人阅读)，指标(Metrics)都通过如下格式标识(指标名称(metrics name)和一组标签集(LabelSet))&lt;/p>
+&lt;pre>&lt;code>&amp;lt;Metrics Name&amp;gt;{&amp;lt;Label Name&amp;gt;=&amp;lt;Label Value&amp;gt;, ...}
+&lt;/code>&lt;/pre>
+&lt;p>指标的样式二：在时间序列数据库中，指标(Metrics)则是使用下面的格式标识&lt;/p>
+&lt;pre>&lt;code>{__name__=&amp;lt;Metrics Name&amp;gt;, &amp;lt;Label Name&amp;gt;=&amp;lt;Label Value&amp;gt;, ...}
+&lt;/code>&lt;/pre>
+&lt;ol>
+&lt;li>
+&lt;p>&lt;strong>Metrics Name(指标的名称)&lt;/strong> #可以反映被监控数据的含义（比如，http_request_total - 表示当前系统接收到的 HTTP 请求总量）。指标名称只能由 ASCII 字符、数字、下划线以及冒号组成并必须符合正则表达式[a-zA-Z_:][a-zA-Z0-9_:]*。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>LabelSet(标签集)&lt;/strong> #反映了当前样本的特征维度，通过这些维度 Prometheus 可以对样本数据进行过滤，聚合等。标签的名称只能由 ASCII 字符、数字以及下划线组成并满足正则表达式[a-zA-Z_][a-zA-Z0-9_]*。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>其中以__作为前缀的标签(两个_)，是获取到 metrics 后自动生成的原始标签。标签的值则可以包含任何 Unicode 编码的字符。在 Prometheus 的底层实现中指标名称实际上是以__name__=的形式保存在数据库中的，详见文章最后的图例&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>因此以下两种方式均表示的同一条 time-series ：&lt;/p>
+&lt;pre>&lt;code>api_http_requests_total{method=&amp;quot;POST&amp;quot;, handler=&amp;quot;/messages&amp;quot;}
+等同于：
+{__name__=&amp;quot;api_http_requests_total&amp;quot;, method=&amp;quot;POST&amp;quot;, handler=&amp;quot;/messages&amp;quot;}
+&lt;/code>&lt;/pre>
+&lt;p>在 Prometheus 的源码中也可以看到指标(Metric)对应的数据结构，如下所示：&lt;/p>
+&lt;pre>&lt;code>type Metric LabelSet
+type LabelSet map[LabelName]LabelValue
+type LabelName string
+type LabelValue string
+&lt;/code>&lt;/pre>
+&lt;h2 id="白话说">白话说&lt;/h2>
+&lt;p>有一条名叫内存使用率的时间序列数据，&amp;ldquo;内存使用率&amp;quot;就叫做 metric name。在 2019 年 10 月 1 日 00:00 的值为 100M，在 2019 年 10 月 1 日 01:00 的值为 110M。时间就是样本里的时间戳。值就是该样本的值。所有这些具有时间标识的值连在一起组成一条线，就叫时间序列数据，这条线的名字就叫“内存使用率”&lt;/p>
+&lt;p>可以看到，所谓的 Time Series，是使用一组标签作为唯一标识符的，可以这么说，所有标签都属于时间序列的名字，而不只是 name 字段。&lt;/p></description></item></channel></rss>

@@ -1,0 +1,634 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – kube-proxy(实现 Service 功能的组件)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/</link><description>Recent content in kube-proxy(实现 Service 功能的组件) on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: IPVS 模式原理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/ipvs-%E6%A8%A1%E5%BC%8F%E5%8E%9F%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/ipvs-%E6%A8%A1%E5%BC%8F%E5%8E%9F%E7%90%86/</guid><description>
+&lt;p>原文链接：&lt;a href="https://mp.weixin.qq.com/s/X6EL8GwWoi9_DyvhHL6Mlw">https://mp.weixin.qq.com/s/X6EL8GwWoi9_DyvhHL6Mlw&lt;/a>
+&lt;code>Kubernetes&lt;/code> 中的 &lt;code>Service&lt;/code> 就是一组同 label 类型 &lt;code>Pod&lt;/code> 的服务抽象，为服务提供了负载均衡和反向代理能力，在集群中表示一个微服务的概念。&lt;code>kube-proxy&lt;/code> 组件则是 Service 的具体实现，了解了 kube-proxy 的工作原理，才能洞悉服务之间的通信流程，再遇到网络不通时也不会一脸懵逼。
+kube-proxy 有三种模式：&lt;code>userspace&lt;/code>、&lt;code>iptables&lt;/code> 和 &lt;code>IPVS&lt;/code>，其中 &lt;code>userspace&lt;/code> 模式不太常用。&lt;code>iptables&lt;/code> 模式最主要的问题是在服务多的时候产生太多的 iptables 规则，非增量式更新会引入一定的时延，大规模情况下有明显的性能问题。为解决 &lt;code>iptables&lt;/code> 模式的性能问题，v1.11 新增了 &lt;code>IPVS&lt;/code> 模式（v1.8 开始支持测试版，并在 v1.11 GA），采用增量式更新，并可以保证 service 更新期间连接保持不断开。
+目前网络上关于 &lt;code>kube-proxy&lt;/code> 工作原理的文档几乎都是以 &lt;code>iptables&lt;/code> 模式为例，很少提及 &lt;code>IPVS&lt;/code>，本文就来破例解读 kube-proxy IPVS 模式的工作原理。为了理解地更加彻底，本文不会使用 Docker 和 Kubernetes，而是使用更加底层的工具来演示。
+我们都知道，Kubernetes 会为每个 Pod 创建一个单独的网络命名空间 (Network Namespace) ，本文将会通过手动创建网络命名空间并启动 HTTP 服务来模拟 Kubernetes 中的 Pod。
+本文的目标是通过模拟以下的 &lt;code>Service&lt;/code> 来探究 kube-proxy 的 &lt;code>IPVS&lt;/code> 和 &lt;code>ipset&lt;/code> 的工作原理：&lt;/p>
+&lt;pre>&lt;code>apiVersion: v1
+kind: Service
+metadata:
+name: app-service
+spec:
+clusterIP: 10.100.100.100
+selector:
+component: app
+ports:
+- protocol: TCP
+port: 8080
+targetPort: 8080
+&lt;/code>&lt;/pre>
+&lt;p>跟着我的步骤，最后你就可以通过命令 &lt;code>curl 10.100.100.100:8080&lt;/code> 来访问某个网络命名空间的 HTTP 服务。为了更好地理解本文的内容，推荐提前阅读以下的文章：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>How do Kubernetes and Docker create IP Addresses?!&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>iptables: How Docker Publishes Ports&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>iptables: How Kubernetes Services Direct Traffic to Pods&lt;/strong>&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;p>注意：本文所有步骤皆是在 Ubuntu 20.04 中测试的，其他 Linux 发行版请自行测试。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="准备实验环境">准备实验环境&lt;/h2>
+&lt;p>首先需要开启 Linux 的路由转发功能：&lt;/p>
+&lt;pre>&lt;code>$ sysctl --write net.ipv4.ip_forward=1
+&lt;/code>&lt;/pre>
+&lt;p>接下来的命令主要做了这么几件事：&lt;/p>
+&lt;ul>
+&lt;li>创建一个虚拟网桥 &lt;code>bridge_home&lt;/code>&lt;/li>
+&lt;li>创建两个网络命名空间 &lt;code>netns_dustin&lt;/code> 和 &lt;code>netns_leah&lt;/code>&lt;/li>
+&lt;li>为每个网络命名空间配置 DNS&lt;/li>
+&lt;li>创建两个 veth pair 并连接到 &lt;code>bridge_home&lt;/code>&lt;/li>
+&lt;li>给 &lt;code>netns_dustin&lt;/code> 网络命名空间中的 veth 设备分配一个 IP 地址为 &lt;code>10.0.0.11&lt;/code>&lt;/li>
+&lt;li>给 &lt;code>netns_leah&lt;/code> 网络命名空间中的 veth 设备分配一个 IP 地址为 &lt;code>10.0.021&lt;/code>&lt;/li>
+&lt;li>为每个网络命名空间设定默认路由&lt;/li>
+&lt;li>添加 iptables 规则，允许流量进出 &lt;code>bridge_home&lt;/code> 接口&lt;/li>
+&lt;li>添加 iptables 规则，针对 &lt;code>10.0.0.0/24&lt;/code> 网段进行流量伪装&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>$ ip link add dev bridge_home type bridge
+$ ip address add 10.0.0.1/24 dev bridge_home
+$ ip netns add netns_dustin
+$ mkdir -p /etc/netns/netns_dustin
+echo &amp;quot;nameserver 114.114.114.114&amp;quot; | tee -a /etc/netns/netns_dustin/resolv.conf
+$ ip netns exec netns_dustin ip link set dev lo up
+$ ip link add dev veth_dustin type veth peer name veth_ns_dustin
+$ ip link set dev veth_dustin master bridge_home
+$ ip link set dev veth_dustin up
+$ ip link set dev veth_ns_dustin netns netns_dustin
+$ ip netns exec netns_dustin ip link set dev veth_ns_dustin up
+$ ip netns exec netns_dustin ip address add 10.0.0.11/24 dev veth_ns_dustin
+$ ip netns add netns_leah
+$ mkdir -p /etc/netns/netns_leah
+echo &amp;quot;nameserver 114.114.114.114&amp;quot; | tee -a /etc/netns/netns_leah/resolv.conf
+$ ip netns exec netns_leah ip link set dev lo up
+$ ip link add dev veth_leah type veth peer name veth_ns_leah
+$ ip link set dev veth_leah master bridge_home
+$ ip link set dev veth_leah up
+$ ip link set dev veth_ns_leah netns netns_leah
+$ ip netns exec netns_leah ip link set dev veth_ns_leah up
+$ ip netns exec netns_leah ip address add 10.0.0.21/24 dev veth_ns_leah
+$ ip link set bridge_home up
+$ ip netns exec netns_dustin ip route add default via 10.0.0.1
+$ ip netns exec netns_leah ip route add default via 10.0.0.1
+$ iptables --table filter --append FORWARD --in-interface bridge_home --jump ACCEPT
+$ iptables --table filter --append FORWARD --out-interface bridge_home --jump ACCEPT
+$ iptables --table nat --append POSTROUTING --source 10.0.0.0/24 --jump MASQUERADE
+&lt;/code>&lt;/pre>
+&lt;p>在网络命名空间 &lt;code>netns_dustin&lt;/code> 中启动 HTTP 服务：&lt;/p>
+&lt;pre>&lt;code>$ ip netns exec netns_dustin python3 -m http.server 8080
+&lt;/code>&lt;/pre>
+&lt;p>打开另一个终端窗口，在网络命名空间 &lt;code>netns_leah&lt;/code> 中启动 HTTP 服务：&lt;/p>
+&lt;pre>&lt;code>$ ip netns exec netns_leah python3 -m http.server 8080
+&lt;/code>&lt;/pre>
+&lt;p>测试各个网络命名空间之间是否能正常通信：&lt;/p>
+&lt;pre>&lt;code>$ curl 10.0.0.11:8080
+$ curl 10.0.0.21:8080
+$ ip netns exec netns_dustin curl 10.0.0.21:8080
+$ ip netns exec netns_leah curl 10.0.0.11:8080
+&lt;/code>&lt;/pre>
+&lt;p>整个实验环境的网络拓扑结构如图：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tks8fg/1622427693866-6e003a1f-1ad3-4cdb-9d77-d29e432686cb.png" alt="">&lt;/p>
+&lt;h2 id="安装必要工具">安装必要工具&lt;/h2>
+&lt;p>为了便于调试 IPVS 和 ipset，需要安装两个 CLI 工具：&lt;/p>
+&lt;pre>&lt;code>$ apt install ipset ipvsadm --yes
+&lt;/code>&lt;/pre>
+&lt;blockquote>
+&lt;p>本文使用的 ipset 和 ipvsadm 版本分别为 &lt;code>7.5-1~exp1&lt;/code> 和 &lt;code>1:1.31-1&lt;/code>。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="通过-ipvs-来模拟-service">通过 IPVS 来模拟 Service&lt;/h2>
+&lt;p>下面我们使用 &lt;code>IPVS&lt;/code> 创建一个虚拟服务 (Virtual Service) 来模拟 Kubernetes 中的 Service :&lt;/p>
+&lt;pre>&lt;code>$ ipvsadm \
+--add-service \
+--tcp-service 10.100.100.100:8080 \
+--scheduler rr
+&lt;/code>&lt;/pre>
+&lt;ul>
+&lt;li>这里使用参数 &lt;code>--tcp-service&lt;/code> 来指定 TCP 协议，因为我们需要模拟的 Service 就是 TCP 协议。&lt;/li>
+&lt;li>IPVS 相比 iptables 的优势之一就是可以轻松选择调度算法，这里选择使用轮询调度算法。&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>目前 kube-proxy 只允许为所有 Service 指定同一个调度算法，未来将会支持为每一个 Service 选择不同的调度算法，详情可参考文章 &lt;strong>IPVS-Based In-Cluster Load Balancing Deep Dive&lt;/strong>。&lt;/p>
+&lt;/blockquote>
+&lt;p>创建了虚拟服务之后，还得给它指定一个后端的 &lt;code>Real Server&lt;/code>，也就是后端的真实服务，即网络命名空间 &lt;code>netns_dustin&lt;/code> 中的 HTTP 服务：&lt;/p>
+&lt;pre>&lt;code>$ ipvsadm \
+--add-server \
+--tcp-service 10.100.100.100:8080 \
+--real-server 10.0.0.11:8080 \
+--masquerading
+&lt;/code>&lt;/pre>
+&lt;p>该命令会将访问 &lt;code>10.100.100.100:8080&lt;/code> 的 TCP 请求转发到 &lt;code>10.0.0.11:8080&lt;/code>。这里的 &lt;code>--masquerading&lt;/code> 参数和 iptables 中的 &lt;code>MASQUERADE&lt;/code> 类似，如果不指定，IPVS 就会尝试使用路由表来转发流量，这样肯定是无法正常工作的。
+测试是否正常工作：&lt;/p>
+&lt;pre>&lt;code>$ curl 10.100.100.100:8080
+&lt;/code>&lt;/pre>
+&lt;p>实验成功，请求被成功转发到了后端的 HTTP 服务！&lt;/p>
+&lt;h2 id="在网络命名空间中访问虚拟服务">在网络命名空间中访问虚拟服务&lt;/h2>
+&lt;p>上面只是在 Host 的网络命名空间中进行测试，现在我们进入网络命名空间 &lt;code>netns_leah&lt;/code> 中进行测试：&lt;/p>
+&lt;pre>&lt;code>$ ip netns exec netns_leah curl 10.100.100.100:8080
+&lt;/code>&lt;/pre>
+&lt;p>哦豁，访问失败！
+要想顺利通过测试，只需将 &lt;code>10.100.100.100&lt;/code> 这个 IP 分配给一个虚拟网络接口。至于为什么要这么做，目前我还不清楚，我猜测可能是因为网桥 &lt;code>bridge_home&lt;/code> 不会调用 IPVS，而将虚拟服务的 IP 地址分配给一个网络接口则可以绕过这个问题。&lt;/p>
+&lt;h3 id="dummy-接口">dummy 接口&lt;/h3>
+&lt;p>当然，我们不需要将 IP 地址分配给任何已经被使用的网络接口，我们的目标是模拟 Kubernetes 的行为。Kubernetes 在这里创建了一个 dummy 接口，它和 loopback 接口类似，但是你可以创建任意多的 dummy 接口。它提供路由数据包的功能，但实际上又不进行转发。dummy 接口主要有两个用途：&lt;/p>
+&lt;ul>
+&lt;li>用于主机内的程序通信&lt;/li>
+&lt;li>由于 dummy 接口总是 up（除非显式将管理状态设置为 down），在拥有多个物理接口的网络上，可以将 service 地址设置为 loopback 接口或 dummy 接口的地址，这样 service 地址不会因为物理接口的状态而受影响。&lt;/li>
+&lt;/ul>
+&lt;p>看来 dummy 接口完美符合实验需求，那就创建一个 dummy 接口吧：&lt;/p>
+&lt;pre>&lt;code>$ ip link add dev dustin-ipvs0 type dummy
+&lt;/code>&lt;/pre>
+&lt;p>将虚拟 IP 分配给 dummy 接口 &lt;code>dustin-ipvs0&lt;/code> :&lt;/p>
+&lt;pre>&lt;code>$ ip addr add 10.100.100.100/32 dev dustin-ipvs0
+&lt;/code>&lt;/pre>
+&lt;p>到了这一步，仍然访问不了 HTTP 服务，还需要另外一个黑科技：&lt;code>bridge-nf-call-iptables&lt;/code>。在解释 &lt;code>bridge-nf-call-iptables&lt;/code> 之前，我们先来回顾下容器网络通信的基础知识。&lt;/p>
+&lt;h3 id="基于网桥的容器网络">基于网桥的容器网络&lt;/h3>
+&lt;p>Kubernetes 集群网络有很多种实现，有很大一部分都用到了 Linux 网桥:
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tks8fg/1622427693969-864ac608-471b-4243-aa61-91edf87335e9.png" alt="">&lt;/p>
+&lt;ul>
+&lt;li>每个 Pod 的网卡都是 veth 设备，veth pair 的另一端连上宿主机上的网桥。&lt;/li>
+&lt;li>由于网桥是虚拟的二层设备，同节点的 Pod 之间通信直接走二层转发，跨节点通信才会经过宿主机 eth0。&lt;/li>
+&lt;/ul>
+&lt;h3 id="service-同节点通信问题">Service 同节点通信问题&lt;/h3>
+&lt;p>不管是 iptables 还是 ipvs 转发模式，Kubernetes 中访问 Service 都会进行 DNAT，将原本访问 &lt;code>ClusterIP:Port&lt;/code> 的数据包 DNAT 成 Service 的某个 &lt;code>Endpoint (PodIP:Port)&lt;/code>，然后内核将连接信息插入 &lt;code>conntrack&lt;/code> 表以记录连接，目的端回包的时候内核从 &lt;code>conntrack&lt;/code> 表匹配连接并反向 NAT，这样原路返回形成一个完整的连接链路:
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tks8fg/1622427693893-08efc172-f3cd-47f5-9113-1de549b64fde.png" alt="">
+但是 Linux 网桥是一个虚拟的二层转发设备，而 iptables conntrack 是在三层上，所以如果直接访问同一网桥内的地址，就会直接走二层转发，不经过 conntrack:&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>Pod 访问 Service，目的 IP 是 Cluster IP，不是网桥内的地址，走三层转发，会被 DNAT 成 PodIP:Port。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>如果 DNAT 后是转发到了同节点上的 Pod，目的 Pod 回包时发现目的 IP 在同一网桥上，就直接走二层转发了，没有调用 conntrack，导致回包时没有原路返回 (见下图)。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tks8fg/1622427694095-e88c310d-8b54-41c5-a2ea-0ca145da36c7.png" alt="">由于没有原路返回，客户端与服务端的通信就不在一个 “频道” 上，不认为处在同一个连接，也就无法正常通信。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h3 id="开启-bridge-nf-call-iptables">开启 bridge-nf-call-iptables&lt;/h3>
+&lt;p>启用 &lt;code>bridge-nf-call-iptables&lt;/code> 这个内核参数 (置为 1)，表示 bridge 设备在二层转发时也去调用 iptables 配置的三层规则 (包含 conntrack)，所以开启这个参数就能够解决上述 Service 同节点通信问题。
+所以这里需要启用 &lt;code>bridge-nf-call-iptables&lt;/code> :&lt;/p>
+&lt;pre>&lt;code>$ modprobe br_netfilter
+$ sysctl --write net.bridge.bridge-nf-call-iptables=1
+&lt;/code>&lt;/pre>
+&lt;p>现在再来测试一下连通性：&lt;/p>
+&lt;pre>&lt;code>$ ip netns exec netns_leah curl 10.100.100.100:8080
+&lt;/code>&lt;/pre>
+&lt;p>终于成功了！&lt;/p>
+&lt;h2 id="开启-hairpin发夹弯模式">开启 Hairpin（发夹弯）模式&lt;/h2>
+&lt;p>虽然我们可以从网络命名空间 &lt;code>netns_leah&lt;/code> 中通过虚拟服务成功访问另一个网络命名空间 &lt;code>netns_dustin&lt;/code> 中的 HTTP 服务，但还没有测试过从 HTTP 服务所在的网络命名空间 &lt;code>netns_dustin&lt;/code> 中直接通过虚拟服务访问自己，话不多说，直接测一把：&lt;/p>
+&lt;pre>&lt;code>$ ip netns exec netns_dustin curl 10.100.100.100:8080
+&lt;/code>&lt;/pre>
+&lt;p>啊哈？竟然失败了，这又是哪里的问题呢？不要慌，开启 &lt;code>hairpin&lt;/code> 模式就好了。那么什么是 &lt;code>hairpin&lt;/code> 模式呢？这是一个网络虚拟化技术中常提到的概念，也即交换机端口的 VEPA 模式。这种技术借助物理交换机解决了虚拟机间流量转发问题。很显然，这种情况下，源和目标都在一个方向，所以就是从哪里进从哪里出的模式。
+怎么配置呢？非常简单，只需一条命令：&lt;/p>
+&lt;pre>&lt;code>$ brctl hairpin bridge_home veth_dustin on
+&lt;/code>&lt;/pre>
+&lt;p>再次进行测试：&lt;/p>
+&lt;pre>&lt;code>$ ip netns exec netns_dustin curl 10.100.100.100:8080
+&lt;/code>&lt;/pre>
+&lt;p>还是失败了。。。
+然后我花了一个下午的时间，终于搞清楚了启用混杂模式后为什么还是不能解决这个问题，因为混杂模式和下面的选项要一起启用才能对 IPVS 生效：&lt;/p>
+&lt;pre>&lt;code>$ sysctl --write net.ipv4.vs.conntrack=1
+&lt;/code>&lt;/pre>
+&lt;p>最后再测试一次：&lt;/p>
+&lt;pre>&lt;code>$ ip netns exec netns_dustin curl 10.100.100.100:8080
+&lt;/code>&lt;/pre>
+&lt;p>这次终于成功了，但我还是不太明白为什么启用 conntrack 能解决这个问题，有知道的大神欢迎留言告诉我！&lt;/p>
+&lt;h2 id="开启混杂模式">开启混杂模式&lt;/h2>
+&lt;p>如果想让所有的网络命名空间都能通过虚拟服务访问自己，就需要在连接到网桥的所有 veth 接口上开启 &lt;code>hairpin&lt;/code> 模式，这也太麻烦了吧。有一个办法可以不用配置每个 veth 接口，那就是开启网桥的混杂模式。
+什么是混杂模式呢？普通模式下网卡只接收发给本机的包（包括广播包）传递给上层程序，其它的包一律丢弃。混杂模式就是接收所有经过网卡的数据包，包括不是发给本机的包，即不验证 MAC 地址。
+&lt;strong>如果一个网桥开启了混杂模式，就等同于将所有连接到网桥上的端口（本文指的是 veth 接口）都启用了 &lt;code>hairpin&lt;/code> 模式&lt;/strong>。可以通过以下命令来启用 &lt;code>bridge_home&lt;/code> 的混杂模式：&lt;/p>
+&lt;pre>&lt;code>$ ip link set bridge_home promisc on
+&lt;/code>&lt;/pre>
+&lt;p>现在即使你把 veth 接口的 &lt;code>hairpin&lt;/code> 模式关闭：&lt;/p>
+&lt;pre>&lt;code>$ brctl hairpin bridge_home veth_dustin off
+&lt;/code>&lt;/pre>
+&lt;p>仍然可以通过连通性测试：&lt;/p>
+&lt;pre>&lt;code>$ ip netns exec netns_dustin curl 10.100.100.100:8080
+&lt;/code>&lt;/pre>
+&lt;h2 id="优化-masquerade">优化 MASQUERADE&lt;/h2>
+&lt;p>在文章开头准备实验环境的章节，执行了这么一条命令：&lt;/p>
+&lt;pre>&lt;code>$ iptables \
+--table nat \
+--append POSTROUTING \
+--source 10.0.0.0/24 \
+--jump MASQUERADE
+&lt;/code>&lt;/pre>
+&lt;p>这条 iptables 规则会对所有来自 &lt;code>10.0.0.0/24&lt;/code> 的流量进行伪装。然而 Kubernetes 并不是这么做的，它为了提高性能，只对来自某些具体的 IP 的流量进行伪装。
+为了更加完美地模拟 Kubernetes，我们继续改造规则，先把之前的规则删除：&lt;/p>
+&lt;pre>&lt;code>$ iptables \
+--table nat \
+--delete POSTROUTING \
+--source 10.0.0.0/24 \
+--jump MASQUERADE
+&lt;/code>&lt;/pre>
+&lt;p>然后添加针对具体 IP 的规则：&lt;/p>
+&lt;pre>&lt;code>$ iptables \
+--table nat \
+--append POSTROUTING \
+--source 10.0.0.11/32 \
+--jump MASQUERADE
+&lt;/code>&lt;/pre>
+&lt;p>果然，上面的所有测试都能通过。先别急着高兴，又有新问题了，现在只有两个网络命名空间，如果有很多个怎么办，每个网络命名空间都创建这样一条 iptables 规则？我用 IPVS 是为了啥？就是为了防止有大量的 iptables 规则拖垮性能啊，现在岂不是又绕回去了。
+不慌，继续从 Kubernetes 身上学习，使用 &lt;code>ipset&lt;/code> 来解决这个问题。先把之前的 iptables 规则删除：&lt;/p>
+&lt;pre>&lt;code>$ iptables \
+--table nat \
+--delete POSTROUTING \
+--source 10.0.0.11/32 \
+--jump MASQUERADE
+&lt;/code>&lt;/pre>
+&lt;p>然后使用 &lt;code>ipset&lt;/code> 创建一个集合 (set) ：&lt;/p>
+&lt;pre>&lt;code>$ ipset create DUSTIN-LOOP-BACK hash:ip,port,ip
+&lt;/code>&lt;/pre>
+&lt;p>这条命令创建了一个名为 &lt;code>DUSTIN-LOOP-BACK&lt;/code> 的集合，它是一个 &lt;code>hashmap&lt;/code>，里面存储了目标 IP、目标端口和源 IP。
+接着向集合中添加条目：&lt;/p>
+&lt;pre>&lt;code>$ ipset add DUSTIN-LOOP-BACK 10.0.0.11,tcp:8080,10.0.0.11
+&lt;/code>&lt;/pre>
+&lt;p>现在不管有多少网络命名空间，都只需要添加一条 iptables 规则：&lt;/p>
+&lt;pre>&lt;code>$ iptables \
+--table nat \
+--append POSTROUTING \
+--match set \
+--match-set DUSTIN-LOOP-BACK dst,dst,src \
+--jump MASQUERADE
+&lt;/code>&lt;/pre>
+&lt;p>网络连通性测试也没有问题：&lt;/p>
+&lt;pre>&lt;code>$ curl 10.100.100.100:8080
+$ ip netns exec netns_leah curl 10.100.100.100:8080
+$ ip netns exec netns_dustin curl 10.100.100.100:8080
+&lt;/code>&lt;/pre>
+&lt;h2 id="新增虚拟服务的后端">新增虚拟服务的后端&lt;/h2>
+&lt;p>最后，我们把网络命名空间 &lt;code>netns_leah&lt;/code> 中的 HTTP 服务也添加到虚拟服务的后端：&lt;/p>
+&lt;pre>&lt;code>$ ipvsadm \
+--add-server \
+--tcp-service 10.100.100.100:8080 \
+--real-server 10.0.0.21:8080 \
+--masquerading
+&lt;/code>&lt;/pre>
+&lt;p>再向 ipset 的集合 &lt;code>DUSTIN-LOOP-BACK&lt;/code> 中添加一个条目：&lt;/p>
+&lt;pre>&lt;code>$ ipset add DUSTIN-LOOP-BACK 10.0.0.21,tcp:8080,10.0.0.21
+&lt;/code>&lt;/pre>
+&lt;p>终极测试来了，试着多运行几次以下的测试命令：&lt;/p>
+&lt;pre>&lt;code>$ curl 10.100.100.100:8080
+&lt;/code>&lt;/pre>
+&lt;p>你会发现轮询算法起作用了：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tks8fg/1622427694199-d4b1438a-e6d2-4c38-91c7-d3b01c1efe22.png" alt="">&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>相信通过本文的实验和讲解，大家应该理解了 kube-proxy IPVS 模式的工作原理。在实验过程中，我们还用到了 ipset，它有助于解决在大规模集群中出现的 kube-proxy 性能问题。如果你对这篇文章有任何疑问，欢迎和我进行交流。&lt;/p>
+&lt;h2 id="参考文章">参考文章&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>为什么 kubernetes 环境要求开启 bridge-nf-call-iptables ?&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;h3 id="脚注">脚注&lt;/h3>
+&lt;p>[1]
+How do Kubernetes and Docker create IP Addresses?!: &lt;em>&lt;a href="https://dustinspecker.com/posts/how-do-kubernetes-and-docker-create-ip-addresses/">https://dustinspecker.com/posts/how-do-kubernetes-and-docker-create-ip-addresses/&lt;/a>&lt;/em>
+[2]
+iptables: How Docker Publishes Ports: &lt;em>&lt;a href="https://dustinspecker.com/posts/iptables-how-docker-publishes-ports/">https://dustinspecker.com/posts/iptables-how-docker-publishes-ports/&lt;/a>&lt;/em>
+[3]
+iptables: How Kubernetes Services Direct Traffic to Pods: &lt;em>&lt;a href="https://dustinspecker.com/posts/iptables-how-kubernetes-services-direct-traffic-to-pods/">https://dustinspecker.com/posts/iptables-how-kubernetes-services-direct-traffic-to-pods/&lt;/a>&lt;/em>
+[4]
+IPVS-Based In-Cluster Load Balancing Deep Dive: &lt;em>&lt;a href="https://kubernetes.io/blog/2018/07/09/ipvs-based-in-cluster-load-balancing-deep-dive/#ipvs-based-kube-proxy">https://kubernetes.io/blog/2018/07/09/ipvs-based-in-cluster-load-balancing-deep-dive/#ipvs-based-kube-proxy&lt;/a>&lt;/em>
+[5]
+为什么 kubernetes 环境要求开启 bridge-nf-call-iptables ?: &lt;em>&lt;a href="https://imroc.cc/post/202105/why-enable-bridge-nf-call-iptables/">https://imroc.cc/post/202105/why-enable-bridge-nf-call-iptables/&lt;/a>&lt;/em>&lt;/p>
+&lt;p>原文链接：&lt;strong>&lt;a href="https://dustinspecker.com/posts/ipvs-how-kubernetes-services-direct-traffic-to-pods/">https://dustinspecker.com/posts/ipvs-how-kubernetes-services-direct-traffic-to-pods/&lt;/a>&lt;/strong>&lt;/p></description></item><item><title>Docs: 基于 IPVS 的集群内负载平衡深入探讨</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/%E5%9F%BA%E4%BA%8E-ipvs-%E7%9A%84%E9%9B%86%E7%BE%A4%E5%86%85%E8%B4%9F%E8%BD%BD%E5%B9%B3%E8%A1%A1%E6%B7%B1%E5%85%A5%E6%8E%A2%E8%AE%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/%E5%9F%BA%E4%BA%8E-ipvs-%E7%9A%84%E9%9B%86%E7%BE%A4%E5%86%85%E8%B4%9F%E8%BD%BD%E5%B9%B3%E8%A1%A1%E6%B7%B1%E5%85%A5%E6%8E%A2%E8%AE%A8/</guid><description>
+&lt;p>参考：
+原文链接：&lt;a href="https://kubernetes.io/blog/2018/07/09/ipvs-based-in-cluster-load-balancing-deep-dive/">https://kubernetes.io/blog/2018/07/09/ipvs-based-in-cluster-load-balancing-deep-dive/&lt;/a>
+阳明,kubernetes 中的 ipvs：&lt;a href="https://www.qikqiak.com/post/how-to-use-ipvs-in-kubernetes/">https://www.qikqiak.com/post/how-to-use-ipvs-in-kubernetes/&lt;/a>&lt;/p>
+&lt;h2 id="introduction">Introduction&lt;/h2>
+&lt;p>Per &lt;a href="https://kubernetes.io/blog/2018/06/27/kubernetes-1.11-release-announcement/">the Kubernetes 1.11 release blog post &lt;/a>, we announced that IPVS-Based In-Cluster Service Load Balancing graduates to General Availability. In this blog, we will take you through a deep dive of the feature.&lt;/p>
+&lt;h2 id="what-is-ipvs">What Is IPVS?&lt;/h2>
+&lt;p>&lt;strong>IPVS&lt;/strong> (&lt;strong>IP Virtual Server&lt;/strong>) is built on top of the Netfilter and implements transport-layer load balancing as part of the Linux kernel.
+IPVS is incorporated into the LVS (Linux Virtual Server), where it runs on a host and acts as a load balancer in front of a cluster of real servers. IPVS can direct requests for TCP- and UDP-based services to the real servers, and make services of the real servers appear as virtual services on a single IP address. Therefore, IPVS naturally supports Kubernetes Service.&lt;/p>
+&lt;h2 id="why-ipvs-for-kubernetes">Why IPVS for Kubernetes?&lt;/h2>
+&lt;p>As Kubernetes grows in usage, the scalability of its resources becomes more and more important. In particular, the scalability of services is paramount to the adoption of Kubernetes by developers/companies running large workloads.
+Kube-proxy, the building block of service routing has relied on the battle-hardened iptables to implement the core supported Service types such as ClusterIP and NodePort. However, iptables struggles to scale to tens of thousands of Services because it is designed purely for firewalling purposes and is based on in-kernel rule lists.
+Even though Kubernetes already support 5000 nodes in release v1.6, the kube-proxy with iptables is actually a bottleneck to scale the cluster to 5000 nodes. One example is that with NodePort Service in a 5000-node cluster, if we have 2000 services and each services have 10 pods, this will cause at least 20000 iptable records on each worker node, and this can make the kernel pretty busy.
+On the other hand, using IPVS-based in-cluster service load balancing can help a lot for such cases. IPVS is specifically designed for load balancing and uses more efficient data structures (hash tables) allowing for almost unlimited scale under the hood.&lt;/p>
+&lt;h2 id="ipvs-based-kube-proxy">IPVS-based Kube-proxy&lt;/h2>
+&lt;h3 id="parameter-changes">Parameter Changes&lt;/h3>
+&lt;p>&lt;strong>Parameter: &amp;ndash;proxy-mode&lt;/strong> In addition to existing userspace and iptables modes, IPVS mode is configured via &lt;code>--proxy-mode=ipvs&lt;/code>. It implicitly uses IPVS NAT mode for service port mapping.
+&lt;strong>Parameter: &amp;ndash;ipvs-scheduler&lt;/strong>
+A new kube-proxy parameter has been added to specify the IPVS load balancing algorithm, with the parameter being &lt;code>--ipvs-scheduler&lt;/code>. If it’s not configured, then round-robin (rr) is the default value.&lt;/p>
+&lt;ul>
+&lt;li>rr: round-robin&lt;/li>
+&lt;li>lc: least connection&lt;/li>
+&lt;li>dh: destination hashing&lt;/li>
+&lt;li>sh: source hashing&lt;/li>
+&lt;li>sed: shortest expected delay&lt;/li>
+&lt;li>nq: never queue&lt;/li>
+&lt;/ul>
+&lt;p>In the future, we can implement Service specific scheduler (potentially via annotation), which has higher priority and overwrites the value.
+&lt;strong>Parameter: &lt;code>--cleanup-ipvs&lt;/code>&lt;/strong> Similar to the &lt;code>--cleanup-iptables&lt;/code> parameter, if true, cleanup IPVS configuration and IPTables rules that are created in IPVS mode.
+&lt;strong>Parameter: &lt;code>--ipvs-sync-period&lt;/code>&lt;/strong> Maximum interval of how often IPVS rules are refreshed (e.g. &amp;lsquo;5s&amp;rsquo;, &amp;lsquo;1m&amp;rsquo;). Must be greater than 0.
+&lt;strong>Parameter: &lt;code>--ipvs-min-sync-period&lt;/code>&lt;/strong> Minimum interval of how often the IPVS rules are refreshed (e.g. &amp;lsquo;5s&amp;rsquo;, &amp;lsquo;1m&amp;rsquo;). Must be greater than 0.
+&lt;strong>Parameter: &lt;code>--ipvs-exclude-cidrs&lt;/code>&lt;/strong> A comma-separated list of CIDR&amp;rsquo;s which the IPVS proxier should not touch when cleaning up IPVS rules because IPVS proxier can&amp;rsquo;t distinguish kube-proxy created IPVS rules from user original IPVS rules. If you are using IPVS proxier with your own IPVS rules in the environment, this parameter should be specified, otherwise your original rule will be cleaned.&lt;/p>
+&lt;h3 id="design-considerations">Design Considerations&lt;/h3>
+&lt;h4 id="ipvs-service-network-topology">IPVS Service Network Topology&lt;/h4>
+&lt;p>When creating a ClusterIP type Service, IPVS proxier will do the following three things:&lt;/p>
+&lt;ul>
+&lt;li>Make sure a dummy interface exists in the node, defaults to kube-ipvs0&lt;/li>
+&lt;li>Bind Service IP addresses to the dummy interface&lt;/li>
+&lt;li>Create IPVS virtual servers for each Service IP address respectively&lt;/li>
+&lt;/ul>
+&lt;p>Here comes an example:&lt;/p>
+&lt;pre>&lt;code># kubectl describe svc nginx-service
+Name: nginx-service
+...
+Type: ClusterIP
+IP: 10.102.128.4
+Port: http 3080/TCP
+Endpoints: 10.244.0.235:8080,10.244.1.237:8080
+Session Affinity: None
+# ip addr
+...
+73: kube-ipvs0: &amp;lt;BROADCAST,NOARP&amp;gt; mtu 1500 qdisc noop state DOWN qlen 1000
+link/ether 1a:ce:f5:5f:c1:4d brd ff:ff:ff:ff:ff:ff
+inet 10.102.128.4/32 scope global kube-ipvs0
+valid_lft forever preferred_lft forever
+# ipvsadm -ln
+IP Virtual Server version 1.2.1 (size=4096)
+Prot LocalAddress:Port Scheduler Flags
+-&amp;gt; RemoteAddress:Port Forward Weight ActiveConn InActConn
+TCP 10.102.128.4:3080 rr
+-&amp;gt; 10.244.0.235:8080 Masq 1 0 0
+-&amp;gt; 10.244.1.237:8080 Masq 1 0 0
+&lt;/code>&lt;/pre>
+&lt;p>Please note that the relationship between a Kubernetes Service and IPVS virtual servers is &lt;code>1:N&lt;/code>. For example, consider a Kubernetes Service that has more than one IP address. An External IP type Service has two IP addresses - ClusterIP and External IP. Then the IPVS proxier will create 2 IPVS virtual servers - one for Cluster IP and another one for External IP. The relationship between a Kubernetes Endpoint (each IP+Port pair) and an IPVS virtual server is &lt;code>1:1&lt;/code>.
+Deleting of a Kubernetes service will trigger deletion of the corresponding IPVS virtual server, IPVS real servers and its IP addresses bound to the dummy interface.&lt;/p>
+&lt;h4 id="port-mapping">Port Mapping&lt;/h4>
+&lt;p>There are three proxy modes in IPVS: NAT (masq), IPIP and DR. Only NAT mode supports port mapping. Kube-proxy leverages NAT mode for port mapping. The following example shows IPVS mapping Service port 3080 to Pod port 8080.&lt;/p>
+&lt;pre>&lt;code>TCP 10.102.128.4:3080 rr
+-&amp;gt; 10.244.0.235:8080 Masq 1 0 0
+-&amp;gt; 10.244.1.237:8080 Masq 1 0
+&lt;/code>&lt;/pre>
+&lt;h4 id="session-affinity">Session Affinity&lt;/h4>
+&lt;p>IPVS supports client IP session affinity (persistent connection). When a Service specifies session affinity, the IPVS proxier will set a timeout value (180min=10800s by default) in the IPVS virtual server. For example:&lt;/p>
+&lt;pre>&lt;code># kubectl describe svc nginx-service
+Name: nginx-service
+...
+IP: 10.102.128.4
+Port: http 3080/TCP
+Session Affinity: ClientIP
+# ipvsadm -ln
+IP Virtual Server version 1.2.1 (size=4096)
+Prot LocalAddress:Port Scheduler Flags
+-&amp;gt; RemoteAddress:Port Forward Weight ActiveConn InActConn
+TCP 10.102.128.4:3080 rr persistent 10800
+&lt;/code>&lt;/pre>
+&lt;h4 id="iptables--ipset-in-ipvs-proxier">Iptables &amp;amp; Ipset in IPVS Proxier&lt;/h4>
+&lt;p>IPVS is for load balancing and it can&amp;rsquo;t handle other workarounds in kube-proxy, e.g. packet filtering, hairpin-masquerade tricks, SNAT, etc.
+IPVS proxier leverages iptables in the above scenarios. Specifically, ipvs proxier will fall back on iptables in the following 4 scenarios:&lt;/p>
+&lt;ul>
+&lt;li>kube-proxy start with &amp;ndash;masquerade-all=true&lt;/li>
+&lt;li>Specify cluster CIDR in kube-proxy startup&lt;/li>
+&lt;li>Support Loadbalancer type service&lt;/li>
+&lt;li>Support NodePort type service&lt;/li>
+&lt;/ul>
+&lt;p>However, we don&amp;rsquo;t want to create too many iptables rules. So we adopt ipset for the sake of decreasing iptables rules. The following is the table of ipset sets that IPVS proxier maintains:&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>set name&lt;/th>
+&lt;th>members&lt;/th>
+&lt;th>usage&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>KUBE-CLUSTER-IP&lt;/td>
+&lt;td>All Service IP + port&lt;/td>
+&lt;td>masquerade for cases that &lt;code>masquerade-all=true&lt;/code> or &lt;code>clusterCIDR&lt;/code> specified&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>KUBE-LOOP-BACK&lt;/td>
+&lt;td>All Service IP + port + IP&lt;/td>
+&lt;td>masquerade for resolving hairpin issue&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>KUBE-EXTERNAL-IP&lt;/td>
+&lt;td>Service External IP + port&lt;/td>
+&lt;td>masquerade for packets to external IPs&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>KUBE-LOAD-BALANCER&lt;/td>
+&lt;td>Load Balancer ingress IP + port&lt;/td>
+&lt;td>masquerade for packets to Load Balancer type service&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>KUBE-LOAD-BALANCER-LOCAL&lt;/td>
+&lt;td>Load Balancer ingress IP + port with &lt;code>externalTrafficPolicy=local&lt;/code>&lt;/td>
+&lt;td>accept packets to Load Balancer with &lt;code>externalTrafficPolicy=local&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>KUBE-LOAD-BALANCER-FW&lt;/td>
+&lt;td>Load Balancer ingress IP + port with &lt;code>loadBalancerSourceRanges&lt;/code>&lt;/td>
+&lt;td>Drop packets for Load Balancer type Service with &lt;code>loadBalancerSourceRanges&lt;/code> specified&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>KUBE-LOAD-BALANCER-SOURCE-CIDR&lt;/td>
+&lt;td>Load Balancer ingress IP + port + source CIDR&lt;/td>
+&lt;td>accept packets for Load Balancer type Service with &lt;code>loadBalancerSourceRanges&lt;/code> specified&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>KUBE-NODE-PORT-TCP&lt;/td>
+&lt;td>NodePort type Service TCP port&lt;/td>
+&lt;td>masquerade for packets to NodePort(TCP)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>KUBE-NODE-PORT-LOCAL-TCP&lt;/td>
+&lt;td>NodePort type Service TCP port with &lt;code>externalTrafficPolicy=local&lt;/code>&lt;/td>
+&lt;td>accept packets to NodePort Service with &lt;code>externalTrafficPolicy=local&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>KUBE-NODE-PORT-UDP&lt;/td>
+&lt;td>NodePort type Service UDP port&lt;/td>
+&lt;td>masquerade for packets to NodePort(UDP)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>KUBE-NODE-PORT-LOCAL-UDP&lt;/td>
+&lt;td>NodePort type service UDP port with &lt;code>externalTrafficPolicy=local&lt;/code>&lt;/td>
+&lt;td>accept packets to NodePort Service with &lt;code>externalTrafficPolicy=local&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>In general, for IPVS proxier, the number of iptables rules is static, no matter how many Services/Pods we have.&lt;/p>
+&lt;h3 id="run-kube-proxy-in-ipvs-mode">Run kube-proxy in IPVS Mode&lt;/h3>
+&lt;p>Currently, local-up scripts, GCE scripts, and kubeadm support switching IPVS proxy mode via exporting environment variables (&lt;code>KUBE_PROXY_MODE=ipvs&lt;/code>) or specifying flag (&lt;code>--proxy-mode=ipvs&lt;/code>). Before running IPVS proxier, please ensure IPVS required kernel modules are already installed.&lt;/p>
+&lt;pre>&lt;code>ip_vs
+ip_vs_rr
+ip_vs_wrr
+ip_vs_sh
+nf_conntrack_ipv4
+&lt;/code>&lt;/pre>
+&lt;p>Finally, for Kubernetes v1.10, feature gate &lt;code>SupportIPVSProxyMode&lt;/code> is set to &lt;code>true&lt;/code> by default. For Kubernetes v1.11, the feature gate is entirely removed. However, you need to enable &lt;code>--feature-gates=SupportIPVSProxyMode=true&lt;/code> explicitly for Kubernetes before v1.10.&lt;/p>
+&lt;h2 id="get-involved">Get Involved&lt;/h2>
+&lt;p>The simplest way to get involved with Kubernetes is by joining one of the many &lt;a href="https://github.com/kubernetes/community/blob/master/sig-list.md">Special Interest Groups&lt;/a> (SIGs) that align with your interests. Have something you’d like to broadcast to the Kubernetes community? Share your voice at our weekly &lt;a href="https://github.com/kubernetes/community/blob/master/communication.md#weekly-meeting">community meeting&lt;/a>, and through the channels below.
+Thank you for your continued feedback and support. Post questions (or answer questions) on &lt;a href="http://stackoverflow.com/questions/tagged/kubernetes">Stack Overflow&lt;/a> Join the community portal for advocates on &lt;a href="http://k8sport.org/">K8sPort&lt;/a> Follow us on Twitter &lt;a href="https://twitter.com/kubernetesio">@Kubernetesio&lt;/a> for latest updates Chat with the community on &lt;a href="http://slack.k8s.io/">Slack&lt;/a> Share your Kubernetes &lt;a href="https://docs.google.com/a/linuxfoundation.org/forms/d/e/1FAIpQLScuI7Ye3VQHQTwBASrgkjQDSS5TP0g3AXfFhwSM9YpHgxRKFA/viewform">story&lt;/a>&lt;/p></description></item><item><title>Docs: 深入 kube-proxy ipvs 模式的 conn_reuse_mode 问题</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/%E6%B7%B1%E5%85%A5-kube-proxy-ipvs-%E6%A8%A1%E5%BC%8F%E7%9A%84-conn_reuse_mode-%E9%97%AE%E9%A2%98/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/%E6%B7%B1%E5%85%A5-kube-proxy-ipvs-%E6%A8%A1%E5%BC%8F%E7%9A%84-conn_reuse_mode-%E9%97%AE%E9%A2%98/</guid><description>
+&lt;p>在高并发、短连接的场景下，kube-proxy ipvs 存在 rs 删除失败或是延迟高的问题，社区也有不少 Issue 反馈，比如&lt;strong>kube-proxy ipvs conn_reuse_mode setting causes errors with high load from single client&lt;/strong>。文本对这些问题进行了梳理，试图介绍产生这些问题的内部原因。由于能力有限，其中涉及内核部分，只能浅尝辄止。&lt;/p>
+&lt;h2 id="背景">背景&lt;/h2>
+&lt;h3 id="端口重用">端口重用&lt;/h3>
+&lt;p>一切问题来源于端口重用。在 TCP 四次挥手中有个&lt;code>TIME_WAIT&lt;/code>的状态，作为先发送&lt;code>FIN&lt;/code>包的一端，在接收到对端发送的&lt;code>FIN&lt;/code>包后进入&lt;code>TIME_WAIT&lt;/code>，在经过&lt;code>2MSL&lt;/code>后才会真正关闭连接。&lt;code>TIME_WAIT&lt;/code>状态的存在，一来可以避免将之前连接的延迟报文，作为当前连接的报文处理；二是可以处理最后一个 ACK 丢失带来的问题。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/mo2k6r/1620787619057-62e254bb-bf63-4c3f-a453-14d99d185c20.png" alt="">
+而在短连接、高并发的场景下，会出现大量的&lt;code>TIME-WAIT&lt;/code>连接，导致资源无法及时释放。Linux 中内核参数&lt;code>net.ipv4.tcp_tw_reuse&lt;/code>提供了一种减少&lt;code>TIME-WAIT&lt;/code>连接的方式，可以将&lt;code>TIME-WAIT&lt;/code>连接的端口分配给新的 TCP 连接，来复用端口。&lt;/p>
+&lt;pre>&lt;code>tcp_tw_reuse - BOOLEAN
+Allow to reuse TIME-WAIT sockets for new connections when it is
+safe from protocol viewpoint. Default value is 0.
+It should not be changed without advice/request of technical
+experts.
+&lt;/code>&lt;/pre>
+&lt;h3 id="ipvs-如何处理端口重用">ipvs 如何处理端口重用？&lt;/h3>
+&lt;p>ipvs 对端口的复用策略主要由内核参数&lt;code>net.ipv4.vs.conn_reuse_mode&lt;/code>决定&lt;/p>
+&lt;pre>&lt;code>conn_reuse_mode - INTEGER
+1 - default
+Controls how ipvs will deal with connections that are detected
+port reuse. It is a bitmap, with the values being:
+0: disable any special handling on port reuse. The new
+connection will be delivered to the same real server that was
+servicing the previous connection. This will effectively
+disable expire_nodest_conn.
+bit 1: enable rescheduling of new connections when it is safe.
+That is, whenever expire_nodest_conn and for TCP sockets, when
+the connection is in TIME_WAIT state (which is only possible if
+you use NAT mode).
+bit 2: it is bit 1 plus, for TCP connections, when connections
+are in FIN_WAIT state, as this is the last state seen by load
+balancer in Direct Routing mode. This bit helps on adding new
+real servers to a very busy cluster.
+&lt;/code>&lt;/pre>
+&lt;p>当&lt;code>net.ipv4.vs.conn_reuse_mode=0&lt;/code>时，ipvs 不会对新连接进行重新负载，而是复用之前的负载结果，将新连接转发到原来的 rs 上；当&lt;code>net.ipv4.vs.conn_reuse_mode=1&lt;/code>时，ipvs 则会对新连接进行重新调度。
+相关的，还有一个内核参数&lt;code>net.ipv4.vs.expire_nodest_conn&lt;/code>，用于控制连接的 rs 不可用时的处理。在开启时，如果后端 rs 不可用，会立即结束掉该连接，使客户端重新发起新的连接请求；否则将数据包&lt;strong>silently drop&lt;/strong>，也就是 DROP 掉数据包但不结束连接，等待客户端的重试。
+另外，关于&lt;strong>destination 不可用&lt;/strong>的判断，是在 ipvs 执行删除&lt;code>vs&lt;/code>（在&lt;code>__ip_vs_del_service()&lt;/code>中实现）或删除&lt;code>rs&lt;/code>（在&lt;code>ip_vs_del_dest()&lt;/code>中实现）时，会调用&lt;code>__ip_vs_unlink_dest()&lt;/code>方法，将相应的 destination 置为不可用。&lt;/p>
+&lt;pre>&lt;code>expire_nodest_conn - BOOLEAN
+0 - disabled (default)
+not 0 - enabled
+The default value is 0, the load balancer will silently drop
+packets when its destination server is not available. It may
+be useful, when user-space monitoring program deletes the
+destination server (because of server overload or wrong
+detection) and add back the server later, and the connections
+to the server can continue.
+If this feature is enabled, the load balancer will expire the
+connection immediately when a packet arrives and its
+destination server is not available, then the client program
+will be notified that the connection is closed. This is
+equivalent to the feature some people requires to flush
+connections when its destination is not available.
+&lt;/code>&lt;/pre>
+&lt;p>关于 ipvs 如何处理端口复用的连接，这块主要实现逻辑在&lt;code>net/netfilter/ipvs/ip_vs_core.c&lt;/code>的&lt;code>ip_vs_in()&lt;/code>方法中：&lt;/p>
+&lt;pre>&lt;code>/*
+* Check if the packet belongs to an existing connection entry
+*/
+cp = pp-&amp;gt;conn_in_get(ipvs, af, skb, &amp;amp;iph); //找是属于某个已有的connection
+conn_reuse_mode = sysctl_conn_reuse_mode(ipvs);
+//当conn_reuse_mode开启，同时出现端口复用（例如收到TCP的SYN包，并且也属于已有的connection），进行处理
+if (conn_reuse_mode &amp;amp;&amp;amp; !iph.fragoffs &amp;amp;&amp;amp; is_new_conn(skb, &amp;amp;iph) &amp;amp;&amp;amp; cp) {
+bool uses_ct = false, resched = false;
+//如果开启了expire_nodest_conn、目标rs的weight为0
+if (unlikely(sysctl_expire_nodest_conn(ipvs)) &amp;amp;&amp;amp; cp-&amp;gt;dest &amp;amp;&amp;amp;
+unlikely(!atomic_read(&amp;amp;cp-&amp;gt;dest-&amp;gt;weight))) {
+resched = true;
+//查询是否用到了conntrack
+uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
+} else if (is_new_conn_expected(cp, conn_reuse_mode)) {
+//连接是expected的情况，比如FTP
+uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
+if (!atomic_read(&amp;amp;cp-&amp;gt;n_control)) {
+resched = true;
+} else {
+/* Do not reschedule controlling connection
+* that uses conntrack while it is still
+* referenced by controlled connection(s).
+*/
+resched = !uses_ct;
+}
+}
+//如果expire_nodest_conn未开启，并且也非期望连接，实际上直接跳出了
+if (resched) {
+if (!atomic_read(&amp;amp;cp-&amp;gt;n_control))
+ip_vs_conn_expire_now(cp);
+__ip_vs_conn_put(cp);
+//当开启了net.ipv4.vs.conntrack，SYN数据包会直接丢弃，等待客户端重新发送SYN
+if (uses_ct)
+return NF_DROP;
+//未开启conntrack时，会进入下面ip_vs_try_to_schedule的流程
+cp = NULL;
+}
+}
+if (unlikely(!cp)) {
+int v;
+if (!ip_vs_try_to_schedule(ipvs, af, skb, pd, &amp;amp;v, &amp;amp;cp, &amp;amp;iph))
+return v;
+}
+IP_VS_DBG_PKT(11, af, pp, skb, iph.off, &amp;quot;Incoming packet&amp;quot;);
+/* Check the server status */
+if (cp-&amp;gt;dest &amp;amp;&amp;amp; !(cp-&amp;gt;dest-&amp;gt;flags &amp;amp; IP_VS_DEST_F_AVAILABLE)) {
+/* the destination server is not available */
+__u32 flags = cp-&amp;gt;flags;
+/* when timer already started, silently drop the packet.*/
+if (timer_pending(&amp;amp;cp-&amp;gt;timer))
+__ip_vs_conn_put(cp);
+else
+ip_vs_conn_put(cp);
+if (sysctl_expire_nodest_conn(ipvs) &amp;amp;&amp;amp;
+!(flags &amp;amp; IP_VS_CONN_F_ONE_PACKET)) {
+/* try to expire the connection immediately */
+ip_vs_conn_expire_now(cp);
+}
+return NF_DROP;
+}
+&lt;/code>&lt;/pre>
+&lt;h3 id="kube-proxy-ipvs-模式下的优雅删除">kube-proxy ipvs 模式下的优雅删除&lt;/h3>
+&lt;p>Kubernetes 提供了 Pod 优雅删除机制。当我们决定干掉一个 Pod 时，我们可以通过&lt;code>PreStop Hook&lt;/code>来做一些服务下线前的处理，同时 Kubernetes 也有个&lt;code>grace period&lt;/code>，超过这个时间但未完成删除的 Pod 会被强制删除。
+而在 Kubernetes 1.13 之前，kube-proxy ipvs 模式并不支持优雅删除，当 Endpoint 被删除时，kube-proxy 会直接移除掉 ipvs 中对应的 rs，这样会导致后续的数据包被丢掉。
+在 1.13 版本后，Kubernetes 添加了&lt;strong>IPVS 优雅删除&lt;/strong>的逻辑，主要是两点：&lt;/p>
+&lt;ul>
+&lt;li>当 Pod 被删除时，kube-proxy 会先将 rs 的&lt;code>weight&lt;/code>置为 0，以防止新连接的请求发送到此 rs，由于不再直接删除 rs，旧连接仍能与 rs 正常通信；&lt;/li>
+&lt;li>当 rs 的&lt;code>ActiveConn&lt;/code>数量为 0（后面版本已改为&lt;code>ActiveConn+InactiveConn==0&lt;/code>)，即不再有连接转发到此 rs 时，此 rs 才会真正被移除。&lt;/li>
+&lt;/ul>
+&lt;h2 id="kube-proxy-ipvs-模式下的问题">kube-proxy ipvs 模式下的问题&lt;/h2>
+&lt;p>看上去 kube-proxy ipvs 的删除是优雅了，但当优雅删除正巧碰到端口重用，那问题就来了。
+首先，kube-proxy 希望通过设置&lt;code>weight&lt;/code>为 0，来避免新连接转发到此 rs。但当&lt;code>net.ipv4.vs.conn_reuse_mode=0&lt;/code>时，对于端口复用的连接，ipvs 不会主动进行新的调度（调用&lt;code>ip_vs_try_to_schedule&lt;/code>方法）；同时，只是将&lt;code>weight&lt;/code>置为 0，也并不会触发由&lt;code>expire_nodest_conn&lt;/code>控制的结束连接或 DROP 操作，就这样，新连接的数据包当做什么都没发生一样，发送给了正在删除的 Pod。这样一来，只要不断的有端口复用的连接请求发来，rs 就不会被 kube-proxy 删除，上面提到的优雅删除的两点均无法实现。
+而当&lt;code>net.ipv4.vs.conn_reuse_mode=1&lt;/code>时，根据&lt;code>ip_vs_in()&lt;/code>的处理逻辑，当开启了&lt;code>net.ipv4.vs.conntrack&lt;/code>时，会 DROP 掉第一个 SYN 包，导致 SYN 的重传，有 1S 延迟。而 Kube-proxy 在 IPVS 模式下，使用了 iptables 进行&lt;code>MASQUERADE&lt;/code>，也正好开启了&lt;code>net.ipv4.vs.conntrack&lt;/code>。&lt;/p>
+&lt;pre>&lt;code>conntrack - BOOLEAN
+0 - disabled (default)
+not 0 - enabled
+If set, maintain connection tracking entries for
+connections handled by IPVS.
+This should be enabled if connections handled by IPVS are to be
+also handled by stateful firewall rules. That is, iptables rules
+that make use of connection tracking. It is a performance
+optimisation to disable this setting otherwise.
+Connections handled by the IPVS FTP application module
+will have connection tracking entries regardless of this setting.
+Only available when IPVS is compiled with CONFIG_IP_VS_NFCT enabled.
+&lt;/code>&lt;/pre>
+&lt;p>这样看来，目前的情况似乎是，如果你需要实现优雅删除中的“保持旧连接不变，调度新连接”能力，那就要付出 1s 的延迟代价；如果你要好的性能，那么就不能重新调度。&lt;/p>
+&lt;h2 id="如何解决">如何解决&lt;/h2>
+&lt;p>从 Kubernetes 角度来说，Kube-proxy 需要在保证性能的前提下，找到一种能让新连接重新调度的方式。但目前从内核代码中可以看到，需要将参数设置如下&lt;/p>
+&lt;pre>&lt;code>net.ipv4.vs.conntrack=0
+net.ipv4.vs.conn_reuse_mode=1
+net.ipv4.vs.expire_nodest_conn=1
+&lt;/code>&lt;/pre>
+&lt;p>但 Kube-proxy ipvs 模式目前无法摆脱 iptables 来完成 k8s service 的转发。此外，Kube-proxy 只有在&lt;code>ActiveConn+InactiveConn==0&lt;/code>时才会删除 rs，除此之外，在新的 Endpoint 和&lt;code>GracefulTerminationList&lt;/code>（保存了&lt;code>weight&lt;/code>为 0，但暂未删除的 rs）中的 rs 冲突时，才会立即删除 rs。这种逻辑似乎并不合理。目前 Pod 已有优雅删除的逻辑，而 kube-proxy 应基于 Pod 的优雅删除，在网络层面做好 rs 的优雅删除，因此在 kubelet 完全删除 Pod 后，Kube-proxy 是否也应该考虑同时删除相应的 rs？
+另外，从内核角度来说，ipvs 需要提供一种方式，能在端口复用、同时使用 conntrack 的场景下，可以对新连接直接重新调度。&lt;/p>
+&lt;h2 id="即将到来">即将到来&lt;/h2>
+&lt;p>这个问题在社区讨论一段时间后，目前出现的几个相关的解决如下：&lt;/p>
+&lt;h3 id="内核两个-patch">内核两个 Patch&lt;/h3>
+&lt;ul>
+&lt;li>&lt;strong>ipvs: allow connection reuse for unconfirmed conntrack&lt;/strong>修改了&lt;code>ip_vs_conn_uses_conntrack()&lt;/code>方法的逻辑，当使用&lt;code>unconfirmed conntrack&lt;/code>时，返回 false，这种修改针对了 TIME_WAIT 的 conntrack。&lt;/li>
+&lt;li>&lt;strong>ipvs: queue delayed work to expire no destination connections if expire_nodest_conn=1&lt;/strong>提前了&lt;code>expire connection&lt;/code>的操作，在 destination 被删除后，便开始将&lt;code>expire connection&lt;/code>操作入队列。而不是等到数据包真正发过来时，才做&lt;code>expire connection&lt;/code>，以此来减少数据包的丢失。&lt;/li>
+&lt;/ul>
+&lt;h3 id="kubernetes">Kubernetes&lt;/h3>
+&lt;ul>
+&lt;li>&lt;strong>Graceful Termination for External Traffic Policy Local&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>Add Terminating Condition to EndpointSlice&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;p>正如前面所说的，Kube-proxy 需要能够感知到 Pod 的优雅删除过程，来同步进行 rs 的删除。目前，已有一个相应的 KEP 在进行中，通过在&lt;code>Endpoint.EndpointConditions&lt;/code>中添加&lt;code>terminating&lt;/code>字段，来为 kube-proxy 提供感知方式。&lt;/p>
+&lt;h3 id="脚注">脚注&lt;/h3>
+&lt;p>[1]
+kube-proxy ipvs conn*reuse_mode setting causes errors with high load from single client: *&lt;a href="https://github.com/kubernetes/kubernetes/issues/81775">https://github.com/kubernetes/kubernetes/issues/81775&lt;/a>_
+[2]
+IPVS 优雅删除: &lt;em>&lt;a href="https://github.com/kubernetes/kubernetes/pull/66012">https://github.com/kubernetes/kubernetes/pull/66012&lt;/a>&lt;/em>
+[3]
+ipvs: allow connection reuse for unconfirmed conntrack: &lt;em>&lt;a href="http://patchwork.ozlabs.org/project/netfilter-devel/patch/20200701151719.4751-1-ja@ssi.bg/">http://patchwork.ozlabs.org/project/netfilter-devel/patch/20200701151719.4751-1-ja@ssi.bg/&lt;/a>&lt;/em>
+[4]
+ipvs: queue delayed work to expire no destination connections if expire_nodest_conn=1: &lt;em>&lt;a href="http://patchwork.ozlabs.org/project/netfilter-devel/patch/20200708161638.13584-1-kim.andrewsy@gmail.com/">http://patchwork.ozlabs.org/project/netfilter-devel/patch/20200708161638.13584-1-kim.andrewsy@gmail.com/&lt;/a>&lt;/em>
+[5]
+Graceful Termination for External Traffic Policy Local: &lt;em>&lt;a href="https://github.com/kubernetes/enhancements/pull/1607">https://github.com/kubernetes/enhancements/pull/1607&lt;/a>&lt;/em>
+[6]
+Add Terminating Condition to EndpointSlice: _&lt;a href="https://github.com/kubernetes/kubernetes/pull/92968">https://github.com/kubernetes/kubernetes/pull/92968&lt;/a>_&lt;/p>
+&lt;p>原文链接：&lt;a href="https://maao.cloud/2021/01/15/%25E6%25B7%25B1%25E5%2585%25A5kube-proxy%2520ipvs%25E6%25A8%25A1%25E5%25BC%258F%25E7%259A%2584conn_reuse_mode%25E9%2597%25AE%25E9%25A2%2598/">https://maao.cloud/2021/01/15/%E6%B7%B1%E5%85%A5kube-proxy%20ipvs%E6%A8%A1%E5%BC%8F%E7%9A%84conn_reuse_mode%E9%97%AE%E9%A2%98/&lt;/a>&lt;/p></description></item></channel></rss>

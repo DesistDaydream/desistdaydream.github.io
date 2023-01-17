@@ -1,0 +1,380 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Containerd 命令行工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/containerd/containerd-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><description>Recent content in Containerd 命令行工具 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/containerd/containerd-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: ctr</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/containerd/containerd-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/ctr/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/containerd/containerd-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/ctr/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="ctr-global-options-command-options-args">ctr [GLOBAL OPTIONS] COMMAND [OPTIONS] [ARGs&amp;hellip;]&lt;/h1>
+&lt;p>GLOBAL OPTIONS:&lt;/p>
+&lt;p>COMMANDS:&lt;/p>
+&lt;ul>
+&lt;li>plugins, plugin provides information about containerd plugins&lt;/li>
+&lt;li>version print the client and server versions&lt;/li>
+&lt;li>containers, c, container manage containers&lt;/li>
+&lt;li>content manage content&lt;/li>
+&lt;li>events, event display containerd events&lt;/li>
+&lt;li>images, image, i manage images&lt;/li>
+&lt;li>leases manage leases&lt;/li>
+&lt;li>namespaces, namespace, ns manage namespaces&lt;/li>
+&lt;li>pprof provide golang pprof outputs for containerd&lt;/li>
+&lt;li>run run a container&lt;/li>
+&lt;li>&lt;strong>snapshots, snapshot&lt;/strong> # manage snapshots&lt;/li>
+&lt;li>&lt;strong>tasks, t, task&lt;/strong> # manage tasks&lt;/li>
+&lt;li>&lt;strong>install&lt;/strong> # install a new package&lt;/li>
+&lt;li>**oci **# OCI tools&lt;/li>
+&lt;li>&lt;strong>shim&lt;/strong> # interact with a shim directly&lt;/li>
+&lt;/ul>
+&lt;h2 id="tasks--任务管理">tasks # 任务管理&lt;/h2>
+&lt;p>&lt;code>create&lt;/code> 的命令创建了容器后，并没有处于运行状态，只是一个静态的容器。一个 container 对象只是包含了运行一个容器所需的资源及配置的数据结构，这意味着 namespaces、rootfs 和容器的配置都已经初始化成功了，只是用户进程(这里是 &lt;code>nginx&lt;/code>)还没有启动。然而一个容器真正的运行起来是由 task 对象实现的，&lt;code>task&lt;/code> 代表任务的意思，可以为容器设置网卡，还可以配置工具来对容器进行监控等。&lt;/p>
+&lt;p>所以还需要通过 task 启动容器：&lt;/p>
+&lt;pre>&lt;code>? → ctr task start -d nginx
+? → ctr task ls
+TASK PID STATUS
+nginx 131405 RUNNING
+&lt;/code>&lt;/pre>
+&lt;p>当然，也可以一步到位直接创建并运行容器：&lt;/p>
+&lt;pre>&lt;code>? → ctr run -d docker.io/library/nginx:alpine nginx
+&lt;/code>&lt;/pre>
+&lt;p>进入容器：&lt;/p>
+&lt;pre>&lt;code># 和 docker 的操作类似，但必须要指定 --exec-id，这个 id 可以随便写，只要唯一就行
+? → ctr task exec --exec-id 0 -t nginx sh
+&lt;/code>&lt;/pre>
+&lt;p>暂停容器：&lt;/p>
+&lt;pre>&lt;code># 和 docker pause 类似
+? → ctr task pause nginx
+&lt;/code>&lt;/pre>
+&lt;p>容器状态变成了 PAUSED：&lt;/p>
+&lt;pre>&lt;code>? → ctr task ls
+TASK PID STATUS
+nginx 149857 PAUSED
+&lt;/code>&lt;/pre>
+&lt;p>恢复容器：&lt;/p>
+&lt;pre>&lt;code>? → ctr task resume nginx
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>ctr 没有 stop 容器的功能，只能暂停或者杀死容器。&lt;/strong>
+杀死容器：&lt;/p>
+&lt;pre>&lt;code>? → ctr task kill nginx
+&lt;/code>&lt;/pre>
+&lt;p>获取容器的 cgroup 信息：&lt;/p>
+&lt;pre>&lt;code># 这个命令用来获取容器的内存、CPU 和 PID 的限额与使用量。
+? → ctr task metrics nginx
+ID TIMESTAMP
+nginx 2020-12-15 09:15:13.943447167 +0000 UTC
+METRIC VALUE
+memory.usage_in_bytes 77131776
+memory.limit_in_bytes 9223372036854771712
+memory.stat.cache 6717440
+cpuacct.usage 194187935
+cpuacct.usage_percpu [0 335160 0 5395642 3547200 58559242 0 0 0 0 0 0 6534104 5427871 3032481 2158941 8513633 4620692 8261063 3885961 3667830 0 4367411 356280 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1585841 0 7754942 5818102 21430929 0 0 0 0 0 0 1811840 2241260 2673960 6041161 8210604 2991221 10073713 1111020 3139751 0 640080 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+pids.current 97
+pids.limit 0
+&lt;/code>&lt;/pre>
+&lt;p>查看容器中所有进程的 &lt;code>PID&lt;/code>：&lt;/p>
+&lt;pre>&lt;code>? → ctr task ps nginx
+PID INFO
+149857 -
+149921 -
+149922 -
+149923 -
+149924 -
+149925 -
+149926 -
+149928 -
+149929 -
+149930 -
+149932 -
+149933 -
+149934 -
+...
+&lt;/code>&lt;/pre>
+&lt;p>注意：这里的 PID 是宿主机看到的 PID，不是容器中看到的 PID。&lt;/p>
+&lt;h1 id="应用示例">应用示例&lt;/h1>
+&lt;p>导入名为 123.tar 的镜像到 k8s.io 这个名称空间中&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>ctr -n k8s.io image import 123.tar&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;h1 id="其他">其他&lt;/h1>
+&lt;p>ctr 目前很多功能做的还没有 docker 那么完善，但基本功能已经具备了。下面将围绕&lt;strong>镜像&lt;/strong>和&lt;strong>容器&lt;/strong>这两个方面来介绍其使用方法。&lt;/p>
+&lt;h3 id="镜像">&lt;strong>镜像&lt;/strong>&lt;/h3>
+&lt;p>&lt;strong>镜像下载：&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>? → ctr i pull docker.io/library/nginx:alpine
+docker.io/library/nginx:alpine: resolved |++++++++++++++++++++++++++++++++++++++|
+index-sha256:efc93af57bd255ffbfb12c89ec0714dd1a55f16290eb26080e3d1e7e82b3ea66: done |++++++++++++++++++++++++++++++++++++++|
+manifest-sha256:6ceeeab513f7d15cea38c1f8dfe5455323b5a1bfd568516b3b0ee70406f75247: done |++++++++++++++++++++++++++++++++++++++|
+config-sha256:0fde4fb87e476fd1655b3f04f55aa5b4b3ef7de7c701eb46573bb5a5dcf66fd2: done |++++++++++++++++++++++++++++++++++++++|
+layer-sha256:abaddf4965e5e9ce9953f2e136b3bf9cc15365adbcf0c68b108b1cc26c12b1be: done |++++++++++++++++++++++++++++++++++++++|
+layer-sha256:05e7bc50f07f000e9993ec0d264b9ffcbb9a01a4d69c68f556d25e9811a8f7f4: done |++++++++++++++++++++++++++++++++++++++|
+layer-sha256:c78f7f670e47cf98494e7dbe08e463d34c160bf6a5939a2155ff4438cb8b0e80: done |++++++++++++++++++++++++++++++++++++++|
+layer-sha256:ce77cf6a2ede66c463dcdd39f1a43cfbac3723a99e94f697bc20faee0f7cce1b: done |++++++++++++++++++++++++++++++++++++++|
+layer-sha256:3080fd9f46494247c9298a6a3d9694f03f6a32898a07ffbe1c17a0752bae5c4e: done |++++++++++++++++++++++++++++++++++++++|
+elapsed: 17.3s total: 8.7 Mi (513.8 KiB/s)
+unpacking linux/amd64 sha256:efc93af57bd255ffbfb12c89ec0714dd1a55f16290eb26080e3d1e7e82b3ea66...
+done
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>本地镜像列表查询：&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>? → ctr i ls
+REF TYPE DIGEST SIZE PLATFORMS LABELS
+docker.io/library/nginx:alpine application/vnd.docker.distribution.manifest.list.v2+json sha256:efc93af57bd255ffbfb12c89ec0714dd1a55f16290eb26080e3d1e7e82b3ea66 9.3 MiB linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x -
+&lt;/code>&lt;/pre>
+&lt;p>这里需要注意 PLATFORMS，它是镜像的能够运行的平台标识。
+&lt;strong>将镜像挂载到主机目录：&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>? → ctr i mount docker.io/library/nginx:alpine /mnt
+? → tree -L 1 /mnt
+/mnt
+├── bin
+├── dev
+├── docker-entrypoint.d
+├── docker-entrypoint.sh
+├── etc
+├── home
+├── lib
+├── media
+├── mnt
+├── opt
+├── proc
+├── root
+├── run
+├── sbin
+├── srv
+├── sys
+├── tmp
+├── usr
+└── var
+18 directories, 1 file
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>将镜像从主机目录上卸载：&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>? → ctr i unmount /mnt
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>将镜像导出为压缩包：&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>? → ctr i export nginx.tar.gz docker.io/library/nginx:alpine
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>从压缩包导入镜像：&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>? → ctr i import nginx.tar.gz
+&lt;/code>&lt;/pre>
+&lt;p>其他操作可以自己查看帮助：&lt;/p>
+&lt;pre>&lt;code>? → ctr i --help
+NAME:
+ctr images - manage images
+USAGE:
+ctr images command [command options] [arguments...]
+COMMANDS:
+check check that an image has all content available locally
+export export images
+import import images
+list, ls list images known to containerd
+mount mount an image to a target path
+unmount unmount the image from the target
+pull pull an image from a remote
+push push an image to a remote
+remove, rm remove one or more images by reference
+tag tag an image
+label set and clear labels for an image
+OPTIONS:
+--help, -h show help
+&lt;/code>&lt;/pre>
+&lt;p>对镜像的更高级操作可以使用子命令 &lt;code>content&lt;/code>，例如在线编辑镜像的 &lt;code>blob&lt;/code> 并生成一个新的 &lt;code>digest&lt;/code>：&lt;/p>
+&lt;pre>&lt;code>? → ctr content ls
+DIGEST SIZE AGE LABELS
+...
+...
+sha256:fdd7fff110870339d34cf071ee90fbbe12bdbf3d1d9a14156995dfbdeccd7923 740B 7 days containerd.io/gc.ref.content.2=sha256:4e537e26e21bf61836f827e773e6e6c3006e3c01c6d59f4b058b09c2753bb929,containerd.io/gc.ref.content.1=sha256:188c0c94c7c576fff0792aca7ec73d67a2f7f4cb3a6e53a84559337260b36964,containerd.io/gc.ref.content.0=sha256:b7199797448c613354489644be1f60aa2d8e9c2278989100c72ede3001334f7b,containerd.io/distribution.source.ghcr.fuckcloudnative.io=yangchuansheng/grafana-backup-tool
+? → ctr content edit --editor vim sha256:fdd7fff110870339d34cf071ee90fbbe12bdbf3d1d9a14156995dfbdeccd7923
+&lt;/code>&lt;/pre>
+&lt;h3 id="容器">&lt;strong>容器&lt;/strong>&lt;/h3>
+&lt;p>创建容器：&lt;/p>
+&lt;pre>&lt;code>? → ctr c create docker.io/library/nginx:alpine nginx
+? → ctr c ls
+CONTAINER IMAGE RUNTIME
+nginx docker.io/library/nginx:alpine io.containerd.runc.v2
+&lt;/code>&lt;/pre>
+&lt;p>查看容器的详细配置：&lt;/p>
+&lt;pre>&lt;code># 和 docker inspect 类似
+? → ctr c info nginx
+&lt;/code>&lt;/pre>
+&lt;p>其他操作可以自己查看帮助：&lt;/p>
+&lt;pre>&lt;code>? → ctr c --help
+NAME:
+ctr containers - manage containers
+USAGE:
+ctr containers command [command options] [arguments...]
+COMMANDS:
+create create container
+delete, del, rm delete one or more existing containers
+info get info about a container
+list, ls list containers
+label set and clear labels for a container
+checkpoint checkpoint a container
+restore restore a container from checkpoint
+OPTIONS:
+--help, -h show help
+&lt;/code>&lt;/pre>
+&lt;h3 id="命名空间">&lt;strong>命名空间&lt;/strong>&lt;/h3>
+&lt;p>除了 k8s 有命名空间以外，Containerd 也支持命名空间。&lt;/p>
+&lt;pre>&lt;code>? → ctr ns ls
+NAME LABELS
+default
+&lt;/code>&lt;/pre>
+&lt;p>如果不指定，&lt;code>ctr&lt;/code> 默认是 &lt;code>default&lt;/code> 空间。目前 Containerd 的定位还是解决运行时，所以目前他还不能完全替代 &lt;code>dockerd&lt;/code>，例如使用 &lt;code>Dockerfile&lt;/code> 来构建镜像。其实这不是什么大问题，我再给大家介绍一个大招：&lt;strong>Containerd 和 Docker 一起用！&lt;/strong>&lt;/p>
+&lt;h3 id="containerd--docker">&lt;strong>Containerd + Docker&lt;/strong>&lt;/h3>
+&lt;p>事实上，Docker 和 Containerd 是可以同时使用的，只不过 Docker 默认使用的 Containerd 的命名空间不是 default，而是 &lt;code>moby&lt;/code>。下面就是见证奇迹的时刻。&lt;/p>
+&lt;p>首先从其他装了 Docker 的机器或者 GitHub 上下载 Docker 相关的二进制文件，然后使用下面的命令启动 Docker：&lt;/p>
+&lt;pre>&lt;code>? → dockerd --containerd /run/containerd/containerd.sock --cri-containerd
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+Plain Text&lt;/p>
+&lt;p>接着用 Docker 运行一个容器：&lt;/p>
+&lt;pre>&lt;code>? → docker run -d --name nginx nginx:alpine
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+Plain Text&lt;/p>
+&lt;p>现在再回过头来查看 Containerd 的命名空间：&lt;/p>
+&lt;pre>&lt;code>? → ctr ns ls
+NAME LABELS
+default
+moby
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+Plain Text&lt;/p>
+&lt;p>查看该命名空间下是否有容器：&lt;/p>
+&lt;pre>&lt;code>? → ctr -n moby c ls
+CONTAINER IMAGE RUNTIME
+b7093d7aaf8e1ae161c8c8ffd4499c14ba635d8e174cd03711f4f8c27818e89a - io.containerd.runtime.v1.linux
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+Plain Text&lt;/p>
+&lt;p>我艹，还可以酱紫？看来以后用 Containerd 不耽误我 &lt;code>docker build&lt;/code> 了~~最后提醒一句：Kubernetes 用户不用惊慌，Kubernetes 默认使用的是 Containerd 的 &lt;code>k8s.io&lt;/code> 命名空间，所以 &lt;code>ctr -n k8s.io&lt;/code> 就能看到 Kubernetes 创建的所有容器啦，也不用担心 &lt;code>crictl&lt;/code> 不支持 load 镜像了，因为 &lt;code>ctr -n k8s.io&lt;/code> 可以 load 镜像啊，嘻嘻?&lt;/p></description></item><item><title>Docs: nerdctl</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/containerd/containerd-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/nerdctl/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/containerd/containerd-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/nerdctl/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/containerd/nerdctl">GitHub 项目&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/containerd/nerdctl#command-reference">官方文档,命令参考&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="network">Network&lt;/h2>
+&lt;p>nerdctl 本身没有像 docker 的 /etc/docker/daemon.json 这种配置文件，而是使用 CNI 的包 netutil 来执行网络相关的请求， CNI 默认有一个名为 nerdctl0 的 bridge 网络设备，都是常量：
+&lt;a href="https://github.com/containerd/nerdctl/blob/v0.14.0/pkg/netutil/netutil_unix.go">pkg/netutil/netutil_unix.go&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">netutil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">DefaultNetworkName&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;bridge&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">DefaultID&lt;/span> = &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">DefaultCIDR&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;10.4.0.0/24&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// basicPlugins is used by ConfigListTemplate
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">basicPlugins&lt;/span> = []&lt;span style="color:#66d9ef">string&lt;/span>{&lt;span style="color:#e6db74">&amp;#34;bridge&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;portmap&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;firewall&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;tuning&amp;#34;&lt;/span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果想要像 docker 一样配置网络，则需依赖于 CNI 默认的 /etc/cni/net.d/ 目录中创建配置文件，通常 Containerd 自带的 CNI 配置文件可以在其发布的 &lt;a href="https://github.com/containerd/containerd/releases">Release&lt;/a> 中带 cni 名称的包中找到。效果如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tee /etc/cni/net.d/10-containerd-net.conflist &amp;lt;&amp;lt;-&amp;#34;EOF&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;cniVersion&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0.4.0&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;name&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;containerd-net&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;plugins&amp;#34;&lt;/span>: &lt;span style="color:#f92672">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;type&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;bridge&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;bridge&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;cni0&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;isGateway&amp;#34;&lt;/span>: true,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ipMasq&amp;#34;&lt;/span>: true,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;promiscMode&amp;#34;&lt;/span>: true,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ipam&amp;#34;&lt;/span>: &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;type&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;host-local&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ranges&amp;#34;&lt;/span>: &lt;span style="color:#f92672">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;subnet&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10.88.0.0/16&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}]&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;subnet&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2001:4860:4860::/64&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">]&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;routes&amp;#34;&lt;/span>: &lt;span style="color:#f92672">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">{&lt;/span> &lt;span style="color:#e6db74">&amp;#34;dst&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0.0.0.0/0&amp;#34;&lt;/span> &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">{&lt;/span> &lt;span style="color:#e6db74">&amp;#34;dst&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;::/0&amp;#34;&lt;/span> &lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;type&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;portmap&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;capabilities&amp;#34;&lt;/span>: &lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#e6db74">&amp;#34;portMappings&amp;#34;&lt;/span>: true&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>EOF
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>此时，通过 &lt;code>nerdctl network list&lt;/code> 命令即可看到一个名为 containerd-net 新的网络&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># nerdctl network ls&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NETWORK ID NAME FILE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">0&lt;/span> bridge
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> containerd-net /etc/cni/net.d/10-containerd-net.conflist
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> host
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> none
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>然后运行容器时，使用 &lt;code>--net=containerd-net&lt;/code> 参数指定该网络，所有运行的容器，即可关联到指定的 containerd-net 网桥上。
+注意：nerdctl 默认的网络是无法修改的&lt;/p>
+&lt;h2 id="现存问题">现存问题&lt;/h2>
+&lt;p>v0.12.1 版本
+通过 build 构建完镜像后，会产生一个相同 ID 无名的空镜像
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ws1t24/1631632584319-b6131f0b-6269-422d-a203-045ab0b2538f.png" alt="image.png">
+执行 nerdctl rmi 命令时，tab 无法补全，但是 &lt;code>nerctl image rm&lt;/code> 可以补全，但是无法删除那两个空镜像
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ws1t24/1631632732271-b95cef43-e60b-4fd2-842a-1f0a80cb5dac.png" alt="image.png">&lt;/p>
+&lt;h1 id="nerdctl-关联文件与配置">nerdctl 关联文件与配置&lt;/h1>
+&lt;p>&lt;strong>/var/lib/nerdctl/*&lt;/strong> # nerdctl 的默认 DataRoot，即 nerdctl 运行容器时所产生的文件保存路径。
+&lt;strong>/etc/nerdctl/nerdctl.toml&lt;/strong> # nerdctl 的配置文件，配置文件中的内容通常与命令行标志可以对应。该文件可以通过 &lt;code>${NERDCTL_TOML}&lt;/code> 改变位置。该配置文件与 /etc/containerd/config.toml 文件无关。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>~/.config/nerdctl/nerdctl.toml&lt;/strong> # Rootless 运行时的配置文件&lt;/li>
+&lt;/ul>
+&lt;h1 id="syntax语法">Syntax(语法)&lt;/h1>
+&lt;p>&lt;strong>nerdctl [Global OPTIONS] COMMAND [COMMAND OPTIONS] [ARGUMENTS&amp;hellip;&amp;hellip;]&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>Global OPTIONS&lt;/strong>
+nerdctl 除了可以通过全局选项改变运行行为，还可以通过环境变量改变。凡是可以通过环境变量指定的全局选项，都会有特殊说明&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;aaddress, -a, &amp;ndash;host, -H &lt;!-- raw HTML omitted -->&lt;/strong> # 指定容器地址。&lt;code>默认值：/run/containerd/containerd.sock&lt;/code>。可以使用 &lt;code>unix://&lt;/code> 前缀。
+&lt;ul>
+&lt;li>环境变量：$CONTAINERD_ADDRESS&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>**-n, &amp;ndash;namespace &lt;!-- raw HTML omitted --> **# 指定容器名称空间。&lt;code>默认值：default&lt;/code>。通过 docker 运行的在 moby 名称空间中，通过 Kubernetes 运行的容器在 k8s.io 名称空间中。
+&lt;ul>
+&lt;li>环境变量：$CONTAINERD_NAMESPACE&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;cni-path &lt;!-- raw HTML omitted -->&lt;/strong> # 指定 CNI 插件所需的二进制文件所在目录。&lt;code>默认值：/opt/cni/bin&lt;/code>
+&lt;ul>
+&lt;li>环境变量：$CNI_PATH&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;cni-netconfpath &lt;!-- raw HTML omitted -->&lt;/strong> # 指定 CNI 配置文件所在目录。&lt;code>默认值：/etc/cni/net.d&lt;/code>
+&lt;ul>
+&lt;li>环境变量：$NETCONFPATH&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;data-root &lt;!-- raw HTML omitted -->&lt;/strong> # nerdctl 持久化数据所在目录。&lt;code>默认值：/var/lib/nerdctl&lt;/code>。该目录由 nerdctl 管理，而不是 containerd。&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;cgroup-manager &lt;!-- raw HTML omitted -->&lt;/strong> # 指定 nerdctl 要使用的 Cgroup 管理器。&lt;code>默认值：cgroupfs&lt;/code>
+&lt;ul>
+&lt;li>可用的值有： cgroupfs、systemd&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;insecure-registry &lt;!-- raw HTML omitted -->&lt;/strong> # 是否跳过 HTTPS 证书的验证行为，并允许回退到纯 HTTP。&lt;code>默认值：false&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;h1 id="other-commands">Other Commands&lt;/h1>
+&lt;h2 id="inspect">inspect&lt;/h2>
+&lt;p>显示 nerdctl 所能管理的所有对象的详细信息，包括 image、container、network、volume 等等&lt;/p>
+&lt;h3 id="syntax语法-1">Syntax(语法)&lt;/h3>
+&lt;p>&lt;strong>nerdctl inspect [OPTIONS] NAME|ID [NAME|ID&amp;hellip;]&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>OPTIONS&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;mode=&lt;!-- raw HTML omitted -->&lt;/strong> # 显示模式。&lt;code>默认值：dockercompat&lt;/code>。可用的值有：dockercompat、native。
+&lt;ul>
+&lt;li>native # 显示更多信息&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul></description></item></channel></rss>

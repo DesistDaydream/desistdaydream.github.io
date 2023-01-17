@@ -1,0 +1,465 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Promtail</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/</link><description>Recent content in Promtail on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Label 与 Relabeling</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/label-%E4%B8%8E-relabeling/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/label-%E4%B8%8E-relabeling/</guid><description>
+&lt;p>Promtail 的 Label 与 Relabeling 功能与 Prometheus 中的概念相同&lt;/p>
+&lt;p>Promtail 具有一个嵌入式 Web 服务器，可以通过配置文件的 &lt;code>server&lt;/code> 字段配置监听的端口，默认监听 80 端口&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/mdqko5/1616129665346-dc2414b8-d71a-4d16-864a-019c0706ec01.png" alt="">&lt;/p>
+&lt;p>这个 Web 页面与 Prometheus 的页面基本一样，只不过更简单，只有 Service Dicovery 和 Targets 两个页面。&lt;/p>
+&lt;blockquote>
+&lt;p>也确实只要两个页面就够了，在 Loki 套件中，Promtail 就是用来 发现目标、重新标记、采集日志、推送日志 的。&lt;/p>
+&lt;/blockquote>
+&lt;p>在服务发现页面里，也有 Discovered Labels 和 Target Labels 这两个&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/mdqko5/1616129665338-c95fc783-cbd1-4e6c-958f-6a8a78448899.png" alt="">&lt;/p>
+&lt;p>只不过 Journal 这个目标发现程序命名发现了很多标签，但是却显示不出来，这个比较奇怪&lt;/p></description></item><item><title>Docs: Pipeline 概念</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/pipeline-%E6%A6%82%E5%BF%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/pipeline-%E6%A6%82%E5%BF%B5/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/pipelines/">官方文档&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/PPNa7CYk6aaYDcvH9eTw1w">公众号,Promtail Pipeline 日志处理配置&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Pipeline 用来处理 tail 到的每一行日志的内容、标签、时间戳。Pipeline 的行为在配置文件的 &lt;code>.scrape_config.pipeline_stages&lt;/code> 字段定义。是 Promtail 处理日志必不可少的一个环节。&lt;/p>
+&lt;p>Pipeline 由一组 &lt;strong>stages(阶段)&lt;/strong> 组成，Loki 将 Stages 分为 4 大类型：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>**Parsing stages(解析阶段) **# 解析每行日志，并从中提取数据。提取的数据可供后面几个阶段使用&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Transform stages(转换阶段)&lt;/strong> # (可省略)转换解析阶段提取到的数据&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>**Actions stages(行动阶段) **# (可省略)处理转换阶段转换后的数据。行动包括以下几种&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>为每行日志添加标签或修改现有标签&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>更改每行日志的时间戳&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>改变日志行内容&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>根据提取到的数据创建 metrics(指标)&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Filtering stages(过滤阶段)&lt;/strong> # (可省略)根据指定的条件，保留或删除日志行。&lt;/p>
+&lt;ol>
+&lt;li>注意：过滤阶段的类型中，有一个名为 &lt;strong>match&lt;/strong> 的过滤阶段。match 是一个通用的阶段，不受阶段顺序影响，在处理日志行之前，match 阶段可以使用 &lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Loki/LogQL.md">LogQL&lt;/a>，来过滤要使用某些阶段进行处理的日志行。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;h2 id="各阶段类型">各阶段类型&lt;/h2>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;strong>Parsing stages(解析阶段)&lt;/strong> 类型：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/cri/">cri&lt;/a> # 使用标准的 CRI 日志格式来解析每行日志，并提取数据&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/docker/">docker&lt;/a> # 使用标准的 docker 日志文件格式来解析每行日志，并提取数据(Pipeline 的默认行为，该阶段包括 json、labels、timestamp、output 四个阶段)&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/regex/">regex&lt;/a> # 使用正则表达式从每行日志提取数据&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/json/">json&lt;/a> # 使用 JSON 格式解析每行日志，并提取数据&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/replace/">replace&lt;/a> # 使用正则表达式替换数据&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Transform stages(转换阶段)&lt;/strong> 类型：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/multiline/">multiline&lt;/a> # 多行阶段将多行日志进行合并，然后再将其传递到 pipeline 的下一个阶段。&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/pack/">pack&lt;/a> # Packs a log line in a JSON object allowing extracted values and labels to be placed inside the log line.&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/template/">template&lt;/a> # 使用 Go 模板来修改提取出来数据&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Actions stages(行动阶段)&lt;/strong> 类型：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/timestamp/">timestamp&lt;/a> # 为一行日志设置时间戳&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/output/">output&lt;/a> # 设置一行日志的文本。该行为是 pipeline 阶段可以确定 loki 要展示的日志内容的唯一行为&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/labels/">labels&lt;/a> # 更新日志条目的标签集&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/labelallow/">labelallow&lt;/a> # 保留标签&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/labeldrop/">labeldrop&lt;/a> # 丢掉标签&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/metrics/">metrics&lt;/a> # 根据提取出来的数据计算指标&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/tenant/">tenant&lt;/a> # 设置要用于日志条目的租户 ID 值。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Filtering stages(过滤阶段)&lt;/strong> 支持以下行为&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/match/">match&lt;/a> # 依据指定的标签，过滤日志行，只有匹配到的日志行才会继续执行其他阶段&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/drop/">drop&lt;/a> # 依据条件丢弃日志行&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="配置示例">配置示例&lt;/h2>
+&lt;p>一个典型的 pipeline 将从解析阶段开始（如 regex 或 json 阶段）从日志行中提取数据。然后有一系列的处理阶段配置，对提取的数据进行处理。最常见的处理阶段是一个 &lt;code>labels stage&lt;/code> 标签阶段，将提取的数据转化为标签。&lt;/p>
+&lt;p>需要注意的是现在 pipeline 不能用于重复的日志，例如，Loki 将多次收到同一条日志行：&lt;/p>
+&lt;ul>
+&lt;li>从同一文件中读取的两个抓取配置&lt;/li>
+&lt;li>文件中重复的日志行被发送到一个 pipeline，不会做重复数据删除&lt;/li>
+&lt;/ul>
+&lt;p>然后，Loki 会在查询时对那些具有完全相同的纳秒时间戳、标签与日志内容的日志进行一些重复数据删除。&lt;/p>
+&lt;p>下面的配置示例可以很好地说明我们可以通过 pipeline 来对日志行数据实现什么功能：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">scrape_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">kubernetes-pods-name&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">kubernetes_sd_configs&lt;/span>: &lt;span style="color:#ae81ff">....&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">pipeline_stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 这个阶段只有在被抓取地目标有一个标签名为 name 且值为 promtail 地时候才会执行&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;{name=&amp;#34;promtail&amp;#34;}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># regex 阶段解析出一个 level、timestamp 与 component，在该阶段结束时，这几个值只为 pipeline 内部设置，在以后地阶段可以使用这些值并决定如何处理他们。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">expression&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;.*level=(?P&amp;lt;level&amp;gt;[a-zA-Z]+).*ts=(?P&amp;lt;timestamp&amp;gt;[T\d-:.Z]*).*component=(?P&amp;lt;component&amp;gt;[a-zA-Z]+)&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># labels 阶段从前面地 regex 阶段获取 level、component 值，并将他们变成一个标签，比如 level=error 可能就是这个阶段添加地一个标签。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">level&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">component&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 最后，时间戳阶段采用从 regex 提取地 timestamp，并将其变成日志的新时间戳，并解析为 RFC3339Nano 格式。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">timestamp&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">format&lt;/span>: &lt;span style="color:#ae81ff">RFC3339Nano&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">source&lt;/span>: &lt;span style="color:#ae81ff">timestamp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 这个阶段只有在抓取的目标标签为 name，值为 nginx，并且日志行中包含 GET 字样的时候才会执行&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;{name=&amp;#34;nginx&amp;#34;} |= &amp;#34;GET&amp;#34;&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># regex 阶段通过匹配一些值来提取一个新的 output 值。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">expression&lt;/span>: &lt;span style="color:#ae81ff">\w{1,3}.\w{1,3}.\w{1,3}.\w{1,3}(?P&amp;lt;output&amp;gt;.*)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># output 输出阶段通过将捕获的日志行设置为来自上面 regex 阶段的输出值来更改其内容。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">output&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">source&lt;/span>: &lt;span style="color:#ae81ff">output&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 这个阶段只有在抓取到目标中有标签 name，值为 jaeger-agent 时才会执行。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;{name=&amp;#34;jaeger-agent&amp;#34;}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># JSON 阶段将日志行作为 JSON 字符串读取，并从对象中提取 level 字段，以便在后续的阶段中使用。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">json&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">expressions&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">level&lt;/span>: &lt;span style="color:#ae81ff">level&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 将上一个阶段中的 level 值变成一个标签。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">level&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">kubernetes-pods-app&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">kubernetes_sd_configs&lt;/span>: &lt;span style="color:#ae81ff">....&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">pipeline_stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 这个阶段只有在被抓取的目标的标签为 &amp;#34;app&amp;#34;，名称为grafana 或 prometheus 时才会执行。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;{app=~&amp;#34;grafana|prometheus&amp;#34;}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># regex 阶段将提取一个 level 合 componet 值，供后面的阶段使用，允许 level 被定义为 lvl=&amp;lt;level&amp;gt; 或 level=&amp;lt;level&amp;gt;，组件被定义为 logger=&amp;lt;component&amp;gt; 或 component=&amp;lt;component&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">expression&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;.*(lvl|level)=(?P&amp;lt;level&amp;gt;[a-zA-Z]+).*(logger|component)=(?P&amp;lt;component&amp;gt;[a-zA-Z]+)&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 然后标签阶段将从上面 regex 阶段提取的 level 和 component 变为标签。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">level&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">component&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 只有当被抓取的目标有一个标签 &amp;#34;app&amp;#34;，其值为 &amp;#34;some-app&amp;#34;，并且日志行不包含 &amp;#34;info&amp;#34; 一词时，这个阶段才会执行。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;{app=&amp;#34;some-app&amp;#34;} != &amp;#34;info&amp;#34;&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># regex 阶段尝试通过查找日志中的 panic 来提取 panic 信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">expression&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;.*(?P&amp;lt;panic&amp;gt;panic: .*)&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># metrics 阶段将增加一个 Promtail 暴露的 panic_total 指标，只有当从上面的 regex 阶段获取到 panic 值的时候，该 Counter 才会增加。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">metrics&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">panic_total&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">Counter&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">description&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;total count of panic&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">source&lt;/span>: &lt;span style="color:#ae81ff">panic&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">config&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">action&lt;/span>: &lt;span style="color:#ae81ff">inc&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Pipeline 概念</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/pipeline-%E6%A6%82%E5%BF%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/pipeline-%E6%A6%82%E5%BF%B5/</guid><description/></item><item><title>Docs: Promtail 部署</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/promtail-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/promtail-%E9%83%A8%E7%BD%B2/</guid><description>
+&lt;h2 id="使用-docker-运行-promtail">使用 docker 运行 Promtail&lt;/h2>
+&lt;p>注意：使用 docker 运行 promtail 的时候，需要注意日志挂载路径及 scrape_configs 配置，因为在容器中运行，所以抓取路径是在容器中，而不是宿主机上，注意这点，否则会抓不到任何日志。&lt;/p>
+&lt;p>为了解决上面的问题，并且不影响容器内 /var/log 目录，所以启动时指定 -v /var/log:/var/log/host:ro 参数，并修改默认配置文件中 &lt;strong>path&lt;/strong>: 的值为 /var/log/host/*&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker run -d --rm --name promtail &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --network host &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /opt/logging/config/promtail:/etc/promtail &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /var/log:/var/log/host:ro &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /etc/localtime:/etc/localtime:ro &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> grafana/promtail
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Promtail 配置详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/promtail-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/log-clients/promtail/promtail-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/configuration/">Loki 官方文档，客户端-Promtail-配置&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/grafana/loki/blob/master/docs/sources/clients/promtail/configuration.md">GitHub 官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="promtailyaml-配置文件详解">promtail.yaml 配置文件详解&lt;/h1>
+&lt;p>Promtail 在 YAML 文件（通常称为 config.yaml）中进行配置，该文件包含 Promtail 运行时信息，抓取到的日志存储位置，以及抓取日志的行为
+下面是一个配置文件的基本结构：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 配置 promtail 程序运行时行为。如指定监听的ip、port等信息。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">server&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;server_config&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 配置 Promtail 如何连接到 Loki 的多个实例，并向每个实例发送日志。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Note：如果其中一台远程Loki服务器无法响应或发生任何可重试的错误，这将影响将日志发送到任何其他已配置的远程Loki服务器。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 发送是在单个线程上完成的！ 如果要发送到多个远程Loki实例，通常建议并行运行多个Promtail客户端。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">clients&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">&amp;lt;client_config&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># positions 文件用于记录 Promtail 发现的目标。该字段用于定义如何保存 postitions.yaml 文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Promtail 发现的目标就是指日志文件。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">positions&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;position_config&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 配置 Promtail 如何发现日志文件，以及如何从这些日志文件抓取日志。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">scrape_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">&amp;lt;scrape_config&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 配置如何 tail 目标&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">target_config&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;target_config&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="server-object">server: &lt;!-- raw HTML omitted -->&lt;/h2>
+&lt;h2 id="clients-object">clients: &lt;!-- raw HTML omitted -->&lt;/h2>
+&lt;h2 id="positions-object">positions: &lt;!-- raw HTML omitted -->&lt;/h2>
+&lt;p>positions 文件用于记录 Promtail 发现的目标。该字段用于定义如何保存 postitions.yaml 文件。Promtail 发现的目标就是指日志文件。
+&lt;strong>filename: &lt;!-- raw HTML omitted -->&lt;/strong> # 指定 positions 文件路径。&lt;code>默认值：/var/log/positions.yaml&lt;/code>
+**sync_period: &lt;!-- raw HTML omitted --> **# 更新 positions 文件的时间间隔。&lt;code>默认值：10s&lt;/code>
+&lt;strong>ignore_invalid_yaml: &lt;!-- raw HTML omitted -->&lt;/strong> # Whether to ignore &amp;amp; later overwrite positions files that are corrupted。&lt;code>默认值：false&lt;/code>&lt;/p>
+&lt;h2 id="scrape_configs-objecthttpsgrafanacomdocslokilatestclientspromtailconfigurationscrape_configs占比最大的字段">&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/configuration/#scrape_configs">scrape_configs: &amp;lt;[]OBJECT&amp;gt;&lt;/a>(占比最大的字段)&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/scraping">Scraping 功能官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Promtail 根据 scrape_configs 字段的内容，使用指定的发现方法从一系列目标中抓取日志。&lt;/p>
+&lt;h3 id="基本配置">基本配置&lt;/h3>
+&lt;p>&lt;strong>job_name: &lt;!-- raw HTML omitted -->&lt;/strong> # 指定抓取日志的 Job 名字
+&lt;strong>pipeline_stages: &amp;lt;pipeline_stages&amp;gt;&lt;/strong> # 定义从指定的目标抓取日志的行为。&lt;code>默认值：docker{}&lt;/code>。详见：&lt;a href="https://www.yuque.com/go/doc/33181065">Pipeline 概念&lt;/a> 与 [Stages 详解](✏IT 学习笔记/👀6.可观测性/日志系统/Log%20Clients/Promtail/Pipeline%20 概念/Stages(阶段)%20 详解.md 概念/Stages(阶段) 详解.md)
+&lt;strong>loki_push_api: &amp;lt;loki_push_api_config&amp;gt;&lt;/strong> # 定义日志推送的路径 (e.g. from other Promtails or the Docker Logging Driver)&lt;/p>
+&lt;h3 id="scrape-目标配置">Scrape 目标配置&lt;/h3>
+&lt;p>Promtail 会根据这里的字段的配置，以发现需要 Scrape 日志的目标，有两种方式来发现目标：&lt;strong>静态&lt;/strong> 与 &lt;strong>动态&lt;/strong>
+**static_configs: **&lt;a href="#tD00J">&lt;strong>&amp;lt;[]Object&amp;gt;&lt;/strong>&lt;/a> # 静态配置。直接指定需要抓去 Metrics 的 Targets。&lt;/p>
+&lt;ul>
+&lt;li>具体配置详见下文&lt;a href="#PZTDy">静态目标发现&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>**XX_sd_configs: **&lt;a href="#IWvg5">&lt;strong>&lt;!-- raw HTML omitted -->&lt;/strong>&lt;/a> # 动态配置&lt;/p>
+&lt;ul>
+&lt;li>具体配置详见下文&lt;a href="#FzYda">动态目标发现&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>jounal: &lt;!-- raw HTML omitted -->&lt;/strong> # 动态配置&lt;/p>
+&lt;ul>
+&lt;li>具体配置详见下文&lt;a href="#FzYda">动态目标发现&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>syslog: &lt;!-- raw HTML omitted -->&lt;/strong> # 动态配置&lt;/p>
+&lt;ul>
+&lt;li>具体配置详见下文&lt;a href="#FzYda">动态目标发现&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h3 id="relabel-配置">Relabel 配置&lt;/h3>
+&lt;p>&lt;strong>relabel_configs: &amp;lt;[]OBJECT&amp;gt;&lt;/strong> # 为本 Job 下抓取日志的过程定义 Relabeling 行为。与 Prometheus 的 Relabeling 行为一致&lt;/p>
+&lt;ul>
+&lt;li>具体配置详见下文&lt;a href="#EnT3h">重设标签&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h1 id="配置文件中的通用配置字段">配置文件中的通用配置字段&lt;/h1>
+&lt;h2 id="静态目标发现">静态目标发现&lt;/h2>
+&lt;h3 id="static_configs-object">static_configs: &amp;lt;[]Object&amp;gt;&lt;/h3>
+&lt;p>&lt;strong>targets: &amp;lt;[]STRING&amp;gt;&lt;/strong> # 指定要抓取 metrics 的 targets 的 IP:PORT&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>HOST&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>labels: &amp;lt;map[STRING]STRING&amp;gt;&lt;/strong> # 指定该 targets 的标签，可以随意添加任意多个。
+这个字段与 Prometheus 的配置有一点区别。Promtail 中必须要添加 &lt;code>__path__&lt;/code> 这个键，以指定要抓去日志的文件路径。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>KEY: VAL&lt;/strong> #比如该键值可以是 run: httpd，标签名是 run，run 的值是 httpd，key 与 val 使用字母，数字，_，-，.这几个字符且以字母或数字开头；val 可以为空。&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip;&lt;/li>
+&lt;/ul>
+&lt;h4 id="配置示例">配置示例&lt;/h4>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">system&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">pipeline_stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">static_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">targets&lt;/span>: &lt;span style="color:#75715e"># 指定抓取目标，i.e.抓取哪台设备上的文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">localhost&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>: &lt;span style="color:#75715e"># 指定该日志流的标签&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">job&lt;/span>: &lt;span style="color:#ae81ff">varlogs&lt;/span> &lt;span style="color:#75715e"># 指定一个标签，至少需要一个非 __ 开头的标签，这样才能为日志流定义唯一标识符，否则日志流没有名字。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">__path__&lt;/span>: &lt;span style="color:#ae81ff">/var/log/host/*&lt;/span> &lt;span style="color:#75715e"># 指定抓取路径，该匹配标识抓取 /var/log/host 目录下的所有文件。注意：不包含子目录下的文件。&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="动态目标发现">动态目标发现&lt;/h2>
+&lt;p>我们可以从 grafana/loki 项目代码 &lt;code>[clients/pkg/promtail/scrapeconfig/scrapeconfig.go](https://github.com/grafana/loki/blob/v2.6.1/clients/pkg/promtail/scrapeconfig/scrapeconfig.go#L53)&lt;/code> 中找到所有可以动态发现目标的配置。&lt;/p>
+&lt;h3 id="journal-object">journal: &lt;!-- raw HTML omitted -->&lt;/h3>
+&lt;p>在具有 systemd 的 Linux 系统上，Loki 可以通过 journal 程序获取日志。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 从 Journal 获取的日志保留所有原始字段，并将这些信息转变为 JSON 格式。默认值：false&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">json&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;BOOLEAN&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 当 Promtail 启动时，从 Journal 日志文件中，获取的最老时间的日志。默认值：7h&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 比如值为7h的话,则 Promatail 于 17:00 启动，则会抓取 10:00 到 17:00 之间的日志内容&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">max_age&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;DURATION&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 为本次通过 Journal 日志文件采集日志的任务添加标签。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;lt;LabelName&amp;gt;&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;LabelValue&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">......&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 获取 Journal 日志文件的路径。默认值：/var/log/journal 和 /run/log/journal&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;STRING&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>注意：由于 Journal 程序存储日志的路径问题，所以我们我们在容器中运行 Promtail 时，必须挂载相关路径，否则 Promtail 读取不到 Journal 生成的日志。比如可以通过下面的 docker 命令运行&lt;/p>
+&lt;blockquote>
+&lt;p>/run/log/journal 一般不用挂载，大部分系统都不适用这个目录了，虽然 Journal 还是会处理该目录~&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker run &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /var/log/journal/:/var/log/journal/ &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /run/log/journal/:/run/log/journal/ &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /etc/machine-id:/etc/machine-id &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> grafana/promtail:latest
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>下面是 journal 自动发现日志流后，自动发现的标签。&lt;/p>
+&lt;pre>&lt;code>__journal__audit_loginuid
+__journal__audit_session
+__journal__boot_id
+__journal__cap_effective
+__journal__cmdline
+__journal__comm
+__journal__exe
+__journal__gid
+__journal__hostname # 主机名
+__journal__machine_id
+__journal__pid
+__journal__selinux_context
+__journal__source_realtime_timestamp
+__journal__stream_id
+__journal__systemd_cgroup
+__journal__systemd_invocation_id
+__journal__systemd_slice
+__journal__systemd_unit
+__journal__transport
+__journal__uid
+__journal_code_file
+__journal_code_func
+__journal_code_line
+__journal_cpu_usage_nsec
+__journal_invocation_id
+__journal_message
+__journal_message_id
+__journal_priority
+__journal_priority_keyword
+__journal_syslog_facility
+__journal_syslog_identifier
+__journal_syslog_pid
+__journal_syslog_timestamp
+__journal_unit # 该标签是 unit 的名称，标签值是所有 .service，比如 ssh.service、dockerd.service 等等
+&lt;/code>&lt;/pre>
+&lt;h4 id="json-字段说明">json 字段说明&lt;/h4>
+&lt;p>这是开启的样子：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/sxgd83/1616129621041-ee0d0d3a-b256-4a34-9b14-12bdbbc159a1.png" alt="">
+这是关闭的样子：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/sxgd83/1616129621334-5638249b-63aa-446a-b276-5a621df8be5d.png" alt="">
+可以看见，Parsed Fields 中，多出来很多字段。json 字段开启后，除了正常的 Message，还有很多关于该日志消息的属性。&lt;/p>
+&lt;h4 id="配置示例-1">配置示例&lt;/h4>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">systemd-journal&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">journal&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">job&lt;/span>: &lt;span style="color:#ae81ff">systemd-journal&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">relabel_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">action&lt;/span>: &lt;span style="color:#ae81ff">labelmap&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">regex&lt;/span>: &lt;span style="color:#ae81ff">__(journal__systemd_unit)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">action&lt;/span>: &lt;span style="color:#ae81ff">labelmap&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">regex&lt;/span>: &lt;span style="color:#ae81ff">__(journal__hostname)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">action&lt;/span>: &lt;span style="color:#ae81ff">drop&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">source_labels&lt;/span>: [&lt;span style="color:#ae81ff">journal__systemd_unit]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">regex&lt;/span>: &lt;span style="color:#ae81ff">session-.*scope&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="kubernetes_sd_configs-objecthttpsgrafanacomdocslokilatestclientspromtailconfigurationkubernetes_sd_config">&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/configuration/#kubernetes_sd_config">kubernetes_sd_configs: &amp;lt;[]Object&amp;gt;&lt;/a>&lt;/h3>
+&lt;p>与 Prometheus 中的 kubernetes 的服务发现机制基本一致。与 Prometheus 配置的不同点在于，Promtail 的 kubernetes 服务发现配置一般都会使用 Relabeling 机制弄出来一个 &lt;code>__path__&lt;/code> 标签
+具体字段内容详见《[Prometheus Server 配置](✏IT 学习笔记/👀6.可观测性/监控系统/Prometheus/Server%20 配置.md 配置.md)》文章中 [kubernetes_sd_configs](✏IT 学习笔记/👀6.可观测性/监控系统/Prometheus/Server%20 配置.md 配置.md) 章节&lt;/p>
+&lt;h4 id="配置示例-2">配置示例&lt;/h4>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">kubernetes-pods&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">pipeline_stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">docker&lt;/span>: {}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">kubernetes_sd_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">role&lt;/span>: &lt;span style="color:#ae81ff">pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">relabel_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 为日志流配标签&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_labels&lt;/span>: [&lt;span style="color:#ae81ff">__meta_kubernetes_namespace]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">action&lt;/span>: &lt;span style="color:#ae81ff">replace&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">target_label&lt;/span>: &lt;span style="color:#ae81ff">namespace&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 为日志流配置标签&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_labels&lt;/span>: [&lt;span style="color:#ae81ff">__meta_kubernetes_pod_name]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">action&lt;/span>: &lt;span style="color:#ae81ff">replace&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">target_label&lt;/span>: &lt;span style="color:#ae81ff">pod_name&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 配置抓取日志的路径&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">__meta_kubernetes_pod_annotation_kubernetes_io_config_mirror&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">__meta_kubernetes_pod_container_name&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">separator&lt;/span>: &lt;span style="color:#ae81ff">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">regex&lt;/span>: &lt;span style="color:#ae81ff">(.*)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">replacement&lt;/span>: &lt;span style="color:#ae81ff">/var/log/pods/*$1/*.log&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">target_label&lt;/span>: &lt;span style="color:#ae81ff">__path__&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这里有一个注意事项，最后的一段，则是比 Prometheus 多出来的部分，因为 Promtail 必须需要一个 &lt;strong>path&lt;/strong> 字段来获取采集日志的路径。&lt;/p>
+&lt;h3 id="docker_sd_configs-objecthttpsgrafanacomdocslokilatestclientspromtailconfigurationdocker_sd_config">&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/configuration/#docker_sd_config">docker_sd_configs: &amp;lt;[]Object&amp;gt;&lt;/a>&lt;/h3>
+&lt;p>&lt;strong>host: &lt;!-- raw HTML omitted -->&lt;/strong> # Docker 守护进程的地址。通常设置为：&lt;code>unix:///var/run/docker.sock&lt;/code>
+&lt;strong>filters: &amp;lt;[]Object&amp;gt;&lt;/strong> # 过滤器，用于过滤发现的容器。只有满足条件的容器的日志，才会被 Promtail 采集并上报。&lt;/p>
+&lt;blockquote>
+&lt;p>可用的过滤器取决于上游 Docker 的 API：&lt;a href="https://docs.docker.com/engine/api/v1.41/#operation/ContainerList">https://docs.docker.com/engine/api/v1.41/#operation/ContainerList&lt;/a>，在这个链接中，可以从 Available filters 部分看到，等号左边就是 name 字段，等号右边就是 values 字段。
+这个 name 与 values 的用法就像 &lt;code>docker ps&lt;/code> 命令中的 &lt;code>--filter&lt;/code> 标志，这个标志所使用的过滤器，也是符合 Docker API 中的 ContainerList。&lt;/p>
+&lt;/blockquote>
+&lt;ul>
+&lt;li>&lt;strong>name: &lt;!-- raw HTML omitted -->&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>values: &amp;lt;[]STRING&amp;gt;&lt;/strong> #&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>refresh_interval: &lt;!-- raw HTML omitted -->&lt;/strong> # 刷新间隔。每隔 refresh_interval 时间，从 Docker 的守护进程发现一次可以采集日志的容器。&lt;/p>
+&lt;h4 id="配置示例-3">配置示例&lt;/h4>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">flog_scrape&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">docker_sd_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">host&lt;/span>: &lt;span style="color:#ae81ff">unix:///var/run/docker.sock&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">refresh_interval&lt;/span>: &lt;span style="color:#ae81ff">60s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">relabel_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_labels&lt;/span>: [&lt;span style="color:#e6db74">&amp;#34;__meta_docker_container_name&amp;#34;&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">regex&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/(.*)&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">target_label&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;container&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="重设标签">重设标签&lt;/h2>
+&lt;h3 id="relabel_configs-object">relabel_configs: &lt;!-- raw HTML omitted -->&lt;/h3>
+&lt;p>详见 &lt;a href="https://www.yuque.com/go/doc/33181091">Promtail 的 Relabeling 行为&lt;/a>&lt;/p>
+&lt;h1 id="配置文件示例">配置文件示例&lt;/h1>
+&lt;h2 id="采集-docker-容器日志">采集 Docker 容器日志&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">server&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">http_listen_port&lt;/span>: &lt;span style="color:#ae81ff">9080&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">grpc_listen_port&lt;/span>: &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">positions&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">filename&lt;/span>: &lt;span style="color:#ae81ff">/tmp/positions.yaml&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">clients&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">url&lt;/span>: &lt;span style="color:#ae81ff">http://gateway:3100/loki/api/v1/push&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tenant_id&lt;/span>: &lt;span style="color:#ae81ff">tenant1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">scrape_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">flog_scrape&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">docker_sd_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">host&lt;/span>: &lt;span style="color:#ae81ff">unix:///var/run/docker.sock&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">refresh_interval&lt;/span>: &lt;span style="color:#ae81ff">5s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">relabel_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_labels&lt;/span>: [&lt;span style="color:#e6db74">&amp;#34;__meta_docker_container_name&amp;#34;&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">regex&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/(.*)&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">target_label&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;container&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>

@@ -1,0 +1,106 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Storage(存储)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/loki/storage%E5%AD%98%E5%82%A8/</link><description>Recent content in Storage(存储) on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/loki/storage%E5%AD%98%E5%82%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Data Model(数据模型)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/loki/storage%E5%AD%98%E5%82%A8/data-model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/loki/storage%E5%AD%98%E5%82%A8/data-model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档没有专门将 Log Stream 的章节，Stream 的概念都是在其他章节提到的&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/getting-started/labels/">官方文档,入门-标签&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/operations/storage/">官方文档,运维-存储&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="log-stream日志流-概念">Log Stream(日志流) 概念&lt;/h1>
+&lt;p>Loki 通过一种称为 &lt;strong>Log Stream(日志流)&lt;/strong> 的概念组织所有日志数据。&lt;strong>Log Stream(日志流) 之于 Loki 类似于 Time series(时间序列) 之于 Prometheus&lt;/strong>
+**
+Loki 使用 &lt;strong>Stream(流)&lt;/strong> 这个词来描述保存的日志数据，并根据 **Label(标签)** 来定位日志流，Label 是日志流的元数据。Label 的概念和用法与 Prometheus 中的 Label 一致。如果 Loki 与 Prometheus 同时使用，那么他们之间得标签是一致的，通过 Label，很容易得就可以将应用程序指标和日志数据关联起来。&lt;/p>
+&lt;p>Stream 与 Label 是强关联的，在 Loki 中，Label 是唯一可以定义 Log Stream 的东西。每个标签键和值的组合定义了一条 log stream。如果一个标签值发生了变化，则这会生成一个新的 Log stream。在 Prometheus 中，类似 Log Stream 概念的是 time series(stream 对应 series)。但是不同的是，在 Prometheus 中还有一个维度，是 metrics name(指标名称)。但是在 Loki 中则谁 Path，一个 采集日志的 Path 实际上是会采集很多很多日志的。也正是由于此，所以 Loki 将这种概念称为 Stream，而不是 Series。&lt;/p>
+&lt;p>用白话说，所谓的 Log Stream 可以是下面事物的一种：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>File&lt;/strong> # 一个文件就是一个 Log Stream。一般情况，客户端(比如 Promtail)从文件中 tail 内容以获取日志信息，所以，一个日志就相当于一个 日志流。&lt;/li>
+&lt;li>**STDOUT **# 标准输出。&lt;/li>
+&lt;li>&amp;hellip;.等等&lt;/li>
+&lt;/ul>
+&lt;p>所以 Log Stream 就是上述事物的一种通用抽象。&lt;/p>
+&lt;h2 id="log-line日志行-概念">Log Line(日志行) 概念&lt;/h2>
+&lt;p>Log Line 就是指日志流中的每一行日志，称为 &lt;strong>Log Line(日志行)&lt;/strong>。Log Line 之于 Loki 类似于 Series 之于 Prometheus。&lt;/p>
+&lt;h2 id="标签示例">标签示例&lt;/h2>
+&lt;p>下面的示例将说明 Loki 中 Label 标签的基本使用和概念。&lt;/p>
+&lt;p>首先看下下面的示例，这是一个 promtail 的抓取配置示例：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">scrape_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">system&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">pipeline_stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">static_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">targets&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">localhost&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">job&lt;/span>: &lt;span style="color:#ae81ff">syslog&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">__path__&lt;/span>: &lt;span style="color:#ae81ff">/var/log/syslog&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这个配置将获取日志文件数据并添加一个 job=syslog 的标签，我们可以这样来查询：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{&lt;span style="color:#960050;background-color:#1e0010">job=&lt;/span>&lt;span style="color:#f92672">&amp;#34;syslog&amp;#34;&lt;/span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这将在 Loki 中创建一个流。现在我们再新增一些任务配置：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">scrape_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">system&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">pipeline_stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">static_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">targets&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">localhost&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">job&lt;/span>: &lt;span style="color:#ae81ff">syslog&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">__path__&lt;/span>: &lt;span style="color:#ae81ff">/var/log/syslog&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">system&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">pipeline_stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">static_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">targets&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">localhost&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">job&lt;/span>: &lt;span style="color:#ae81ff">apache&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">__path__&lt;/span>: &lt;span style="color:#ae81ff">/var/log/apache.log&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>现在我们采集两个日志文件，每个文件有一个标签与一个值，所以 Loki 会存储为两个流。我们可以通过下面几种方式来查询这些流：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{&lt;span style="color:#960050;background-color:#1e0010">job=&lt;/span>&lt;span style="color:#f92672">&amp;#34;apache&amp;#34;&lt;/span>} &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;-&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">显示&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">job&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">标签为&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">apache&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">的日志&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>{&lt;span style="color:#960050;background-color:#1e0010">job=&lt;/span>&lt;span style="color:#f92672">&amp;#34;syslog&amp;#34;&lt;/span>} &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;-&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">显示&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">job&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">标签为&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">syslog&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">的日志&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>{&lt;span style="color:#960050;background-color:#1e0010">job=~&lt;/span>&lt;span style="color:#f92672">&amp;#34;apache|syslog&amp;#34;&lt;/span>} &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;-&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">显示&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">job&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">标签为&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">apache&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">或者&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">syslog&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">的日志&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>最后一种方式我们使用的是一个 regex 标签匹配器来获取 job 标签值为 apache 或者 syslog 的日志。接下来我们看看如何使用额外的标签：&lt;/p>
+&lt;p>要获取这两个任务的日志可以用下面的方式来代替 regex 的方式：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{&lt;span style="color:#960050;background-color:#1e0010">env=&lt;/span>&lt;span style="color:#f92672">&amp;#34;dev&amp;#34;&lt;/span>} &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;-&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">将返回所有带有&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">env=dev&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">标签的日志&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过使用一个标签就可以查询很多日志流了，通过组合多个不同的标签，可以创建非常灵活的日志查询。Label 标签是 Loki 日志数据的索引，它们用于查找压缩后的日志内容，这些内容被单独存储为块。标签和值的每一个唯一组合都定义了一个流 ，一个流的日志被分批，压缩，并作为块进行存储。&lt;/p>
+&lt;h1 id="cardinality基数-概念">Cardinality(基数) 概念&lt;/h1>
+&lt;p>前面的示例使用的是静态定义的 Label 标签，只有一个值；但是有一些方法可以动态定义标签。比如我们有下面这样的日志数据：&lt;/p>
+&lt;pre>&lt;code>11.11.11.11 - frank [25/Jan/2000:14:00:01 -0500] &amp;quot;GET /1986.js HTTP/1.1&amp;quot; 200 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>我们可以使用下面的方式来解析这条日志数据：&lt;/p>
+&lt;pre>&lt;code>- job_name: system
+pipeline_stages:
+- regex:
+expression: &amp;quot;^(?P&amp;lt;ip&amp;gt;\\S+) (?P&amp;lt;identd&amp;gt;\\S+) (?P&amp;lt;user&amp;gt;\\S+) \\[(?P&amp;lt;timestamp&amp;gt;[\\w:/]+\\s[+\\-]\\d{4})\\] \&amp;quot;(?P&amp;lt;action&amp;gt;\\S+)\\s?(?P&amp;lt;path&amp;gt;\\S+)?\\s?(?P&amp;lt;protocol&amp;gt;\\S+)?\&amp;quot; (?P&amp;lt;status_code&amp;gt;\\d{3}|-) (?P&amp;lt;size&amp;gt;\\d+|-)\\s?\&amp;quot;?(?P&amp;lt;referer&amp;gt;[^\&amp;quot;]*)\&amp;quot;?\\s?\&amp;quot;?(?P&amp;lt;useragent&amp;gt;[^\&amp;quot;]*)?\&amp;quot;?$&amp;quot;
+- labels:
+action:
+status_code:
+static_configs:
+- targets:
+- localhost
+labels:
+job: apache
+env: dev
+__path__: /var/log/apache.log
+&lt;/code>&lt;/pre>
+&lt;p>这个 regex 匹配日志行的每个组件，并将每个组件的值提取到一个 capture 组里面。在 pipeline 代码内部，这些数据被放置到一个临时的数据结构中，允许在处理该日志行时将其用于其他处理（此时，临时数据将被丢弃）。&lt;/p>
+&lt;p>从该 regex 中，我们就使用其中的两个 capture 组，根据日志行本身的内容动态地设置两个标签：&lt;/p>
+&lt;pre>&lt;code>action (例如 action=&amp;quot;GET&amp;quot;, action=&amp;quot;POST&amp;quot;) status_code (例如 status_code=&amp;quot;200&amp;quot;, status_code=&amp;quot;400&amp;quot;)
+&lt;/code>&lt;/pre>
+&lt;p>假设我们有下面几行日志数据：&lt;/p>
+&lt;pre>&lt;code>11.11.11.11 - frank [25/Jan/2000:14:00:01 -0500] &amp;quot;GET /1986.js HTTP/1.1&amp;quot; 200 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;
+11.11.11.12 - frank [25/Jan/2000:14:00:02 -0500] &amp;quot;POST /1986.js HTTP/1.1&amp;quot; 200 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;
+11.11.11.13 - frank [25/Jan/2000:14:00:03 -0500] &amp;quot;GET /1986.js HTTP/1.1&amp;quot; 400 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;
+11.11.11.14 - frank [25/Jan/2000:14:00:04 -0500] &amp;quot;POST /1986.js HTTP/1.1&amp;quot; 400 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>则在 Loki 中收集日志后，会创建为如下所示的流：&lt;/p>
+&lt;pre>&lt;code>{job=&amp;quot;apache&amp;quot;,env=&amp;quot;dev&amp;quot;,action=&amp;quot;GET&amp;quot;,status_code=&amp;quot;200&amp;quot;} 11.11.11.11 - frank [25/Jan/2000:14:00:01 -0500] &amp;quot;GET /1986.js HTTP/1.1&amp;quot; 200 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;
+{job=&amp;quot;apache&amp;quot;,env=&amp;quot;dev&amp;quot;,action=&amp;quot;POST&amp;quot;,status_code=&amp;quot;200&amp;quot;} 11.11.11.12 - frank [25/Jan/2000:14:00:02 -0500] &amp;quot;POST /1986.js HTTP/1.1&amp;quot; 200 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;
+{job=&amp;quot;apache&amp;quot;,env=&amp;quot;dev&amp;quot;,action=&amp;quot;GET&amp;quot;,status_code=&amp;quot;400&amp;quot;} 11.11.11.13 - frank [25/Jan/2000:14:00:03 -0500] &amp;quot;GET /1986.js HTTP/1.1&amp;quot; 400 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;
+{job=&amp;quot;apache&amp;quot;,env=&amp;quot;dev&amp;quot;,action=&amp;quot;POST&amp;quot;,status_code=&amp;quot;400&amp;quot;} 11.11.11.14 - frank [25/Jan/2000:14:00:04 -0500] &amp;quot;POST /1986.js HTTP/1.1&amp;quot; 400 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>这 4 行日志将成为 4 个独立的流，并开始填充 4 个独立的块。任何与这些 标签/值 组合相匹配的额外日志行将被添加到现有的流中。如果有另一个独特的标签组合进来（比如 status_code=“500”）就会创建另一个新的流。&lt;/p>
+&lt;p>比如我们为 IP 设置一个 Label 标签，不仅用户的每一个请求都会变成一个唯一的流，每一个来自同一用户的不同 action 或 status_code 的请求都会得到自己的流。&lt;/p>
+&lt;p>如果有 4 个共同的操作（GET、PUT、POST、DELETE）和 4 个共同的状态码（可能不止 4 个！），这将会是 16 个流和 16 个独立的块。然后现在乘以每个用户，如果我们使用 IP 的标签，你将很快就会有数千或数万个流了。&lt;/p>
+&lt;p>这个 Cardinality 太高了，这足以让 Loki 挂掉。&lt;/p>
+&lt;p>当我们谈论 Cardinality 的时候，我们指的是标签和值的组合，以及他们创建的流的数量，高 Cardinality 是指使用具有较大范围的可能值的标签，如 IP，或结合需要其他标签，即使它们有一个小而有限的集合，比如 status_code 和 action。&lt;/p>
+&lt;p>高 Cardinality 会导致 Loki 建立一个巨大的索引（💰💰💰💰），并将成千上万的微小块存入对象存储中（慢），Loki 目前在这种配置下的性能非常差，运行和使用起来非常不划算的。&lt;/p></description></item></channel></rss>

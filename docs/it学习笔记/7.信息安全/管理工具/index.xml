@@ -1,0 +1,521 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 管理工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/</link><description>Recent content in 管理工具 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: CFSSL</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/cfssl/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/cfssl/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/cloudflare/cfssl">GitHub 项目,cloudflare/cfssll&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://cfssl.org/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/E-aU-lbieGLokDKbjdGc3g">公众号&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>cfssl 与 openssl 类似，不过是使用 go 编写，由 CloudFlare 开源的一款 PKI/TLS 工具。主要程序有 cfssl，是 CFSSL 的命令行工具，cfssljson 用来从 cfssl 程序获取 JSON 输出，并将证书，密钥，CSR 和 bundle 写入文件中。&lt;/p>
+&lt;h2 id="使用-cfssl-创建-ca-认证步骤">使用 CFSSL 创建 CA 认证步骤&lt;/h2>
+&lt;h3 id="创建认证中心ca">创建认证中心(CA)&lt;/h3>
+&lt;p>cfssl 可以创建一个获取和操作证书的内部认证中心。运行认证中心需要一个 CA 证书和相应的 CA 私钥。任何知道私钥的人都可以充当 CA 来颁发证书。因此，私钥的保护至关重要，这里我们以 k8s 所需的证书来实践一下：&lt;/p>
+&lt;pre>&lt;code>cfssl print-defaults config &amp;gt; config.json # 默认证书策略配置模板
+cfssl print-defaults csr &amp;gt; csr.json #默认csr请求模板
+&lt;/code>&lt;/pre>
+&lt;p>结合自身的要求，修改证书请求文件&lt;code>csr.json&lt;/code>,证书 10 年&lt;/p>
+&lt;pre>&lt;code>{
+&amp;quot;CN&amp;quot;: &amp;quot;kubernetes&amp;quot;,
+&amp;quot;key&amp;quot;: {
+&amp;quot;algo&amp;quot;: &amp;quot;rsa&amp;quot;,
+&amp;quot;size&amp;quot;: 2048
+},
+&amp;quot;names&amp;quot;: [
+{
+&amp;quot;C&amp;quot;: &amp;quot;CN&amp;quot;,
+&amp;quot;ST&amp;quot;: &amp;quot;BeiJing&amp;quot;,
+&amp;quot;L&amp;quot;: &amp;quot;BeiJing&amp;quot;,
+&amp;quot;O&amp;quot;: &amp;quot;k8s&amp;quot;,
+&amp;quot;OU&amp;quot;: &amp;quot;System&amp;quot;
+}
+],
+&amp;quot;ca&amp;quot;: {
+&amp;quot;expiry&amp;quot;: &amp;quot;87600h&amp;quot;
+}
+}
+&lt;/code>&lt;/pre>
+&lt;p>知识点:&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>&amp;quot;CN&amp;quot;&lt;/code>：Common Name，kube-apiserver 从证书中提取该字段作为请求的用户名 (User Name)&lt;/li>
+&lt;li>&lt;code>&amp;quot;O&amp;quot;&lt;/code>：Organization，kube-apiserver 从证书中提取该字段作为请求用户所属的组 (Group)&lt;/li>
+&lt;li>&lt;code>C&lt;/code>: Country， 国家&lt;/li>
+&lt;li>&lt;code>L&lt;/code>: Locality，地区，城市&lt;/li>
+&lt;li>&lt;code>O&lt;/code>: Organization Name，组织名称，公司名称&lt;/li>
+&lt;li>&lt;code>OU&lt;/code>: Organization Unit Name，组织单位名称，公司部门&lt;/li>
+&lt;li>&lt;code>ST&lt;/code>: State，州，省&lt;/li>
+&lt;/ul>
+&lt;p>证书配置模板文件&lt;code>ca-config.json&lt;/code>&lt;/p>
+&lt;pre>&lt;code>{
+&amp;quot;signing&amp;quot;: {
+&amp;quot;default&amp;quot;: {
+&amp;quot;expiry&amp;quot;: &amp;quot;87600h&amp;quot;
+},
+&amp;quot;profiles&amp;quot;: {
+&amp;quot;kubernetes&amp;quot;: {
+&amp;quot;usages&amp;quot;: [
+&amp;quot;signing&amp;quot;,
+&amp;quot;key encipherment&amp;quot;,
+&amp;quot;server auth&amp;quot;,
+&amp;quot;client auth&amp;quot;
+],
+&amp;quot;expiry&amp;quot;: &amp;quot;87600h&amp;quot;
+}
+}
+}
+}
+&lt;/code>&lt;/pre>
+&lt;p>知识点：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>config.json&lt;/code>：可以定义多个 &lt;code>profiles&lt;/code>，分别指定不同的过期时间、使用场景等参数；后续在签名证书时使用某个 &lt;code>profile&lt;/code>；此实例只有一个 kubernetes 模板。&lt;/li>
+&lt;li>&lt;code>signing&lt;/code>：表示该证书可用于签名其它证书；生成的 ca.pem 证书中&lt;code>CA=TRUE&lt;/code>&lt;/li>
+&lt;li>&lt;code>server auth&lt;/code>：表示 client 可以用该 CA 对 server 提供的证书进行验证；&lt;/li>
+&lt;li>&lt;code>client auth&lt;/code>：表示 server 可以用该 CA 对 client 提供的证书进行验证；&lt;/li>
+&lt;li>注意标点符号，最后一个字段一般是没有&lt;code>逗号&lt;/code>的。&lt;/li>
+&lt;/ul>
+&lt;p>初始化创建 CA 认证中心，将会生成&lt;code>ca-key.pem&lt;/code>（私钥）和&lt;code>ca.pem&lt;/code>（公钥）&lt;/p>
+&lt;pre>&lt;code>cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+&lt;/code>&lt;/pre>
+&lt;h3 id="创建-kubernetes-证书">创建 kubernetes 证书&lt;/h3>
+&lt;p>创建&lt;code>kubernetes-csr.json&lt;/code>证书请求文件&lt;/p>
+&lt;pre>&lt;code>{
+&amp;quot;CN&amp;quot;: &amp;quot;kubernetes&amp;quot;,
+&amp;quot;hosts&amp;quot;: [
+&amp;quot;127.0.0.1&amp;quot;,
+&amp;quot;10.1.20.129&amp;quot;,
+&amp;quot;10.1.20.128&amp;quot;,
+&amp;quot;10.1.20.126&amp;quot;,
+&amp;quot;10.1.20.127&amp;quot;,
+&amp;quot;10.254.0.1&amp;quot;,
+&amp;quot;*.kubernetes.master&amp;quot;,
+&amp;quot;localhost&amp;quot;,
+&amp;quot;kubernetes&amp;quot;,
+&amp;quot;kubernetes.default&amp;quot;,
+&amp;quot;kubernetes.default.svc&amp;quot;,
+&amp;quot;kubernetes.default.svc.cluster&amp;quot;,
+&amp;quot;kubernetes.default.svc.cluster.local&amp;quot;
+],
+&amp;quot;key&amp;quot;: {
+&amp;quot;algo&amp;quot;: &amp;quot;rsa&amp;quot;,
+&amp;quot;size&amp;quot;: 2048
+},
+&amp;quot;names&amp;quot;: [
+{
+&amp;quot;C&amp;quot;: &amp;quot;CN&amp;quot;,
+&amp;quot;ST&amp;quot;: &amp;quot;BeiJing&amp;quot;,
+&amp;quot;L&amp;quot;: &amp;quot;BeiJing&amp;quot;,
+&amp;quot;O&amp;quot;: &amp;quot;k8s&amp;quot;,
+&amp;quot;OU&amp;quot;: &amp;quot;System&amp;quot;
+}
+]
+}
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>知识点&lt;/strong>：&lt;/p>
+&lt;ul>
+&lt;li>这个证书目前专属于 apiserver，加了一个 &lt;code>*.kubernetes.master&lt;/code>域名以便内部私有 DNS 解析使用(可删除)；至于很多人问过 kubernetes 这几个能不能删掉，答案是&lt;strong>不可以&lt;/strong>的；因为当集群创建好后，&lt;code>default namespace&lt;/code> 下会创建一个叫 &lt;code>kubenretes&lt;/code> 的&lt;code>svc&lt;/code>，有一些组件会直接连接这个 svc 来跟 api 通信的，证书如果不包含可能会出现无法连接的情况；其他几个 kubernetes 开头的域名作用相同&lt;/li>
+&lt;li>&lt;code>hosts&lt;/code>包含的是授权范围，不在此范围的的节点或者服务使用此证书就会报证书不匹配错误。&lt;code>10.254.0.1&lt;/code>是指 kube-apiserver 指定的 service-cluster-ip-range 网段的第一个 IP。&lt;/li>
+&lt;/ul>
+&lt;p>生成 kubernetes 证书和私钥&lt;/p>
+&lt;pre>&lt;code>cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes kubernetes-csr.json | cfssljson -bare kubernetes
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>知识点&lt;/strong>：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>-config&lt;/code> 引用的是模板中的默认配置文件，&lt;/li>
+&lt;li>&lt;code>-profiles&lt;/code>是指定特定的使用场景，比如 config.json 中的&lt;code>kubernetes&lt;/code>区域&lt;/li>
+&lt;/ul>
+&lt;h3 id="创建-admin-证书">创建 admin 证书&lt;/h3>
+&lt;p>创建 admin 证书请求文件&lt;code>admin-csr.json&lt;/code>&lt;/p>
+&lt;pre>&lt;code>{
+&amp;quot;CN&amp;quot;: &amp;quot;admin&amp;quot;,
+&amp;quot;hosts&amp;quot;: [],
+&amp;quot;key&amp;quot;: {
+&amp;quot;algo&amp;quot;: &amp;quot;rsa&amp;quot;,
+&amp;quot;size&amp;quot;: 2048
+},
+&amp;quot;names&amp;quot;: [
+{
+&amp;quot;C&amp;quot;: &amp;quot;CN&amp;quot;,
+&amp;quot;ST&amp;quot;: &amp;quot;BeiJing&amp;quot;,
+&amp;quot;L&amp;quot;: &amp;quot;BeiJing&amp;quot;,
+&amp;quot;O&amp;quot;: &amp;quot;system:masters&amp;quot;,
+&amp;quot;OU&amp;quot;: &amp;quot;System&amp;quot;
+}
+]
+}
+&lt;/code>&lt;/pre>
+&lt;p>生成 admin 证书和私钥&lt;/p>
+&lt;pre>&lt;code>cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes admin-csr.json | cfssljson -bare admin
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>知识点&lt;/strong>这个 admin 证书，是将来生成管理员用的&lt;code>kubeconfig&lt;/code> 配置文件用的，现在我们一般建议使用 RBAC 来对 kubernetes 进行角色权限控制， kubernetes 将证书中的 CN 字段作为 User， O 字段作为 Group
+同样，我们也可以按照同样的方式来创建 kubernetes 中 etcd 集群的证书&lt;/p>
+&lt;h3 id="创建-etcd-集群证书">创建 etcd 集群证书&lt;/h3>
+&lt;ol>
+&lt;li>证书签署请求文件&lt;code>ca-csr.json&lt;/code>&lt;/li>
+&lt;/ol>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>{
+&amp;quot;CN&amp;quot;: &amp;quot;etcd CA&amp;quot;,
+&amp;quot;key&amp;quot;: {
+&amp;quot;algo&amp;quot;: &amp;quot;rsa&amp;quot;,
+&amp;quot;size&amp;quot;: 2048
+},
+&amp;quot;names&amp;quot;: [
+{
+&amp;quot;C&amp;quot;: &amp;quot;CN&amp;quot;,
+&amp;quot;L&amp;quot;: &amp;quot;Beijing&amp;quot;,
+&amp;quot;ST&amp;quot;: &amp;quot;Beijing&amp;quot;
+}
+]
+}
+&lt;/code>&lt;/pre>
+&lt;ol start="2">
+&lt;li>为节点创建服务证书请求文件，指定授权的主机节点&lt;code>etcd-server-csr.json&lt;/code>&lt;/li>
+&lt;/ol>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>{
+&amp;quot;CN&amp;quot;: &amp;quot;etcd&amp;quot;,
+&amp;quot;hosts&amp;quot;: [
+&amp;quot;10.1.20.129&amp;quot;,
+&amp;quot;10.1.20.126&amp;quot;,
+&amp;quot;10.1.20.128&amp;quot;
+],
+&amp;quot;key&amp;quot;: {
+&amp;quot;algo&amp;quot;: &amp;quot;rsa&amp;quot;,
+&amp;quot;size&amp;quot;: 2048
+},
+&amp;quot;names&amp;quot;: [
+{
+&amp;quot;C&amp;quot;: &amp;quot;CN&amp;quot;,
+&amp;quot;L&amp;quot;: &amp;quot;BeiJing&amp;quot;,
+&amp;quot;ST&amp;quot;: &amp;quot;BeiJing&amp;quot;
+}
+]
+}
+&lt;/code>&lt;/pre>
+&lt;ol start="3">
+&lt;li>证书配置模板文件&lt;code>ca-config.json&lt;/code>&lt;/li>
+&lt;/ol>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>{
+&amp;quot;signing&amp;quot;: {
+&amp;quot;default&amp;quot;: {
+&amp;quot;expiry&amp;quot;: &amp;quot;87600h&amp;quot;
+},
+&amp;quot;profiles&amp;quot;: {
+&amp;quot;etcd&amp;quot;: {
+&amp;quot;expiry&amp;quot;: &amp;quot;87600h&amp;quot;,
+&amp;quot;usages&amp;quot;: [
+&amp;quot;signing&amp;quot;,
+&amp;quot;key encipherment&amp;quot;,
+&amp;quot;server auth&amp;quot;,
+&amp;quot;client auth&amp;quot;
+]
+}
+}
+}
+}
+&lt;/code>&lt;/pre>
+&lt;ol start="5">
+&lt;li>生成 etcd 集群所需的证书与私钥&lt;/li>
+&lt;/ol>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>cfssl gencert -initca ca-csr.json | cfssljson -bare ca -
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=etcd etcd-server-csr.json | cfssljson -bare server
+&lt;/code>&lt;/pre>
+&lt;p>这样就完成 etcd 所需证书的申请，同时了解了 cfssl 工具的强大，写到这里，本次的实验就结束了。&lt;/p></description></item><item><title>Docs: OpenSSL</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/openssl/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/openssl/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.openssl.org/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/openssl/openssl">GitHub 项目,openssl/openssl&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>OpenSSL 是一个商业级且功能齐全的工具包，用于通用密码学和安全通信&lt;/p>
+&lt;p>OpenSSL 可以实现 &lt;strong>TLS(传输层安全性)&lt;/strong> 和 &lt;strong>SSL(安全套接字层)&lt;/strong> 协议的预期功能，类似于 OpenSSH 是 ssh 协议的实现&lt;/p>
+&lt;p>OpenSSL 主要包含两组东西：&lt;/p>
+&lt;ul>
+&lt;li>openssl # 多用途的命令行工具&lt;/li>
+&lt;li>libraries # OpenSSL 库
+&lt;ul>
+&lt;li>libcrypto # 加密解密库&lt;/li>
+&lt;li>libssl # ssl 库，实现了 ssl 及 tls 的功能&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="openssl-关联文件">OpenSSL 关联文件&lt;/h1>
+&lt;p>&lt;strong>/etc/ssl/openssl.conf&lt;/strong> # OpenSSL 的“命令行工具”和 “库”默认使用的配置文件。&lt;/p>
+&lt;p>如果想要使用 CA 功能，需要进行如下配置&lt;/p>
+&lt;ul>
+&lt;li>touch /etc/pki/CA/index.txt&lt;/li>
+&lt;li>echo 01 &amp;gt; /etc/pki/CA/serial&lt;/li>
+&lt;/ul>
+&lt;h1 id="openssl-命令行工具">openssl 命令行工具&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.openssl.org/docs/manmaster/man1/openssl.html">Manual(手册),openssl&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>openssl 程序提供了丰富的子命令，以实现 TLS/SSL 网络协议以及它们所需要的相关加密标准。&lt;/p>
+&lt;h2 id="syntax语法">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>openssl Command [ OPTIONS ] [ ARGUMENTS ]&lt;/strong>&lt;/p>
+&lt;h3 id="command">Command&lt;/h3>
+&lt;ul>
+&lt;li>Standard commands # 标准命令
+&lt;ul>
+&lt;li>asn1parse，ca，ciphers，cms，crl，crl2pkcs7，dgst，dh，dhparam，dsa，dsaparam，ec，ecparam，enc，engine，errstr，gendh，gendsa，genpkey，genrsa，nseq，ocsp，passwd，pkcs12，pkcs7，pkcs8，pkey，pkeyparam，pkeyutl，prime，rand，req，rsa，rsautl，s_client，s_server，s_time，sess_id，smime，speed，spkac，ts，verify，version，x509&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Message Digest commands #消息摘要命令，消息摘要算法的实现(用于单向加密)。使用 dgst 命令
+&lt;ul>
+&lt;li>md2，md4，md5，rmd160，sha，sha1&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Cipher commands #密码命令（其中都是各种加密算法，用于对称加密）。使用 enc 命令
+&lt;ul>
+&lt;li>aes-128-cbc，aes-128-ecb，aes-192-cbc，aes-192-ecb，aes-256-cbc，aes-256-ecb，base64，bf，bf-cbc，bf-cfb，bf-ecb，bf-ofb，camellia-128-cbc，camellia-128-ecb，camellia-192-cbc，camellia-192-ecb，camellia-256-cbc，camellia-256-ecb，cast，cast-cbc，cast5-cbc，cast5-cfb，cast5-ecb，cast5-ofb，des，des-cbc，des-cfb，des-ecb，des-ede，des-ede-cbc，des-ede-cfb，des-ede-ofb，des-ede3，des-ede3-cbc，des-ede3-cfb，des-ede3-ofb，des-ofb，des3，desx，idea，idea-cbc，idea-cfb，idea-ecb，idea-ofb，rc2，rc2-40-cbc，rc2-64-cbc，rc2-cbc，rc2-cfb，rc2-ecb，rc2-ofb，rc4，rc4-40，rc5，rc5-cbc，rc5-cfb，rc5-ecb，rc5-ofb，seed，seed-cbc，seed-cfb，seed-ecb，seed-ofb，zlib&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="global-options">Global OPTIONS&lt;/h3>
+&lt;ul>
+&lt;li>-in FILE # 指明使用的文件&lt;/li>
+&lt;li>-out FILE # 指明输出的文件&lt;/li>
+&lt;/ul>
+&lt;h2 id="standard-commands-标准命令">Standard commands #标准命令&lt;/h2>
+&lt;p>[Standard commands(标准命令)](✏IT 学习笔记/🔐7.信息安全/管理工具/OpenSSL/Standard%20commands(标准命令).md commands(标准命令).md)&lt;/p>
+&lt;h2 id="message-digest-commands--消息摘要命令">Message Digest commands # 消息摘要命令&lt;/h2>
+&lt;p>消息摘要算法的实现(用于单向加密)。使用 dgst 命令&lt;/p>
+&lt;h2 id="cipher-commands--密码命令">Cipher commands # 密码命令&lt;/h2>
+&lt;p>其中都是各种加密算法，用于对称加密。使用 enc 命令&lt;/p>
+&lt;h3 id="openssl-enc--对称密钥程序用于创建管理对称密钥">openssl enc # 对称密钥程序，用于创建管理对称密钥&lt;/h3>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-e&lt;/strong> # 加密文件&lt;/li>
+&lt;li>&lt;strong>-d&lt;/strong> # 解密文件&lt;/li>
+&lt;li>&lt;strong>-des3&lt;/strong> # 使用 des3 算法进行加密或解密&lt;/li>
+&lt;li>&lt;strong>-a&lt;/strong> # 基于文本进行编码&lt;/li>
+&lt;li>&lt;strong>-salt&lt;/strong> # 加入一些盐&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>openssl enc -e -des3 -a -salt -in fstab -out fstab.ciphertext # 加密 fstab 文件为 fstab.ciphertext，算法为 des3，基于文本进行编码，加入一些 salt&lt;/li>
+&lt;li>openssl enc -d -des3 -a -salt -in fstab.ciphertext -out fstab # 解密 fstab.ciphertext 为 fstab 文件&lt;/li>
+&lt;/ul>
+&lt;h1 id="应用实例">应用实例：&lt;/h1>
+&lt;h2 id="创建自签-ca-证书">创建自签 ca 证书&lt;/h2>
+&lt;ul>
+&lt;li>(umask 077; openssl genrsa -out ca.key 2048)&lt;/li>
+&lt;li>openssl req -new -x509 -key ca.key -days 3650 -out ca.crt&lt;/li>
+&lt;/ul>
+&lt;h2 id="在-kubernetes-中生成个人证书">在 kubernetes 中生成个人证书&lt;/h2>
+&lt;ul>
+&lt;li>在当前目录下生成一个 2048 位的名为 lch.key 的私钥（括号的作用是创建子 shell 执行命令，这样 umask 命令对当前 shell 没影响）
+&lt;ul>
+&lt;li>(umask 077;openssl genrsa -out lch.key 2048)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>使用 lck.key 进行证书申请
+&lt;ul>
+&lt;li>openssl req -new -key lch.key -out lch.csr -subj &amp;ldquo;/CN=lch&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>使用 ca.key 来给 lch.crt 颁发证书，以生成 lch.crt 文件
+&lt;ul>
+&lt;li>openssl x509 -req -in lch.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out lch.crt -days 365&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>查看 ca.crt 证书的信息
+&lt;ul>
+&lt;li>openssl x509 -in lch.crt -text -noout&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>openssl x509 部分命令&lt;/p>
+&lt;p>打印出证书的内容：&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -text&lt;/p>
+&lt;p>打印出证书的系列号&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -serial&lt;/p>
+&lt;p>打印出证书的拥有者名字&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -subject&lt;/p>
+&lt;p>以 RFC2253 规定的格式打印出证书的拥有者名字&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -subject -nameopt RFC2253&lt;/p>
+&lt;p>在支持 UTF8 的终端一行过打印出证书的拥有者名字&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -subject -nameopt oneline -nameopt -escmsb&lt;/p>
+&lt;p>打印出证书的 MD5 特征参数&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -fingerprint&lt;/p>
+&lt;p>打印出证书的 SHA 特征参数&lt;/p>
+&lt;p>openssl x509 -sha1 -in cert.pem -noout -fingerprint&lt;/p>
+&lt;p>把 PEM 格式的证书转化成 DER 格式&lt;/p>
+&lt;p>openssl x509 -in cert.pem -inform PEM -out cert.der -outform DER&lt;/p>
+&lt;p>把一个证书转化成 CSR&lt;/p>
+&lt;p>openssl x509 -x509toreq -in cert.pem -out req.pem -signkey key.pem&lt;/p>
+&lt;p>给一个 CSR 进行处理，颁发字签名证书，增加 CA 扩展项&lt;/p>
+&lt;p>openssl x509 -req -in careq.pem -extfile openssl.cnf -extensions v3_ca -signkey key.pem -out cacert.pem&lt;/p>
+&lt;p>给一个 CSR 签名，增加用户证书扩展项&lt;/p>
+&lt;p>openssl x509 -req -in req.pem -extfile openssl.cnf -extensions v3_usr -CA cacert.pem -CAkey key.pem -CAcreateserial&lt;/p>
+&lt;p>查看 csr 文件细节：&lt;/p>
+&lt;p>openssl req -in my.csr -noout -text&lt;/p></description></item><item><title>Docs: OpenSSL</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/openssl/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/openssl/</guid><description/></item><item><title>Docs: 自建CA脚本</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/%E8%87%AA%E5%BB%BAca%E8%84%9A%E6%9C%AC/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/%E8%87%AA%E5%BB%BAca%E8%84%9A%E6%9C%AC/</guid><description>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://rancher2.docs.rancher.cn/docs/installation/options/self-signed-ssl/_index">https://rancher2.docs.rancher.cn/docs/installation/options/self-signed-ssl/_index&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#!/bin/bash -e
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>help &lt;span style="color:#f92672">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; ================================================================ &amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; --ssl-domain: 生成ssl证书需要的主域名，如不指定则默认为www.rancher.local，如果是ip访问服务，则可忽略；&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; --ssl-trusted-ip: 一般ssl证书只信任域名的访问请求，有时候需要使用ip去访问server，那么需要给ssl证书添加扩展IP，多个IP用逗号隔开；&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; --ssl-trusted-domain: 如果想多个域名访问，则添加扩展域名（SSL_TRUSTED_DOMAIN）,多个扩展域名用逗号隔开；&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; --ssl-size: ssl加密位数，默认2048；&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; --ssl-cn: 国家代码(2个字母的代号),默认CN;&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; --ssl-date: 指定ca签署的证书有效期,默认10年;&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; --ca-date: 指定ca证书有效期,默认10年;&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; 使用示例:&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; ./create_self-signed-cert.sh --ssl-domain=www.test.com --ssl-trusted-domain=www.test2.com \ &amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; --ssl-trusted-ip=1.1.1.1,2.2.2.2,3.3.3.3 --ssl-size=2048 --ssl-date=36500 --ca-date=36500&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo &lt;span style="color:#e6db74">&amp;#39; ================================================================&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">case&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$1&lt;span style="color:#e6db74">&amp;#34;&lt;/span> in
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> -h|--help&lt;span style="color:#f92672">)&lt;/span> help; exit;;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">esac&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#f92672">[[&lt;/span> $1 &lt;span style="color:#f92672">==&lt;/span> &lt;span style="color:#e6db74">&amp;#39;&amp;#39;&lt;/span> &lt;span style="color:#f92672">]]&lt;/span>;&lt;span style="color:#66d9ef">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> help;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> exit;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>CMDOPTS&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>$*&lt;span style="color:#e6db74">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">for&lt;/span> OPTS in $CMDOPTS;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> key&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">$(&lt;/span>echo &lt;span style="color:#e6db74">${&lt;/span>OPTS&lt;span style="color:#e6db74">}&lt;/span> | awk -F&lt;span style="color:#e6db74">&amp;#34;=&amp;#34;&lt;/span> &lt;span style="color:#e6db74">&amp;#39;{print $1}&amp;#39;&lt;/span> &lt;span style="color:#66d9ef">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> value&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">$(&lt;/span>echo &lt;span style="color:#e6db74">${&lt;/span>OPTS&lt;span style="color:#e6db74">}&lt;/span> | awk -F&lt;span style="color:#e6db74">&amp;#34;=&amp;#34;&lt;/span> &lt;span style="color:#e6db74">&amp;#39;{print $2}&amp;#39;&lt;/span> &lt;span style="color:#66d9ef">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">case&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$key&lt;span style="color:#e6db74">&amp;#34;&lt;/span> in
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --ssl-domain&lt;span style="color:#f92672">)&lt;/span> SSL_DOMAIN&lt;span style="color:#f92672">=&lt;/span>$value ;;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --ssl-trusted-ip&lt;span style="color:#f92672">)&lt;/span> SSL_TRUSTED_IP&lt;span style="color:#f92672">=&lt;/span>$value ;;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --ssl-trusted-domain&lt;span style="color:#f92672">)&lt;/span> SSL_TRUSTED_DOMAIN&lt;span style="color:#f92672">=&lt;/span>$value ;;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --ssl-size&lt;span style="color:#f92672">)&lt;/span> SSL_SIZE&lt;span style="color:#f92672">=&lt;/span>$value ;;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --ssl-date&lt;span style="color:#f92672">)&lt;/span> SSL_DATE&lt;span style="color:#f92672">=&lt;/span>$value ;;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --ca-date&lt;span style="color:#f92672">)&lt;/span> CA_DATE&lt;span style="color:#f92672">=&lt;/span>$value ;;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --ssl-cn&lt;span style="color:#f92672">)&lt;/span> CN&lt;span style="color:#f92672">=&lt;/span>$value ;;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">esac&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">done&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># CA相关配置&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>CA_DATE&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_DATE&lt;span style="color:#66d9ef">:-&lt;/span>3650&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>CA_KEY&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#66d9ef">:-&lt;/span>cakey.pem&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>CA_CERT&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_CERT&lt;span style="color:#66d9ef">:-&lt;/span>cacerts.pem&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>CA_DOMAIN&lt;span style="color:#f92672">=&lt;/span>cattle-ca
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># ssl相关配置&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>SSL_CONFIG&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_CONFIG&lt;span style="color:#66d9ef">:-&lt;/span>$PWD/openssl.cnf&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>SSL_DOMAIN&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_DOMAIN&lt;span style="color:#66d9ef">:-&lt;/span>&lt;span style="color:#e6db74">&amp;#39;www.rancher.local&amp;#39;&lt;/span>&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>SSL_DATE&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_DATE&lt;span style="color:#66d9ef">:-&lt;/span>3650&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>SSL_SIZE&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_SIZE&lt;span style="color:#66d9ef">:-&lt;/span>2048&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 国家代码(2个字母的代号),默认CN;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>CN&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CN&lt;span style="color:#66d9ef">:-&lt;/span>CN&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>SSL_KEY&lt;span style="color:#f92672">=&lt;/span>$SSL_DOMAIN.key
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>SSL_CSR&lt;span style="color:#f92672">=&lt;/span>$SSL_DOMAIN.csr
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>SSL_CERT&lt;span style="color:#f92672">=&lt;/span>$SSL_DOMAIN.crt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ---------------------------- \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m | 生成 SSL Cert | \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ---------------------------- \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#f92672">[[&lt;/span> -e ./&lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#f92672">]]&lt;/span>; &lt;span style="color:#66d9ef">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 1. 发现已存在CA私钥，备份&amp;#34;&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;为&amp;#34;&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;-bak，然后重新创建 \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> mv &lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>-bak
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> openssl genrsa -out &lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#e6db74">${&lt;/span>SSL_SIZE&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">else&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 1. 生成新的CA私钥 &lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74"> \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> openssl genrsa -out &lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#e6db74">${&lt;/span>SSL_SIZE&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#f92672">[[&lt;/span> -e ./&lt;span style="color:#e6db74">${&lt;/span>CA_CERT&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#f92672">]]&lt;/span>; &lt;span style="color:#66d9ef">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 2. 发现已存在CA证书，先备份&amp;#34;&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_CERT&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;为&amp;#34;&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_CERT&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;-bak，然后重新创建 \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> mv &lt;span style="color:#e6db74">${&lt;/span>CA_CERT&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_CERT&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>-bak
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> openssl req -x509 -sha256 -new -nodes -key &lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#e6db74">}&lt;/span> -days &lt;span style="color:#e6db74">${&lt;/span>CA_DATE&lt;span style="color:#e6db74">}&lt;/span> -out &lt;span style="color:#e6db74">${&lt;/span>CA_CERT&lt;span style="color:#e6db74">}&lt;/span> -subj &lt;span style="color:#e6db74">&amp;#34;/C=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CN&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">/CN=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_DOMAIN&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">else&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 2. 生成新的CA证书 &lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_CERT&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74"> \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> openssl req -x509 -sha256 -new -nodes -key &lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#e6db74">}&lt;/span> -days &lt;span style="color:#e6db74">${&lt;/span>CA_DATE&lt;span style="color:#e6db74">}&lt;/span> -out &lt;span style="color:#e6db74">${&lt;/span>CA_CERT&lt;span style="color:#e6db74">}&lt;/span> -subj &lt;span style="color:#e6db74">&amp;#34;/C=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CN&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">/CN=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CA_DOMAIN&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 3. 生成Openssl配置文件 &lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_CONFIG&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74"> \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cat &amp;gt; &lt;span style="color:#e6db74">${&lt;/span>SSL_CONFIG&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOM
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[req]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">req_extensions = v3_req
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">distinguished_name = req_distinguished_name
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[req_distinguished_name]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[ v3_req ]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">basicConstraints = CA:FALSE
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">extendedKeyUsage = clientAuth, serverAuth
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOM&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#f92672">[[&lt;/span> -n &lt;span style="color:#e6db74">${&lt;/span>SSL_TRUSTED_IP&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#f92672">||&lt;/span> -n &lt;span style="color:#e6db74">${&lt;/span>SSL_TRUSTED_DOMAIN&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#f92672">]]&lt;/span>; &lt;span style="color:#66d9ef">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> cat &amp;gt;&amp;gt; &lt;span style="color:#e6db74">${&lt;/span>SSL_CONFIG&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOM
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">subjectAltName = @alt_names
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[alt_names]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOM&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> IFS&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;,&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> dns&lt;span style="color:#f92672">=(&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_TRUSTED_DOMAIN&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> dns&lt;span style="color:#f92672">+=(&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_DOMAIN&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> i in &lt;span style="color:#e6db74">&amp;#34;&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>!dns[@]&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>; &lt;span style="color:#66d9ef">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo DNS.&lt;span style="color:#66d9ef">$((&lt;/span>i+1&lt;span style="color:#66d9ef">))&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">${&lt;/span>dns[$i]&lt;span style="color:#e6db74">}&lt;/span> &amp;gt;&amp;gt; &lt;span style="color:#e6db74">${&lt;/span>SSL_CONFIG&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">done&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#f92672">[[&lt;/span> -n &lt;span style="color:#e6db74">${&lt;/span>SSL_TRUSTED_IP&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#f92672">]]&lt;/span>; &lt;span style="color:#66d9ef">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ip&lt;span style="color:#f92672">=(&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_TRUSTED_IP&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> i in &lt;span style="color:#e6db74">&amp;#34;&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>!ip[@]&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>; &lt;span style="color:#66d9ef">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo IP.&lt;span style="color:#66d9ef">$((&lt;/span>i+1&lt;span style="color:#66d9ef">))&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">${&lt;/span>ip[$i]&lt;span style="color:#e6db74">}&lt;/span> &amp;gt;&amp;gt; &lt;span style="color:#e6db74">${&lt;/span>SSL_CONFIG&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">done&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 4. 生成服务SSL KEY &lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_KEY&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74"> \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl genrsa -out &lt;span style="color:#e6db74">${&lt;/span>SSL_KEY&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#e6db74">${&lt;/span>SSL_SIZE&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 5. 生成服务SSL CSR &lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_CSR&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74"> \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl req -sha256 -new -key &lt;span style="color:#e6db74">${&lt;/span>SSL_KEY&lt;span style="color:#e6db74">}&lt;/span> -out &lt;span style="color:#e6db74">${&lt;/span>SSL_CSR&lt;span style="color:#e6db74">}&lt;/span> -subj &lt;span style="color:#e6db74">&amp;#34;/C=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>CN&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">/CN=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_DOMAIN&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span> -config &lt;span style="color:#e6db74">${&lt;/span>SSL_CONFIG&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 6. 生成服务SSL CERT &lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_CERT&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74"> \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl x509 -sha256 -req -in &lt;span style="color:#e6db74">${&lt;/span>SSL_CSR&lt;span style="color:#e6db74">}&lt;/span> -CA &lt;span style="color:#e6db74">${&lt;/span>CA_CERT&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -CAkey &lt;span style="color:#e6db74">${&lt;/span>CA_KEY&lt;span style="color:#e6db74">}&lt;/span> -CAcreateserial -out &lt;span style="color:#e6db74">${&lt;/span>SSL_CERT&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -days &lt;span style="color:#e6db74">${&lt;/span>SSL_DATE&lt;span style="color:#e6db74">}&lt;/span> -extensions v3_req &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -extfile &lt;span style="color:#e6db74">${&lt;/span>SSL_CONFIG&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 7. 证书制作完成 \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 8. 以YAML格式输出结果 \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#e6db74">&amp;#34;----------------------------------------------------------&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 9. 附加CA证书到Cert文件 \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cat &lt;span style="color:#e6db74">${&lt;/span>CA_CERT&lt;span style="color:#e6db74">}&lt;/span> &amp;gt;&amp;gt; &lt;span style="color:#e6db74">${&lt;/span>SSL_CERT&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo -e &lt;span style="color:#e6db74">&amp;#34;\033[32m ====&amp;gt; 10. 重命名服务证书 \033[0m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#e6db74">&amp;#34;cp &lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_DOMAIN&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">.key tls.key&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cp &lt;span style="color:#e6db74">${&lt;/span>SSL_DOMAIN&lt;span style="color:#e6db74">}&lt;/span>.key tls.key
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#e6db74">&amp;#34;cp &lt;/span>&lt;span style="color:#e6db74">${&lt;/span>SSL_DOMAIN&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">.crt tls.crt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cp &lt;span style="color:#e6db74">${&lt;/span>SSL_DOMAIN&lt;span style="color:#e6db74">}&lt;/span>.crt tls.crt
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>

@@ -1,0 +1,900 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 7.API 访问控制</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/</link><description>Recent content in 7.API 访问控制 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 1.Authenticating(认证)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.authenticating%E8%AE%A4%E8%AF%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.authenticating%E8%AE%A4%E8%AF%81/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/">官方文档,参考-API 访问控制-认证&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Authenticating(动词) 也称为 Authentication(名词) 身份验证。指明客户端是否有权限访问 API Server。&lt;/p>
+&lt;p>就好比我们在登录一个网站时，需要输入账户和密码的概念类似。在使用 API Server 时，也是通过类似的方式，使用账户来登录 API server(虽然不是真的登录)。&lt;/p>
+&lt;h2 id="accounts--kubernetes-集群中的账号">Accounts # Kubernetes 集群中的账号&lt;/h2>
+&lt;p>Accounts 是一个在认证授权系统里的逻辑概念。Accounts 需要通过认证概念中的东西(比如证书、token、或者用户名和密码等)来建立。类似于登陆系统的账户。而在 Kubernetes 中，Accounts 分为如下两类&lt;/p>
+&lt;ol>
+&lt;li>UserAccoun(用户账户，简称 User)&lt;/li>
+&lt;li>ServiceAccount(服务账户，简称 SA)&lt;/li>
+&lt;/ol>
+&lt;h3 id="user-account-用户账号">User Account 用户账号&lt;/h3>
+&lt;p>详见：[User Account 详解](✏IT 学习笔记/☁️10.云原生/2.3.Kubernetes%20 容器编排系统/7.API%20 访问控制/1.Authenticating(认证)/User%20Account%20 详解.md Account 详解.md)
+User 不属于 K8S 中的一个资源。这类 Account 适用于：客户端访问集群时使用(比如使用 kubectl、scheduler 等访问 api)&lt;/p>
+&lt;p>一个 User 可以管理多个 k8s 集群、也可以多个 User 管理一个集群，权限不同。User 只有在 KubeConfig 文件中才具有实际意义。&lt;/p>
+&lt;p>由于 User 不属于 K8S 资源，那么则无法通过 API 调用来添加 User Account。但是任何提供了由群集的证书颁发机构(CA)签名的有效证书的用户都将被视为已认证。基于这种情况，Kubernetes 使用证书中的 subject 字段中的 Common Name(通用名称,即 CN)的值，作为用户名。接下来，基于授权概念中的 RBAC 子系统会确定用户是否有权针对某资源执行特定的操作。&lt;/p>
+&lt;p>如果想创建一个 User，则可以通过证书的方式来创建。比如像下面这样， 这就创建了一个名为 lch 的 User Account。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>openssl genrsa -out lch.key &lt;span style="color:#ae81ff">2048&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl req -new -key lch.key -out lch.csr -subj &lt;span style="color:#e6db74">&amp;#34;/CN=lch&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果想使用 lch 这个 UA，则需要使用 kubectl config set-credentials 命令指定 lch 所需的相关凭证即可。还需要为 lch 绑定[授权概念](&amp;lt;✏IT 学习笔记/☁️10.云原生/2.3.Kubernetes%20 容器编排系统/7.API%20 访问控制/2.Authorization(授权).md&amp;raquo;)中的 Role 以便让该用户具有某些操作权限，然后 lch 这个 UA 即可对所绑定的集群有 Role 中所指定的操作权限。其中为 -subj 选项中 CN 的值就是 User 的名称。这个值也是在后面为 User 赋予 RBAC 权限的 rolebinding 时所使用的 &lt;code>subjects.name&lt;/code> 字段的值。&lt;/p>
+&lt;p>进一步的细节可参阅 &lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#normal-user">证书请求&lt;/a> 下普通用户主题。&lt;/p>
+&lt;h3 id="service-account-服务账号">Service Account 服务账号&lt;/h3>
+&lt;blockquote>
+&lt;p>详见：&lt;a href="https://www.yuque.com/go/doc/33165738">Service Account 详解&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>SA 属于 K8S 中的一个资源。这类 Account 适用于：Pod 访问集群时使用。&lt;/p>
+&lt;p>为什么需要 Service Account 呢？&lt;/p>
+&lt;p>Service Account(服务账户) 概念的引入是基于这样的使用场景：运行在 pod 里的进程需要调用 Kubernetes API 以及非 Kubernetes API 的其它服务。Service Account 是给 pod 里面 Container 中的进程使用的，它为 pod 提供必要的身份认证。(与用户控制 kubectl 去调用 API 一样，这里相当于 Pod 中 Container 在调用 API 的时候需要的认证)&lt;/p>
+&lt;h3 id="useraccount-与-serviceaccount-的区别httpskubernetesiodocsreferenceaccess-authn-authzservice-accounts-adminuser-accounts-versus-service-accounts">&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#user-accounts-versus-service-accounts">UserAccount 与 ServiceAccount 的区别&lt;/a>&lt;/h3>
+&lt;ol>
+&lt;li>UA 用来给人。SA 用来给运行在 pod 中的进程&lt;/li>
+&lt;li>UA 作用于全局，UA 的名字在集群的所有 namespace 中必须是唯一的。SA 作用于 namespace&lt;/li>
+&lt;li>UA 于 SA 的账户审核注意事项是不同的，UA 的凭证信息需要在使用 kubectl config 命令时候的手动指定；SA 的凭证信息在创建 SA 后会自动生成对应的 secret 并把凭证信息保存其中。&lt;/li>
+&lt;/ol>
+&lt;h2 id="accounts-group--账户组useraccount-与-serviceaccount-都有-group">Accounts Group # 账户组，UserAccount 与 ServiceAccount 都有 Group&lt;/h2>
+&lt;p>UA 与 SA 都可以属于一个或多个 Group&lt;/p>
+&lt;p>Group 是 Account 的集合，本身并没有操作权限，但附加于 Group 上的权限可由其内部的所有用户继承，以实现高效的授权管理机制。Kubernetes 有几个内建的用于特殊目的的 Group：&lt;/p>
+&lt;ol>
+&lt;li>system:unauthenticated&lt;/li>
+&lt;li>system:authenticated&lt;/li>
+&lt;li>system:serviceaccounts&lt;/li>
+&lt;li>system:serviceaccounts:&lt;!-- raw HTML omitted -->&lt;/li>
+&lt;/ol>
+&lt;p>kubeconfig 会给 UserAccount 提供与 APIServer 交互时所用的证书&lt;/p>
+&lt;p>Secret 会给 ServiceAccount 提供与 APIServer 交互时所用的证书&lt;/p>
+&lt;h1 id="authentication-strategies-认证策略httpskubernetesiozhdocsreferenceaccess-authn-authzauthenticationauthentication-strategiesieaccount-可用的认证方式">&lt;a href="https://kubernetes.io/zh/docs/reference/access-authn-authz/authentication/#authentication-strategies">Authentication Strategies 认证策略&lt;/a>(i.e.Account 可用的认证方式)&lt;/h1>
+&lt;p>Kubernetes 接受的认证方式有如下几种：&lt;/p>
+&lt;ol>
+&lt;li>client certificates&lt;/li>
+&lt;li>bearer tokens&lt;/li>
+&lt;li>an authenticating proxy&lt;/li>
+&lt;li>HTTP basic auth&lt;/li>
+&lt;/ol>
+&lt;p>向 API Server 发起 HTTPS 请求时，kubernetes 通过身份验证插件对请求进行身份验证。&lt;/p>
+&lt;h2 id="x509-client-certshttpskubernetesiodocsreferenceaccess-authn-authzauthenticationx509-client-certsx509-客户端证书">&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#x509-client-certs">X509 Client Certs&lt;/a>(X509 客户端证书)&lt;/h2>
+&lt;p>通过给 API 服务器传递 &amp;ndash;client-ca-file=SOMEFILE 选项，就可以启动客户端证书身份认证。 所引用的文件必须包含一个或者多个证书机构，用来验证向 API 服务器提供的客户端证书。 如果提供了客户端证书并且证书被验证通过，则 subject 中的公共名称（Common Name）就被 作为请求的用户名。 自 Kubernetes 1.4 开始，客户端证书还可以通过证书的 organization 字段标明用户的组成员信息。 要包含用户的多个组成员信息，可以在证书种包含多个 organization 字段。&lt;/p>
+&lt;p>例如，使用 openssl 命令行工具生成一个证书签名请求：&lt;/p>
+&lt;pre>&lt;code>openssl req -new -key jbeda.pem -out jbeda-csr.pem -subj &amp;quot;/CN=jbeda/O=app1/O=app2&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>此命令将使用用户名 jbeda 生成一个证书签名请求（CSR），且该用户属于 &amp;ldquo;app&amp;rdquo; 和 &amp;ldquo;app2&amp;rdquo; 两个用户组。&lt;/p>
+&lt;p>参阅&lt;a href="https://kubernetes.io/docs/concepts/cluster-administration/certificates/">管理证书&lt;/a>了解如何生成客户端证书&lt;/p>
+&lt;h2 id="static-token-filehttpskubernetesiodocsreferenceaccess-authn-authzauthenticationstatic-token-file静态令牌文件">&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#static-token-file">Static Token File&lt;/a>(静态令牌文件)&lt;/h2>
+&lt;p>当 API 服务器的命令行设置了 &amp;ndash;token-auth-file=SOMEFILE 选项时，会从文件中 读取持有者令牌。目前，令牌会长期有效，并且在不重启 API 服务器的情况下 无法更改令牌列表。&lt;/p>
+&lt;p>令牌文件是一个 CSV 文件，包含至少 3 个列：令牌、用户名和用户的 UID。 其余列被视为可选的组名。&lt;/p>
+&lt;p>说明：&lt;/p>
+&lt;p>如果要设置的组名不止一个，则对应的列必须用双引号括起来，例如&lt;/p>
+&lt;pre>&lt;code>token,user,uid,&amp;quot;group1,group2,group3&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>在请求中放入持有者令牌&lt;/p>
+&lt;p>当使用持有者令牌来对某 HTTP 客户端执行身份认证时，API 服务器希望看到 一个名为 Authorization 的 HTTP 头，其值格式为 Bearer THETOKEN。 持有者令牌必须是一个可以放入 HTTP 头部值字段的字符序列，至多可使用 HTTP 的编码和引用机制。 例如：如果持有者令牌为 31ada4fd-adec-460c-809a-9e56ceb75269，则其 出现在 HTTP 头部时如下所示：&lt;/p>
+&lt;pre>&lt;code>Authorization: Bearer 31ada4fd-adec-460c-809a-9e56ceb75269
+# 比如一个 curl 请求中，可以通过 -H 参数加入请求头
+curl --cacert ${CAPATH} -H &amp;quot;Authorization: Bearer ${TOKEN}&amp;quot; https://${IP}:6443/
+&lt;/code>&lt;/pre></description></item><item><title>Docs: 1.Authenticating(认证)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.authenticating%E8%AE%A4%E8%AF%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.authenticating%E8%AE%A4%E8%AF%81/</guid><description/></item><item><title>Docs: 2.Authorization(授权)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/2.authorization%E6%8E%88%E6%9D%83/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/2.authorization%E6%8E%88%E6%9D%83/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/authorization/">官方文档,参考-API 访问控制-授权&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在 Kubernetes 中，在 &lt;strong>Authorization(i.e.授予访问权限，简称：授权)&lt;/strong> 之前必须进行过 &lt;a href="https://www.yuque.com/go/doc/33165791">Authenticating(认证)&lt;/a>&lt;/p>
+&lt;h2 id="授权流程">授权流程&lt;/h2>
+&lt;h3 id="确定是允许还是拒绝请求">确定是允许还是拒绝请求&lt;/h3>
+&lt;p>Kubernetes 使用 API 服务器授权 API 请求。它根据所有策略评估所有请求属性来决定允许或拒绝请求。 一个 API 请求的所有部分必须被某些策略允许才能继续。这意味着默认情况下拒绝权限。&lt;/p>
+&lt;p>（尽管 Kubernetes 使用 API 服务器，但是依赖于特定种类对象的特定字段的访问控制和策略由准入控制器处理。）&lt;/p>
+&lt;p>配置多个授权模块时，将按顺序检查每个模块。 如果任何授权模块批准或拒绝请求，则立即返回该决定，并且不会与其他授权模块协商。 如果所有模块对请求没有意见，则拒绝该请求。一个拒绝响应返回 HTTP 状态代码 403 。&lt;/p>
+&lt;h3 id="审查您的请求属性">审查您的请求属性&lt;/h3>
+&lt;p>Kubernetes 仅审查以下 API 请求属性：&lt;/p>
+&lt;ul>
+&lt;li>user - 身份验证期间提供的 user 字符串。&lt;/li>
+&lt;li>group - 经过身份验证的用户所属的组名列表。&lt;/li>
+&lt;li>extra - 由身份验证层提供的任意字符串键到字符串值的映射。&lt;/li>
+&lt;li>API - 指示请求是否针对 API 资源。&lt;/li>
+&lt;li>Request path - 各种非资源端点的路径，如 /api 或 /healthz。&lt;/li>
+&lt;li>API request verb - API 动词 get，list，create，update，patch，watch，proxy，redirect，delete 和 deletecollection 用于资源请求。要确定资源 API 端点的请求动词，请参阅确定请求动词。&lt;/li>
+&lt;li>HTTP request verb - HTTP 动词 get，post，put 和 delete 用于非资源请求。&lt;/li>
+&lt;li>Resource - 正在访问的资源的 ID 或名称（仅限资源请求） - 对于使用 get，update，patch 和 delete 动词的资源请求，您必须提供资源名称。&lt;/li>
+&lt;li>Subresource - 正在访问的子资源（仅限资源请求）。&lt;/li>
+&lt;li>Namespace - 正在访问的对象的名称空间（仅适用于命名空间资源请求）。&lt;/li>
+&lt;li>API group - 正在访问的 API 组（仅限资源请求）。空字符串表示核心 API 组。&lt;/li>
+&lt;/ul>
+&lt;h3 id="确定请求动词">确定请求动词&lt;/h3>
+&lt;p>要确定资源 API 端点的请求动词，需要检查所使用的 HTTP 动词以及请求是否对单个资源或资源集合起作用：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>HTTP 动词&lt;/th>
+&lt;th>request 动词&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>POST&lt;/td>
+&lt;td>create&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>GET, HEAD&lt;/td>
+&lt;td>get (单个资源)，list (资源集合)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>PUT&lt;/td>
+&lt;td>update&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>PATCH&lt;/td>
+&lt;td>patch&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>DELETE&lt;/td>
+&lt;td>delete (单个资源)，deletecollection (资源集合)&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>Kubernetes 有时使用专门的动词检查授权以获得额外的权限。例如：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/policy/pod-security-policy/">Pod 安全策略&lt;/a> 检查 policy API 组中 podsecuritypolicies 资源的 use 动词的授权。&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/rbac/#privilege-escalation-prevention-and-bootstrapping">RBAC &lt;/a>检查 rbac.authorization.k8s.io API 组中 roles 和 clusterroles 资源的 bind 动词的授权。&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/">认证&lt;/a> layer 检查核心 API 组中 users，groups 和 serviceaccounts 的 impersonate 动词的授权，以及 authentication.k8s.io API 组中的 userextras&lt;/li>
+&lt;/ul>
+&lt;h1 id="授权的实现方式">授权的实现方式&lt;/h1>
+&lt;p>在 Kubernetes 中，可以通过多种方式来实现 Authorization(授权) 功能&lt;/p>
+&lt;h2 id="rbac-授权">RBAC 授权&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/rbac/">https://kubernetes.io/docs/reference/access-authn-authz/rbac/&lt;/a>&lt;/li>
+&lt;li>RBAC 概念：&lt;a href="https://www.yuque.com/go/doc/33177747">https://www.yuque.com/go/doc/33177747&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>RBAC&lt;/strong> # 基于角色的访问控制（RBAC）是一种基于企业内个人用户的角色来管理对计算机或网络资源的访问的方法。在这种语境中，权限是单个用户执行特定任务的能力，例如查看，创建或修改文件。要了解有关使用 RBAC 模式的更多信息，请参阅 &lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/rbac/">RBAC 模式&lt;/a>。&lt;/p>
+&lt;ul>
+&lt;li>当指定的 RBAC（基于角色的访问控制）使用 rbac.authorization.k8s.io API 组来驱动授权决策时，允许管理员通过 Kubernetes API 动态配置权限策略。&lt;/li>
+&lt;li>要启用 RBAC，请使用 &amp;ndash;authorization-mode = RBAC 启动 apiserver 。&lt;/li>
+&lt;/ul>
+&lt;p>详见 ：&lt;a href="https://www.yuque.com/go/doc/43619714">RBAC 授权章节&lt;/a>&lt;/p>
+&lt;h2 id="abac-授权">ABAC 授权&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/abac/">https://kubernetes.io/docs/reference/access-authn-authz/abac/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>ABAC&lt;/strong> # 基于属性的访问控制（ABAC）定义了一种访问控制范例，通过使用将属性组合在一起的策略，将访问权限授予用户。策略可以使用任何类型的属性（用户属性，资源属性，对象，环境属性等）。要了解有关使用 ABAC 模式的更多信息，请参阅 &lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/abac/">ABAC 模式&lt;/a>。&lt;/p>
+&lt;h2 id="node-授权">Node 授权&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/node/">https://kubernetes.io/docs/reference/access-authn-authz/node/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Node&lt;/strong> # 一个专用授权程序，根据计划运行的 pod 为 kubelet 授予权限。了解有关使用节点授权模式的更多信息，请参阅&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/node/">节点授权.&lt;/a>&lt;/p>
+&lt;h2 id="webhook-授权">Webhook 授权&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/webhook/">https://kubernetes.io/docs/reference/access-authn-authz/webhook/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>**Webhook **# WebHook 是一个 HTTP 回调：发生某些事情时调用的 HTTP POST；通过 HTTP POST 进行简单的事件通知。实现 WebHook 的 Web 应用程序会在发生某些事情时将消息发布到 URL。要了解有关使用 Webhook 模式的更多信息，请参阅 Webhook 模式。&lt;/p></description></item><item><title>Docs: 2.Authorization(授权)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/2.authorization%E6%8E%88%E6%9D%83/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/2.authorization%E6%8E%88%E6%9D%83/</guid><description/></item><item><title>Docs: 3.Admission Controllers 准入控制器</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/3.admission-controllers-%E5%87%86%E5%85%A5%E6%8E%A7%E5%88%B6%E5%99%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/3.admission-controllers-%E5%87%86%E5%85%A5%E6%8E%A7%E5%88%B6%E5%99%A8/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/">官方文档，参考-API 访问控制-使用准入控制器&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/">官方文档，参考-API 访问控制-动态准入控制&lt;/a>&lt;/li>
+&lt;li>理清 Kubernetes 中的准入控制（Admission Controller）&lt;a href="https://mp.weixin.qq.com/s/nwKO2dmfvXf6dFw-y-vU7A">https://mp.weixin.qq.com/s/nwKO2dmfvXf6dFw-y-vU7A&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/GdxSWFEyM1PYP30f3a-FCQ">公众号-运维开发故事，开发一个禁止删除 namespace 的控制器&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>准入控制器是&lt;strong>一段代码&lt;/strong>，它会在&lt;strong>请求通过 认证和授权 之后&lt;/strong>、&lt;strong>对象被持久化之前&lt;/strong>，拦截到达 API Server 的请求。&lt;/p>
+&lt;p>由于准入控制器是拦截 API Server 中最后的持久化逻辑，所以现阶段 准入控制器在 kube-apiserver 自身中实现，一共由于两大类准入控制器&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>静态准入控制器&lt;/strong> # kube-apiserver 默认内置的准入控制器，可以从 &lt;a href="#Yd0ra">准入控制器列表&lt;/a> 查看。
+&lt;ul>
+&lt;li>比如 istio 为每个 Pod 注入 Sidecar 的功能，就是通过 Mutating 准入控制器实现的。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>动态准入控制器&lt;/strong> # 以 Webhook 的形式运行，请求到达 kube-apiserver 后将会根据 &lt;code>ValidatingWebhookConfiguration&lt;/code> 资源的定义，将请求转发给自己编写的控制器来处理后再返回给 kube-apiserver。
+&lt;ul>
+&lt;li>比如我们编写了一个程序：如果请求是删除 namespace 资源的话，则进制删除。那么将这个程序部署到 k8s 时，再创建一个 ValidatingWebhookConfiguration 对面，以告诉 API Server 将请求转发给咱编写的程序。此时咱的程序处理请求后，会告诉 API Server 是否可以继续执行这个请求。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>准入控制器通常用以执行 &lt;strong>Validating(验证)&lt;/strong>、&lt;strong>Mutating(变更)&lt;/strong> 操作&lt;/p>
+&lt;ul>
+&lt;li>验证操作即验证该请求是否可以执行&lt;/li>
+&lt;li>变更操作就是类似于 Istion，将创建的 Pod 中加入其他字段或减少某些字段。&lt;/li>
+&lt;/ul>
+&lt;h2 id="目前版本中默认启用的准入控制器">目前版本中，默认启用的准入控制器&lt;/h2>
+&lt;p>CertificateApproval
+CertificateSigning
+CertificateSubjectRestriction
+DefaultIngressClass
+DefaultStorageClass
+DefaultTolerationSeconds
+LimitRanger
+MutatingAdmissionWebhook
+NamespaceLifecycle
+PersistentVolumeClaimResize
+PodSecurity
+Priority
+ResourceQuota
+RuntimeClass
+ServiceAccount
+StorageObjectInUseProtection
+TaintNodesByCondition
+ValidatingAdmissionWebhook&lt;/p>
+&lt;h1 id="准入控制器列表">准入控制器列表&lt;/h1>
+&lt;h2 id="mutatingadmissionwebhook">MutatingAdmissionWebhook&lt;/h2>
+&lt;p>当执行变更操作时，通过 Webhook 调用动态准入控制器&lt;/p>
+&lt;h2 id="validatingadmissionwebhook">ValidatingAdmissionWebhook&lt;/h2>
+&lt;p>当执行验证操作时，通过 Webhook 调用动态准入控制器&lt;/p></description></item><item><title>Docs: 7.API 访问控制</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/security/controlling-access/">官方文档,概念-安全-Kubernetes API 的访问控制&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>认证用于身份验证，授权用于权限检查，准入控制机制用于补充授权机制&lt;/strong>&lt;/p>
+&lt;p>客户端与服务端的概念：谁向谁发请求，前者就是客户端，所在在这里，客户端与服务端没有绝对。一个服务既可以是客户端也可以是服务端，kubectl 在控制集群需要给 apiservice 发送 get，creat，delete 等指令的时候，kubectl 就是 apiservice 的客户端；而 apiservice 需要往 etcd 写入数据的时候，apiservice 就是 etcd 的客户端。&lt;/p>
+&lt;p>当客户端向服务端发起请求的时候，服务端需要对客户端进行认证以便确认客户端身份是否可以接入；接入后再进行授权检查，检查该身份的请求是否可以在服务端执行。所以后面介绍的 认证 与 授权 是相辅相成，不可分隔，创建完认证之后，需要为这个认证信息进行授权，才是一套完整的鉴权机制&lt;/p>
+&lt;blockquote>
+&lt;p>比如现在有这么一个场景，张三要去商场买酱油。当张三到达商场后，保安人员首先要对张三进行认证，确认张三这个人可以进入商场；然后张三到达货柜拿走酱油去结账，收银人员进行授权检查，核验张三是否有权力购买酱油。&lt;/p>
+&lt;/blockquote>
+&lt;p>在 kubernetes 集群中，就是类似张三买酱油的场景~~~各个组件与资源对象之间的互相访问，在大多数时候，都需要进行认证与授权的检查。&lt;/p>
+&lt;p>API Server 是集群的入口，不管是对资源对象的增删改查，还是访问集群中的某些对象，不可避免得只能与 API Server 交互，虽然在访问某些管理组件的 https 端口时，也需要进行认证，但是这种访问是属于基本的 https 访问。所以，在与其说是 k8s 的认证与授权，不如说是 kubernetes API 的访问控制。因为不管是从外部(kubeclt 等)、还是内部(controller-manager、某个 pod 访问集群资源)，都逃不开与 kubernetes API，也就是 api-server 这个组件的交互。毕竟 kubernetes API 是集群的唯一入口&lt;del>就算是在集群内部署的 pod，如果想要访问集群内的资源，也逃不开 kubernetes API&lt;/del>&lt;/p>
+&lt;p>当然，使用 curl 命令来访问 controller、scheduler 时、或者 etcd 互相交互，都属于 认证与授权 的概念范畴~只不过这种情况不占大多数，所以就不再单独讨论了。这些认证授权方式与 API 的认证授权类似。&lt;/p>
+&lt;h1 id="kubernetes-api-访问控制">Kubernetes API 访问控制&lt;/h1>
+&lt;p>我们可以通过 kubectl、客户端库、发送 REST 请求 这几种方法访问 &lt;a href="https://kubernetes.io/docs/concepts/overview/kubernetes-api/">Kubernetes API&lt;/a>。 [人类用户(User Account)](✏IT 学习笔记/☁️10.云原生/2.3.Kubernetes%20 容器编排系统/7.API%20 访问控制/1.Authenticating(认证)/User%20Account%20 详解.md 访问控制/1.Authenticating(认证)/User Account 详解.md) 和 K[ubernetes 的 Service Account](✏IT 学习笔记/☁️10.云原生/2.3.Kubernetes%20 容器编排系统/7.API%20 访问控制/1.Authenticating(认证)/Service%20Account%20 详解.md 访问控制/1.Authenticating(认证)/Service Account 详解.md) 都可以被授权进行 API 访问。 请求到达 API Server 后会经过几个阶段，具体如下图所示：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cvkvyz/1616118854890-e2e31942-d6ea-40a7-83d8-816abb4c136a.jpeg" alt="">&lt;/p>
+&lt;h2 id="传输层安全">传输层安全&lt;/h2>
+&lt;p>在典型的 Kubernetes 集群中，API 通过 443 端口提供服务。 API 服务器会提供一份证书。 该证书一般是私有 CA 自签名的，当然，也可以基于公信的 CA 公钥基础设施签名。&lt;/p>
+&lt;p>如果集群使用私有证书颁发机构，需要在客户端的  &lt;code>~/.kube/config&lt;/code>  文件中提供该 CA 证书的副本， 以便在客户端使用程序访问 API 时，可以信任该连接并确认该连接没有被拦截。&lt;/p>
+&lt;h2 id="认证">认证&lt;/h2>
+&lt;p>一旦 TLS 连接建立，HTTP 请求就进入到了认证的步骤。即图中的步骤 1 。 集群创建脚本或集群管理员会为 API 服务器配置一个或多个认证模块。 更具体的认证相关的描述详见&lt;a href="https://kubernetes.io/docs/admin/authentication/">这里&lt;/a>。&lt;/p>
+&lt;p>认证步骤的输入是整个 HTTP 请求，但这里通常只是检查请求头和 / 或客户端证书。&lt;/p>
+&lt;p>认证模块支持客户端证书，密码和 Plain Tokens， Bootstrap Tokens，以及 JWT Tokens（用于服务账户）。&lt;/p>
+&lt;p>（管理员）可以同时设置多种认证模块，在设置了多个认证模块的情况下，每个模块会依次尝试认证， 直到其中一个认证成功。&lt;/p>
+&lt;p>在 GCE 平台中，客户端证书，密码和 Plain Tokens，Bootstrap Tokens，以及 JWT Tokens 同时被启用。&lt;/p>
+&lt;p>如果请求认证失败，则请求被拒绝，返回 401 状态码。 如果认证成功，则被认证为具体的 username，该用户名可供随后的步骤中使用。一些认证模块还提供了用户的组成员关系，另一些则没有。&lt;/p>
+&lt;p>尽管 Kubernetes 使用“用户名”来进行访问控制和请求记录，但它实际上并没有 user 对象，也不存储用户名称或其他相关信息。&lt;/p>
+&lt;h2 id="授权">授权&lt;/h2>
+&lt;p>当请求被认证为来自某个特定的用户后，该请求需要被授权。 即图中的步骤 2 。&lt;/p>
+&lt;p>请求须包含请求者的用户名，请求动作，以及该动作影响的对象。 如果存在相应策略，声明该用户具有进行相应操作的权限，则该请求会被授权。&lt;/p>
+&lt;p>例如，如果 Bob 有如下策略，那么他只能够读取 projectCaribou 命名空间下的 pod 资源：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;apiVersion&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;abac.authorization.kubernetes.io/v1beta1&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;kind&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;Policy&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;spec&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;user&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;bob&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;namespace&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;projectCaribou&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;resource&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;pods&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;readonly&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果 Bob 发起以下请求，那么请求能够通过授权，因为 Bob 被允许访问 projectCaribou 命名空间下的对象：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;apiVersion&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;authorization.k8s.io/v1beta1&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;kind&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;SubjectAccessReview&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;spec&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;resourceAttributes&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;namespace&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;projectCaribou&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;verb&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;get&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;group&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;unicorn.example.org&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;resource&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;pods&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果 Bob 对 projectCaribou 命名空间下的对象发起一个写（create 或者 update）请求，那么它的授权会被拒绝。 如果 Bob 请求读取 （get）其他命名空间，例如 projectFish 下的对象，其授权也会被拒绝。&lt;/p>
+&lt;p>Kubernetes 的授权要求使用通用的 REST 属性与现有的组织或云服务提供商的访问控制系统进行交互。 采用 REST 格式是必要的，因为除 Kubernetes 外，这些访问控制系统还可能与其他的 API 进行交互。&lt;/p>
+&lt;p>Kubernetes 支持多种授权模块，例如 ABAC 模式，RBAC 模式和 Webhook 模式。 管理员创建集群时，会配置 API 服务器应用的授权模块。 如果多种授权模式同时被启用，Kubernetes 将检查所有模块，如果其中一种通过授权，则请求授权通过。 如果所有的模块全部拒绝，则请求被拒绝（HTTP 状态码 403）。&lt;/p>
+&lt;p>要了解更多的 Kubernetes 授权相关信息，包括使用授权模块创建策略的具体说明等，可参考&lt;a href="https://kubernetes.io/docs/admin/authorization">授权概述&lt;/a>。&lt;/p>
+&lt;h2 id="准入控制">准入控制&lt;/h2>
+&lt;p>准入控制模块是能够修改或拒绝请求的软件模块。 作为授权模块的补充，准入控制模块会访问被创建或更新的对象的内容。 它们作用于对象的创建，删除，更新和连接（proxy）阶段，但不包括对象的读取。&lt;/p>
+&lt;p>可以同时配置多个准入控制器，它们会按顺序依次被调用。&lt;/p>
+&lt;p>即图中的步骤 3 。&lt;/p>
+&lt;p>与认证和授权模块不同的是，如果任一个准入控制器拒绝请求，那么整个请求会立即被拒绝。&lt;/p>
+&lt;p>除了拒绝请求外，准入控制器还可以为对象设置复杂的默认值。&lt;/p>
+&lt;p>可用的准入控制模块描述 &lt;a href="https://kubernetes.io/docs/admin/admission-controllers/">如下&lt;/a>。&lt;/p>
+&lt;p>一旦请求通过所有准入控制器，将使用对应 API 对象的验证流程对其进行验证，然后写入对象存储 （如步骤 4）。&lt;/p>
+&lt;h1 id="api-的端口和-ip">API 的端口和 IP&lt;/h1>
+&lt;p>上述讨论适用于发送请求到 API 服务器的安全端口（典型情况）。
+实际上 API 服务器可以通过两个端口提供服务，默认情况下，API 服务器在 2 个端口上提供 HTTP 服务：&lt;/p>
+&lt;ul>
+&lt;li>Localhost Port:
+&lt;ul>
+&lt;li>用于测试和启动，以及管理节点的其他组件(scheduler, controller-manager)与 API 的交互&lt;/li>
+&lt;li>没有 TLS&lt;/li>
+&lt;li>默认值为 8080，可以通过 API Server 的 &lt;code>--insecure-port&lt;/code> 命令行标志来修改。&lt;/li>
+&lt;li>默认的 IP 地址为 localhost，可以通过 API Server 的 &lt;code>--insecure-bind-address&lt;/code> 命令行标志来修改。&lt;/li>
+&lt;li>请求会 &lt;strong>绕过&lt;/strong> 认证和鉴权模块。&lt;/li>
+&lt;li>请求会被准入控制模块处理。&lt;/li>
+&lt;li>其访问需要主机访问的权限。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Secure Port:
+&lt;ul>
+&lt;li>尽可能使用该端口访问&lt;/li>
+&lt;li>应用 TLS。 可以通过 API Server 的 &lt;code>--tls-cert-file&lt;/code> 设置证书， &lt;code>--tls-private-key-file&lt;/code> 设置私钥。&lt;/li>
+&lt;li>默认值为 6443，可以通过 API Server 的 &lt;code>--secure-port&lt;/code> 命令行标志来修改。&lt;/li>
+&lt;li>默认 IP 是首个非本地的网络接口地址，可以通过 API Server 的 &lt;code>--bind-address&lt;/code> 命令行标志来修改。&lt;/li>
+&lt;li>请求会经过认证和鉴权模块处理。&lt;/li>
+&lt;li>请求会被准入控制模块处理。&lt;/li>
+&lt;li>要求认证和授权模块正常运行。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul></description></item><item><title>Docs: Kubernetes 证书管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="pki-证书和要求">PKI 证书和要求&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/setup/best-practices/certificates/">官方文档,入门-最佳实践-PKI 证书和要求&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Kubernetes 需要 PKI 证书才能进行基于 TLS 的身份验证。如果你是使用 &lt;a href="https://kubernetes.io/zh/docs/reference/setup-tools/kubeadm/">kubeadm&lt;/a> 安装的 Kubernetes， 则会自动生成集群所需的证书。你还可以生成自己的证书。 例如，不将私钥存储在 API 服务器上，可以让私钥更加安全。此页面说明了集群必需的证书。&lt;/p>
+&lt;h2 id="集群是如何使用证书的">集群是如何使用证书的&lt;/h2>
+&lt;p>Kubernetes 需要 PKI 才能执行以下操作：&lt;/p>
+&lt;ul>
+&lt;li>Kubelet 的客户端证书，用于 API 服务器身份验证&lt;/li>
+&lt;li>API 服务器端点的证书&lt;/li>
+&lt;li>集群管理员的客户端证书，用于 API 服务器身份认证&lt;/li>
+&lt;li>API 服务器的客户端证书，用于和 Kubelet 的会话&lt;/li>
+&lt;li>API 服务器的客户端证书，用于和 etcd 的会话&lt;/li>
+&lt;li>控制器管理器的客户端证书/kubeconfig，用于和 API 服务器的会话&lt;/li>
+&lt;li>调度器的客户端证书/kubeconfig，用于和 API 服务器的会话&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/tasks/extend-kubernetes/configure-aggregation-layer/">前端代理&lt;/a> 的客户端及服务端证书&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>&lt;strong>说明：&lt;/strong> 只有当你运行 kube-proxy 并要支持 &lt;a href="https://kubernetes.io/zh/docs/tasks/extend-kubernetes/setup-extension-api-server/">扩展 API 服务器&lt;/a> 时，才需要 &lt;code>front-proxy&lt;/code> 证书&lt;/p>
+&lt;/blockquote>
+&lt;p>etcd 还实现了双向 TLS 来对客户端和对其他对等节点进行身份验证。&lt;/p>
+&lt;h2 id="证书存放的位置">证书存放的位置&lt;/h2>
+&lt;p>如果你是通过 kubeadm 安装的 Kubernetes，所有证书都存放在 &lt;code>/etc/kubernetes/pki&lt;/code> 目录下。本文所有相关的路径都是基于该路径的相对路径。&lt;/p>
+&lt;h2 id="手动配置证书">手动配置证书&lt;/h2>
+&lt;p>如果你不想通过 kubeadm 生成这些必需的证书，你可以通过下面两种方式之一来手动创建他们。&lt;/p>
+&lt;h3 id="单根-ca">单根 CA&lt;/h3>
+&lt;p>你可以创建一个单根 CA，由管理员控制器它。该根 CA 可以创建多个中间 CA，并将所有进一步的创建委托给 Kubernetes。
+需要这些 CA：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>路径&lt;/th>
+&lt;th>默认 CN&lt;/th>
+&lt;th>描述&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>ca.crt,key&lt;/td>
+&lt;td>kubernetes-ca&lt;/td>
+&lt;td>Kubernetes 通用 CA&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>etcd/ca.crt,key&lt;/td>
+&lt;td>etcd-ca&lt;/td>
+&lt;td>与 etcd 相关的所有功能&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>front-proxy-ca.crt,key&lt;/td>
+&lt;td>kubernetes-front-proxy-ca&lt;/td>
+&lt;td>用于 &lt;a href="https://kubernetes.io/zh/docs/tasks/extend-kubernetes/configure-aggregation-layer/">前端代理&lt;/a>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>上面的 CA 之外，还需要获取用于服务账户管理的密钥对，也就是 &lt;code>sa.key&lt;/code> 和 &lt;code>sa.pub&lt;/code>。&lt;/p>
+&lt;h3 id="所有的证书">所有的证书&lt;/h3>
+&lt;p>如果你不想将 CA 的私钥拷贝至你的集群中，你也可以自己生成全部的证书。
+需要这些证书：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>默认 CN&lt;/th>
+&lt;th>父级 CA&lt;/th>
+&lt;th>O (位于 Subject 中)&lt;/th>
+&lt;th>类型&lt;/th>
+&lt;th>主机 (SAN)&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>kube-etcd&lt;/td>
+&lt;td>etcd-ca&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>server, client&lt;/td>
+&lt;td>&lt;code>localhost&lt;/code>, &lt;code>127.0.0.1&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kube-etcd-peer&lt;/td>
+&lt;td>etcd-ca&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>server, client&lt;/td>
+&lt;td>&lt;code>&amp;lt;hostname&amp;gt;&lt;/code>, &lt;code>&amp;lt;Host_IP&amp;gt;&lt;/code>, &lt;code>localhost&lt;/code>, &lt;code>127.0.0.1&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kube-etcd-healthcheck-client&lt;/td>
+&lt;td>etcd-ca&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>client&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kube-apiserver-etcd-client&lt;/td>
+&lt;td>etcd-ca&lt;/td>
+&lt;td>system:masters&lt;/td>
+&lt;td>client&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kube-apiserver&lt;/td>
+&lt;td>kubernetes-ca&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>server&lt;/td>
+&lt;td>&lt;code>&amp;lt;hostname&amp;gt;&lt;/code>, &lt;code>&amp;lt;Host_IP&amp;gt;&lt;/code>, &lt;code>&amp;lt;advertise_IP&amp;gt;&lt;/code>, &lt;code>[1]&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kube-apiserver-kubelet-client&lt;/td>
+&lt;td>kubernetes-ca&lt;/td>
+&lt;td>system:masters&lt;/td>
+&lt;td>client&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>front-proxy-client&lt;/td>
+&lt;td>kubernetes-front-proxy-ca&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>client&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>[1]: 用来连接到集群的不同 IP 或 DNS 名 （就像 &lt;a href="https://kubernetes.io/zh/docs/reference/setup-tools/kubeadm/">kubeadm&lt;/a> 为负载均衡所使用的固定 IP 或 DNS 名，&lt;code>kubernetes&lt;/code>、&lt;code>kubernetes.default&lt;/code>、&lt;code>kubernetes.default.svc&lt;/code>、 &lt;code>kubernetes.default.svc.cluster&lt;/code>、&lt;code>kubernetes.default.svc.cluster.local&lt;/code>）。
+其中，&lt;code>kind&lt;/code> 对应一种或多种类型的 &lt;a href="https://godoc.org/k8s.io/api/certificates/v1beta1#KeyUsage">x509 密钥用途&lt;/a>：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>kind&lt;/th>
+&lt;th>密钥用途&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>server&lt;/td>
+&lt;td>数字签名、密钥加密、服务端认证&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>client&lt;/td>
+&lt;td>数字签名、密钥加密、客户端认证&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>&lt;strong>说明：&lt;/strong>
+上面列出的 Hosts/SAN 是推荐的配置方式；如果需要特殊安装，则可以在所有服务器证书上添加其他 SAN。
+&lt;strong>说明：&lt;/strong>
+对于 kubeadm 用户：&lt;/p>
+&lt;ul>
+&lt;li>不使用私钥，将证书复制到集群 CA 的方案，在 kubeadm 文档中将这种方案称为外部 CA。&lt;/li>
+&lt;li>如果将以上列表与 kubeadm 生成的 PKI 进行比较，你会注意到，如果使用外部 etcd，则不会生成 &lt;code>kube-etcd&lt;/code>、&lt;code>kube-etcd-peer&lt;/code> 和 &lt;code>kube-etcd-healthcheck-client&lt;/code> 证书。&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h3 id="证书路径">证书路径&lt;/h3>
+&lt;p>证书应放置在建议的路径中（以便 &lt;a href="https://kubernetes.io/zh/docs/reference/setup-tools/kubeadm/">kubeadm&lt;/a>使用）。无论使用什么位置，都应使用给定的参数指定路径。&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>默认 CN&lt;/th>
+&lt;th>建议的密钥路径&lt;/th>
+&lt;th>建议的证书路径&lt;/th>
+&lt;th>命令&lt;/th>
+&lt;th>密钥参数&lt;/th>
+&lt;th>证书参数&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>etcd-ca&lt;/td>
+&lt;td>etcd/ca.key&lt;/td>
+&lt;td>etcd/ca.crt&lt;/td>
+&lt;td>kube-apiserver&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&amp;ndash;etcd-cafile&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kube-apiserver-etcd-client&lt;/td>
+&lt;td>apiserver-etcd-client.key&lt;/td>
+&lt;td>apiserver-etcd-client.crt&lt;/td>
+&lt;td>kube-apiserver&lt;/td>
+&lt;td>&amp;ndash;etcd-keyfile&lt;/td>
+&lt;td>&amp;ndash;etcd-certfile&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kubernetes-ca&lt;/td>
+&lt;td>ca.key&lt;/td>
+&lt;td>ca.crt&lt;/td>
+&lt;td>kube-apiserver&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&amp;ndash;client-ca-file&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kubernetes-ca&lt;/td>
+&lt;td>ca.key&lt;/td>
+&lt;td>ca.crt&lt;/td>
+&lt;td>kube-controller-manager&lt;/td>
+&lt;td>&amp;ndash;cluster-signing-key-file&lt;/td>
+&lt;td>&amp;ndash;client-ca-file, &amp;ndash;root-ca-file, &amp;ndash;cluster-signing-cert-file&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kube-apiserver&lt;/td>
+&lt;td>apiserver.key&lt;/td>
+&lt;td>apiserver.crt&lt;/td>
+&lt;td>kube-apiserver&lt;/td>
+&lt;td>&amp;ndash;tls-private-key-file&lt;/td>
+&lt;td>&amp;ndash;tls-cert-file&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kube-apiserver-kubelet-client&lt;/td>
+&lt;td>apiserver-kubelet-client.key&lt;/td>
+&lt;td>apiserver-kubelet-client.crt&lt;/td>
+&lt;td>kube-apiserver&lt;/td>
+&lt;td>&amp;ndash;kubelet-client-key&lt;/td>
+&lt;td>&amp;ndash;kubelet-client-certificate&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>front-proxy-ca&lt;/td>
+&lt;td>front-proxy-ca.key&lt;/td>
+&lt;td>front-proxy-ca.crt&lt;/td>
+&lt;td>kube-apiserver&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&amp;ndash;requestheader-client-ca-file&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>front-proxy-ca&lt;/td>
+&lt;td>front-proxy-ca.key&lt;/td>
+&lt;td>front-proxy-ca.crt&lt;/td>
+&lt;td>kube-controller-manager&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&amp;ndash;requestheader-client-ca-file&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>front-proxy-client&lt;/td>
+&lt;td>front-proxy-client.key&lt;/td>
+&lt;td>front-proxy-client.crt&lt;/td>
+&lt;td>kube-apiserver&lt;/td>
+&lt;td>&amp;ndash;proxy-client-key-file&lt;/td>
+&lt;td>&amp;ndash;proxy-client-cert-file&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>etcd-ca&lt;/td>
+&lt;td>etcd/ca.key&lt;/td>
+&lt;td>etcd/ca.crt&lt;/td>
+&lt;td>etcd&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&amp;ndash;trusted-ca-file, &amp;ndash;peer-trusted-ca-file&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kube-etcd&lt;/td>
+&lt;td>etcd/server.key&lt;/td>
+&lt;td>etcd/server.crt&lt;/td>
+&lt;td>etcd&lt;/td>
+&lt;td>&amp;ndash;key-file&lt;/td>
+&lt;td>&amp;ndash;cert-file&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kube-etcd-peer&lt;/td>
+&lt;td>etcd/peer.key&lt;/td>
+&lt;td>etcd/peer.crt&lt;/td>
+&lt;td>etcd&lt;/td>
+&lt;td>&amp;ndash;peer-key-file&lt;/td>
+&lt;td>&amp;ndash;peer-cert-file&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>etcd-ca&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>etcd/ca.crt&lt;/td>
+&lt;td>etcdctl&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&amp;ndash;cacert&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kube-etcd-healthcheck-client&lt;/td>
+&lt;td>etcd/healthcheck-client.key&lt;/td>
+&lt;td>etcd/healthcheck-client.crt&lt;/td>
+&lt;td>etcdctl&lt;/td>
+&lt;td>&amp;ndash;key&lt;/td>
+&lt;td>&amp;ndash;cert&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>注意事项同样适用于服务帐户密钥对：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>私钥路径&lt;/th>
+&lt;th>公钥路径&lt;/th>
+&lt;th>命令&lt;/th>
+&lt;th>参数&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>sa.key&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>kube-controller-manager&lt;/td>
+&lt;td>&amp;ndash;service-account-private-key-file&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;/td>
+&lt;td>sa.pub&lt;/td>
+&lt;td>kube-apiserver&lt;/td>
+&lt;td>&amp;ndash;service-account-key-file&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h2 id="为用户帐户配置证书">为用户帐户配置证书&lt;/h2>
+&lt;p>你必须手动配置以下管理员帐户和服务帐户：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>文件名&lt;/th>
+&lt;th>凭据名称&lt;/th>
+&lt;th>默认 CN&lt;/th>
+&lt;th>O (位于 Subject 中)&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>admin.conf&lt;/td>
+&lt;td>default-admin&lt;/td>
+&lt;td>kubernetes-admin&lt;/td>
+&lt;td>system:masters&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kubelet.conf&lt;/td>
+&lt;td>default-auth&lt;/td>
+&lt;td>system:node:&lt;code>&amp;lt;nodeName&amp;gt;&lt;/code> （参阅注释）&lt;/td>
+&lt;td>system:nodes&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>controller-manager.conf&lt;/td>
+&lt;td>default-controller-manager&lt;/td>
+&lt;td>system:kube-controller-manager&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>scheduler.conf&lt;/td>
+&lt;td>default-scheduler&lt;/td>
+&lt;td>system:kube-scheduler&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;blockquote>
+&lt;p>&lt;strong>说明：&lt;/strong> &lt;code>kubelet.conf&lt;/code> 中 &lt;code>&amp;lt;nodeName&amp;gt;&lt;/code> 的值 &lt;strong>必须&lt;/strong> 与 kubelet 向 apiserver 注册时提供的节点名称的值完全匹配。 有关更多详细信息，请阅读&lt;a href="https://kubernetes.io/zh/docs/reference/access-authn-authz/node/">节点授权&lt;/a>。&lt;/p>
+&lt;/blockquote>
+&lt;ol>
+&lt;li>对于每个配置，请都使用给定的 CN 和 O 生成 x509 证书/密钥偶对。&lt;/li>
+&lt;li>为每个配置运行下面的 &lt;code>kubectl&lt;/code> 命令：&lt;/li>
+&lt;/ol>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>KUBECONFIG=&amp;lt;filename&amp;gt; kubectl config set-cluster default-cluster --server=https://&amp;lt;host ip&amp;gt;:6443 --certificate-authority &amp;lt;path-to-kubernetes-ca&amp;gt; --embed-certs
+KUBECONFIG=&amp;lt;filename&amp;gt; kubectl config set-credentials &amp;lt;credential-name&amp;gt; --client-key &amp;lt;path-to-key&amp;gt;.pem --client-certificate &amp;lt;path-to-cert&amp;gt;.pem --embed-certs
+KUBECONFIG=&amp;lt;filename&amp;gt; kubectl config set-context default-system --cluster default-cluster --user &amp;lt;credential-name&amp;gt;
+KUBECONFIG=&amp;lt;filename&amp;gt; kubectl config use-context default-system
+&lt;/code>&lt;/pre>
+&lt;p>这些文件用途如下：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>文件名&lt;/th>
+&lt;th>命令&lt;/th>
+&lt;th>说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>admin.conf&lt;/td>
+&lt;td>kubectl&lt;/td>
+&lt;td>配置集群的管理员&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>kubelet.conf&lt;/td>
+&lt;td>kubelet&lt;/td>
+&lt;td>集群中的每个节点都需要一份&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>controller-manager.conf&lt;/td>
+&lt;td>kube-controller-manager&lt;/td>
+&lt;td>必需添加到 &lt;code>manifests/kube-controller-manager.yaml&lt;/code> 清单中&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>scheduler.conf&lt;/td>
+&lt;td>kube-scheduler&lt;/td>
+&lt;td>必需添加到 &lt;code>manifests/kube-scheduler.yaml&lt;/code> 清单中&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h1 id="certificate证书--使用证书对集群中的客户端与服务端进行认证">Certificate(证书) # 使用证书对集群中的客户端与服务端进行认证&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://kubernetes.io/docs/setup/best-practices/certificates/">https://kubernetes.io/docs/setup/best-practices/certificates/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>etcd 与 etcd 之间，etcd 与 apiserver，apiserver 与 kubelet、scheduler、controller-manager、kube-proxy 等之间的认证，还有 calico 与 apiserver 等等各种组件与组件之间基本都需要认证，认证可以通过多种方式进行，比如证书、token、key/val 对，账号密码等等等&lt;/p>
+&lt;p>Cluster 中各组件互相通信所用到的 Certificate&lt;/p>
+&lt;ul>
+&lt;li>ETCD 的证书，这是集群中的其中一套证书：api-server 作为客户端与服务端 etcd 通信，etcd 集群之间互相对等通信
+&lt;ul>
+&lt;li>&lt;strong>ca.crt&lt;/strong>(证书 CN：etcd-ca) #给 apiserver 发客户端证书，给 etcd 发服务端证书以及对等证书&lt;/li>
+&lt;li>&lt;strong>peer.crt&lt;/strong>(证书 CN：HostName) #etcd 集群各节点属于对等节点，使用 peer 类型证书(一般分为 server 证书和 client 证书，但是 etcd 集群之间不存在服务端和客户端的区别)&lt;/li>
+&lt;li>&lt;strong>apiserver-etcd-client.crt&lt;/strong>(证书 CN：kube-apiserver-etcd-client) #与 server.crt 证书对应。apiserver 作为 etcd 的客户端所用的证书&lt;/li>
+&lt;li>&lt;strong>server.crt&lt;/strong>(证书 CN：HostName) #与 apiserver-etcd-client.crt 证书对应。etcd 作为 apiserver 的服务端所用的证书&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>集群组件间的证书：kube-apiserver 作为服务端与 kubectl，controller-manager，scheduler，kubelet，kube-proxy 通信
+&lt;ul>
+&lt;li>&lt;strong>ca.crt&lt;/strong>(证书 CN：kubernetes) #给 apiserver 发服务端证书，给其余组件发客户端证书&lt;/li>
+&lt;li>&lt;strong>apiserver.crt&lt;/strong>(证书 CN：kube-apiserver)&lt;/li>
+&lt;li>&lt;strong>admin.conf&lt;/strong> #一个在与集群通信时具有最高权限的 user 的认证配置&lt;/li>
+&lt;li>**controller-manager.conf **#KubeConfig 文件，controller-manager 与 apiserver 通信时的认证配置信息&lt;/li>
+&lt;li>&lt;strong>scheduler.conf&lt;/strong> #KubeConfig 文件，scheduler 与 apiserver 通信时的认证配置信息&lt;/li>
+&lt;li>&lt;strong>kubelet.conf&lt;/strong> #KubeConfig 文件，kubelet 与 apiserver 通信时的认证配置信息
+&lt;ul>
+&lt;li>kube-apiserver 作为客户端与 kubelet-api 通信，每个节点启动的时候 kubelet-api 的证书会自动从 kubernets 的 ca 证书那里获取自己的 ca 证书&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>apiserver-kubelet-client.crt&lt;/strong>(证书 CN：kube-apiserver-kubelet-client) #&lt;/li>
+&lt;li>&lt;strong>kubelet.crt&lt;/strong>(证书 CN：master0@1544020244) #&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>前端代理证书：给用户自定义的 apiserver 使用的证书，kube-aggregator 作为服务端与 extension-apiserver 通信
+&lt;ul>
+&lt;li>&lt;strong>ca.crt(front-proxy)&lt;/strong> #给自定义的 apiserver 发证书&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>其他证书
+&lt;ul>
+&lt;li>&lt;strong>sa.key 与 sa.pub&lt;/strong> # 用于为集群中所有 ServiceAccount 资源签署 jwt token&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul></description></item><item><title>Docs: Kubernetes 证书管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/</guid><description/></item><item><title>Docs: 最佳实践</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.api-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>
+&lt;h1 id="创建一个超级权限">创建一个超级权限&lt;/h1>
+&lt;ul>
+&lt;li>创建一个 ServiceAccount
+&lt;ul>
+&lt;li>kubectl create serviceaccount -n user-sa-manage test-admin&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>将该 ServiceAccount 绑定到 cluster-admin 这个 clusterrole，以赋予最高权限
+&lt;ul>
+&lt;li>kubectl create clusterrolebinding test-admin &amp;ndash;clusterrole=cluster-admin &amp;ndash;serviceaccount=user-sa-manage:test-admin&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>此时，sa 账户就具有超级权限了，可以通过该 sa 的 token 给应用程序使用，以便可以最大化操作集群&lt;/li>
+&lt;li>获取 TOKEN
+&lt;ul>
+&lt;li>kubectl get secrets -n user-sa-manage -o jsonpath=&amp;quot;{.items[?(@.metadata.annotations[&amp;lsquo;kubernetes.io/service-account.name&amp;rsquo;]==&amp;lsquo;test-admin&amp;rsquo;)].data.token}&amp;quot;|base64 -d&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="使用-service-account-的-token-创建非管理员用户">使用 Service Account 的 Token 创建非管理员用户&lt;/h1>
+&lt;p>如果想要使用 Token 对集群进行操作，其实，并不一定要创建一个 KubeConfig 文件，在通过 Kubernetes API 获取集群信息时，直接使用 Token 认证的方式即可，比如：&lt;/p>
+&lt;ul>
+&lt;li>kubernetes-dashboard 的 web 登录可以使用 Token&lt;/li>
+&lt;li>通过 REST 访问 API 可以传递 &lt;code>Authorization: Bearer ${TOKEN}&lt;/code> 请求头时使用 Token。&lt;/li>
+&lt;/ul>
+&lt;h2 id="创建-sa并为-sa-授权">创建 SA，并为 SA 授权&lt;/h2>
+&lt;p>创建一个名称空间，专门用来存放 SA。然后创建一个名为 lch 的 SA。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl create namespace user-sa-manage
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl create serviceaccount lch -n user-sa-manage
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>为 SA 授予权限&lt;/strong>
+在 test 名称空间创建 rolebinding，将 SA 与 cluster-admin 这个 ClusterRole 绑定，让 lch-sa 可以对 test 名称空间下所有组下的所有资源进行任何操作。&lt;/p>
+&lt;blockquote>
+&lt;p>也可以使用其他 Role 或 ClusterRole，或者自己创建各种角色。&lt;/p>
+&lt;/blockquote>
+&lt;p>(可选)让 lch 这个 SA 与 view 这个 ClusterRole 绑定，以便可以查看集群内所有资源。如果不添加这个权限，lch 用户执行 kubectl get ns 命令是没有权限的。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl create rolebinding lch-sa-admin -n test --clusterrole&lt;span style="color:#f92672">=&lt;/span>cluster-admin --serviceaccount&lt;span style="color:#f92672">=&lt;/span>user-sa-manage:lch
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl create clusterrolebinding lch-sa --clusterrole&lt;span style="color:#f92672">=&lt;/span>view --serviceaccount&lt;span style="color:#f92672">=&lt;/span>user-sa-manage:lch
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>**(可选)**为 SA 绑定超级权限
+当绑定了 cluster-admin 这个 clusterrole 之后，上面的那些权限操作也就没用了，lch 将会拥有对集群操作的最高权限&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl create clusterrolebinding lch-sa-admin --clusterrole&lt;span style="color:#f92672">=&lt;/span>cluster-admin --serviceaccount&lt;span style="color:#f92672">=&lt;/span>user-sa-manage:lch
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="获取-sa-的-token">获取 SA 的 Token&lt;/h3>
+&lt;p>获取名为 lch 这个 SA 的 Token&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>LCH_SA_TOKEN&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">$(&lt;/span>kubectl get secrets -n user-sa-manage -o jsonpath&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;{.items[?(@.metadata.annotations[&amp;#39;kubernetes\.io/service-account\.name&amp;#39;]==&amp;#39;lch&amp;#39;)].data.token}&amp;#34;&lt;/span> | base64 -d&lt;span style="color:#66d9ef">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="使用-sa-的-token-创建-kubeconfig-文件">使用 SA 的 Token 创建 KubeConfig 文件&lt;/h2>
+&lt;h3 id="创建一个-kubeconfig-文件并设置集群信息">创建一个 KubeConfig 文件，并设置集群信息。&lt;/h3>
+&lt;ul>
+&lt;li>**(可选)**使用集群 ca 证书。
+&lt;ul>
+&lt;li>像 kubernetes-dashboard 这种集群内的应用，可以不设置集群的证书，因为 Pod 的 /run/secrets/kubernetes.io/serivceaccount 目录中默认包含 ca.crt。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl config set-cluster kubernetes &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --certificate-authority&lt;span style="color:#f92672">=&lt;/span>/etc/kubernetes/pki/ca.crt &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --embed-certs&lt;span style="color:#f92672">=&lt;/span>true &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --server&lt;span style="color:#f92672">=&lt;/span>https://172.19.42.234:6443 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --kubeconfig&lt;span style="color:#f92672">=&lt;/span>./lch-sa.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>不使用集群 ca 证书
+&lt;ul>
+&lt;li>在 [CA](✏IT 学习笔记/🔐7.信息安全/Cryptography(密码学)/公开密钥加密/证书%20 与%20PKI.md 与 PKI.md) 的描述中，任何人都是可以获取到 CA 的，CA 主要是用来验证的，并不是特别需要隐藏，一定不要让别人使用集群 CA 证书的场景暂时没想到&lt;del>囧。毕竟没有 CA 的私钥，也没法签发新的证书&lt;/del>~&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl config set-cluster kubernetes &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --insecure-skip-tls-verify&lt;span style="color:#f92672">=&lt;/span>true &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --server&lt;span style="color:#f92672">=&lt;/span>https://172.19.42.234:6443 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --kubeconfig&lt;span style="color:#f92672">=&lt;/span>./lch-sa.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="建立用户的凭证信息">建立用户的凭证信息&lt;/h3>
+&lt;p>在该文件中使用 dashboard 的 token 建立用户的凭证信息，并自动建立一个名为 dashboard-admin 的用户&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl config set-credentials lch &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --token&lt;span style="color:#f92672">=&lt;/span>$LCH_SA_TOKEN &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --kubeconfig&lt;span style="color:#f92672">=&lt;/span>./lch-sa.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在该文件中创建 user 与 cluster 的关系的 context&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl config set-context lch@kubernetes &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --cluster&lt;span style="color:#f92672">=&lt;/span>kubernetes &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --user&lt;span style="color:#f92672">=&lt;/span>lch &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --kubeconfig&lt;span style="color:#f92672">=&lt;/span>./lch-sa.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>设定当前的 context&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl config use-context lch@kubernetes &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>--kubeconfig&lt;span style="color:#f92672">=&lt;/span>./lch-sa.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>这个操作生成的 KubeConfig 和 其中生成的 Token 可以用来登录 kubernetes-dashboard
+注意：Dashboard 在读取 kubeconfig 文件时，只会读取 token 作为认证&lt;/p>
+&lt;p>使用 SA 的 TOKEN 创建的不使用 CA 的 KubeConfig 文件也可以用于访问在 Nginx 后 K8S 集群。&lt;/p>
+&lt;h1 id="使用-user-account-的证书创建非管理用户">使用 User Account 的证书创建非管理用户&lt;/h1>
+&lt;p>Kubernetes 中的系统组件 etcd、kube-controller-manager 等等都是通过证书&lt;/p>
+&lt;h2 id="创建-ua-所需证书并为-ua-授权">创建 UA 所需证书，并为 UA 授权&lt;/h2>
+&lt;blockquote>
+&lt;p>注意：需要在具有集群的 ca 证书的节点上操作&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>umask 077;openssl genrsa -out lch.key 2048&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl req -new -key lch.key -out lch.csr -subj &lt;span style="color:#e6db74">&amp;#34;/CN=lch&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl x509 -req &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -CA /etc/kubernetes/pki/ca.crt &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -CAkey /etc/kubernetes/pki/ca.key &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -CAcreateserial &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -in lch.csr -out lch.crt -days &lt;span style="color:#ae81ff">3650&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>为 UA 授予权限&lt;/strong>
+创建 Role 以及 Rolebinding ，让 lch 可以对 test 名称空间下所有组下的所有资源进行任何操作。
+并且让 lch 这个 UA 与 view 这个 ClusterRole 绑定，以便可以查看集群内所有资源。如果不添加这个权限，lch 用户执行 kubectl get ns 命令是没有权限的。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 可以自己创建 role 并绑定&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl create role lch-ua -n test --verb&lt;span style="color:#f92672">=&lt;/span>* --resource&lt;span style="color:#f92672">=&lt;/span>*.*
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl create rolebinding lch-ua -n test --role&lt;span style="color:#f92672">=&lt;/span>lch-ua --user&lt;span style="color:#f92672">=&lt;/span>lch
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 也可以直接为 SA 绑定默认的 clusterrole，使用默认的更方便一些~&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl create clusterrolebinding lch-ua --clusterrole&lt;span style="color:#f92672">=&lt;/span>view --user&lt;span style="color:#f92672">=&lt;/span>lch
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="使用-ua-证书创建-kubeconfig-文件">使用 UA 证书创建 KubeConfig 文件&lt;/h2>
+&lt;p>创建一个新的 KubeConfig 文件，并设置集群信息&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl config set-cluster kubernetes &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --certificate-authority&lt;span style="color:#f92672">=&lt;/span>/etc/kubernetes/pki/ca.crt &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --embed-certs&lt;span style="color:#f92672">=&lt;/span>true &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --server&lt;span style="color:#f92672">=&lt;/span>https://172.19.42.234:6443 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --kubeconfig&lt;span style="color:#f92672">=&lt;/span>./lch-ua.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用 lch 的证书在 KubeConfig 文件创建名为 lch 的用户。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl config set-credentials lch &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --client-certificate&lt;span style="color:#f92672">=&lt;/span>./lch.crt &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --client-key&lt;span style="color:#f92672">=&lt;/span>./lch.key &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --embed-certs &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --kubeconfig&lt;span style="color:#f92672">=&lt;/span>./lch-ua.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>绑定 lch 用户 与 集群&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl config set-context lch@kubernetes &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --cluster&lt;span style="color:#f92672">=&lt;/span>kubernetes &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --user&lt;span style="color:#f92672">=&lt;/span>lch &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --kubeconfig&lt;span style="color:#f92672">=&lt;/span>./lch-ua.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>切换该 KubeConfig 文件的当前环境&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl config use-context lch@kubernetes &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --kubeconfig&lt;span style="color:#f92672">=&lt;/span>./lch-ua.conf
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="总结-1">总结&lt;/h2>
+&lt;p>然后将当前目录的 lch-config 文件交给该用户，这个用户将只可以在 lch 这个 namespace 下的所有资源进行任何操作&lt;/p>
+&lt;h1 id="示例总结">示例总结&lt;/h1>
+&lt;p>从上面的示例可以看出来，名为 lch 的 UA 与 SA，其实可以被统一抽象为一个用户，这个用户的名称就是 lch。只不过，两种用户的认证方式不一样罢了，一个是证书，一个 Token，其实就相当于是把 证书 和 Token 抽象为密码。&lt;/p></description></item></channel></rss>

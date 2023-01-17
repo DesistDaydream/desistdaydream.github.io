@@ -1,0 +1,226 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Middleware</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/go/go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/middleware/</link><description>Recent content in Middleware on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/go/go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/middleware/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: GO中间件(Middleware ) - SegmentFault 思否</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/go/go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/middleware/go%E4%B8%AD%E9%97%B4%E4%BB%B6middleware-segmentfault-%E6%80%9D%E5%90%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/go/go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/middleware/go%E4%B8%AD%E9%97%B4%E4%BB%B6middleware-segmentfault-%E6%80%9D%E5%90%A6/</guid><description>
+&lt;p>原文链接：&lt;a href="https://segmentfault.com/a/1190000018819804">GO 中间件 (Middleware) - SegmentFault 思否&lt;/a>&lt;/p>
+&lt;p>中间件是一种计算机&lt;a href="https://link.segmentfault.com/?url=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FSoftware">软件&lt;/a>，可为&lt;a href="https://link.segmentfault.com/?url=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FOperating_system">操作系统&lt;/a>提供的&lt;a href="https://link.segmentfault.com/?url=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FSoftware_application">软件应用程序&lt;/a>提供服务，以便于各个软件之间的沟通，特别是系统软件和应用软件。广泛用于 web 应用和面向服务的体系结构等。&lt;/p>
+&lt;p>纵观 GO 语言，中间件应用比较普遍，主要应用：&lt;/p>
+&lt;ul>
+&lt;li>记录对服务器发送的请求（request）&lt;/li>
+&lt;li>处理服务器响应（response ）&lt;/li>
+&lt;li>请求和处理之间做一个权限认证工作&lt;/li>
+&lt;li>远程调用&lt;/li>
+&lt;li>安全&lt;/li>
+&lt;li>等等&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>中间件处理程序&lt;/strong>是简单的&lt;code>http.Handler&lt;/code>，它包装另一个&lt;code>http.Handler&lt;/code>做请求的一些预处理和 / 或后处理。它被称为 “中间件”，因为它位于 Go Web 服务器和实际处理程序之间的中间位置。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ed41e30b-8c8b-4238-90f6-663f162aa592/1460000018819807" alt="">&lt;/p>
+&lt;p>下面是一些中间件例子&lt;/p>
+&lt;h3 id="记录日志中间件">记录日志中间件&lt;/h3>
+&lt;pre>&lt;code>package main
+import (
+&amp;quot;fmt&amp;quot;
+&amp;quot;log&amp;quot;
+&amp;quot;net/http&amp;quot;
+)
+func logging(f http.HandlerFunc) http.HandlerFunc {
+return func(w http.ResponseWriter, r *http.Request) {
+log.Println(r.URL.Path)
+f(w, r)
+}
+}
+func foo(w http.ResponseWriter, r *http.Request) {
+fmt.Fprintln(w, &amp;quot;foo&amp;quot;)
+}
+func bar(w http.ResponseWriter, r *http.Request) {
+fmt.Fprintln(w, &amp;quot;bar&amp;quot;)
+}
+func main() {
+http.HandleFunc(&amp;quot;/foo&amp;quot;, logging(foo))
+http.HandleFunc(&amp;quot;/bar&amp;quot;, logging(bar))
+http.ListenAndServe(&amp;quot;:8080&amp;quot;, nil)
+}
+&lt;/code>&lt;/pre>
+&lt;p>访问 &lt;a href="https://link.segmentfault.com/?url=http%3A%2F%2Flocalhost">http://localhost&lt;/a>:8080/foo&lt;/p>
+&lt;p>返回结果&lt;/p>
+&lt;p>foo&lt;/p>
+&lt;p>将上面示例修改下，也可以实现相同的功能。&lt;/p>
+&lt;pre>&lt;code>package main
+import (
+&amp;quot;fmt&amp;quot;
+&amp;quot;log&amp;quot;
+&amp;quot;net/http&amp;quot;
+)
+func foo(w http.ResponseWriter, r *http.Request) {
+fmt.Fprintln(w, &amp;quot;foo&amp;quot;)
+}
+func bar(w http.ResponseWriter, r *http.Request) {
+fmt.Fprintln(w, &amp;quot;bar&amp;quot;)
+}
+func loggingMiddleware(next http.Handler) http.Handler {
+return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+log.Println(r.URL.Path)
+next.ServeHTTP(w, r)
+})
+}
+func main() {
+http.Handle(&amp;quot;/foo&amp;quot;, loggingMiddleware(http.HandlerFunc(foo)))
+http.Handle(&amp;quot;/bar&amp;quot;, loggingMiddleware(http.HandlerFunc(bar)))
+http.ListenAndServe(&amp;quot;:8080&amp;quot;, nil)
+}
+&lt;/code>&lt;/pre>
+&lt;p>访问 &lt;a href="https://link.segmentfault.com/?url=http%3A%2F%2Flocalhost">http://localhost&lt;/a>:8080/foo&lt;/p>
+&lt;p>返回结果&lt;/p>
+&lt;p>foo&lt;/p>
+&lt;h3 id="多中间件例子">多中间件例子&lt;/h3>
+&lt;pre>&lt;code>package main
+import (
+&amp;quot;fmt&amp;quot;
+&amp;quot;log&amp;quot;
+&amp;quot;net/http&amp;quot;
+&amp;quot;time&amp;quot;
+)
+type Middleware func(http.HandlerFunc) http.HandlerFunc
+func Logging() Middleware {
+return func(f http.HandlerFunc) http.HandlerFunc {
+return func(w http.ResponseWriter, r *http.Request) {
+start := time.Now()
+defer func() { log.Println(r.URL.Path, time.Since(start)) }()
+f(w, r)
+}
+}
+}
+func Method(m string) Middleware {
+return func(f http.HandlerFunc) http.HandlerFunc {
+return func(w http.ResponseWriter, r *http.Request) {
+if r.Method != m {
+http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+return
+}
+f(w, r)
+}
+}
+}
+func Chain(f http.HandlerFunc, middlewares ...Middleware) http.HandlerFunc {
+for \_, m := range middlewares {
+f = m(f)
+}
+return f
+}
+func Hello(w http.ResponseWriter, r *http.Request) {
+fmt.Fprintln(w, &amp;quot;hello world&amp;quot;)
+}
+func main() {
+http.HandleFunc(&amp;quot;/&amp;quot;, Chain(Hello, Method(&amp;quot;GET&amp;quot;), Logging()))
+http.ListenAndServe(&amp;quot;:8080&amp;quot;, nil)
+}
+&lt;/code>&lt;/pre>
+&lt;p>中间件本身只是将其&lt;code>http.HandlerFunc&lt;/code>作为其参数之一，包装它并返回一个新&lt;code>http.HandlerFunc&lt;/code>的服务器来调用。在这里，我们定义了一种新类型&lt;code>Middleware&lt;/code>，最终可以更容易地将多个中间件链接在一起。&lt;/p>
+&lt;p>当然我们也可以改成如下形式&lt;/p>
+&lt;pre>&lt;code>package main
+import (
+&amp;quot;fmt&amp;quot;
+&amp;quot;log&amp;quot;
+&amp;quot;net/http&amp;quot;
+&amp;quot;time&amp;quot;
+)
+type Middleware func(http.Handler) http.Handler
+func Hello(w http.ResponseWriter, r *http.Request) {
+fmt.Fprintln(w, &amp;quot;hello world&amp;quot;)
+}
+func Chain(f http.Handler, mmap ...Middleware) http.Handler {
+for \_, m := range mmap {
+f = m(f)
+}
+return f
+}
+func Method(m string) Middleware {
+return func(f http.Handler) http.Handler {
+return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+log.Println(r.URL.Path)
+if r.Method != m {
+http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+return
+}
+f.ServeHTTP(w, r)
+})
+}
+}
+func Logging() Middleware {
+return func(f http.Handler) http.Handler {
+return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+start := time.Now()
+defer func() { log.Println(r.URL.Path, time.Since(start)) }()
+f.ServeHTTP(w, r)
+})
+}
+}
+func main() {
+http.Handle(&amp;quot;/&amp;quot;, Chain(http.HandlerFunc(Hello), Method(&amp;quot;GET&amp;quot;), Logging()))
+http.ListenAndServe(&amp;quot;:8080&amp;quot;, nil)
+}
+&lt;/code>&lt;/pre>
+&lt;h3 id="在-gin-框架下实现中间件">在 gin 框架下实现中间件&lt;/h3>
+&lt;pre>&lt;code>r := gin.Default() 创建带有默认中间件的路由，默认是包含logger和recovery中间件的
+r :=gin.new() 创建带有没有中间件的路由
+&lt;/code>&lt;/pre>
+&lt;p>示例&lt;/p>
+&lt;pre>&lt;code>package main
+import (
+&amp;quot;github.com/gin-gonic/gin&amp;quot;
+&amp;quot;log&amp;quot;
+&amp;quot;time&amp;quot;
+)
+func Logger() gin.HandlerFunc {
+return func(c *gin.Context) {
+t := time.Now()
+c.Set(&amp;quot;example&amp;quot;, &amp;quot;12345&amp;quot;)
+c.Next()
+latency := time.Since(t)
+log.Print(latency)
+status := c.Writer.Status()
+log.Println(status)
+}
+}
+func main() {
+r := gin.New()
+r.Use(Logger())
+r.GET(&amp;quot;/test&amp;quot;, func(c *gin.Context) {
+example := c.MustGet(&amp;quot;example&amp;quot;).(string)
+log.Println(example)
+})
+r.Run(&amp;quot;:8080&amp;quot;)
+}
+&lt;/code>&lt;/pre>
+&lt;p>以上示例也可改为&lt;/p>
+&lt;pre>&lt;code>package main
+import (
+&amp;quot;github.com/gin-gonic/gin&amp;quot;
+&amp;quot;log&amp;quot;
+&amp;quot;time&amp;quot;
+)
+func Logger() gin.HandlerFunc {
+return func(c *gin.Context) {
+t := time.Now()
+c.Set(&amp;quot;example&amp;quot;, &amp;quot;12345&amp;quot;)
+c.Next()
+latency := time.Since(t)
+log.Print(latency)
+status := c.Writer.Status()
+log.Println(status)
+}
+}
+func main() {
+r := gin.New()
+r.GET(&amp;quot;/test&amp;quot;, Logger(), func(c *gin.Context) {
+example := c.MustGet(&amp;quot;example&amp;quot;).(string)
+log.Println(example)
+})
+r.Run(&amp;quot;:8080&amp;quot;)
+}
+&lt;/code>&lt;/pre>
+&lt;p>即不用 r.use 添加中间件，直接将 Logger() 写到 r.GET 方法的参数里（&amp;quot;/test&amp;quot; 之后）。&lt;/p>
+&lt;p>更多 gin 中间件示例可参考 &lt;a href="https://link.segmentfault.com/?url=https%3A%2F%2Fgithub.com%2Fgin-gonic%2Fgin">https://github.com/gin-gonic/gin&lt;/a>&lt;/p>
+&lt;p>&lt;strong>参考资料&lt;/strong>&lt;/p>
+&lt;p>&lt;a href="https://link.segmentfault.com/?url=https%3A%2F%2Fdrstearns.github.io%2Ftutorials%2Fgomiddleware%2F">https://drstearns.github.io/t&amp;hellip;&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://link.segmentfault.com/?url=https%3A%2F%2Fgowebexamples.com%2Fadvanced-middleware%2F">https://gowebexamples.com/adv&amp;hellip;&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://link.segmentfault.com/?url=https%3A%2F%2Fgithub.com%2Fguyan0319%2Fgolang_development_notes%2Fblob%2Fmaster%2Fzh%2Fpreface.md">更多 GO 学习资料&lt;/a>&lt;/li>
+&lt;/ul></description></item></channel></rss>

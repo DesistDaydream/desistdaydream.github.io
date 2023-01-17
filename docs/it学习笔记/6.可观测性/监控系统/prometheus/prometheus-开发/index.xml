@@ -1,0 +1,1249 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Prometheus 开发</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/</link><description>Recent content in Prometheus 开发 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Instrumenting 原理解析</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/instrumenting-%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/instrumenting-%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>根据源码一步一步推到自学&lt;/li>
+&lt;li>&lt;a href="https://github.com/prometheus/client_golang/blob/master/prometheus/go_collector.go">prometheus 默认自带的 Metrics 的实现方式&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus">prometheus 库&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus/promhttp">prometheus/promhttp 库&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Instrumenting 的实现主要依靠以下几种类型：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Desc(描述符)&lt;/strong> # 结构体。定义一个 Metric&lt;/li>
+&lt;li>&lt;strong>Registerer(注册器)&lt;/strong> # 接口。根据 Metrics 注册一个 Collector(采集器)&lt;/li>
+&lt;li>&lt;strong>Collector(采集器)&lt;/strong> # 接口。采集 Metrics 的具体实现&lt;/li>
+&lt;li>&lt;strong>Gatherer(聚集器)&lt;/strong> # 接口。将采集到的 Metrics 聚集在一起&lt;/li>
+&lt;/ul>
+&lt;p>其中 Collector(采集器) 就像其名字一样，是定义采集 Metrics 的主要行为。在代码中，Collector(采集器) 表现为一个接口。这个接口有两个方法，&lt;code>Describe()&lt;/code> 与 &lt;code>Collect()&lt;/code>，其中在 &lt;code>**Collect()**&lt;/code>** 这个方法中，定义主要的采集 Metrics 行为**&lt;/p>
+&lt;h1 id="deschttpspkggodevgithubcomprometheusclient_golangprometheusdesc描述符--用来描述-metric-的结构体">&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus#Desc">Desc&lt;/a>(描述符) # 用来描述 Metric 的结构体&lt;/h1>
+&lt;p>在 Prometheus 中，使用 **Desc 结构体 **来描述一个 Metric。Desc 是所有事物的基础，没有 Desc 也就无从采集 Metric，同时管理 Metric 也是通过 Desc&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Desc&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 完全限定名称。也就是 Metric 的名字，fqName 由 Namespace、Subsystem、Name 三部分组成
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">fqName&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Metric 的帮助信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">help&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// constLabelPairs(常量标签对) 包含基于常量标签的预先计算的 DTO标签对。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">constLabelPairs&lt;/span> []&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">dto&lt;/span>.&lt;span style="color:#a6e22e">LabelPair&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// variableLabels 包含 metrics 为其维护变量值的标签名称。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">variableLabels&lt;/span> []&lt;span style="color:#66d9ef">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// id 是 ConstLabels 与 fqName 两个值的 hash。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 它在所有已注册的 Desc(描述符) 中必须是唯一的，因此可以用作 Desc(描述符) 的 ID(标识符)。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">id&lt;/span> &lt;span style="color:#66d9ef">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// dimHash 是标签名称(预设和变量) 和 Help 这两个值的 hash。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 具有相同 fqName 的每个 Desc 必须具有相同的 dimHash
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">dimHash&lt;/span> &lt;span style="color:#66d9ef">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// err 是在每次构建过程中发生的错误。这个错误信息会报告注册 Desc 的时间
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#66d9ef">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Desc 是每个 &lt;strong>Metric 所使用的 Descriptor(描述符)&lt;/strong>。Desc 本质上是其对应的 Metric 的不可变的元数据。prometheus 包中那些常规 Metric 的实现，是用来在底层管理其对应的 Desc。只需要处理 Desc 即可使用诸 ExpvarCollector 或者 CustomCollectors 和 Metrics 之类的高级功能。&lt;/p>
+&lt;blockquote>
+&lt;p>这个描述符就类似于 Linux 中的 FD(文件描述符) 的作用。我打开一个文件，就可以通过该文件的 FD 对该文件进行读写。Prometheus 的 Desc 同理，实例化这个 Desc 结构体，就等于是打开了一个 Metric，可以通过 Metric 的 描述符 来对该 Metric 进行读写操作。&lt;/p>
+&lt;/blockquote>
+&lt;p>Descriptors registered with the same registry have to fulfill certain consistency and uniqueness criteria if they share the same fully-qualified name: They must have the same help string and the same label names (aka label dimensions) in each, constLabels and variableLabels, but they must differ in the values of the constLabels.&lt;/p>
+&lt;p>Descriptors that share the same fully-qualified names and the same label values of their constLabels are considered equal.&lt;/p>
+&lt;p>使用 &lt;code>NewDesc()&lt;/code> 函数来创建一个新的 Desc 实例。&lt;/p>
+&lt;h2 id="desc-结构体中的属性也就是一个-metric-的元数据详解">Desc 结构体中的属性(也就是一个 Metric 的元数据)详解&lt;/h2>
+&lt;p>参考：&lt;a href="https://github.com/prometheus/client_golang/blob/master/prometheus/desc.go#L46">源码注释&lt;/a>&lt;/p>
+&lt;blockquote>
+&lt;p>注意，源码注释参考是 GitHub 上的，不是 pkg.go 中的，GitHub 上代码所在的行很可能会变，可以通过 这里 直接点击 Desc 的连接跳转过去&lt;/p>
+&lt;/blockquote>
+&lt;p>在源码中，我们可以看到有如下 7 个属性&lt;/p>
+&lt;ol>
+&lt;li>fqName string&lt;/li>
+&lt;li>help string&lt;/li>
+&lt;li>constLabelPairs []*dto.LabelPair&lt;/li>
+&lt;li>variableLabels []string&lt;/li>
+&lt;li>id uint64&lt;/li>
+&lt;li>dimHash uint64&lt;/li>
+&lt;li>err error&lt;/li>
+&lt;/ol>
+&lt;p>假如现在有这么一个指标：&lt;/p>
+&lt;pre>&lt;code># HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version=&amp;quot;go1.15.5&amp;quot;} 1
+&lt;/code>&lt;/pre>
+&lt;p>那么在 Prometheus 代码中 Metric 描述符对应的信息应该这么看：&lt;/p>
+&lt;p>fqName、help、 constLabelPairs、variableLabels 这四个属性的值，将会响应给客户端&lt;/p>
+&lt;p>**fqName **# 该 Metric 的名字&lt;/p>
+&lt;blockquote>
+&lt;p>就是上述指标中的 go_info&lt;/p>
+&lt;/blockquote>
+&lt;p>fqName 由 Namespace、Subsystem、Name 三部分组成&lt;/p>
+&lt;p>&lt;strong>help string&lt;/strong> # 该 Metric 的帮助信息&lt;/p>
+&lt;blockquote>
+&lt;p>就是上述指标中的 Information about the Go environment&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>constLabelPairs []*dto.LabelPair&lt;/strong> # 该 Metric 中，标签值不可变的标签对列表&lt;/p>
+&lt;blockquote>
+&lt;p>在这个 Metirc 中没有 constLabelParis。常量标签对是在实例化 Desc 时设置的，标签值是不可变的。
+LabelPair(标签对) 是一组键值对的组合。key 为 标签名称，value 为 标签值&lt;/p>
+&lt;/blockquote>
+&lt;p>constLabelPairs** **包含基于常量标签的预先计算的 DTO 标签对。&lt;/p>
+&lt;p>constLabels 属性中的标签值是常量，不变的。因为可以在 Desc 中直接设置标签对的信息。&lt;/p>
+&lt;p>这些不可变的指标由于是在代码中直接设置的，所以常出现在 histogram 类型的指标中，比如 etcd 中的 etcd_debugging_mvcc_db_compaction_total_duration_milliseconds 指标中的 le 标签的值就是一个常量，并不会随所在环境而改变。&lt;/p>
+&lt;pre>&lt;code># HELP etcd_debugging_mvcc_db_compaction_total_duration_milliseconds Bucketed histogram of db compaction total duration.
+# TYPE etcd_debugging_mvcc_db_compaction_total_duration_milliseconds histogram
+etcd_debugging_mvcc_db_compaction_total_duration_milliseconds_bucket{le=&amp;quot;100&amp;quot;} 11331
+etcd_debugging_mvcc_db_compaction_total_duration_milliseconds_bucket{le=&amp;quot;200&amp;quot;} 17071
+....
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>variableLabels []string&lt;/strong> # 该 Metric 中，标签值可变的标签名称列表&lt;/p>
+&lt;blockquote>
+&lt;p>就是上述指标中的 version=&amp;ldquo;go1.15.5&amp;rdquo; 中的 version，表示该 Metric 的标签集的 key，这个标签的值是可变的。&lt;/p>
+&lt;/blockquote>
+&lt;p>variableLabels** **包含 &lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#Metric">Metric 接口&lt;/a> 所维护标签值的标签名称。&lt;/p>
+&lt;p>variableLabels** **所定义的标签名称对应的标签值是可变的，因此这些值不是 Desc 中的一个属性(它们通过 &lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#Metric">Metric 接口&lt;/a> 管理)。&lt;/p>
+&lt;p>比如 node_exporter 中采集到的 node_ipvs_backend_connections_active 这个指标，其中的的所有标签都是 variableLabels，标签值是采集器根据当前环境设定的。就像这个 Metric 中的 address、port 等等，都是可变的。&lt;/p>
+&lt;pre>&lt;code># HELP node_ipvs_backend_connections_active The current active connections by local and remote address.
+# TYPE node_ipvs_backend_connections_active gauge
+node_ipvs_backend_connections_active{local_address=&amp;quot;10.100.121.107&amp;quot;,local_mark=&amp;quot;&amp;quot;,local_port=&amp;quot;9098&amp;quot;,proto=&amp;quot;TCP&amp;quot;,remote_address=&amp;quot;10.244.5.209&amp;quot;,remote_port=&amp;quot;9098&amp;quot;} 0
+node_ipvs_backend_connections_active{local_address=&amp;quot;10.100.180.246&amp;quot;,local_mark=&amp;quot;&amp;quot;,local_port=&amp;quot;8500&amp;quot;,proto=&amp;quot;TCP&amp;quot;,remote_address=&amp;quot;10.244.3.23&amp;quot;,remote_port=&amp;quot;8500&amp;quot;} 0
+...
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>id uint64&lt;/strong> # 不会响应给 scrape 请求&lt;/p>
+&lt;p>&lt;strong>dimHash uint64&lt;/strong> # 不会响应给 scrape 请求&lt;/p>
+&lt;p>&lt;strong>err error&lt;/strong> # 不会响应给 scrape 请求&lt;/p>
+&lt;h2 id="newdeschttpspkggodevgithubcomprometheusclient_golangprometheusnewdesc">&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus#NewDesc">NewDesc()&lt;/a>&lt;/h2>
+&lt;p>参考：&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#NewDesc">代码注释&lt;/a>
+&lt;code>NewDesc()&lt;/code> 用来实例化 Desc 结构体，设置属性的值并初始化一个新的 Desc。&lt;/p>
+&lt;p>实例化时产生的错误也会被记录在 Desc 中，并在注册该 Desc 时报告。&lt;/p>
+&lt;p>在实例化时，variableLabels 和 constLabels 可以为 nil，fqName 不能为空，&lt;code>NewDesc()&lt;/code> 将会为其他未明确设置的属性设置默认值。&lt;/p>
+&lt;h3 id="高级-newdesc">高级 NewDesc()&lt;/h3>
+&lt;p>看完后面的章节再回来看这个，不理解 Collector、Registerer、Gatherer 的知识，无法理解这部分内容。参见&lt;a href="#HNvsE">后文&lt;/a>&lt;/p>
+&lt;h2 id="exposed-metric暴露指标">Exposed Metric(暴露指标)&lt;/h2>
+&lt;p>所谓 Exposed Metrics 就是让指标可以展示在 http 服务器上。也就是说通过 Exporter 监听的端口来获取 Metrics 的信息。&lt;/p>
+&lt;p>想要暴露 Metrics，那么必须要先注册这些 Metrics，注册 Metrics 是通过 Collector 进行的。一般使用 prometheus.MustRegister() 注册一个 Metric。&lt;/p>
+&lt;p>注册完成之后想要参见下文 Exposed Mestrics 来让 metrics 可访问&lt;/p>
+&lt;h2 id="基本示例">基本示例&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Metrics 用来保存所有 Metrics
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Metrics&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">HelloWorldDesc&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Desc&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mutex&lt;/span> &lt;span style="color:#a6e22e">sync&lt;/span>.&lt;span style="color:#a6e22e">Mutex&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// NewMetrics 实例化所有的 Metrics,并为 Mestirs 设定一些基本信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">NewMetrics&lt;/span>() &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Metrics&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">Metrics&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">HelloWorldDesc&lt;/span>: &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewDesc&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;exporter_hello_world&amp;#34;&lt;/span>, &lt;span style="color:#75715e">// Metric 名称
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#e6db74">&amp;#34;Help Info for exporter hello world&amp;#34;&lt;/span>, &lt;span style="color:#75715e">// Metric 的帮助信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> []&lt;span style="color:#66d9ef">string&lt;/span>{&lt;span style="color:#e6db74">&amp;#34;name&amp;#34;&lt;/span>}, &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#75715e">// Metric 的可变标签值的标签 与 不可变标签值的标签
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> ),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="collectorhttpspkggodevgithubcomprometheusclient_golangprometheuscollector采集器">&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus#Collector">Collector&lt;/a>(采集器)&lt;/h1>
+&lt;p>在上文 Metric 部分，我们定义个了一个 Metric，下一步就是要为这个 Metric 采集值、设置标签值、设置值类型。此时就要使用一个名为 Collector 的接口，只要让这个 Metric 实现该接口，即可实现采集行为。&lt;/p>
+&lt;p>&lt;strong>Collector(采集器&lt;/strong>) 是由 Prometheus 可以用来采集 Metrics 的任何东西实现的接口。 一个 Collector(采集器) 必须使用 &lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#Registerer">Registerer.Register()&lt;/a> 进行注册后，才可以进行采集 Metric 的工作。&lt;/p>
+&lt;blockquote>
+&lt;p>Registerer.Register() 指的是 &lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#Registerer">Registerer&lt;/a> 接口中的 Register() 方法&lt;/p>
+&lt;/blockquote>
+&lt;p>也就是说，任何实现了 Collector 接口的代码，都可以通过 Registerer 注册进来，并在监听的端口上暴露出采集到的 Metrics 数据。&lt;/p>
+&lt;p>Collector 包含两个方法：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Describe()&lt;/strong> # Metric 的描述符&lt;/li>
+&lt;li>&lt;strong>Collect()&lt;/strong> # 采集 Metric 的真正行为&lt;/li>
+&lt;/ul>
+&lt;p>可以看到，Collector 可以算包含了 Metrics，也就是说，注册了 Collector 也就等于相当于注册了 Metrics。&lt;/p>
+&lt;h2 id="describe">Describe()&lt;/h2>
+&lt;p>Describe sends the super-set of all possible descriptors of metrics collected by this Collector to the provided channel and returns once the last descriptor has been sent. The sent descriptors fulfill the consistency and uniqueness requirements described in the Desc documentation.&lt;/p>
+&lt;p>It is valid if one and the same Collector sends duplicate descriptors. Those duplicates are simply ignored. However, two different Collectors must not send duplicate descriptors.&lt;/p>
+&lt;p>Sending no descriptor at all marks the Collector as “unchecked”, i.e. no checks will be performed at registration time, and the Collector may yield any Metric it sees fit in its Collect method.&lt;/p>
+&lt;p>This method idempotently sends the same descriptors throughout the lifetime of the Collector. It may be called concurrently and therefore must be implemented in a concurrency safe way.&lt;/p>
+&lt;p>If a Collector encounters an error while executing this method, it must send an invalid descriptor (created with NewInvalidDesc) to signal the error to the registry.&lt;/p>
+&lt;p>Describe 将此收集器收集的指标的所有可能描述符的超集发送到提供的通道，并在发送完最后一个描述符后返回。发送的描述符满足 Desc 文档中描述的一致性和唯一性要求。&lt;/p>
+&lt;p>如果一个收集器和同一收集器发送重复的描述符，则该方法有效。这些重复项将被忽略。但是，两个不同的收集器不得发送重复的描述符。&lt;/p>
+&lt;p>完全不发送任何描述符会将收集器标记为“未检查”，即在注册时将不执行任何检查，并且收集器可以在其 Collect 方法中产生它认为合适的任何度量标准。&lt;/p>
+&lt;p>此方法在收集器的整个生命周期中均等地发送相同的描述符。它可以被同时调用，因此必须以并发安全的方式实现。&lt;/p>
+&lt;p>如果收集器在执行此方法时遇到错误，则它必须发送一个无效的描述符（使用 NewInvalidDesc 创建）以向注册表发送错误信号&lt;/p>
+&lt;h2 id="collect">Collect()&lt;/h2>
+&lt;p>Collect is called by the Prometheus registry when collecting metrics. The implementation sends each collected metric via the provided channel and returns once the last metric has been sent. The descriptor of each sent metric is one of those returned by Describe (unless the Collector is unchecked, see above). Returned metrics that share the same descriptor must differ in their variable label values.&lt;/p>
+&lt;p>This method may be called concurrently and must therefore be implemented in a concurrency safe way. Blocking occurs at the expense of total performance of rendering all registered metrics. Ideally, Collector implementations support concurrent readers.&lt;/p>
+&lt;p>收集指标时，Prometheus 注册表会调用“收集”。 该实现通过提供的通道发送每个收集的度量，并在发送完最后一个度量后返回。 每个发送的指标的描述符都是 Describe 返回的指标之一（除非未选中收集器，请参见上文）。 共享相同描述符的返回指标必须在其变量标签值上有所不同。&lt;/p>
+&lt;p>可以同时调用此方法，因此必须以并发安全的方式实现。 发生阻塞会以呈现所有已注册指标的总体性能为代价。 理想情况下，收集器实现支持并发读取器。&lt;/p>
+&lt;h2 id="基本示例-1">基本示例&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">e&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Exporter&lt;/span>) &lt;span style="color:#a6e22e">Describe&lt;/span>(&lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span>&lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Desc&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">e&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Exporter&lt;/span>) &lt;span style="color:#a6e22e">Collect&lt;/span>(&lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span>&lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Metric&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="registererhttpspkggodevgithubcomprometheusclient_golangprometheusregisterer注册器">&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus#Registerer">Registerer&lt;/a>(注册器)&lt;/h1>
+&lt;p>Registerer is the interface for the part of a registry in charge of registering and unregistering. Users of custom registries should use Registerer as type for registration purposes (rather than the Registry type directly). In that way, they are free to use custom Registerer implementation(e.g. for testing purposes).&lt;/p>
+&lt;h2 id="register">Register()&lt;/h2>
+&lt;p>Register registers a new Collector to be included in metrics collection. It returns an error if the descriptors provided by the Collector are invalid or if they — in combination with descriptors of already registered Collectors — do not fulfill the consistency and uniqueness criteria described in the documentation of metric.Desc.&lt;/p>
+&lt;p>If the provided Collector is equal to a Collector already registered (which includes the case of re-registering the same Collector), the returned error is an instance of AlreadyRegisteredError, which contains the previously registered Collector.&lt;/p>
+&lt;p>A Collector whose Describe method does not yield any Desc is treated as unchecked. Registration will always succeed. No check for re-registering (see previous paragraph) is performed. Thus, the caller is responsible for not double-registering the same unchecked Collector, and for providing a Collector that will not cause inconsistent metrics on collection. (This would lead to scrape errors.)&lt;/p>
+&lt;h2 id="mustregister">MustRegister()&lt;/h2>
+&lt;p>&lt;code>MustRegister()&lt;/code> 的工作方式与 &lt;code>Register()&lt;/code> 相同，只不过可以注册&lt;strong>任意数量&lt;/strong>的&lt;strong>采集器&lt;/strong>，注册过程产生的任何错误都会直接 panic。代码逻辑非常简单，就是下面这样：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 其实就是一个循环，逐一为每个 Collector 执行 Register()
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">r&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Registry&lt;/span>) &lt;span style="color:#a6e22e">MustRegister&lt;/span>(&lt;span style="color:#a6e22e">cs&lt;/span> &lt;span style="color:#f92672">...&lt;/span>&lt;span style="color:#a6e22e">Collector&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">c&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">cs&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">Register&lt;/span>(&lt;span style="color:#a6e22e">c&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> panic(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="unregister">Unregister()&lt;/h2>
+&lt;p>Unregister unregisters the Collector that equals the Collector passed in as an argument. (Two Collectors are considered equal if their Describe method yields the same set of descriptors.) The function returns whether a Collector was unregistered. Note that an unchecked Collector cannot be unregistered (as its Describe method does not yield any descriptor).&lt;/p>
+&lt;p>Note that even after unregistering, it will not be possible to register a new Collector that is inconsistent with the unregistered Collector, e.g. a Collector collecting metrics with the same name but a different help string. The rationale here is that the same registry instance must only collect consistent metrics throughout its lifetime.&lt;/p>
+&lt;h1 id="gathererhttpspkggodevgithubcomprometheusclient_golangprometheusgatherer聚集器">&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus#Gatherer">Gatherer&lt;/a>(聚集器)&lt;/h1>
+&lt;p>参考：&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#Gatherer">Gatherer 接口代码注释&lt;/a>
+Gatherer is the interface for the part of a registry in charge of gathering the collected metrics into a number of MetricFamilies. The Gatherer interface comes with the same general implication as described for the Registerer interface.&lt;/p>
+&lt;h2 id="gather">Gather()&lt;/h2>
+&lt;p>Gather calls the Collect method of the registered Collectors and then gathers the collected metrics into a lexicographically sorted slice of uniquely named MetricFamily protobufs. Gather ensures that the returned slice is valid and self-consistent so that it can be used for valid exposition. As an exception to the strict consistency requirements described for metric.Desc, Gather will tolerate different sets of label names for metrics of the same metric family.&lt;/p>
+&lt;p>Even if an error occurs, Gather attempts to gather as many metrics as possible. Hence, if a non-nil error is returned, the returned MetricFamily slice could be nil (in case of a fatal error that prevented any meaningful metric collection) or contain a number of MetricFamily protobufs, some of which might be incomplete, and some might be missing altogether. The returned error (which might be a MultiError) explains the details. Note that this is mostly useful for debugging purposes. If the gathered protobufs are to be used for exposition in actual monitoring, it is almost always better to not expose an incomplete result and instead disregard the returned MetricFamily protobufs in case the returned error is non-nil.&lt;/p>
+&lt;h1 id="其他">其他&lt;/h1>
+&lt;h2 id="exposed-metric暴露指标-1">Exposed Metric(暴露指标)&lt;/h2>
+&lt;p>Prometheus 暴露指标是通过 &lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus/promhttp#HandlerFor">promhttp.HandleFor()&lt;/a> 函数实现的&lt;/p>
+&lt;h2 id="高级版-newdesc">高级版 NewDesc()&lt;/h2>
+&lt;p>除了 NewDesc() 这种基本实例化 Desc 的方式，还有更高级的，可以直接定义指定类型的 Metric，并且通过这种方式实例化的 Desc 可以直接被 prometheus.MustRegister() 函数注册，并且相关的 struct 都自带了一些采集行为相关的方法，只需要再自己实现具体逻辑即可。&lt;/p>
+&lt;p>比如&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// gauge 结构体实现了 gauge 接口
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">gauge&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// valBits contains the bits of the represented float64 value. It has
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// to go first in the struct to guarantee alignment for atomic
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// operations. http://golang.org/pkg/sync/atomic/#pkg-note-BUG
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">valBits&lt;/span> &lt;span style="color:#66d9ef">uint64&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">selfCollector&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">desc&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Desc&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">labelPairs&lt;/span> []&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">dto&lt;/span>.&lt;span style="color:#a6e22e">LabelPair&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>gauge 类型的 Metric 结构体，包含了 *Desc 的属性。并且 NewGauge() 实例化就是调用的 NewDesc()&lt;/p>
+&lt;blockquote>
+&lt;p>NewGauge() 返回的是一个 Gauge 的接口&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">NewGauge&lt;/span>(&lt;span style="color:#a6e22e">opts&lt;/span> &lt;span style="color:#a6e22e">GaugeOpts&lt;/span>) &lt;span style="color:#a6e22e">Gauge&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">desc&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">NewDesc&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">BuildFQName&lt;/span>(&lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">Namespace&lt;/span>, &lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">Subsystem&lt;/span>, &lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span>),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">Help&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">nil&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">ConstLabels&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">result&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">gauge&lt;/span>{&lt;span style="color:#a6e22e">desc&lt;/span>: &lt;span style="color:#a6e22e">desc&lt;/span>, &lt;span style="color:#a6e22e">labelPairs&lt;/span>: &lt;span style="color:#a6e22e">desc&lt;/span>.&lt;span style="color:#a6e22e">constLabelPairs&lt;/span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">result&lt;/span>.&lt;span style="color:#a6e22e">init&lt;/span>(&lt;span style="color:#a6e22e">result&lt;/span>) &lt;span style="color:#75715e">// Init self-collection.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">result&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="应用示例">应用示例&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">cpuTemp&lt;/span> = &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewGauge&lt;/span>(&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">GaugeOpts&lt;/span>{&lt;span style="color:#a6e22e">Name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;a_cpu_temperature_celsius&amp;#34;&lt;/span>,&lt;span style="color:#a6e22e">Help&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;Current temperature of the CPU.&amp;#34;&lt;/span>})
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">MustRegister&lt;/span>(&lt;span style="color:#a6e22e">cpuTemp&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">cpuTemp&lt;/span>.&lt;span style="color:#a6e22e">Set&lt;/span>(&lt;span style="color:#ae81ff">65.3&lt;/span>)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这里通过 prometheus.NewGauge() 直接定义了一个 Metric，并通过 prometheus.MustRegister(cpuTemp) 注册这个 Metirc，并且可以通过现成的 Set() 方法为该 Metric 设定一个值。&lt;/p>
+&lt;p>注意：prometheus.MustRegister() 可以同时注册多个 Metircs：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">MustRegister&lt;/span>(&lt;span style="color:#a6e22e">cs&lt;/span> &lt;span style="color:#f92672">...&lt;/span>&lt;span style="color:#a6e22e">Collector&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">DefaultRegisterer&lt;/span>.&lt;span style="color:#a6e22e">MustRegister&lt;/span>(&lt;span style="color:#a6e22e">cs&lt;/span>&lt;span style="color:#f92672">...&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 prometheus 包中，有如下几个高级的 NewDesc()(待补充)：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#NewCounter">NewCounter()&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#NewCounterVec">NewCounterVec()&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#NewGauge">NewGauge()&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#NewGaugeVec">NewGaugeVec()&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#NewHistogram">NewHistogram()&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#HistogramVec">NewHistogramVec()&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#NewSummary">NewSummary()&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#SummaryVec">NewSummaryVec()&lt;/a>&lt;/li>
+&lt;li>。。。等等&lt;/li>
+&lt;/ul>
+&lt;p>带 Vec 的是可以为 Metric 设置标签的函数&lt;/p></description></item><item><title>Docs: Instrumenting 原理解析</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/instrumenting-%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/instrumenting-%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</guid><description/></item><item><title>Docs: Prometheus 规则处理逻辑</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/prometheus-%E8%A7%84%E5%88%99%E5%A4%84%E7%90%86%E9%80%BB%E8%BE%91/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/prometheus-%E8%A7%84%E5%88%99%E5%A4%84%E7%90%86%E9%80%BB%E8%BE%91/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/fwHfKYCy_SKJzaiNy-zh7A">https://mp.weixin.qq.com/s/fwHfKYCy_SKJzaiNy-zh7A&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="接口">接口&lt;/h1>
+&lt;p>代码：&lt;code>./rules/manager.go&lt;/code> —— &lt;code>Rule{}&lt;/code>
+Rule 接口封装了一个向量表达式，在指定的时间间隔评估规则。Prometheus 将规则分为两类：&lt;strong>Recording Rule(记录规则)&lt;/strong> 与 &lt;strong>Alerting Rule(告警规则)&lt;/strong>，所以将处理这两种规则的方法统一成一个接口，如下两个结构体实现了该接口：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>./rules/alerting.go&lt;/code> —— &lt;code>AlertingRule{}&lt;/code>&lt;/li>
+&lt;li>&lt;code>./rules/recording.go&lt;/code> —— &lt;code>RecordingRule{}&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Rule&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 直接返回规则的名称
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Name&lt;/span>() &lt;span style="color:#66d9ef">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Labels of the rule.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Labels&lt;/span>() &lt;span style="color:#a6e22e">labels&lt;/span>.&lt;span style="color:#a6e22e">Labels&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 评估规则(规则处理逻辑中最重要的部分)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Eval&lt;/span>(&lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span>, &lt;span style="color:#a6e22e">QueryFunc&lt;/span>, &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">url&lt;/span>.&lt;span style="color:#a6e22e">URL&lt;/span>) (&lt;span style="color:#a6e22e">promql&lt;/span>.&lt;span style="color:#a6e22e">Vector&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// String returns a human-readable string representation of the rule.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">String&lt;/span>() &lt;span style="color:#66d9ef">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Query returns the rule query expression.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Query&lt;/span>() &lt;span style="color:#a6e22e">parser&lt;/span>.&lt;span style="color:#a6e22e">Expr&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// SetLastErr sets the current error experienced by the rule.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">SetLastError&lt;/span>(&lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// LastErr returns the last error experienced by the rule.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">LastError&lt;/span>() &lt;span style="color:#66d9ef">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// SetHealth sets the current health of the rule.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">SetHealth&lt;/span>(&lt;span style="color:#a6e22e">RuleHealth&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Health returns the current health of the rule.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Health&lt;/span>() &lt;span style="color:#a6e22e">RuleHealth&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">SetEvaluationDuration&lt;/span>(&lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Duration&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// GetEvaluationDuration returns last evaluation duration.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// NOTE: Used dynamically by rules.html template.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">GetEvaluationDuration&lt;/span>() &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Duration&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">SetEvaluationTimestamp&lt;/span>(&lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// GetEvaluationTimestamp returns last evaluation timestamp.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// NOTE: Used dynamically by rules.html template.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">GetEvaluationTimestamp&lt;/span>() &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// HTMLSnippet returns a human-readable string representation of the rule,
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// decorated with HTML elements for use the web frontend.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">HTMLSnippet&lt;/span>(&lt;span style="color:#a6e22e">pathPrefix&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>) &lt;span style="color:#a6e22e">html_template&lt;/span>.&lt;span style="color:#a6e22e">HTML&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这些方法中，最重要的就是 &lt;code>Eval()&lt;/code>，用来评估规则。&lt;/p>
+&lt;h1 id="结构体">结构体&lt;/h1>
+&lt;h2 id="规则">规则&lt;/h2>
+&lt;p>代码：&lt;code>./rules/manager.go&lt;/code> — &lt;code>Group{}&lt;/code>
+这是一组具有逻辑关系的规则。&lt;code>Manager.LoadGroups()&lt;/code> 方法将会读取配置文件中的每组规则，解析后，返回一个 &lt;code>map[string]*Group&lt;/code>(也就是说)，以供后续代码使用。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Group&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">name&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">file&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">interval&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Duration&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">limit&lt;/span> &lt;span style="color:#66d9ef">int&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">rules&lt;/span> []&lt;span style="color:#a6e22e">Rule&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">seriesInPreviousEval&lt;/span> []&lt;span style="color:#66d9ef">map&lt;/span>[&lt;span style="color:#66d9ef">string&lt;/span>]&lt;span style="color:#a6e22e">labels&lt;/span>.&lt;span style="color:#a6e22e">Labels&lt;/span> &lt;span style="color:#75715e">// One per Rule.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">staleSeries&lt;/span> []&lt;span style="color:#a6e22e">labels&lt;/span>.&lt;span style="color:#a6e22e">Labels&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">opts&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">ManagerOptions&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mtx&lt;/span> &lt;span style="color:#a6e22e">sync&lt;/span>.&lt;span style="color:#a6e22e">Mutex&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">evaluationTime&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Duration&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">lastEvaluation&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">shouldRestore&lt;/span> &lt;span style="color:#66d9ef">bool&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">markStale&lt;/span> &lt;span style="color:#66d9ef">bool&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">done&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">terminated&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">managerDone&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">logger&lt;/span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Logger&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">metrics&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Metrics&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="规则管理器">规则管理器&lt;/h2>
+&lt;p>代码：&lt;code>./rules/manager.go&lt;/code> — &lt;code>Manager{}&lt;/code>
+Manager 结构体是规则管理器。负责管理 记录规则 与 告警规则。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Manager&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 管理器的额外选项，
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">opts&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">ManagerOptions&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 通过配置文件传递进来的规则
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">groups&lt;/span> &lt;span style="color:#66d9ef">map&lt;/span>[&lt;span style="color:#66d9ef">string&lt;/span>]&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Group&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 该结构体的读写锁，通常在处理 groups 时会上锁
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">mtx&lt;/span> &lt;span style="color:#a6e22e">sync&lt;/span>.&lt;span style="color:#a6e22e">RWMutex&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">block&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">done&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">restored&lt;/span> &lt;span style="color:#66d9ef">bool&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">logger&lt;/span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Logger&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 Prometheus Server 的 &lt;code>main()&lt;/code> 中，通过 &lt;code>NewManager()&lt;/code> 函数实例化一个管理器，并在实例化时传递已实例化的 &lt;code>ManagerOptions{}&lt;/code>&lt;/p>
+&lt;h2 id="管理器选项">管理器选项&lt;/h2>
+&lt;p>&lt;code>./rules/manager.go&lt;/code> —— &lt;code>ManagerOptions{}&lt;/code>
+在 &lt;code>main()&lt;/code> 中实例化 &lt;code>Manager{}&lt;/code> 时，会将该结构体作为实参传递到 &lt;code>NewManager()&lt;/code> 函数中。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">ManagerOptions&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ExternalURL&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">url&lt;/span>.&lt;span style="color:#a6e22e">URL&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">//
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">QueryFunc&lt;/span> &lt;span style="color:#a6e22e">QueryFunc&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">NotifyFunc&lt;/span> &lt;span style="color:#a6e22e">NotifyFunc&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Context&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Appendable&lt;/span> &lt;span style="color:#a6e22e">storage&lt;/span>.&lt;span style="color:#a6e22e">Appendable&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Queryable&lt;/span> &lt;span style="color:#a6e22e">storage&lt;/span>.&lt;span style="color:#a6e22e">Queryable&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Logger&lt;/span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Logger&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Registerer&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Registerer&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">OutageTolerance&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Duration&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ForGracePeriod&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Duration&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ResendDelay&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Duration&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">GroupLoader&lt;/span> &lt;span style="color:#a6e22e">GroupLoader&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Metrics&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Metrics&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="加载并运行规则">加载并运行规则&lt;/h1>
+&lt;p>&lt;code>./rules/manager.go&lt;/code> — &lt;code>Manager.Updata()&lt;/code>
+在 Prometheus Server 启动时会调用 &lt;code>Manager.Updata()&lt;/code> 方法加载规则配置文件并解析。在配置热更新时。如果加载新规则失败，则将恢复旧规则。
+这个更新规则是这么个逻辑：比较每一个规则组，若一样，则将老的复制成新的，然后再加上原来没有的，若不一样，则规则组处理完成后，删除这些剩余的。
+这里面最重要部分有两个&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>Manager.LoadGroups()&lt;/code> 方法。从配置文件中读取内容，并解析规则，实例化一个规则组(即 &lt;code>Group{}&lt;/code> 结构体)&lt;/li>
+&lt;li>在并发中执行的 &lt;code>Group.run()&lt;/code> 方法。该方法中包含里定期评估规则的逻辑&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">m&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Manager&lt;/span>) &lt;span style="color:#a6e22e">Update&lt;/span>(&lt;span style="color:#a6e22e">interval&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Duration&lt;/span>, &lt;span style="color:#a6e22e">files&lt;/span> []&lt;span style="color:#66d9ef">string&lt;/span>, &lt;span style="color:#a6e22e">externalLabels&lt;/span> &lt;span style="color:#a6e22e">labels&lt;/span>.&lt;span style="color:#a6e22e">Labels&lt;/span>, &lt;span style="color:#a6e22e">externalURL&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>) &lt;span style="color:#66d9ef">error&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 下面将会处理 Manager.groups，所以上个锁~
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">mtx&lt;/span>.&lt;span style="color:#a6e22e">Lock&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">defer&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">mtx&lt;/span>.&lt;span style="color:#a6e22e">Unlock&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 从配置文件中加载并解析规则，以实例化一个规则组变量供后续处理
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">groups&lt;/span>, &lt;span style="color:#a6e22e">errs&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">LoadGroups&lt;/span>(&lt;span style="color:#a6e22e">interval&lt;/span>, &lt;span style="color:#a6e22e">externalLabels&lt;/span>, &lt;span style="color:#a6e22e">externalURL&lt;/span>, &lt;span style="color:#a6e22e">files&lt;/span>&lt;span style="color:#f92672">...&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 准备开始并发喽~
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">wg&lt;/span> &lt;span style="color:#a6e22e">sync&lt;/span>.&lt;span style="color:#a6e22e">WaitGroup&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">newg&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">groups&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 检查新组与旧组标识符是否相等，若相等则跳过，若不等则停止它并等待它完成当前迭代，然后将其复制到新组中
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">......&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 并发添加计数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">wg&lt;/span>.&lt;span style="color:#a6e22e">Add&lt;/span>(&lt;span style="color:#ae81ff">1&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 开始真正的加载规则组，其中主要执行逻辑在 newg.run(m.opts.Context)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">go&lt;/span> &lt;span style="color:#66d9ef">func&lt;/span>(&lt;span style="color:#a6e22e">newg&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Group&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 接着上面检查新旧组标识符，如果相等，这里就会将老规则组中的状态信息复制到新规则组中。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">ok&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">oldg&lt;/span>.&lt;span style="color:#a6e22e">stop&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">newg&lt;/span>.&lt;span style="color:#a6e22e">CopyState&lt;/span>(&lt;span style="color:#a6e22e">oldg&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">wg&lt;/span>.&lt;span style="color:#a6e22e">Done&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Wait with starting evaluation until the rule manager
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// is told to run. This is necessary to avoid running
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// queries against a bootstrapping storage.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span>&lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">block&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 加载新组，周期性得执行 PromQL 语句
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">newg&lt;/span>.&lt;span style="color:#a6e22e">run&lt;/span>(&lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }(&lt;span style="color:#a6e22e">newg&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 删除余下的旧组
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">wg&lt;/span>.&lt;span style="color:#a6e22e">Add&lt;/span>(len(&lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">groups&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">n&lt;/span>, &lt;span style="color:#a6e22e">oldg&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">groups&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">go&lt;/span> &lt;span style="color:#66d9ef">func&lt;/span>(&lt;span style="color:#a6e22e">n&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>, &lt;span style="color:#a6e22e">g&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Group&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">......&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }(&lt;span style="color:#a6e22e">n&lt;/span>, &lt;span style="color:#a6e22e">oldg&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">wg&lt;/span>.&lt;span style="color:#a6e22e">Wait&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">groups&lt;/span> = &lt;span style="color:#a6e22e">groups&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="加载规则">加载规则&lt;/h1>
+&lt;p>&lt;code>./rules/manager.go&lt;/code> —— &lt;code>Manager.LoadGroups()&lt;/code>
+在这里，会使用 &lt;code>GroupOptions{}&lt;/code> 实例化 &lt;code>Group{}&lt;/code>。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">m&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Manager&lt;/span>) &lt;span style="color:#a6e22e">LoadGroups&lt;/span>(&lt;span style="color:#a6e22e">interval&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Duration&lt;/span>, &lt;span style="color:#a6e22e">externalLabels&lt;/span> &lt;span style="color:#a6e22e">labels&lt;/span>.&lt;span style="color:#a6e22e">Labels&lt;/span>, &lt;span style="color:#a6e22e">externalURL&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>, &lt;span style="color:#a6e22e">filenames&lt;/span> &lt;span style="color:#f92672">...&lt;/span>&lt;span style="color:#66d9ef">string&lt;/span>,) (&lt;span style="color:#66d9ef">map&lt;/span>[&lt;span style="color:#66d9ef">string&lt;/span>]&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Group&lt;/span>, []&lt;span style="color:#66d9ef">error&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 循环配置文件
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">fn&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">filenames&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 通过 ./rulefmt/rulefmt.go —— ParseFile() 解析配置文件，返回 rulefmt 包下的 RuleGroups{}，这就是规则组实例
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">rgs&lt;/span>, &lt;span style="color:#a6e22e">errs&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">GroupLoader&lt;/span>.&lt;span style="color:#a6e22e">Load&lt;/span>(&lt;span style="color:#a6e22e">fn&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 循环规则组实例
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">rg&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">rgs&lt;/span>.&lt;span style="color:#a6e22e">Groups&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 循环规则组中的每个规则
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">rg&lt;/span>.&lt;span style="color:#a6e22e">Rules&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">groups&lt;/span>[&lt;span style="color:#a6e22e">GroupKey&lt;/span>(&lt;span style="color:#a6e22e">fn&lt;/span>, &lt;span style="color:#a6e22e">rg&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span>)] = &lt;span style="color:#a6e22e">NewGroup&lt;/span>(&lt;span style="color:#a6e22e">GroupOptions&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Name&lt;/span>: &lt;span style="color:#a6e22e">rg&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">File&lt;/span>: &lt;span style="color:#a6e22e">fn&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Interval&lt;/span>: &lt;span style="color:#a6e22e">itv&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Limit&lt;/span>: &lt;span style="color:#a6e22e">rg&lt;/span>.&lt;span style="color:#a6e22e">Limit&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Rules&lt;/span>: &lt;span style="color:#a6e22e">rules&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ShouldRestore&lt;/span>: &lt;span style="color:#a6e22e">shouldRestore&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Opts&lt;/span>: &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">opts&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">done&lt;/span>: &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">done&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> })
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 循环完成后，返回实例化的 Group{}
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">groups&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="运行规则">运行规则&lt;/h1>
+&lt;p>&lt;code>./rules/manager.go&lt;/code> — &lt;code>Group.run()&lt;/code>
+上面的 &lt;code>Manager.LoadGroups()&lt;/code> 中获得了实例化的 Group{}，通过规则组，定期执行评估行为。这里面最重要的是定期执行的 &lt;code>Group.Eval()&lt;/code> 方法。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">g&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Group&lt;/span>) &lt;span style="color:#a6e22e">run&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 等待一个当前的时间戳，以开始计时，以便根据固定的间隔，持续评估
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">evalTimestamp&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">EvalTimestamp&lt;/span>(&lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Now&lt;/span>().&lt;span style="color:#a6e22e">UnixNano&lt;/span>()).&lt;span style="color:#a6e22e">Add&lt;/span>(&lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">interval&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// ！！！！用闭包声明一个函数变量，这里面是执行评估的最主要代码逻辑！！！！！
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">iter&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">func&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">Eval&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">evalTimestamp&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 在一个循环中，每隔一段时间就执行一次 Group.Eval()
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">select&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">case&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span>&lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">done&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">default&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">select&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">case&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span>&lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">done&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">case&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span>&lt;span style="color:#a6e22e">tick&lt;/span>.&lt;span style="color:#a6e22e">C&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">iter&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="评估规则">评估规则&lt;/h2>
+&lt;p>&lt;code>./rules/manager.go&lt;/code> — &lt;code>Group.Eval()&lt;/code>
+规则评估，在 &lt;code>Group.run()&lt;/code> 方法中定期调用本方法来评估所有规则组。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">g&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Group&lt;/span>) &lt;span style="color:#a6e22e">Eval&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">ts&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">i&lt;/span>, &lt;span style="color:#a6e22e">rule&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">rules&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">func&lt;/span>(&lt;span style="color:#a6e22e">i&lt;/span> &lt;span style="color:#66d9ef">int&lt;/span>, &lt;span style="color:#a6e22e">rule&lt;/span> &lt;span style="color:#a6e22e">Rule&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 记录规则 与 报警规则 具有各自的实现。但是都会返回一个向量。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">vector&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">rule&lt;/span>.&lt;span style="color:#a6e22e">Eval&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">ts&lt;/span>, &lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">QueryFunc&lt;/span>, &lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">ExternalURL&lt;/span>, &lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">Limit&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 如果当前评估的是报警规则，则进行断言，
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">ar&lt;/span>, &lt;span style="color:#a6e22e">ok&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">rule&lt;/span>.(&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">AlertingRule&lt;/span>); &lt;span style="color:#a6e22e">ok&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ar&lt;/span>.&lt;span style="color:#a6e22e">sendAlerts&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">ts&lt;/span>, &lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">ResendDelay&lt;/span>, &lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">interval&lt;/span>, &lt;span style="color:#a6e22e">g&lt;/span>.&lt;span style="color:#a6e22e">opts&lt;/span>.&lt;span style="color:#a6e22e">NotifyFunc&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }(&lt;span style="color:#a6e22e">i&lt;/span>, &lt;span style="color:#a6e22e">rule&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这里面最重要的是运行了 Rule 接口下的 &lt;code>rule.Eval()&lt;/code> 方法，由于 Prometheus 将规则分为了两类(记录规则 与 告警规则)，所以这里用了一个结构，不同类型的规则，其中处理细节不太一样，但是都会在这里进行评估。&lt;/p>
+&lt;p>在调用 Rule 接口下的 Eval() 方法时，传递了 QueryFunc，在评估规则时，将会执行 PromQL&lt;/p>
+&lt;h3 id="评估告警规则">评估告警规则&lt;/h3>
+&lt;p>&lt;code>./rules/alerting.go&lt;/code> —— &lt;code>AlertingRule.Eval()&lt;/code>&lt;/p>
+&lt;blockquote>
+&lt;p>注意：这里面有一个常量 &lt;code>const resolvedRetention = 15 * time.Minute&lt;/code>，这个时间是已触发的警报保存在内存中的时间，在这个保存时间内，Prometheus Server 将会持续发送该警报(即使该警报已解决，此时发送的警报状态为 Resolved)&lt;/p>
+&lt;/blockquote>
+&lt;p>评估报警规则表达式，然后创建 pending 状态的报警，若满足条件，则转变为 alerting 状态，或者删除过期的 pending 状态的报警。最后，返回一个向量&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">r&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">AlertingRule&lt;/span>) &lt;span style="color:#a6e22e">Eval&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">ts&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span>, &lt;span style="color:#a6e22e">query&lt;/span> &lt;span style="color:#a6e22e">QueryFunc&lt;/span>, &lt;span style="color:#a6e22e">externalURL&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">url&lt;/span>.&lt;span style="color:#a6e22e">URL&lt;/span>, &lt;span style="color:#a6e22e">limit&lt;/span> &lt;span style="color:#66d9ef">int&lt;/span>) (&lt;span style="color:#a6e22e">promql&lt;/span>.&lt;span style="color:#a6e22e">Vector&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 执行 PromQL 语句，若没结果则直接返回，继续等待 Group.run() 循环中的下一个元素。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">res&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">query&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">vector&lt;/span>.&lt;span style="color:#a6e22e">String&lt;/span>(), &lt;span style="color:#a6e22e">ts&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 若有结果，则给该告警规则上锁，并开始处理
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">mtx&lt;/span>.&lt;span style="color:#a6e22e">Lock&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">defer&lt;/span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">mtx&lt;/span>.&lt;span style="color:#a6e22e">Unlock&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Create pending alerts for any new vector elements in the alert expression
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// or update the expression value for existing elements.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">resultFPs&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">map&lt;/span>[&lt;span style="color:#66d9ef">uint64&lt;/span>]&lt;span style="color:#66d9ef">struct&lt;/span>{}{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">vec&lt;/span> &lt;span style="color:#a6e22e">promql&lt;/span>.&lt;span style="color:#a6e22e">Vector&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">alerts&lt;/span> = make(&lt;span style="color:#66d9ef">map&lt;/span>[&lt;span style="color:#66d9ef">uint64&lt;/span>]&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Alert&lt;/span>, len(&lt;span style="color:#a6e22e">res&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 循环每一个 PromQL 获取到的样本，也就是循环每一个查询语句获得的结果
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">smpl&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">res&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 提取样本中的信息，保存到 Alert{} 中。相当于实例化了 Alert{}
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">alerts&lt;/span>[&lt;span style="color:#a6e22e">h&lt;/span>] = &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">Alert&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Labels&lt;/span>: &lt;span style="color:#a6e22e">lbs&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Annotations&lt;/span>: &lt;span style="color:#a6e22e">annotations&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ActiveAt&lt;/span>: &lt;span style="color:#a6e22e">ts&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">State&lt;/span>: &lt;span style="color:#a6e22e">StatePending&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Value&lt;/span>: &lt;span style="color:#a6e22e">smpl&lt;/span>.&lt;span style="color:#a6e22e">V&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">h&lt;/span>, &lt;span style="color:#a6e22e">a&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">alerts&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 检查标签集是否以具有 alerting 状态
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">alert&lt;/span>, &lt;span style="color:#a6e22e">ok&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">active&lt;/span>[&lt;span style="color:#a6e22e">h&lt;/span>]; &lt;span style="color:#a6e22e">ok&lt;/span> &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#a6e22e">alert&lt;/span>.&lt;span style="color:#a6e22e">State&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#a6e22e">StateInactive&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">alert&lt;/span>.&lt;span style="color:#a6e22e">Value&lt;/span> = &lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">Value&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">alert&lt;/span>.&lt;span style="color:#a6e22e">Annotations&lt;/span> = &lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">Annotations&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">continue&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">active&lt;/span>[&lt;span style="color:#a6e22e">h&lt;/span>] = &lt;span style="color:#a6e22e">a&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Check if any pending alerts should be removed or fire now. Write out alert timeseries.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">fp&lt;/span>, &lt;span style="color:#a6e22e">a&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">active&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">ok&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">resultFPs&lt;/span>[&lt;span style="color:#a6e22e">fp&lt;/span>]; !&lt;span style="color:#a6e22e">ok&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// If the alert was previously firing, keep it around for a given
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// retention time so it is reported as resolved to the AlertManager.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">State&lt;/span> &lt;span style="color:#f92672">==&lt;/span> &lt;span style="color:#a6e22e">StatePending&lt;/span> &lt;span style="color:#f92672">||&lt;/span> (!&lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">ResolvedAt&lt;/span>.&lt;span style="color:#a6e22e">IsZero&lt;/span>() &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#a6e22e">ts&lt;/span>.&lt;span style="color:#a6e22e">Sub&lt;/span>(&lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">ResolvedAt&lt;/span>) &amp;gt; &lt;span style="color:#a6e22e">resolvedRetention&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> delete(&lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">active&lt;/span>, &lt;span style="color:#a6e22e">fp&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">State&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#a6e22e">StateInactive&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">State&lt;/span> = &lt;span style="color:#a6e22e">StateInactive&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">ResolvedAt&lt;/span> = &lt;span style="color:#a6e22e">ts&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">continue&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">State&lt;/span> &lt;span style="color:#f92672">==&lt;/span> &lt;span style="color:#a6e22e">StatePending&lt;/span> &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#a6e22e">ts&lt;/span>.&lt;span style="color:#a6e22e">Sub&lt;/span>(&lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">ActiveAt&lt;/span>) &lt;span style="color:#f92672">&amp;gt;=&lt;/span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">holdDuration&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">State&lt;/span> = &lt;span style="color:#a6e22e">StateFiring&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">FiredAt&lt;/span> = &lt;span style="color:#a6e22e">ts&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">restored&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">vec&lt;/span> = append(&lt;span style="color:#a6e22e">vec&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">sample&lt;/span>(&lt;span style="color:#a6e22e">a&lt;/span>, &lt;span style="color:#a6e22e">ts&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">vec&lt;/span> = append(&lt;span style="color:#a6e22e">vec&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">forStateSample&lt;/span>(&lt;span style="color:#a6e22e">a&lt;/span>, &lt;span style="color:#a6e22e">ts&lt;/span>, float64(&lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">ActiveAt&lt;/span>.&lt;span style="color:#a6e22e">Unix&lt;/span>())))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">numActive&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> len(&lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">active&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">limit&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#a6e22e">numActive&lt;/span> &amp;gt; &lt;span style="color:#a6e22e">limit&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">active&lt;/span> = &lt;span style="color:#66d9ef">map&lt;/span>[&lt;span style="color:#66d9ef">uint64&lt;/span>]&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Alert&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">errors&lt;/span>.&lt;span style="color:#a6e22e">Errorf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;exceeded limit of %d with %d alerts&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">limit&lt;/span>, &lt;span style="color:#a6e22e">numActive&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">vec&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="评估记录规则">评估记录规则&lt;/h3>
+&lt;p>&lt;code>./rules/recording.go&lt;/code> —— &lt;code>RecordingRule.Eval()&lt;/code>
+评估记录规则，然后相应地覆盖指标名称和标签。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">rule&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">RecordingRule&lt;/span>) &lt;span style="color:#a6e22e">Eval&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">ts&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span>, &lt;span style="color:#a6e22e">query&lt;/span> &lt;span style="color:#a6e22e">QueryFunc&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">url&lt;/span>.&lt;span style="color:#a6e22e">URL&lt;/span>, &lt;span style="color:#a6e22e">limit&lt;/span> &lt;span style="color:#66d9ef">int&lt;/span>) (&lt;span style="color:#a6e22e">promql&lt;/span>.&lt;span style="color:#a6e22e">Vector&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">vector&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">query&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">rule&lt;/span>.&lt;span style="color:#a6e22e">vector&lt;/span>.&lt;span style="color:#a6e22e">String&lt;/span>(), &lt;span style="color:#a6e22e">ts&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Override the metric name and labels.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">i&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">vector&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">sample&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">vector&lt;/span>[&lt;span style="color:#a6e22e">i&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">lb&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">labels&lt;/span>.&lt;span style="color:#a6e22e">NewBuilder&lt;/span>(&lt;span style="color:#a6e22e">sample&lt;/span>.&lt;span style="color:#a6e22e">Metric&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">lb&lt;/span>.&lt;span style="color:#a6e22e">Set&lt;/span>(&lt;span style="color:#a6e22e">labels&lt;/span>.&lt;span style="color:#a6e22e">MetricName&lt;/span>, &lt;span style="color:#a6e22e">rule&lt;/span>.&lt;span style="color:#a6e22e">name&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">l&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">rule&lt;/span>.&lt;span style="color:#a6e22e">labels&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">lb&lt;/span>.&lt;span style="color:#a6e22e">Set&lt;/span>(&lt;span style="color:#a6e22e">l&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span>, &lt;span style="color:#a6e22e">l&lt;/span>.&lt;span style="color:#a6e22e">Value&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">sample&lt;/span>.&lt;span style="color:#a6e22e">Metric&lt;/span> = &lt;span style="color:#a6e22e">lb&lt;/span>.&lt;span style="color:#a6e22e">Labels&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Check that the rule does not produce identical metrics after applying
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// labels.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">vector&lt;/span>.&lt;span style="color:#a6e22e">ContainsSameLabelset&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Errorf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;vector contains metrics with the same labelset after applying rule labels&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">numSamples&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> len(&lt;span style="color:#a6e22e">vector&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">limit&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#a6e22e">numSamples&lt;/span> &amp;gt; &lt;span style="color:#a6e22e">limit&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Errorf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;exceeded limit %d with %d samples&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">limit&lt;/span>, &lt;span style="color:#a6e22e">numSamples&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">rule&lt;/span>.&lt;span style="color:#a6e22e">SetHealth&lt;/span>(&lt;span style="color:#a6e22e">HealthGood&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">rule&lt;/span>.&lt;span style="color:#a6e22e">SetLastError&lt;/span>(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">vector&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Prometheus 规则处理逻辑</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/prometheus-%E8%A7%84%E5%88%99%E5%A4%84%E7%90%86%E9%80%BB%E8%BE%91/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/prometheus-%E8%A7%84%E5%88%99%E5%A4%84%E7%90%86%E9%80%BB%E8%BE%91/</guid><description/></item><item><title>Docs: Prometheus 开发</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/prometheus-%E5%BC%80%E5%8F%91/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/prometheus-%E5%BC%80%E5%8F%91/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/prometheus">GitHub 组织&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="prometheus-源码目录结构">Prometheus 源码目录结构&lt;/h1>
+&lt;blockquote>
+&lt;p>更新日期：
+Prometheus 的源码目录随着更新迭代，也在不断变化中&lt;/p>
+&lt;/blockquote>
+&lt;p>cmd/ #
+config/ # 用于处理 yaml 格式的配置文件，包含与配置文件对应内容的 struct。
+console_libraries/
+consoles/
+discovery/
+docs/
+documentation/
+notifier/
+pkg/
+prompb/
+promql/
+rules/
+scrape/
+scripts/
+storage/
+template/
+tsdb/
+util/
+web/&lt;/p>
+&lt;h1 id="prometheus-通用包">Prometheus 通用包&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/prometheus/common">GitHub,prometheus/common&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>该存储库包含在 Prometheus 组件和库之间共享的 Go 库。它们被认为是 Prometheus 内部的，外部使用没有任何稳定性保证。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>config&lt;/strong> : 通用配置文件对应的 struct
+&lt;ul>
+&lt;li>很多 Prometheus 的周边都会使用该包中的内容比如 blackbox-exporter 的配置文件中，就引用了该包中的 HTTPClientConfig 结构体，作为配置文件内容的一部分。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>expfmt&lt;/strong> : 展示格式的解码和编码&lt;/li>
+&lt;li>&lt;strong>model&lt;/strong>：共享数据结构&lt;/li>
+&lt;li>&lt;strong>promlog&lt;/strong> : &lt;a href="https://github.com/go-kit/kit/tree/master/log">go-kit/log 的&lt;/a>日志包装器&lt;/li>
+&lt;li>&lt;strong>route&lt;/strong>：使用 &lt;a href="https://github.com/julienschmidt/httprouter">httprouter&lt;/a> 的路由包装器 context.Context&lt;/li>
+&lt;li>&lt;strong>server&lt;/strong>：普通服务器&lt;/li>
+&lt;li>&lt;strong>version&lt;/strong>：版本信息和指标&lt;/li>
+&lt;/ul>
+&lt;h1 id="go-客户端库">Go 客户端库&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#section-documentation">prometheus/client_golang&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/SongLee24/prometheus-exporter">https://github.com/SongLee24/prometheus-exporter&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>prometheus 包是一个 Core Instrumentation(核心仪器化) 的包。这个包为监控提供了用来仪器代码的 metrics 原语&lt;/p></description></item><item><title>Docs: PromQL 查询逻辑</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/promql-%E6%9F%A5%E8%AF%A2%E9%80%BB%E8%BE%91/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/promql-%E6%9F%A5%E8%AF%A2%E9%80%BB%E8%BE%91/</guid><description>
+&lt;h1 id="查询结果数据结构">查询结果数据结构&lt;/h1>
+&lt;p>代码中的查询结果类型，与 Querying API 中描述的一致&lt;/p>
+&lt;p>从 web/api/v1/api.go 文件可以看到所有可用的 HTTP API，从 &lt;code>r.Get(&amp;quot;/query&amp;quot;, wrap(api.query))&lt;/code> 可以跳转到即时向量表达式的查询逻辑。&lt;/p>
+&lt;pre>&lt;code>func (api *API) query(r *http.Request) (result apiFuncResult) {
+......
+return apiFuncResult{&amp;amp;queryData{
+ResultType: res.Value.Type(),
+Result: res.Value,
+Stats: qs,
+}, nil, res.Warnings, qry.Close}
+}
+&lt;/code>&lt;/pre>
+&lt;p>代码中的查询结果类型，与 Querying API 中描述的一致，主要是 4 个字段：status、data 中的 resultType 与 result&lt;/p>
+&lt;pre>&lt;code>type queryData struct {
+ResultType parser.ValueType `json:&amp;quot;resultType&amp;quot;`
+Result parser.Value `json:&amp;quot;result&amp;quot;`
+Stats *stats.QueryStats `json:&amp;quot;stats,omitempty&amp;quot;`
+}
+&lt;/code>&lt;/pre>
+&lt;p>parser.Value 是一个接口&lt;/p>
+&lt;pre>&lt;code>type Value interface {
+Type() ValueType
+String() string
+}
+&lt;/code>&lt;/pre>
+&lt;p>一共有 4 个结构体实现了该接口&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dg9h9g/1616068620395-100edb14-c157-4c00-9d02-60937abc9df5.png" alt="">&lt;/p>
+&lt;p>这四个结构体也就是 4 个结果类型 matrix、vector、scalar、string&lt;/p>
+&lt;h2 id="直接看最常用的-matrix-和-vector">直接看最常用的 matrix 和 vector&lt;/h2>
+&lt;p>Matrix 是 Series 类型的数组&lt;/p>
+&lt;pre>&lt;code>type Series struct {
+Metric labels.Labels `json:&amp;quot;metric&amp;quot;`
+Points []Point `json:&amp;quot;values&amp;quot;`
+}
+type Point struct {
+T int64
+V float64
+}
+&lt;/code>&lt;/pre>
+&lt;p>Series 结构体的属性结构与通过 API 查询获取的结果保持一致&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dg9h9g/1616068620417-18503054-4f3f-4421-9eea-25d62ca25884.png" alt="">&lt;/p>
+&lt;p>有两个字段分别对应 Metrics 与 Points 属性，Metrics 就是表示指标的唯一标识符，即一组标签的合集，Points 就是指标的值数组，Point 里有两个，样本值和时间戳。&lt;/p></description></item><item><title>Docs: 故障处理案例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</guid><description/></item><item><title>Docs: 故障处理案例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</guid><description/></item><item><title>Docs: 使用 Go 开发 Prometheus Exporter</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/%E4%BD%BF%E7%94%A8-go-%E5%BC%80%E5%8F%91-prometheus-exporter/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/%E4%BD%BF%E7%94%A8-go-%E5%BC%80%E5%8F%91-prometheus-exporter/</guid><description>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xszbff/1616068457618-e2c7ec21-1371-41db-8d37-3437f5eacf3f.png" alt="">&lt;/p>
+&lt;p>Exporter 是 Prometheus 监控的核心，如果你遇到一些应用不存在相应的 Exporter，那么我们可以自己去编写 Exporter。下面我们简单介绍如何使用 Golang 来快速编写一个 Exporter。&lt;/p>
+&lt;p>&lt;strong>1. 安装 GO 和依赖包&lt;/strong>&lt;/p>
+&lt;p>按照 &lt;a href="https://golang.org/doc/install">https://golang.org/doc/install&lt;/a> 上的步骤进行安装配置 GO 环境，创建一个名为 my_first_exporter 的文件夹。&lt;/p>
+&lt;pre>&lt;code>$ go mod init my_first_exporter
+$ go get github.com/prometheus/client_golang
+$ go get github.com/joho/godotenv
+--&amp;gt; creates go.mod file
+--&amp;gt; Installs dependency into the go.mod file
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+Go&lt;/p>
+&lt;p>&lt;strong>2. 创建入口点和导入依赖包&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>package main
+import (
+&amp;quot;github.com/joho/godotenv&amp;quot;
+&amp;quot;github.com/prometheus/client_golang/prometheus&amp;quot;
+&amp;quot;github.com/prometheus/client_golang/prometheus/promhttp&amp;quot;
+)
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+6
+7
+Go&lt;/p>
+&lt;p>&lt;strong>3. 创建 main() 函数&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>func main()
+&lt;/code>&lt;/pre>
+&lt;p>1
+Go&lt;/p>
+&lt;p>&lt;strong>4. 添加 prometheus metrics 端点，并在某个服务端口上监听&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>func main() {
+http.Handle(&amp;quot;/metrics&amp;quot;, promhttp.Handler())
+log.Fatal(http.ListenAndServe(&amp;quot;:9101&amp;quot;, nil))
+}
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+Go&lt;/p>
+&lt;p>&lt;strong>5. 使用 curl 请求外部服务接口&lt;/strong>&lt;/p>
+&lt;p>比如我们这里监控的应用程序是 MirthConnect，所以我需要进行两个 API 接口调用：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>获取 channel 统计数据&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>获取 channel id 和名称映射&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>curl -k --location --request GET '&amp;lt;https://apihost/api/channels/statistics&amp;gt;' \\
+--user admin:admin
+curl -k --location --request GET '&amp;lt;https://apihost/api/channels/idsAndNames&amp;gt;' \\
+--user admin:admin
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+6
+7
+Go&lt;/p>
+&lt;p>&lt;strong>6. 将 curl 调用转换为 go http 调用，并解析结果&lt;/strong>&lt;/p>
+&lt;p>如果你是 Go 新手，这应该是最困难的一步。对于我这里的例子，端点返回的是 XML 格式的数据，所以我必须用 &lt;code>&amp;quot;encoding/xml&amp;quot;&lt;/code> 包来反序列化 XML。转换成功后意味着我的 GO 程序可以执行和 curl 命令一样的 API 调用。&lt;/p>
+&lt;p>&lt;strong>7. 声明 Prometheus metrics&lt;/strong>&lt;/p>
+&lt;p>在 Prometheus 中，每个 metric 指标都由以下几个部分组成：&lt;code>metric name/metric label values/metric help text/metric type/measurement&lt;/code> ，例如：&lt;/p>
+&lt;pre>&lt;code>Example:
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code=”200&amp;quot;} 1.829159e+06
+promhttp_metric_handler_requests_total{code=”500&amp;quot;} 0
+promhttp_metric_handler_requests_total{code=”503&amp;quot;} 0
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+6
+7
+8
+Go&lt;/p>
+&lt;p>对于应用 scrapers，我们将定义 Prometheus metrics 描述信息，其中包括 metric 名称、metric label 标签以及 metric 帮助信息。&lt;/p>
+&lt;pre>&lt;code>messagesReceived = prometheus.NewDesc(
+prometheus.BuildFQName(namespace, &amp;quot;&amp;quot;, &amp;quot;messages_received_total&amp;quot;),
+&amp;quot;How many messages have been received (per channel).&amp;quot;,
+[]string{&amp;quot;channel&amp;quot;}, nil,
+)
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+Go&lt;/p>
+&lt;p>&lt;strong>8. 定义一个结构体实现 Prometheus 的 Collector 接口&lt;/strong>&lt;/p>
+&lt;p>Prometheus 的 client 库提供了实现自定义 Exportor 的接口，Collector 接口定义了两个方法 Describe 和 Collect，实现这两个方法就可以暴露自定义的数据：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>Describe(chan&amp;lt;- *Desc)&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Collect(chan&amp;lt;- Metric)&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>如下所示：&lt;/p>
+&lt;pre>&lt;code>type Exporter struct {
+mirthEndpoint, mirthUsername, mirthPassword string
+}
+func NewExporter(mirthEndpoint string, mirthUsername string, mirthPassword string) *Exporter {
+return &amp;amp;Exporter{
+mirthEndpoint: mirthEndpoint,
+mirthUsername: mirthUsername,
+mirthPassword: mirthPassword,
+}
+}
+func (e *Exporter) Describe(ch chan&amp;lt;- *prometheus.Desc) {
+}
+func (e *Exporter) Collect(ch chan&amp;lt;- prometheus.Metric) {
+}
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+Go&lt;/p>
+&lt;p>&lt;strong>9. 在 Describe 函数中，把第 7 步的 metric 描述信息发送给它&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>func (e *Exporter) Describe(ch chan&amp;lt;- *prometheus.Desc) {
+ch &amp;lt;- up
+ch &amp;lt;- messagesReceived
+ch &amp;lt;- messagesFiltered
+ch &amp;lt;- messagesQueued
+ch &amp;lt;- messagesSent
+ch &amp;lt;- messagesErrored
+}
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+Plain Text&lt;/p>
+&lt;p>&lt;strong>10. 将接口调用逻辑从第 6 步移到 Collect 函数中&lt;/strong>&lt;/p>
+&lt;p>直接将采集的数据发送到 &lt;code>prometheus.Metric&lt;/code> 通道中。&lt;/p>
+&lt;pre>&lt;code>func (e *Exporter) Collect(ch chan&amp;lt;- prometheus.Metric) {
+channelIdNameMap, err := e.LoadChannelIdNameMap()
+if err != nil {
+ch &amp;lt;- prometheus.MustNewConstMetric(
+up, prometheus.GaugeValue, 0,
+)
+log.Println(err)
+return
+}
+ch &amp;lt;- prometheus.MustNewConstMetric(
+up, prometheus.GaugeValue, 1,
+)
+e.HitMirthRestApisAndUpdateMetrics(channelIdNameMap, ch)
+}
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+Go&lt;/p>
+&lt;p>当执行 api 调用时，确保使用&lt;code>prometheus.MustNewConstMetric(prometheus.Desc, metric type, measurement)&lt;/code>发送测量值，如果你需要传入额外的标签，可以像下面这样在参数列表的后面加入：&lt;/p>
+&lt;pre>&lt;code>channelError, _ := strconv.ParseFloat(channelStatsList.Channels[i].Error, 64)
+ch &amp;lt;- prometheus.MustNewConstMetric(
+messagesErrored, prometheus.GaugeValue, channelError, channelName,
+)
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+Go&lt;/p>
+&lt;p>&lt;strong>11. 在 main 函数中声明 exporter&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>exporter := NewExporter(mirthEndpoint, mirthUsername, mirthPassword)
+prometheus.MustRegister(exporter)
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+Go&lt;/p>
+&lt;p>到这里其实这个 Exporter 就可以使用了，每次访问 metrics 路由的时候，它会执行 api 调用，并以 Prometheus Text 文本格式返回数据。下面的步骤主要是方便部署了。&lt;/p>
+&lt;p>&lt;strong>12. 将硬编码的 api 路径放到 flag 中&lt;/strong>&lt;/p>
+&lt;p>前面我们硬编码了好多参数，比如应用程序的网址、metrics 路由地址以及 exporter 端口，我们可以通过从命令行参数中来解析这些值使程序更加灵活。&lt;/p>
+&lt;pre>&lt;code>var (
+listenAddress = flag.String(&amp;quot;web.listen-address&amp;quot;, &amp;quot;:9141&amp;quot;,
+&amp;quot;Address to listen on for telemetry&amp;quot;)
+metricsPath = flag.String(&amp;quot;web.telemetry-path&amp;quot;, &amp;quot;/metrics&amp;quot;,
+&amp;quot;Path under which to expose metrics&amp;quot;)
+)
+func main() {
+flag.Parse()
+...
+http.Handle(*metricsPath, promhttp.Handler())
+log.Fatal(http.ListenAndServe(*listenAddress, nil))
+}
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+Go&lt;/p>
+&lt;p>&lt;strong>13. 将凭证放入环境变量&lt;/strong>&lt;/p>
+&lt;p>如果应用端点改变了或者登录凭证改变了怎么办？我们可以从环境变量中来加载这些数据，在这个例子中，我们使用 godotenv 这个包来帮助将变量值存储在本地的一个目录中：&lt;/p>
+&lt;pre>&lt;code>import (
+&amp;quot;os&amp;quot;
+)
+func main() {
+err := godotenv.Load()
+if err != nil {
+log.Println(&amp;quot;Error loading .env file, assume env variables are set.&amp;quot;)
+}
+mirthEndpoint := os.Getenv(&amp;quot;MIRTH_ENDPOINT&amp;quot;)
+mirthUsername := os.Getenv(&amp;quot;MIRTH_USERNAME&amp;quot;)
+mirthPassword := os.Getenv(&amp;quot;MIRTH_PASSWORD&amp;quot;)
+}
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+Go&lt;/p>
+&lt;p>整个 Exporter 完整的代码如下所示：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;crypto/tls&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;encoding/xml&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;flag&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;io/ioutil&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;log&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;os&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;strconv&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/joho/godotenv&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/prometheus/client_golang/prometheus&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/prometheus/client_golang/prometheus/promhttp&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">/*
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&amp;lt;map&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;entry&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;string&amp;gt;101af57f-f26c-40d3-86a3-309e74b93512&amp;lt;/string&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;string&amp;gt;Send-Email-Notification&amp;lt;/string&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;/entry&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&amp;lt;/map&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">*/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">ChannelIdNameMap&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">XMLName&lt;/span> &lt;span style="color:#a6e22e">xml&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;map&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Entries&lt;/span> []&lt;span style="color:#a6e22e">ChannelEntry&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;entry&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">ChannelEntry&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">XMLName&lt;/span> &lt;span style="color:#a6e22e">xml&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;entry&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Values&lt;/span> []&lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;string&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">/*
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&amp;lt;list&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;channelStatistics&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;serverId&amp;gt;c5e6a736-0e88-46a7-bf32-5b4908c4d859&amp;lt;/serverId&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;channelId&amp;gt;101af57f-f26c-40d3-86a3-309e74b93512&amp;lt;/channelId&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;received&amp;gt;0&amp;lt;/received&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;sent&amp;gt;0&amp;lt;/sent&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;error&amp;gt;0&amp;lt;/error&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;filtered&amp;gt;0&amp;lt;/filtered&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;queued&amp;gt;0&amp;lt;/queued&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> &amp;lt;/channelStatistics&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&amp;lt;/list&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">*/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">ChannelStatsList&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">XMLName&lt;/span> &lt;span style="color:#a6e22e">xml&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;list&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Channels&lt;/span> []&lt;span style="color:#a6e22e">ChannelStats&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;channelStatistics&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">ChannelStats&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">XMLName&lt;/span> &lt;span style="color:#a6e22e">xml&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;channelStatistics&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ServerId&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;serverId&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ChannelId&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;channelId&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Received&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;received&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Sent&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;sent&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Error&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;error&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Filtered&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;filtered&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Queued&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`xml:&amp;#34;queued&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">namespace&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;mirth&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">channelIdNameApi&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;/api/channels/idsAndNames&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">channelStatsApi&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;/api/channels/statistics&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">var&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">tr&lt;/span> = &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Transport&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">TLSClientConfig&lt;/span>: &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">tls&lt;/span>.&lt;span style="color:#a6e22e">Config&lt;/span>{&lt;span style="color:#a6e22e">InsecureSkipVerify&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>},
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">client&lt;/span> = &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Client&lt;/span>{&lt;span style="color:#a6e22e">Transport&lt;/span>: &lt;span style="color:#a6e22e">tr&lt;/span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">listenAddress&lt;/span> = &lt;span style="color:#a6e22e">flag&lt;/span>.&lt;span style="color:#a6e22e">String&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;web.listen-address&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;:9141&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Address to listen on for telemetry&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">metricsPath&lt;/span> = &lt;span style="color:#a6e22e">flag&lt;/span>.&lt;span style="color:#a6e22e">String&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;web.telemetry-path&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;/metrics&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Path under which to expose metrics&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Metrics
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">up&lt;/span> = &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewDesc&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">BuildFQName&lt;/span>(&lt;span style="color:#a6e22e">namespace&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;up&amp;#34;&lt;/span>),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Was the last Mirth query successful.&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">messagesReceived&lt;/span> = &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewDesc&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">BuildFQName&lt;/span>(&lt;span style="color:#a6e22e">namespace&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;messages_received_total&amp;#34;&lt;/span>),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;How many messages have been received (per channel).&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> []&lt;span style="color:#66d9ef">string&lt;/span>{&lt;span style="color:#e6db74">&amp;#34;channel&amp;#34;&lt;/span>}, &lt;span style="color:#66d9ef">nil&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">messagesFiltered&lt;/span> = &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewDesc&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">BuildFQName&lt;/span>(&lt;span style="color:#a6e22e">namespace&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;messages_filtered_total&amp;#34;&lt;/span>),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;How many messages have been filtered (per channel).&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> []&lt;span style="color:#66d9ef">string&lt;/span>{&lt;span style="color:#e6db74">&amp;#34;channel&amp;#34;&lt;/span>}, &lt;span style="color:#66d9ef">nil&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">messagesQueued&lt;/span> = &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewDesc&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">BuildFQName&lt;/span>(&lt;span style="color:#a6e22e">namespace&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;messages_queued&amp;#34;&lt;/span>),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;How many messages are currently queued (per channel).&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> []&lt;span style="color:#66d9ef">string&lt;/span>{&lt;span style="color:#e6db74">&amp;#34;channel&amp;#34;&lt;/span>}, &lt;span style="color:#66d9ef">nil&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">messagesSent&lt;/span> = &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewDesc&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">BuildFQName&lt;/span>(&lt;span style="color:#a6e22e">namespace&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;messages_sent_total&amp;#34;&lt;/span>),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;How many messages have been sent (per channel).&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> []&lt;span style="color:#66d9ef">string&lt;/span>{&lt;span style="color:#e6db74">&amp;#34;channel&amp;#34;&lt;/span>}, &lt;span style="color:#66d9ef">nil&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">messagesErrored&lt;/span> = &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewDesc&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">BuildFQName&lt;/span>(&lt;span style="color:#a6e22e">namespace&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;messages_errored_total&amp;#34;&lt;/span>),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;How many messages have errored (per channel).&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> []&lt;span style="color:#66d9ef">string&lt;/span>{&lt;span style="color:#e6db74">&amp;#34;channel&amp;#34;&lt;/span>}, &lt;span style="color:#66d9ef">nil&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Exporter&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mirthEndpoint&lt;/span>, &lt;span style="color:#a6e22e">mirthUsername&lt;/span>, &lt;span style="color:#a6e22e">mirthPassword&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">NewExporter&lt;/span>(&lt;span style="color:#a6e22e">mirthEndpoint&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>, &lt;span style="color:#a6e22e">mirthUsername&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>, &lt;span style="color:#a6e22e">mirthPassword&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span>) &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Exporter&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">Exporter&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mirthEndpoint&lt;/span>: &lt;span style="color:#a6e22e">mirthEndpoint&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mirthUsername&lt;/span>: &lt;span style="color:#a6e22e">mirthUsername&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mirthPassword&lt;/span>: &lt;span style="color:#a6e22e">mirthPassword&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">e&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Exporter&lt;/span>) &lt;span style="color:#a6e22e">Describe&lt;/span>(&lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span>&lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Desc&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">up&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">messagesReceived&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">messagesFiltered&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">messagesQueued&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">messagesSent&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">messagesErrored&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">e&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Exporter&lt;/span>) &lt;span style="color:#a6e22e">Collect&lt;/span>(&lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span>&lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Metric&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">channelIdNameMap&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">e&lt;/span>.&lt;span style="color:#a6e22e">LoadChannelIdNameMap&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">MustNewConstMetric&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">up&lt;/span>, &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">GaugeValue&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">MustNewConstMetric&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">up&lt;/span>, &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">GaugeValue&lt;/span>, &lt;span style="color:#ae81ff">1&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">e&lt;/span>.&lt;span style="color:#a6e22e">HitMirthRestApisAndUpdateMetrics&lt;/span>(&lt;span style="color:#a6e22e">channelIdNameMap&lt;/span>, &lt;span style="color:#a6e22e">ch&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">e&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Exporter&lt;/span>) &lt;span style="color:#a6e22e">LoadChannelIdNameMap&lt;/span>() (&lt;span style="color:#66d9ef">map&lt;/span>[&lt;span style="color:#66d9ef">string&lt;/span>]&lt;span style="color:#66d9ef">string&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Create the map of channel id to names
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">channelIdNameMap&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> make(&lt;span style="color:#66d9ef">map&lt;/span>[&lt;span style="color:#66d9ef">string&lt;/span>]&lt;span style="color:#66d9ef">string&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">req&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">NewRequest&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">e&lt;/span>.&lt;span style="color:#a6e22e">mirthEndpoint&lt;/span>&lt;span style="color:#f92672">+&lt;/span>&lt;span style="color:#a6e22e">channelIdNameApi&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// This one line implements the authentication required for the task.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">SetBasicAuth&lt;/span>(&lt;span style="color:#a6e22e">e&lt;/span>.&lt;span style="color:#a6e22e">mirthUsername&lt;/span>, &lt;span style="color:#a6e22e">e&lt;/span>.&lt;span style="color:#a6e22e">mirthPassword&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Make request and show output.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">client&lt;/span>.&lt;span style="color:#a6e22e">Do&lt;/span>(&lt;span style="color:#a6e22e">req&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">ioutil&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>.&lt;span style="color:#a6e22e">Close&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// fmt.Println(string(body))
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// we initialize our array
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">channelIdNameMapXML&lt;/span> &lt;span style="color:#a6e22e">ChannelIdNameMap&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// we unmarshal our byteArray which contains our
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// xmlFiles content into &amp;#39;users&amp;#39; which we defined above
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">xml&lt;/span>.&lt;span style="color:#a6e22e">Unmarshal&lt;/span>(&lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">channelIdNameMapXML&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">i&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span>; &lt;span style="color:#a6e22e">i&lt;/span> &amp;lt; len(&lt;span style="color:#a6e22e">channelIdNameMapXML&lt;/span>.&lt;span style="color:#a6e22e">Entries&lt;/span>); &lt;span style="color:#a6e22e">i&lt;/span>&lt;span style="color:#f92672">++&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">channelIdNameMap&lt;/span>[&lt;span style="color:#a6e22e">channelIdNameMapXML&lt;/span>.&lt;span style="color:#a6e22e">Entries&lt;/span>[&lt;span style="color:#a6e22e">i&lt;/span>].&lt;span style="color:#a6e22e">Values&lt;/span>[&lt;span style="color:#ae81ff">0&lt;/span>]] = &lt;span style="color:#a6e22e">channelIdNameMapXML&lt;/span>.&lt;span style="color:#a6e22e">Entries&lt;/span>[&lt;span style="color:#a6e22e">i&lt;/span>].&lt;span style="color:#a6e22e">Values&lt;/span>[&lt;span style="color:#ae81ff">1&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">channelIdNameMap&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">e&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Exporter&lt;/span>) &lt;span style="color:#a6e22e">HitMirthRestApisAndUpdateMetrics&lt;/span>(&lt;span style="color:#a6e22e">channelIdNameMap&lt;/span> &lt;span style="color:#66d9ef">map&lt;/span>[&lt;span style="color:#66d9ef">string&lt;/span>]&lt;span style="color:#66d9ef">string&lt;/span>, &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span>&lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Metric&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Load channel stats
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">req&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">NewRequest&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">e&lt;/span>.&lt;span style="color:#a6e22e">mirthEndpoint&lt;/span>&lt;span style="color:#f92672">+&lt;/span>&lt;span style="color:#a6e22e">channelStatsApi&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Fatal&lt;/span>(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// This one line implements the authentication required for the task.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">SetBasicAuth&lt;/span>(&lt;span style="color:#a6e22e">e&lt;/span>.&lt;span style="color:#a6e22e">mirthUsername&lt;/span>, &lt;span style="color:#a6e22e">e&lt;/span>.&lt;span style="color:#a6e22e">mirthPassword&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Make request and show output.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">client&lt;/span>.&lt;span style="color:#a6e22e">Do&lt;/span>(&lt;span style="color:#a6e22e">req&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Fatal&lt;/span>(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">ioutil&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>.&lt;span style="color:#a6e22e">Close&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Fatal&lt;/span>(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// fmt.Println(string(body))
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// we initialize our array
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">channelStatsList&lt;/span> &lt;span style="color:#a6e22e">ChannelStatsList&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// we unmarshal our byteArray which contains our
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// xmlFiles content into &amp;#39;users&amp;#39; which we defined above
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">xml&lt;/span>.&lt;span style="color:#a6e22e">Unmarshal&lt;/span>(&lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">channelStatsList&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Fatal&lt;/span>(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">i&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span>; &lt;span style="color:#a6e22e">i&lt;/span> &amp;lt; len(&lt;span style="color:#a6e22e">channelStatsList&lt;/span>.&lt;span style="color:#a6e22e">Channels&lt;/span>); &lt;span style="color:#a6e22e">i&lt;/span>&lt;span style="color:#f92672">++&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">channelName&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">channelIdNameMap&lt;/span>[&lt;span style="color:#a6e22e">channelStatsList&lt;/span>.&lt;span style="color:#a6e22e">Channels&lt;/span>[&lt;span style="color:#a6e22e">i&lt;/span>].&lt;span style="color:#a6e22e">ChannelId&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">channelReceived&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">strconv&lt;/span>.&lt;span style="color:#a6e22e">ParseFloat&lt;/span>(&lt;span style="color:#a6e22e">channelStatsList&lt;/span>.&lt;span style="color:#a6e22e">Channels&lt;/span>[&lt;span style="color:#a6e22e">i&lt;/span>].&lt;span style="color:#a6e22e">Received&lt;/span>, &lt;span style="color:#ae81ff">64&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">MustNewConstMetric&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">messagesReceived&lt;/span>, &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">GaugeValue&lt;/span>, &lt;span style="color:#a6e22e">channelReceived&lt;/span>, &lt;span style="color:#a6e22e">channelName&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">channelSent&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">strconv&lt;/span>.&lt;span style="color:#a6e22e">ParseFloat&lt;/span>(&lt;span style="color:#a6e22e">channelStatsList&lt;/span>.&lt;span style="color:#a6e22e">Channels&lt;/span>[&lt;span style="color:#a6e22e">i&lt;/span>].&lt;span style="color:#a6e22e">Sent&lt;/span>, &lt;span style="color:#ae81ff">64&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">MustNewConstMetric&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">messagesSent&lt;/span>, &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">GaugeValue&lt;/span>, &lt;span style="color:#a6e22e">channelSent&lt;/span>, &lt;span style="color:#a6e22e">channelName&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">channelError&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">strconv&lt;/span>.&lt;span style="color:#a6e22e">ParseFloat&lt;/span>(&lt;span style="color:#a6e22e">channelStatsList&lt;/span>.&lt;span style="color:#a6e22e">Channels&lt;/span>[&lt;span style="color:#a6e22e">i&lt;/span>].&lt;span style="color:#a6e22e">Error&lt;/span>, &lt;span style="color:#ae81ff">64&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">MustNewConstMetric&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">messagesErrored&lt;/span>, &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">GaugeValue&lt;/span>, &lt;span style="color:#a6e22e">channelError&lt;/span>, &lt;span style="color:#a6e22e">channelName&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">channelFiltered&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">strconv&lt;/span>.&lt;span style="color:#a6e22e">ParseFloat&lt;/span>(&lt;span style="color:#a6e22e">channelStatsList&lt;/span>.&lt;span style="color:#a6e22e">Channels&lt;/span>[&lt;span style="color:#a6e22e">i&lt;/span>].&lt;span style="color:#a6e22e">Filtered&lt;/span>, &lt;span style="color:#ae81ff">64&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">MustNewConstMetric&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">messagesFiltered&lt;/span>, &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">GaugeValue&lt;/span>, &lt;span style="color:#a6e22e">channelFiltered&lt;/span>, &lt;span style="color:#a6e22e">channelName&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">channelQueued&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">strconv&lt;/span>.&lt;span style="color:#a6e22e">ParseFloat&lt;/span>(&lt;span style="color:#a6e22e">channelStatsList&lt;/span>.&lt;span style="color:#a6e22e">Channels&lt;/span>[&lt;span style="color:#a6e22e">i&lt;/span>].&lt;span style="color:#a6e22e">Queued&lt;/span>, &lt;span style="color:#ae81ff">64&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">MustNewConstMetric&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">messagesQueued&lt;/span>, &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">GaugeValue&lt;/span>, &lt;span style="color:#a6e22e">channelQueued&lt;/span>, &lt;span style="color:#a6e22e">channelName&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Endpoint scraped&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">godotenv&lt;/span>.&lt;span style="color:#a6e22e">Load&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Error loading .env file, assume env variables are set.&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">flag&lt;/span>.&lt;span style="color:#a6e22e">Parse&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mirthEndpoint&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">os&lt;/span>.&lt;span style="color:#a6e22e">Getenv&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;MIRTH_ENDPOINT&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mirthUsername&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">os&lt;/span>.&lt;span style="color:#a6e22e">Getenv&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;MIRTH_USERNAME&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mirthPassword&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">os&lt;/span>.&lt;span style="color:#a6e22e">Getenv&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;MIRTH_PASSWORD&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">exporter&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">NewExporter&lt;/span>(&lt;span style="color:#a6e22e">mirthEndpoint&lt;/span>, &lt;span style="color:#a6e22e">mirthUsername&lt;/span>, &lt;span style="color:#a6e22e">mirthPassword&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">MustRegister&lt;/span>(&lt;span style="color:#a6e22e">exporter&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Handle&lt;/span>(&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">metricsPath&lt;/span>, &lt;span style="color:#a6e22e">promhttp&lt;/span>.&lt;span style="color:#a6e22e">Handler&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">HandleFunc&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">func&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ResponseWriter&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Request&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">w&lt;/span>.&lt;span style="color:#a6e22e">Write&lt;/span>([]byte(&lt;span style="color:#e6db74">`&amp;lt;html&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;lt;head&amp;gt;&amp;lt;title&amp;gt;Mirth Channel Exporter&amp;lt;/title&amp;gt;&amp;lt;/head&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;lt;body&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;lt;h1&amp;gt;Mirth Channel Exporter&amp;lt;/h1&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;lt;p&amp;gt;&amp;lt;a href=&amp;#39;`&lt;/span> &lt;span style="color:#f92672">+&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">metricsPath&lt;/span> &lt;span style="color:#f92672">+&lt;/span> &lt;span style="color:#e6db74">`&amp;#39;&amp;gt;Metrics&amp;lt;/a&amp;gt;&amp;lt;/p&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;lt;/body&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;lt;/html&amp;gt;`&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> })
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Fatal&lt;/span>(&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ListenAndServe&lt;/span>(&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">listenAddress&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>14. 编写一个 Makefile 文件，方便在不同平台上快速构建&lt;/strong>&lt;/p>
+&lt;p>Makefile 可以让你在开发过程中省去很多多余的操作，比如我们要构建多个平台的构建程序，可以创建如下所示的 Makefile 文件。&lt;/p>
+&lt;pre>&lt;code>linux:
+GOOS=linux GOARCH=amd64 go build
+mac:
+GOOS=darwin GOARCH=amd64 go build
+&lt;/code>&lt;/pre>
+&lt;p>只要调用 &lt;code>make mac&lt;/code> 或 &lt;code>make linux&lt;/code> 命令就可以看到不同的可执行文件出现。&lt;/p>
+&lt;p>&lt;strong>15. 编写一个 service 文件，将这个 go 应用作为守护进程运行&lt;/strong>&lt;/p>
+&lt;p>我们可以为这个 Exporter 编写一个 service 文件或者 Dockerfile 文件来管理该应用，比如这里我们直接在 Centos 7 上用 systemd 来管理该应用。这可以编写一个如下所示的 service 文件：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-systemverilog" data-lang="systemverilog">&lt;span style="display:flex;">&lt;span>[Unit]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Description&lt;span style="color:#f92672">=&lt;/span>mirth channel exporter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>After&lt;span style="color:#f92672">=&lt;/span>network.target
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>StartLimitIntervalSec&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[Service]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Type&lt;span style="color:#f92672">=&lt;/span>simple
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Restart&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">always&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RestartSec&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>WorkingDirectory&lt;span style="color:#f92672">=/&lt;/span>mirth&lt;span style="color:#f92672">/&lt;/span>mirthconnect
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>EnvironmentFile&lt;span style="color:#f92672">=/&lt;/span>etc&lt;span style="color:#f92672">/&lt;/span>sysconfig&lt;span style="color:#f92672">/&lt;/span>mirth_channel_exporter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ExecStart&lt;span style="color:#f92672">=/&lt;/span>mirth&lt;span style="color:#f92672">/&lt;/span>mirthconnect&lt;span style="color:#f92672">/&lt;/span>mirth_channel_exporter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[Install]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>WantedBy&lt;span style="color:#f92672">=&lt;/span>multi&lt;span style="color:#f92672">-&lt;/span>user.target
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>到这里就完成了使用 Golang 编写一个简单的 Prometheus Exporter。&lt;/p>
+&lt;blockquote>
+&lt;p>“原文链接：&lt;a href="https://medium.com/teamzerolabs/15-steps-to-write-an-application-prometheus-exporter-in-go-9746b4520e26">https://medium.com/teamzerolabs/15-steps-to-write-an-application-prometheus-exporter-in-go-9746b4520e26&lt;/a>”&lt;/p>
+&lt;/blockquote></description></item></channel></rss>

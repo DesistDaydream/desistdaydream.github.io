@@ -1,0 +1,1569 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Kubernetes 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/</link><description>Recent content in Kubernetes 管理 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: HPA(Horizontal Pod Autoscaler)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/hpahorizontal-pod-autoscaler/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/hpahorizontal-pod-autoscaler/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/">https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.qikqiak.com/post/k8s-hpa-usage/">https://www.qikqiak.com/post/k8s-hpa-usage/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Pod 水平自动扩缩（Horizontal Pod Autoscaler） 可以基于 CPU 利用率自动扩缩 ReplicationController、Deployment 和 ReplicaSet 中的 Pod 数量。 除了 CPU 利用率，也可以基于其他应程序提供的&lt;a href="https://git.k8s.io/community/contributors/design-proposals/instrumentation/custom-metrics-api.md">自定义度量指标&lt;/a> 来执行自动扩缩。 Pod 自动扩缩不适用于无法扩缩的对象，比如 DaemonSet。&lt;/p>
+&lt;p>Pod 水平自动扩缩特性由 Kubernetes API 资源和控制器实现。资源决定了控制器的行为。 控制器会周期性的调整副本控制器或 Deployment 中的副本数量，以使得 Pod 的平均 CPU 利用率与用户所设定的目标值匹配。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kpk0nr/1616116805897-3bfc7a8f-d1bb-4268-a2a3-eebfb62a1e45.png" alt="">&lt;/p>
+&lt;p>我们可以简单的通过 kubectl autoscale 命令来创建一个 HPA 资源对象， HPAController 默认 30s 轮询一次（可通过 kube-controller-manager 的 &amp;ndash;horizontal-pod-autoscaler-sync-period 参数进行设置），查询指定的资源中的 Pod 资源使用率，并且与创建时设定的值和指标做对比，从而实现自动伸缩的功能。&lt;/p>
+&lt;h2 id="metrics-server">Metrics Server&lt;/h2>
+&lt;p>在 HPA 的第一个版本中，我们需要 &lt;code>Heapster&lt;/code> 提供 CPU 和内存指标，在 HPA v2 过后就需要安装 Metrcis Server 了，&lt;code>Metrics Server&lt;/code> 可以通过标准的 Kubernetes API 把监控数据暴露出来，有了 &lt;code>Metrics Server&lt;/code> 之后，我们就完全可以通过标准的 Kubernetes API 来访问我们想要获取的监控数据了：&lt;/p>
+&lt;pre>&lt;code>https://10.96.0.1/apis/metrics.k8s.io/v1beta1/namespaces/&amp;lt;namespace-name&amp;gt;/pods/&amp;lt;pod-name&amp;gt;
+&lt;/code>&lt;/pre>
+&lt;p>比如当我们访问上面的 API 的时候，我们就可以获取到该 Pod 的资源数据，这些数据其实是来自于 kubelet 的 &lt;code>Summary API&lt;/code> 采集而来的。不过需要说明的是我们这里可以通过标准的 API 来获取资源监控数据，并不是因为 &lt;code>Metrics Server&lt;/code> 就是 APIServer 的一部分，而是通过 Kubernetes 提供的 &lt;code>Aggregator&lt;/code> 汇聚插件来实现的，是独立于 APIServer 之外运行的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kpk0nr/1616116806050-9e81e7fd-4f38-4745-bcb0-7774067f17f7.png" alt="">&lt;/p>
+&lt;p>HAP Metrics Server&lt;/p>
+&lt;h3 id="聚合-api">聚合 API&lt;/h3>
+&lt;p>&lt;code>Aggregator&lt;/code> 允许开发人员编写一个自己的服务，把这个服务注册到 Kubernetes 的 APIServer 里面去，这样我们就可以像原生的 APIServer 提供的 API 使用自己的 API 了，我们把自己的服务运行在 Kubernetes 集群里面，然后 Kubernetes 的 &lt;code>Aggregator&lt;/code> 通过 Service 名称就可以转发到我们自己写的 Service 里面去了。这样这个聚合层就带来了很多好处：&lt;/p>
+&lt;ul>
+&lt;li>增加了 API 的扩展性，开发人员可以编写自己的 API 服务来暴露他们想要的 API。&lt;/li>
+&lt;li>丰富了 API，核心 kubernetes 团队阻止了很多新的 API 提案，通过允许开发人员将他们的 API 作为单独的服务公开，这样就无须社区繁杂的审查了。&lt;/li>
+&lt;li>开发分阶段实验性 API，新的 API 可以在单独的聚合服务中开发，当它稳定之后，在合并会 APIServer 就很容易了。&lt;/li>
+&lt;li>确保新 API 遵循 Kubernetes 约定，如果没有这里提出的机制，社区成员可能会被迫推出自己的东西，这样很可能造成社区成员和社区约定不一致。&lt;/li>
+&lt;/ul>
+&lt;h3 id="安装">安装&lt;/h3>
+&lt;p>所以现在我们要使用 HPA，就需要在集群中安装 &lt;code>Metrics Server&lt;/code> 服务，要安装 &lt;code>Metrics Server&lt;/code> 就需要开启 &lt;code>Aggregator&lt;/code>，因为 &lt;code>Metrics Server&lt;/code> 就是通过该代理进行扩展的，不过我们集群是通过 Kubeadm 搭建的，默认已经开启了，如果是二进制方式安装的集群，需要单独配置 kube-apsierver 添加如下所示的参数：&lt;/p>
+&lt;pre>&lt;code>--requestheader-client-ca-file=&amp;lt;path to aggregator CA cert&amp;gt;
+--requestheader-allowed-names=aggregator
+--requestheader-extra-headers-prefix=X-Remote-Extra-
+--requestheader-group-headers=X-Remote-Group
+--requestheader-username-headers=X-Remote-User
+--proxy-client-cert-file=&amp;lt;path to aggregator proxy cert&amp;gt;
+--proxy-client-key-file=&amp;lt;path to aggregator proxy key&amp;gt;
+&lt;/code>&lt;/pre>
+&lt;p>如果 &lt;code>kube-proxy&lt;/code> 没有和 APIServer 运行在同一台主机上，那么需要确保启用了如下 kube-apsierver 的参数：&lt;/p>
+&lt;pre>&lt;code>--enable-aggregator-routing=true
+&lt;/code>&lt;/pre>
+&lt;p>对于这些证书的生成方式，我们可以查看官方文档：&lt;a href="https://github.com/kubernetes-sigs/apiserver-builder-alpha/blob/master/docs/concepts/auth.md">https://github.com/kubernetes-sigs/apiserver-builder-alpha/blob/master/docs/concepts/auth.md&lt;/a>。&lt;/p>
+&lt;p>&lt;code>Aggregator&lt;/code> 聚合层启动完成后，就可以来安装 &lt;code>Metrics Server&lt;/code> 了，我们可以获取该仓库的官方安装资源清单：&lt;/p>
+&lt;pre>&lt;code>$ git clone https://github.com/kubernetes-incubator/metrics-server
+$ cd metrics-server
+$ kubectl apply -f deploy/1.8+/
+&lt;/code>&lt;/pre>
+&lt;p>在部署之前，修改 &lt;code>metrcis-server/deploy/1.8+/metrics-server-deployment.yaml&lt;/code> 的镜像地址为：&lt;/p>
+&lt;pre>&lt;code>containers:
+- name: metrics-server
+image: gcr.azk8s.cn/google_containers/metrics-server-amd64:v0.3.6
+&lt;/code>&lt;/pre>
+&lt;p>等部署完成后，可以查看 Pod 日志是否正常：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get pods -n kube-system -l k8s-app=metrics-server
+NAME READY STATUS RESTARTS AGE
+metrics-server-6886856d7c-g5k6q 1/1 Running 0 2m39s
+$ kubectl logs -f metrics-server-6886856d7c-g5k6q -n kube-system
+......
+E1119 09:05:57.234312 1 manager.go:111] unable to fully collect metrics: [unable to fully scrape metrics from source kubelet_summary:ydzs-node1: unable to fetch metrics from Kubelet ydzs-node1 (ydzs-node1): Get https://ydzs-node1:10250/stats/summary?only_cpu_and_memory=true: dial tcp: lookup ydzs-node1 on 10.96.0.10:53: no such host, unable to fully scrape metrics from source kubelet_summary:ydzs-node4: unable to fetch metrics from Kubelet ydzs-node4 (ydzs-node4): Get https://ydzs-node4:10250/stats/summary?only_cpu_and_memory=true: dial tcp: lookup ydzs-node4 on 10.96.0.10:53: no such host, unable to fully scrape metrics from source kubelet_summary:ydzs-node3: unable to fetch metrics from Kubelet ydzs-node3 (ydzs-node3): Get https://ydzs-node3:10250/stats/summary?only_cpu_and_memory=true: dial tcp: lookup ydzs-node3 on 10.96.0.10:53: no such host, unable to fully scrape metrics from source kubelet_summary:ydzs-master: unable to fetch metrics from Kubelet ydzs-master (ydzs-master): Get https://ydzs-master:10250/stats/summary?only_cpu_and_memory=true: dial tcp: lookup ydzs-master on 10.96.0.10:53: no such host, unable to fully scrape metrics from source kubelet_summary:ydzs-node2: unable to fetch metrics from Kubelet ydzs-node2 (ydzs-node2): Get https://ydzs-node2:10250/stats/summary?only_cpu_and_memory=true: dial tcp: lookup ydzs-node2 on 10.96.0.10:53: no such host]
+&lt;/code>&lt;/pre>
+&lt;p>我们可以发现 Pod 中出现了一些错误信息：&lt;code>xxx: no such host&lt;/code>，我们看到这个错误信息一般就可以确定是 DNS 解析不了造成的，我们可以看到 Metrics Server 会通过 kubelet 的 10250 端口获取信息，使用的是 hostname，我们部署集群的时候在节点的 &lt;code>/etc/hosts&lt;/code> 里面添加了节点的 hostname 和 ip 的映射，但是是我们的 Metrics Server 的 Pod 内部并没有这个 hosts 信息，当然也就不识别 hostname 了，要解决这个问题，有两种方法：第一种方法就是在集群内部的 DNS 服务里面添加上 hostname 的解析，比如我们这里集群中使用的是 &lt;code>CoreDNS&lt;/code>，我们就可以去修改下 CoreDNS 的 Configmap 信息，添加上 hosts 信息：&lt;/p>
+&lt;pre>&lt;code>$ kubectl edit configmap coredns -n kube-system
+apiVersion: v1
+data:
+Corefile: |
+.:53 {
+errors
+health
+hosts { # 添加集群节点hosts隐射信息
+10.151.30.11 ydzs-master
+10.151.30.57 ydzs-node3
+10.151.30.59 ydzs-node4
+10.151.30.22 ydzs-node1
+10.151.30.23 ydzs-node2
+fallthrough
+}
+kubernetes cluster.local in-addr.arpa ip6.arpa {
+pods insecure
+upstream
+fallthrough in-addr.arpa ip6.arpa
+}
+prometheus :9153
+proxy . /etc/resolv.conf
+cache 30
+reload
+}
+kind: ConfigMap
+metadata:
+creationTimestamp: 2019-05-18T11:07:46Z
+name: coredns
+namespace: kube-system
+&lt;/code>&lt;/pre>
+&lt;p>这样当在集群内部访问集群的 hostname 的时候就可以解析到对应的 ip 了，另外一种方法就是在 metrics-server 的启动参数中修改 &lt;code>kubelet-preferred-address-types&lt;/code> 参数，如下：&lt;/p>
+&lt;pre>&lt;code>args:
+- --cert-dir=/tmp
+- --secure-port=4443
+- --kubelet-preferred-address-types=InternalIP
+&lt;/code>&lt;/pre>
+&lt;p>我们这里使用第二种方式，然后重新安装：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get pods -n kube-system -l k8s-app=metrics-server
+NAME READY STATUS RESTARTS AGE
+metrics-server-6dcfdf89b5-tvdcp 1/1 Running 0 33s
+$ kubectl logs -f metric-metrics-server-58fc94d9f-jlxcb -n kube-system
+......
+E1119 09:08:49.805959 1 manager.go:111] unable to fully collect metrics: [unable to fully scrape metrics from source kubelet_summary:ydzs-node3: unable to fetch metrics from Kubelet ydzs-node3 (10.151.30.57): Get https://10.151.30.57:10250/stats/summary?only_cpu_and_memory=true: x509: cannot validate certificate for 10.151.30.57 because it doesn't contain any IP SANs, unable to fully scrape metrics from source kubelet_summary:ydzs-node4: unable to fetch metrics from Kubelet ydzs-node4 (10.151.30.59): Get https://10.151.30.59:10250/stats/summary?only_cpu_and_memory=true: x509: cannot validate certificate for 10.151.30.59 because it doesn't contain any IP SANs, unable to fully scrape metrics from source kubelet_summary:ydzs-node2: unable to fetch metrics from Kubelet ydzs-node2 (10.151.30.23): Get https://10.151.30.23:10250/stats/summary?only_cpu_and_memory=true: x509: cannot validate certificate for 10.151.30.23 because it doesn't contain any IP SANs, unable to fully scrape metrics from source kubelet_summary:ydzs-master: unable to fetch metrics from Kubelet ydzs-master (10.151.30.11): Get https://10.151.30.11:10250/stats/summary?only_cpu_and_memory=true: x509: cannot validate certificate for 10.151.30.11 because it doesn't contain any IP SANs, unable to fully scrape metrics from source kubelet_summary:ydzs-node1: unable to fetch metrics from Kubelet ydzs-node1 (10.151.30.22): Get https://10.151.30.22:10250/stats/summary?only_cpu_and_memory=true: x509: cannot validate certificate for 10.151.30.22 because it doesn't contain any IP SANs]
+&lt;/code>&lt;/pre>
+&lt;p>因为部署集群的时候，CA 证书并没有把各个节点的 IP 签上去，所以这里 &lt;code>Metrics Server&lt;/code> 通过 IP 去请求时，提示签的证书没有对应的 IP（错误：&lt;code>x509: cannot validate certificate for 10.151.30.22 because it doesn’t contain any IP SANs&lt;/code>），我们可以添加一个&lt;code>--kubelet-insecure-tls&lt;/code>参数跳过证书校验：&lt;/p>
+&lt;pre>&lt;code>args:
+- --cert-dir=/tmp
+- --secure-port=4443
+- --kubelet-insecure-tls
+- --kubelet-preferred-address-types=InternalIP
+&lt;/code>&lt;/pre>
+&lt;p>然后再重新安装即可成功！可以通过如下命令来验证：&lt;/p>
+&lt;pre>&lt;code>$ kubectl apply -f deploy/1.8+/
+$ kubectl get pods -n kube-system -l k8s-app=metrics-server
+NAME READY STATUS RESTARTS AGE
+metrics-server-5d4dbb78bb-6klw6 1/1 Running 0 14s
+$ kubectl logs -f metrics-server-5d4dbb78bb-6klw6 -n kube-system
+I1119 09:10:44.249092 1 serving.go:312] Generated self-signed cert (/tmp/apiserver.crt, /tmp/apiserver.key)
+I1119 09:10:45.264076 1 secure_serving.go:116] Serving securely on [::]:4443
+$ kubectl get apiservice | grep metrics
+v1beta1.metrics.k8s.io kube-system/metrics-server True 9m
+$ kubectl get --raw &amp;quot;/apis/metrics.k8s.io/v1beta1/nodes&amp;quot;
+{&amp;quot;kind&amp;quot;:&amp;quot;NodeMetricsList&amp;quot;,&amp;quot;apiVersion&amp;quot;:&amp;quot;metrics.k8s.io/v1beta1&amp;quot;,&amp;quot;metadata&amp;quot;:{&amp;quot;selfLink&amp;quot;:&amp;quot;/apis/metrics.k8s.io/v1beta1/nodes&amp;quot;},&amp;quot;items&amp;quot;:[{&amp;quot;metadata&amp;quot;:{&amp;quot;name&amp;quot;:&amp;quot;ydzs-node3&amp;quot;,&amp;quot;selfLink&amp;quot;:&amp;quot;/apis/metrics.k8s.io/v1beta1/nodes/ydzs-node3&amp;quot;,&amp;quot;creationTimestamp&amp;quot;:&amp;quot;2019-11-19T09:11:53Z&amp;quot;},&amp;quot;timestamp&amp;quot;:&amp;quot;2019-11-19T09:11:38Z&amp;quot;,&amp;quot;window&amp;quot;:&amp;quot;30s&amp;quot;,&amp;quot;usage&amp;quot;:{&amp;quot;cpu&amp;quot;:&amp;quot;240965441n&amp;quot;,&amp;quot;memory&amp;quot;:&amp;quot;3004360Ki&amp;quot;}},{&amp;quot;metadata&amp;quot;:{&amp;quot;name&amp;quot;:&amp;quot;ydzs-node4&amp;quot;,&amp;quot;selfLink&amp;quot;:&amp;quot;/apis/metrics.k8s.io/v1beta1/nodes/ydzs-node4&amp;quot;,&amp;quot;creationTimestamp&amp;quot;:&amp;quot;2019-11-19T09:11:53Z&amp;quot;},&amp;quot;timestamp&amp;quot;:&amp;quot;2019-11-19T09:11:37Z&amp;quot;,&amp;quot;window&amp;quot;:&amp;quot;30s&amp;quot;,&amp;quot;usage&amp;quot;:{&amp;quot;cpu&amp;quot;:&amp;quot;167036681n&amp;quot;,&amp;quot;memory&amp;quot;:&amp;quot;2574664Ki&amp;quot;}},{&amp;quot;metadata&amp;quot;:{&amp;quot;name&amp;quot;:&amp;quot;ydzs-master&amp;quot;,&amp;quot;selfLink&amp;quot;:&amp;quot;/apis/metrics.k8s.io/v1beta1/nodes/ydzs-master&amp;quot;,&amp;quot;creationTimestamp&amp;quot;:&amp;quot;2019-11-19T09:11:53Z&amp;quot;},&amp;quot;timestamp&amp;quot;:&amp;quot;2019-11-19T09:11:38Z&amp;quot;,&amp;quot;window&amp;quot;:&amp;quot;30s&amp;quot;,&amp;quot;usage&amp;quot;:{&amp;quot;cpu&amp;quot;:&amp;quot;350907350n&amp;quot;,&amp;quot;memory&amp;quot;:&amp;quot;2986716Ki&amp;quot;}},{&amp;quot;metadata&amp;quot;:{&amp;quot;name&amp;quot;:&amp;quot;ydzs-node1&amp;quot;,&amp;quot;selfLink&amp;quot;:&amp;quot;/apis/metrics.k8s.io/v1beta1/nodes/ydzs-node1&amp;quot;,&amp;quot;creationTimestamp&amp;quot;:&amp;quot;2019-11-19T09:11:53Z&amp;quot;},&amp;quot;timestamp&amp;quot;:&amp;quot;2019-11-19T09:11:39Z&amp;quot;,&amp;quot;window&amp;quot;:&amp;quot;30s&amp;quot;,&amp;quot;usage&amp;quot;:{&amp;quot;cpu&amp;quot;:&amp;quot;1319638039n&amp;quot;,&amp;quot;memory&amp;quot;:&amp;quot;2094376Ki&amp;quot;}},{&amp;quot;metadata&amp;quot;:{&amp;quot;name&amp;quot;:&amp;quot;ydzs-node2&amp;quot;,&amp;quot;selfLink&amp;quot;:&amp;quot;/apis/metrics.k8s.io/v1beta1/nodes/ydzs-node2&amp;quot;,&amp;quot;creationTimestamp&amp;quot;:&amp;quot;2019-11-19T09:11:53Z&amp;quot;},&amp;quot;timestamp&amp;quot;:&amp;quot;2019-11-19T09:11:36Z&amp;quot;,&amp;quot;window&amp;quot;:&amp;quot;30s&amp;quot;,&amp;quot;usage&amp;quot;:{&amp;quot;cpu&amp;quot;:&amp;quot;320381888n&amp;quot;,&amp;quot;memory&amp;quot;:&amp;quot;3270368Ki&amp;quot;}}]}
+$ kubectl top nodes
+NAME CPU(cores) CPU% MEMORY(bytes) MEMORY%
+ydzs-master 351m 17% 2916Mi 79%
+ydzs-node1 1320m 33% 2045Mi 26%
+ydzs-node2 321m 8% 3193Mi 41%
+ydzs-node3 241m 6% 2933Mi 37%
+ydzs-node4 168m 4% 2514Mi 32%
+&lt;/code>&lt;/pre>
+&lt;p>现在我们可以通过 &lt;code>kubectl top&lt;/code> 命令来获取到资源数据了，证明 &lt;code>Metrics Server&lt;/code> 已经安装成功了。&lt;/p>
+&lt;h2 id="基于-cpu">基于 CPU&lt;/h2>
+&lt;p>现在我们用 Deployment 来创建一个 Nginx Pod，然后利用 &lt;code>HPA&lt;/code> 来进行自动扩缩容。资源清单如下所示：（hpa-demo.yaml）&lt;/p>
+&lt;pre>&lt;code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+name: hpa-demo
+spec:
+selector:
+matchLabels:
+app: nginx
+template:
+metadata:
+labels:
+app: nginx
+spec:
+containers:
+- name: nginx
+image: nginx
+ports:
+- containerPort: 80
+&lt;/code>&lt;/pre>
+&lt;p>然后直接创建 Deployment：&lt;/p>
+&lt;pre>&lt;code>$ kubectl apply -f hpa-demo.yaml
+deployment.apps/hpa-demo created
+$ kubectl get pods -l app=nginx
+NAME READY STATUS RESTARTS AGE
+hpa-demo-85ff79dd56-pz8th 1/1 Running 0 21s
+&lt;/code>&lt;/pre>
+&lt;p>现在我们来创建一个 &lt;code>HPA&lt;/code> 资源对象，可以使用&lt;code>kubectl autoscale&lt;/code>命令来创建：&lt;/p>
+&lt;pre>&lt;code>$ kubectl autoscale deployment hpa-demo --cpu-percent=10 --min=1 --max=10
+horizontalpodautoscaler.autoscaling/hpa-demo autoscaled
+$ kubectl get hpa
+NAME REFERENCE TARGETS MINPODS MAXPODS REPLICAS AGE
+hpa-demo Deployment/hpa-demo &amp;lt;unknown&amp;gt;/10% 1 10 1 16s
+&lt;/code>&lt;/pre>
+&lt;p>此命令创建了一个关联资源 hpa-demo 的 HPA，最小的 Pod 副本数为 1，最大为 10。HPA 会根据设定的 cpu 使用率（10%）动态的增加或者减少 Pod 数量。&lt;/p>
+&lt;p>当然我们依然还是可以通过创建 YAML 文件的形式来创建 HPA 资源对象。如果我们不知道怎么编写的话，可以查看上面命令行创建的 HPA 的 YAML 文件：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get hpa hpa-demo -o yaml
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+annotations:
+autoscaling.alpha.kubernetes.io/conditions: '[{&amp;quot;type&amp;quot;:&amp;quot;AbleToScale&amp;quot;,&amp;quot;status&amp;quot;:&amp;quot;True&amp;quot;,&amp;quot;lastTransitionTime&amp;quot;:&amp;quot;2019-11-19T09:15:12Z&amp;quot;,&amp;quot;reason&amp;quot;:&amp;quot;SucceededGetScale&amp;quot;,&amp;quot;message&amp;quot;:&amp;quot;the
+HPA controller was able to get the target''s current scale&amp;quot;},{&amp;quot;type&amp;quot;:&amp;quot;ScalingActive&amp;quot;,&amp;quot;status&amp;quot;:&amp;quot;False&amp;quot;,&amp;quot;lastTransitionTime&amp;quot;:&amp;quot;2019-11-19T09:15:12Z&amp;quot;,&amp;quot;reason&amp;quot;:&amp;quot;FailedGetResourceMetric&amp;quot;,&amp;quot;message&amp;quot;:&amp;quot;the
+HPA was unable to compute the replica count: missing request for cpu&amp;quot;}]'
+creationTimestamp: &amp;quot;2019-11-19T09:14:56Z&amp;quot;
+name: hpa-demo
+namespace: default
+resourceVersion: &amp;quot;3094084&amp;quot;
+selfLink: /apis/autoscaling/v1/namespaces/default/horizontalpodautoscalers/hpa-demo
+uid: b84d79f1-75b0-46e0-95b5-4cbe3509233b
+spec:
+maxReplicas: 10
+minReplicas: 1
+scaleTargetRef:
+apiVersion: apps/v1
+kind: Deployment
+name: hpa-demo
+targetCPUUtilizationPercentage: 10
+status:
+currentReplicas: 1
+desiredReplicas: 0
+&lt;/code>&lt;/pre>
+&lt;p>然后我们可以根据上面的 YAML 文件就可以自己来创建一个基于 YAML 的 HPA 描述文件了。但是我们发现上面信息里面出现了一些 Fail 信息，我们来查看下这个 HPA 对象的信息：&lt;/p>
+&lt;pre>&lt;code>$ kubectl describe hpa hpa-demo
+Name: hpa-demo
+Namespace: default
+Labels: &amp;lt;none&amp;gt;
+Annotations: &amp;lt;none&amp;gt;
+CreationTimestamp: Tue, 19 Nov 2019 17:14:56 +0800
+Reference: Deployment/hpa-demo
+Metrics: ( current / target )
+resource cpu on pods (as a percentage of request): &amp;lt;unknown&amp;gt; / 10%
+Min replicas: 1
+Max replicas: 10
+Deployment pods: 1 current / 0 desired
+Conditions:
+Type Status Reason Message
+---- ------ ------ -------
+AbleToScale True SucceededGetScale the HPA controller was able to get the target's current scale
+ScalingActive False FailedGetResourceMetric the HPA was unable to compute the replica count: missing request for cpu
+Events:
+Type Reason Age From Message
+---- ------ ---- ---- -------
+Warning FailedGetResourceMetric 14s (x4 over 60s) horizontal-pod-autoscaler missing request for cpu
+Warning FailedComputeMetricsReplicas 14s (x4 over 60s) horizontal-pod-autoscaler invalid metrics (1 invalid out of 1), first error is: failed to get cpu utilization: missing request for cpu
+&lt;/code>&lt;/pre>
+&lt;p>我们可以看到上面的事件信息里面出现了 &lt;code>failed to get cpu utilization: missing request for cpu&lt;/code> 这样的错误信息。这是因为我们上面创建的 Pod 对象没有添加 request 资源声明，这样导致 HPA 读取不到 CPU 指标信息，所以如果要想让 HPA 生效，对应的 Pod 资源必须添加 requests 资源声明，更新我们的资源清单文件：&lt;/p>
+&lt;pre>&lt;code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+name: hpa-demo
+spec:
+selector:
+matchLabels:
+app: nginx
+template:
+metadata:
+labels:
+app: nginx
+spec:
+containers:
+- name: nginx
+image: nginx
+ports:
+- containerPort: 80
+resources:
+requests:
+memory: 50Mi
+cpu: 50m
+&lt;/code>&lt;/pre>
+&lt;p>然后重新更新 Deployment，重新创建 HPA 对象：&lt;/p>
+&lt;pre>&lt;code>$ kubectl apply -f hpa.yaml
+deployment.apps/hpa-demo configured
+$ kubectl get pods -o wide -l app=nginx
+NAME READY STATUS RESTARTS AGE IP NODE NOMINATED NODE READINESS GATES
+hpa-demo-69968bb59f-twtdp 1/1 Running 0 4m11s 10.244.4.97 ydzs-node4 &amp;lt;none&amp;gt; &amp;lt;none&amp;gt;
+$ kubectl delete hpa hpa-demo
+horizontalpodautoscaler.autoscaling &amp;quot;hpa-demo&amp;quot; deleted
+$ kubectl autoscale deployment hpa-demo --cpu-percent=10 --min=1 --max=10
+horizontalpodautoscaler.autoscaling/hpa-demo autoscaled
+$ kubectl describe hpa hpa-demo
+Name: hpa-demo
+Namespace: default
+Labels: &amp;lt;none&amp;gt;
+Annotations: &amp;lt;none&amp;gt;
+CreationTimestamp: Tue, 19 Nov 2019 17:23:49 +0800
+Reference: Deployment/hpa-demo
+Metrics: ( current / target )
+resource cpu on pods (as a percentage of request): 0% (0) / 10%
+Min replicas: 1
+Max replicas: 10
+Deployment pods: 1 current / 1 desired
+Conditions:
+Type Status Reason Message
+---- ------ ------ -------
+AbleToScale True ScaleDownStabilized recent recommendations were higher than current one, applying the highest recent recommendation
+ScalingActive True ValidMetricFound the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
+ScalingLimited False DesiredWithinRange the desired count is within the acceptable range
+Events: &amp;lt;none&amp;gt;
+$ kubectl get hpa
+NAME REFERENCE TARGETS MINPODS MAXPODS REPLICAS AGE
+hpa-demo Deployment/hpa-demo 0%/10% 1 10 1 52s
+&lt;/code>&lt;/pre>
+&lt;p>现在可以看到 HPA 资源对象已经正常了，现在我们来增大负载进行测试，我们来创建一个 busybox 的 Pod，并且循环访问上面创建的 Pod：&lt;/p>
+&lt;pre>&lt;code>$ kubectl run -it --image busybox test-hpa --restart=Never --rm /bin/sh
+If you don't see a command prompt, try pressing enter.
+/ # while true; do wget -q -O- http://10.244.4.97; done
+&lt;/code>&lt;/pre>
+&lt;p>下图可以看到，HPA 已经开始工作：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get hpa
+NAME REFERENCE TARGETS MINPODS MAXPODS REPLICAS AGE
+hpa-demo Deployment/hpa-demo 338%/10% 1 10 1 5m15s
+$ kubectl get pods -l app=nginx --watch
+NAME READY STATUS RESTARTS AGE
+hpa-demo-69968bb59f-8hjnn 1/1 Running 0 22s
+hpa-demo-69968bb59f-9ss9f 1/1 Running 0 22s
+hpa-demo-69968bb59f-bllsd 1/1 Running 0 22s
+hpa-demo-69968bb59f-lnh8k 1/1 Running 0 37s
+hpa-demo-69968bb59f-r8zfh 1/1 Running 0 22s
+hpa-demo-69968bb59f-twtdp 1/1 Running 0 6m43s
+hpa-demo-69968bb59f-w792g 1/1 Running 0 37s
+hpa-demo-69968bb59f-zlxkp 1/1 Running 0 37s
+hpa-demo-69968bb59f-znp6q 0/1 ContainerCreating 0 6s
+hpa-demo-69968bb59f-ztnvx 1/1 Running 0 6s
+&lt;/code>&lt;/pre>
+&lt;p>我们可以看到已经自动拉起了很多新的 Pod，最后定格在了我们上面设置的 10 个 Pod，同时查看资源 hpa-demo 的副本数量，副本数量已经从原来的 1 变成了 10 个：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get deployment hpa-demo
+NAME READY UP-TO-DATE AVAILABLE AGE
+hpa-demo 10/10 10 10 17m
+&lt;/code>&lt;/pre>
+&lt;p>查看 HPA 资源的对象了解工作过程：&lt;/p>
+&lt;pre>&lt;code>$ kubectl describe hpa hpa-demo
+Name: hpa-demo
+Namespace: default
+Labels: &amp;lt;none&amp;gt;
+Annotations: &amp;lt;none&amp;gt;
+CreationTimestamp: Tue, 19 Nov 2019 17:23:49 +0800
+Reference: Deployment/hpa-demo
+Metrics: ( current / target )
+resource cpu on pods (as a percentage of request): 0% (0) / 10%
+Min replicas: 1
+Max replicas: 10
+Deployment pods: 10 current / 10 desired
+Conditions:
+Type Status Reason Message
+---- ------ ------ -------
+AbleToScale True ScaleDownStabilized recent recommendations were higher than current one, applying the highest recent recommendation
+ScalingActive True ValidMetricFound the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
+ScalingLimited True TooManyReplicas the desired replica count is more than the maximum replica count
+Events:
+Type Reason Age From Message
+---- ------ ---- ---- -------
+Normal SuccessfulRescale 5m45s horizontal-pod-autoscaler New size: 4; reason: cpu resource utilization (percentage of request) above target
+Normal SuccessfulRescale 5m30s horizontal-pod-autoscaler New size: 8; reason: cpu resource utilization (percentage of request) above target
+Normal SuccessfulRescale 5m14s horizontal-pod-autoscaler New size: 10; reason: cpu resource utilization (percentage of request) above target
+&lt;/code>&lt;/pre>
+&lt;p>同样的这个时候我们来关掉 busybox 来减少负载，然后等待一段时间观察下 HPA 和 Deployment 对象：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get hpa
+NAME REFERENCE TARGETS MINPODS MAXPODS REPLICAS AGE
+hpa-demo Deployment/hpa-demo 0%/10% 1 10 1 14m
+$ kubectl get deployment hpa-demo
+NAME READY UP-TO-DATE AVAILABLE AGE
+hpa-demo 1/1 1 1 24m
+&lt;/code>&lt;/pre>
+&lt;p>可以看到副本数量已经由 10 变为 1，当前我们只是演示了 CPU 使用率这一个指标，在后面的课程中我们还会学习到根据自定义的监控指标来自动对 Pod 进行扩缩容。&lt;/p>
+&lt;h2 id="基于内存">基于内存&lt;/h2>
+&lt;p>&lt;code>HorizontalPodAutoscaler&lt;/code> 是 Kubernetes autoscaling API 组的资源，在当前稳定版本 &lt;code>autoscaling/v1&lt;/code> 中只支持基于 CPU 指标的缩放。在 Beta 版本 &lt;code>autoscaling/v2beta2&lt;/code>，引入了基于内存和自定义指标的缩放。所以我们这里需要使用 Beta 版本的 API。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kpk0nr/1616116805951-274bb778-81fd-4004-a69d-c928b5d90fa7.png" alt="">&lt;/p>
+&lt;p>hpa api version&lt;/p>
+&lt;p>现在我们用 Deployment 来创建一个 Nginx Pod，然后利用 HPA 来进行自动扩缩容。资源清单如下所示：（hpa-mem-demo.yaml）&lt;/p>
+&lt;pre>&lt;code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+name: hpa-mem-demo
+spec:
+selector:
+matchLabels:
+app: nginx
+template:
+metadata:
+labels:
+app: nginx
+spec:
+volumes:
+- name: increase-mem-script
+configMap:
+name: increase-mem-config
+containers:
+- name: nginx
+image: nginx
+ports:
+- containerPort: 80
+volumeMounts:
+- name: increase-mem-script
+mountPath: /etc/script
+resources:
+requests:
+memory: 50Mi
+cpu: 50m
+securityContext:
+privileged: true
+&lt;/code>&lt;/pre>
+&lt;p>这里和前面普通的应用有一些区别，我们将一个名为 &lt;code>increase-mem-config&lt;/code> 的 ConfigMap 资源对象挂载到了容器中，该配置文件是用于后面增加容器内存占用的脚本，配置文件如下所示：（increase-mem-cm.yaml）&lt;/p>
+&lt;pre>&lt;code>apiVersion: v1
+kind: ConfigMap
+metadata:
+name: increase-mem-config
+data:
+increase-mem.sh: |
+#!/bin/bash
+mkdir /tmp/memory
+mount -t tmpfs -o size=40M tmpfs /tmp/memory
+dd if=/dev/zero of=/tmp/memory/block
+sleep 60
+rm /tmp/memory/block
+umount /tmp/memory
+rmdir /tmp/memory
+&lt;/code>&lt;/pre>
+&lt;p>由于这里增加内存的脚本需要使用到 &lt;code>mount&lt;/code> 命令，这需要声明为特权模式，所以我们添加了 &lt;code>securityContext.privileged=true&lt;/code> 这个配置。现在我们直接创建上面的资源对象即可：&lt;/p>
+&lt;pre>&lt;code>$ kubectl apply -f increase-mem-cm.yaml
+$ kubectl apply -f hpa-mem-demo.yaml
+$ kubectl get pods -l app=nginx
+NAME READY STATUS RESTARTS AGE
+hpa-mem-demo-66944b79bf-tqrn9 1/1 Running 0 35s
+&lt;/code>&lt;/pre>
+&lt;p>然后需要创建一个基于内存的 HPA 资源对象：（hpa-mem.yaml）&lt;/p>
+&lt;pre>&lt;code>apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+name: nginx-hpa
+spec:
+scaleTargetRef:
+apiVersion: apps/v1
+kind: Deployment
+name: hpa-mem-demo
+minReplicas: 1
+maxReplicas: 5
+metrics:
+- type: Resource
+resource:
+name: memory
+targetAverageUtilization: 60
+&lt;/code>&lt;/pre>
+&lt;p>要注意这里使用的 &lt;code>apiVersion&lt;/code> 是 &lt;code>autoscaling/v2beta1&lt;/code>，然后 &lt;code>metrics&lt;/code> 属性里面指定的是内存的配置，直接创建上面的资源对象即可：&lt;/p>
+&lt;pre>&lt;code>$ kubectl apply -f hpa-mem.yaml
+horizontalpodautoscaler.autoscaling/nginx-hpa created
+$ kubectl get hpa
+NAME REFERENCE TARGETS MINPODS MAXPODS REPLICAS AGE
+nginx-hpa Deployment/hpa-mem-demo 2%/60% 1 5 1 12s
+&lt;/code>&lt;/pre>
+&lt;p>到这里证明 HPA 资源对象已经部署成功了，接下来我们对应用进行压测，将内存压上去，直接执行上面我们挂载到容器中的 &lt;code>increase-mem.sh&lt;/code> 脚本即可：&lt;/p>
+&lt;pre>&lt;code>$ kubectl exec -it hpa-mem-demo-66944b79bf-tqrn9 /bin/bash
+root@hpa-mem-demo-66944b79bf-tqrn9:/# ls /etc/script/
+increase-mem.sh
+root@hpa-mem-demo-66944b79bf-tqrn9:/# source /etc/script/increase-mem.sh
+dd: writing to '/tmp/memory/block': No space left on device
+81921+0 records in
+81920+0 records out
+41943040 bytes (42 MB, 40 MiB) copied, 0.584029 s, 71.8 MB/s
+&lt;/code>&lt;/pre>
+&lt;p>然后打开另外一个终端观察 HPA 资源对象的变化情况：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get hpa
+NAME REFERENCE TARGETS MINPODS MAXPODS REPLICAS AGE
+nginx-hpa Deployment/hpa-mem-demo 83%/60% 1 5 1 5m3s
+$ kubectl describe hpa nginx-hpa
+Name: nginx-hpa
+Namespace: default
+Labels: &amp;lt;none&amp;gt;
+Annotations: kubectl.kubernetes.io/last-applied-configuration:
+{&amp;quot;apiVersion&amp;quot;:&amp;quot;autoscaling/v2beta1&amp;quot;,&amp;quot;kind&amp;quot;:&amp;quot;HorizontalPodAutoscaler&amp;quot;,&amp;quot;metadata&amp;quot;:{&amp;quot;annotations&amp;quot;:{},&amp;quot;name&amp;quot;:&amp;quot;nginx-hpa&amp;quot;,&amp;quot;namespace&amp;quot;:&amp;quot;default&amp;quot;...
+CreationTimestamp: Tue, 07 Apr 2020 13:13:59 +0800
+Reference: Deployment/hpa-mem-demo
+Metrics: ( current / target )
+resource memory on pods (as a percentage of request): 3% (1740800) / 60%
+Min replicas: 1
+Max replicas: 5
+Deployment pods: 2 current / 2 desired
+Conditions:
+Type Status Reason Message
+---- ------ ------ -------
+AbleToScale True ScaleDownStabilized recent recommendations were higher than current one, applying the highest recent recommendation
+ScalingActive True ValidMetricFound the HPA was able to successfully calculate a replica count from memory resource utilization (percentage of request)
+ScalingLimited False DesiredWithinRange the desired count is within the acceptable range
+Events:
+Type Reason Age From Message
+---- ------ ---- ---- -------
+Warning FailedGetResourceMetric 5m26s (x3 over 5m58s) horizontal-pod-autoscaler unable to get metrics for resource memory: no metrics returned from resource metrics API
+Warning FailedComputeMetricsReplicas 5m26s (x3 over 5m58s) horizontal-pod-autoscaler invalid metrics (1 invalid out of 1), first error is: failed to get memory utilization: unable to get metrics for resource memory: no metrics returned from resource metrics API
+Normal SuccessfulRescale 77s horizontal-pod-autoscaler New size: 2; reason: memory resource utilization (percentage of request) above target
+$ kubectl top pod hpa-mem-demo-66944b79bf-tqrn9
+NAME CPU(cores) MEMORY(bytes)
+hpa-mem-demo-66944b79bf-tqrn9 0m 41Mi
+&lt;/code>&lt;/pre>
+&lt;p>可以看到内存使用已经超过了我们设定的 60% 这个阈值了，HPA 资源对象也已经触发了自动扩容，变成了两个副本了：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get pods -l app=nginx
+NAME READY STATUS RESTARTS AGE
+hpa-mem-demo-66944b79bf-8m4d9 1/1 Running 0 2m51s
+hpa-mem-demo-66944b79bf-tqrn9 1/1 Running 0 8m11s
+&lt;/code>&lt;/pre>
+&lt;p>当内存释放掉后，controller-manager 默认 5 分钟过后会进行缩放，到这里就完成了基于内存的 HPA 操作。&lt;/p>
+&lt;h2 id="基于自定义指标">基于自定义指标&lt;/h2>
+&lt;p>除了基于 CPU 和内存来进行自动扩缩容之外，我们还可以根据自定义的监控指标来进行。这个我们就需要使用 &lt;code>Prometheus Adapter&lt;/code>，Prometheus 用于监控应用的负载和集群本身的各种指标，&lt;code>Prometheus Adapter&lt;/code> 可以帮我们使用 Prometheus 收集的指标并使用它们来制定扩展策略，这些指标都是通过 APIServer 暴露的，而且 HPA 资源对象也可以很轻易的直接使用。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kpk0nr/1616116805981-8c3dbfc1-65c1-48db-8e3b-710da1c58765.png" alt="">&lt;/p>
+&lt;p>custom metrics by prometheus&lt;/p>
+&lt;p>首先，我们部署一个示例应用，在该应用程序上测试 Prometheus 指标自动缩放，资源清单文件如下所示：（hpa-prome-demo.yaml）&lt;/p>
+&lt;pre>&lt;code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+name: hpa-prom-demo
+spec:
+selector:
+matchLabels:
+app: nginx-server
+template:
+metadata:
+labels:
+app: nginx-server
+spec:
+containers:
+- name: nginx-demo
+image: cnych/nginx-vts:v1.0
+resources:
+limits:
+cpu: 50m
+requests:
+cpu: 50m
+ports:
+- containerPort: 80
+name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+name: hpa-prom-demo
+annotations:
+prometheus.io/scrape: &amp;quot;true&amp;quot;
+prometheus.io/port: &amp;quot;80&amp;quot;
+prometheus.io/path: &amp;quot;/status/format/prometheus&amp;quot;
+spec:
+ports:
+- port: 80
+targetPort: 80
+name: http
+selector:
+app: nginx-server
+type: NodePort
+&lt;/code>&lt;/pre>
+&lt;p>这里我们部署的应用是在 80 端口的 &lt;code>/status/format/prometheus&lt;/code> 这个端点暴露 nginx-vts 指标的，前面我们已经在 Prometheus 中配置了 Endpoints 的自动发现，所以我们直接在 Service 对象的 &lt;code>annotations&lt;/code> 中进行配置，这样我们就可以在 Prometheus 中采集该指标数据了。为了测试方便，我们这里使用 NodePort 类型的 Service，现在直接创建上面的资源对象即可：&lt;/p>
+&lt;pre>&lt;code>$ kubectl apply -f hpa-prome-demo.yaml
+deployment.apps/hpa-prom-demo created
+service/hpa-prom-demo created
+$ kubectl get pods -l app=nginx-server
+NAME READY STATUS RESTARTS AGE
+hpa-prom-demo-755bb56f85-lvksr 1/1 Running 0 4m52s
+$ kubectl get svc
+NAME TYPE CLUSTER-IP EXTERNAL-IP PORT(S) AGE
+hpa-prom-demo NodePort 10.101.210.158 &amp;lt;none&amp;gt; 80:32408/TCP 5m44s
+......
+&lt;/code>&lt;/pre>
+&lt;p>部署完成后我们可以使用如下命令测试应用是否正常，以及指标数据接口能够正常获取：&lt;/p>
+&lt;pre>&lt;code>$ curl http://k8s.qikqiak.com:32408
+&amp;lt;!DOCTYPE html&amp;gt;
+&amp;lt;html&amp;gt;
+&amp;lt;head&amp;gt;
+&amp;lt;title&amp;gt;Welcome to nginx!&amp;lt;/title&amp;gt;
+&amp;lt;style&amp;gt;
+body {
+width: 35em;
+margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif;
+}
+&amp;lt;/style&amp;gt;
+&amp;lt;/head&amp;gt;
+&amp;lt;body&amp;gt;
+&amp;lt;h1&amp;gt;Welcome to nginx!&amp;lt;/h1&amp;gt;
+&amp;lt;p&amp;gt;If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;For online documentation and support please refer to
+&amp;lt;a href=&amp;quot;http://nginx.org/&amp;quot;&amp;gt;nginx.org&amp;lt;/a&amp;gt;.&amp;lt;br/&amp;gt;
+Commercial support is available at
+&amp;lt;a href=&amp;quot;http://nginx.com/&amp;quot;&amp;gt;nginx.com&amp;lt;/a&amp;gt;.&amp;lt;/p&amp;gt;
+&amp;lt;p&amp;gt;&amp;lt;em&amp;gt;Thank you for using nginx.&amp;lt;/em&amp;gt;&amp;lt;/p&amp;gt;
+&amp;lt;/body&amp;gt;
+&amp;lt;/html&amp;gt;
+$ curl http://k8s.qikqiak.com:32408/status/format/prometheus
+# HELP nginx_vts_info Nginx info
+# TYPE nginx_vts_info gauge
+nginx_vts_info{hostname=&amp;quot;hpa-prom-demo-755bb56f85-lvksr&amp;quot;,version=&amp;quot;1.13.12&amp;quot;} 1
+# HELP nginx_vts_start_time_seconds Nginx start time
+# TYPE nginx_vts_start_time_seconds gauge
+nginx_vts_start_time_seconds 1586240091.623
+# HELP nginx_vts_main_connections Nginx connections
+# TYPE nginx_vts_main_connections gauge
+......
+&lt;/code>&lt;/pre>
+&lt;p>上面的指标数据中，我们比较关心的是 &lt;code>nginx_vts_server_requests_total&lt;/code> 这个指标，表示请求总数，是一个 &lt;code>Counter&lt;/code> 类型的指标，我们将使用该指标的值来确定是否需要对我们的应用进行自动扩缩容。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kpk0nr/1616116805999-cf50cbd9-8273-472c-bb6f-dac9055780b5.png" alt="">&lt;/p>
+&lt;p>nginx_vts_server_requests_total&lt;/p>
+&lt;p>接下来我们将 Prometheus-Adapter 安装到集群中，并添加一个规则来跟踪 Pod 的请求，我们可以将 Prometheus 中的任何一个指标都用于 HPA，但是前提是你得通过查询语句将它拿到（包括指标名称和其对应的值）。&lt;/p>
+&lt;p>这里我们定义一个如下所示的规则：&lt;/p>
+&lt;pre>&lt;code>rules:
+- seriesQuery: 'nginx_vts_server_requests_total'
+seriesFilters: []
+resources:
+overrides:
+kubernetes_namespace:
+resource: namespace
+kubernetes_pod_name:
+resource: pod
+name:
+matches: &amp;quot;^(.*)_total&amp;quot;
+as: &amp;quot;${1}_per_second&amp;quot;
+metricsQuery: (sum(rate(&amp;lt;.Series&amp;gt;&amp;gt;{&amp;lt;&amp;lt;.LabelMatchers&amp;gt;&amp;gt;}[1m])) by (&amp;lt;.GroupBy&amp;gt;))
+&lt;/code>&lt;/pre>
+&lt;p>这是一个带参数的 Prometheus 查询，其中：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>seriesQuery&lt;/code>：查询 Prometheus 的语句，通过这个查询语句查询到的所有指标都可以用于 HPA&lt;/li>
+&lt;li>&lt;code>seriesFilters&lt;/code>：查询到的指标可能会存在不需要的，可以通过它过滤掉。&lt;/li>
+&lt;li>&lt;code>resources&lt;/code>：通过 &lt;code>seriesQuery&lt;/code> 查询到的只是指标，如果需要查询某个 Pod 的指标，肯定要将它的名称和所在的命名空间作为指标的标签进行查询，&lt;code>resources&lt;/code> 就是将指标的标签和 k8s 的资源类型关联起来，最常用的就是 pod 和 namespace。有两种添加标签的方式，一种是 &lt;code>overrides&lt;/code>，另一种是 &lt;code>template&lt;/code>。
+&lt;ul>
+&lt;li>&lt;code>overrides&lt;/code>：它会将指标中的标签和 k8s 资源关联起来。上面示例中就是将指标中的 pod 和 namespace 标签和 k8s 中的 pod 和 namespace 关联起来，因为 pod 和 namespace 都属于核心 api 组，所以不需要指定 api 组。当我们查询某个 pod 的指标时，它会自动将 pod 的名称和名称空间作为标签加入到查询条件中。比如 &lt;code>nginx: {group: &amp;quot;apps&amp;quot;, resource: &amp;quot;deployment&amp;quot;}&lt;/code> 这么写表示的就是将指标中 nginx 这个标签和 apps 这个 api 组中的 &lt;code>deployment&lt;/code> 资源关联起来；&lt;/li>
+&lt;li>template：通过 go 模板的形式。比如&lt;code>template: &amp;quot;kube_&amp;lt;&amp;lt;.Group&amp;gt;&amp;gt;_&amp;lt;&amp;lt;.Resource&amp;gt;&amp;gt;&amp;quot;&lt;/code> 这么写表示，假如 &lt;code>&amp;lt;&amp;lt;.Group&amp;gt;&amp;gt;&lt;/code> 为 apps，&lt;code>&amp;lt;&amp;lt;.Resource&amp;gt;&amp;gt;&lt;/code> 为 deployment，那么它就是将指标中 &lt;code>kube_apps_deployment&lt;/code> 标签和 deployment 资源关联起来。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;code>name&lt;/code>：用来给指标重命名的，之所以要给指标重命名是因为有些指标是只增的，比如以 total 结尾的指标。这些指标拿来做 HPA 是没有意义的，我们一般计算它的速率，以速率作为值，那么此时的名称就不能以 total 结尾了，所以要进行重命名。
+&lt;ul>
+&lt;li>&lt;code>matches&lt;/code>：通过正则表达式来匹配指标名，可以进行分组&lt;/li>
+&lt;li>&lt;code>as&lt;/code>：默认值为 &lt;code>$1&lt;/code>，也就是第一个分组。&lt;code>as&lt;/code> 为空就是使用默认值的意思。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;code>metricsQuery&lt;/code>：这就是 Prometheus 的查询语句了，前面的 &lt;code>seriesQuery&lt;/code> 查询是获得 HPA 指标。当我们要查某个指标的值时就要通过它指定的查询语句进行了。可以看到查询语句使用了速率和分组，这就是解决上面提到的只增指标的问题。
+&lt;ul>
+&lt;li>&lt;code>Series&lt;/code>：表示指标名称&lt;/li>
+&lt;li>&lt;code>LabelMatchers&lt;/code>：附加的标签，目前只有 &lt;code>pod&lt;/code> 和 &lt;code>namespace&lt;/code> 两种，因此我们要在之前使用 &lt;code>resources&lt;/code> 进行关联&lt;/li>
+&lt;li>&lt;code>GroupBy&lt;/code>：就是 pod 名称，同样需要使用 &lt;code>resources&lt;/code> 进行关联。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>接下来我们通过 Helm Chart 来部署 Prometheus Adapter，新建 &lt;code>hpa-prome-adapter-values.yaml&lt;/code> 文件覆盖默认的 Values 值，内容如下所示：&lt;/p>
+&lt;pre>&lt;code>rules:
+default: false
+custom:
+- seriesQuery: 'nginx_vts_server_requests_total'
+resources:
+overrides:
+kubernetes_namespace:
+resource: namespace
+kubernetes_pod_name:
+resource: pod
+name:
+matches: &amp;quot;^(.*)_total&amp;quot;
+as: &amp;quot;${1}_per_second&amp;quot;
+metricsQuery: (sum(rate(&amp;lt;.Series&amp;gt;&amp;gt;{&amp;lt;&amp;lt;.LabelMatchers&amp;gt;&amp;gt;}[1m])) by (&amp;lt;.GroupBy&amp;gt;))
+prometheus:
+url: http://thanos-querier.kube-mon.svc.cluster.local
+&lt;/code>&lt;/pre>
+&lt;p>这里我们添加了一条 rules 规则，然后指定了 Prometheus 的地址，我们这里是使用了 Thanos 部署的 Promethues 集群，所以用 Querier 的地址。使用下面的命令一键安装：&lt;/p>
+&lt;pre>&lt;code>$ helm install prometheus-adapter stable/prometheus-adapter -n kube-mon -f hpa-prome-adapter-values.yaml
+NAME: prometheus-adapter
+LAST DEPLOYED: Tue Apr 7 15:26:36 2020
+NAMESPACE: kube-mon
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+prometheus-adapter has been deployed.
+In a few minutes you should be able to list metrics using the following command(s):
+kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1
+&lt;/code>&lt;/pre>
+&lt;p>等一小会儿，安装完成后，可以使用下面的命令来检测是否生效了：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get pods -n kube-mon -l app=prometheus-adapter
+NAME READY STATUS RESTARTS AGE
+prometheus-adapter-58b559fc7d-l2j6t 1/1 Running 0 3m21s
+$ kubectl get --raw=&amp;quot;/apis/custom.metrics.k8s.io/v1beta1&amp;quot; | jq
+{
+&amp;quot;kind&amp;quot;: &amp;quot;APIResourceList&amp;quot;,
+&amp;quot;apiVersion&amp;quot;: &amp;quot;v1&amp;quot;,
+&amp;quot;groupVersion&amp;quot;: &amp;quot;custom.metrics.k8s.io/v1beta1&amp;quot;,
+&amp;quot;resources&amp;quot;: [
+{
+&amp;quot;name&amp;quot;: &amp;quot;namespaces/nginx_vts_server_requests_per_second&amp;quot;,
+&amp;quot;singularName&amp;quot;: &amp;quot;&amp;quot;,
+&amp;quot;namespaced&amp;quot;: false,
+&amp;quot;kind&amp;quot;: &amp;quot;MetricValueList&amp;quot;,
+&amp;quot;verbs&amp;quot;: [
+&amp;quot;get&amp;quot;
+]
+},
+{
+&amp;quot;name&amp;quot;: &amp;quot;pods/nginx_vts_server_requests_per_second&amp;quot;,
+&amp;quot;singularName&amp;quot;: &amp;quot;&amp;quot;,
+&amp;quot;namespaced&amp;quot;: true,
+&amp;quot;kind&amp;quot;: &amp;quot;MetricValueList&amp;quot;,
+&amp;quot;verbs&amp;quot;: [
+&amp;quot;get&amp;quot;
+]
+}
+]
+}
+&lt;/code>&lt;/pre>
+&lt;p>我们可以看到 &lt;code>nginx_vts_server_requests_per_second&lt;/code> 指标可用。 现在，让我们检查该指标的当前值：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get --raw &amp;quot;/apis/custom.metrics.k8s.io/v1beta1/namespaces/default/pods/*/nginx_vts_server_requests_per_second&amp;quot; | jq .
+{
+&amp;quot;kind&amp;quot;: &amp;quot;MetricValueList&amp;quot;,
+&amp;quot;apiVersion&amp;quot;: &amp;quot;custom.metrics.k8s.io/v1beta1&amp;quot;,
+&amp;quot;metadata&amp;quot;: {
+&amp;quot;selfLink&amp;quot;: &amp;quot;/apis/custom.metrics.k8s.io/v1beta1/namespaces/default/pods/%2A/nginx_vts_server_requests_per_second&amp;quot;
+},
+&amp;quot;items&amp;quot;: [
+{
+&amp;quot;describedObject&amp;quot;: {
+&amp;quot;kind&amp;quot;: &amp;quot;Pod&amp;quot;,
+&amp;quot;namespace&amp;quot;: &amp;quot;default&amp;quot;,
+&amp;quot;name&amp;quot;: &amp;quot;hpa-prom-demo-755bb56f85-lvksr&amp;quot;,
+&amp;quot;apiVersion&amp;quot;: &amp;quot;/v1&amp;quot;
+},
+&amp;quot;metricName&amp;quot;: &amp;quot;nginx_vts_server_requests_per_second&amp;quot;,
+&amp;quot;timestamp&amp;quot;: &amp;quot;2020-04-07T09:45:45Z&amp;quot;,
+&amp;quot;value&amp;quot;: &amp;quot;527m&amp;quot;,
+&amp;quot;selector&amp;quot;: null
+}
+]
+}
+&lt;/code>&lt;/pre>
+&lt;p>出现类似上面的信息就表明已经配置成功了，接下来我们部署一个针对上面的自定义指标的 HAP 资源对象，如下所示：(hpa-prome.yaml)&lt;/p>
+&lt;pre>&lt;code>apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+name: nginx-custom-hpa
+spec:
+scaleTargetRef:
+apiVersion: apps/v1
+kind: Deployment
+name: hpa-prom-demo
+minReplicas: 2
+maxReplicas: 5
+metrics:
+- type: Pods
+pods:
+metricName: nginx_vts_server_requests_per_second
+targetAverageValue: 10
+&lt;/code>&lt;/pre>
+&lt;p>如果请求数超过每秒 10 个，则将对应用进行扩容。直接创建上面的资源对象：&lt;/p>
+&lt;pre>&lt;code>$ kubectl apply -f hpa-prome.yaml
+horizontalpodautoscaler.autoscaling/nginx-custom-hpa created
+$ kubectl describe hpa nginx-custom-hpa
+Name: nginx-custom-hpa
+Namespace: default
+Labels: &amp;lt;none&amp;gt;
+Annotations: kubectl.kubernetes.io/last-applied-configuration:
+{&amp;quot;apiVersion&amp;quot;:&amp;quot;autoscaling/v2beta1&amp;quot;,&amp;quot;kind&amp;quot;:&amp;quot;HorizontalPodAutoscaler&amp;quot;,&amp;quot;metadata&amp;quot;:{&amp;quot;annotations&amp;quot;:{},&amp;quot;name&amp;quot;:&amp;quot;nginx-custom-hpa&amp;quot;,&amp;quot;namespace&amp;quot;:&amp;quot;d...
+CreationTimestamp: Tue, 07 Apr 2020 17:54:55 +0800
+Reference: Deployment/hpa-prom-demo
+Metrics: ( current / target )
+&amp;quot;nginx_vts_server_requests_per_second&amp;quot; on pods: &amp;lt;unknown&amp;gt; / 10
+Min replicas: 2
+Max replicas: 5
+Deployment pods: 1 current / 2 desired
+Conditions:
+Type Status Reason Message
+---- ------ ------ -------
+AbleToScale True SucceededRescale the HPA controller was able to update the target scale to 2
+Events:
+Type Reason Age From Message
+---- ------ ---- ---- -------
+Normal SuccessfulRescale 7s horizontal-pod-autoscaler New size: 2; reason: Current number of replicas below Spec.MinReplicas
+&lt;/code>&lt;/pre>
+&lt;p>可以看到 HPA 对象已经生效了，会应用最小的副本数 2，所以会新增一个 Pod 副本：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get pods -l app=nginx-server
+NAME READY STATUS RESTARTS AGE
+hpa-prom-demo-755bb56f85-s5dzf 1/1 Running 0 67s
+hpa-prom-demo-755bb56f85-wbpfr 1/1 Running 0 3m30s
+&lt;/code>&lt;/pre>
+&lt;p>接下来我们同样对应用进行压测：&lt;/p>
+&lt;pre>&lt;code>$ while true; do wget -q -O- http://k8s.qikqiak.com:32408; done
+&lt;/code>&lt;/pre>
+&lt;p>打开另外一个终端观察 HPA 对象的变化：&lt;/p>
+&lt;pre>&lt;code>$ kubectl get hpa
+NAME REFERENCE TARGETS MINPODS MAXPODS REPLICAS AGE
+nginx-custom-hpa Deployment/hpa-prom-demo 14239m/10 2 5 2 4m27s
+$ kubectl describe hpa nginx-custom-hpa
+Name: nginx-custom-hpa
+Namespace: default
+Labels: &amp;lt;none&amp;gt;
+Annotations: kubectl.kubernetes.io/last-applied-configuration:
+{&amp;quot;apiVersion&amp;quot;:&amp;quot;autoscaling/v2beta1&amp;quot;,&amp;quot;kind&amp;quot;:&amp;quot;HorizontalPodAutoscaler&amp;quot;,&amp;quot;metadata&amp;quot;:{&amp;quot;annotations&amp;quot;:{},&amp;quot;name&amp;quot;:&amp;quot;nginx-custom-hpa&amp;quot;,&amp;quot;namespace&amp;quot;:&amp;quot;d...
+CreationTimestamp: Tue, 07 Apr 2020 17:54:55 +0800
+Reference: Deployment/hpa-prom-demo
+Metrics: ( current / target )
+&amp;quot;nginx_vts_server_requests_per_second&amp;quot; on pods: 14308m / 10
+Min replicas: 2
+Max replicas: 5
+Deployment pods: 3 current / 3 desired
+Conditions:
+Type Status Reason Message
+---- ------ ------ -------
+AbleToScale True ReadyForNewScale recommended size matches current size
+ScalingActive True ValidMetricFound the HPA was able to successfully calculate a replica count from pods metric nginx_vts_server_requests_per_second
+ScalingLimited False DesiredWithinRange the desired count is within the acceptable range
+Events:
+Type Reason Age From Message
+---- ------ ---- ---- -------
+Normal SuccessfulRescale 5m2s horizontal-pod-autoscaler New size: 2; reason: Current number of replicas below Spec.MinReplicas
+Normal SuccessfulRescale 61s horizontal-pod-autoscaler New size: 3; reason: pods metric nginx_vts_server_requests_per_second above target
+&lt;/code>&lt;/pre>
+&lt;p>可以看到指标 &lt;code>nginx_vts_server_requests_per_second&lt;/code> 的数据已经超过阈值了，触发扩容动作了，副本数变成了 3，但是后续很难继续扩容了，这是因为上面我们的 &lt;code>while&lt;/code> 命令并不够快，3 个副本完全可以满足每秒不超过 10 个请求的阈值。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kpk0nr/1616116806033-505c410e-406f-4fda-bc27-030171a8a558.png" alt="">&lt;/p>
+&lt;p>nginx_vts_server_requests_per_second&lt;/p>
+&lt;p>如果需要更好的进行测试，我们可以使用一些压测工具，比如 ab、fortio 等工具。当我们中断测试后，默认 5 分钟过后就会自动缩容：&lt;/p>
+&lt;pre>&lt;code>$ kubectl describe hpa nginx-custom-hpa
+Name: nginx-custom-hpa
+Namespace: default
+Labels: &amp;lt;none&amp;gt;
+Annotations: kubectl.kubernetes.io/last-applied-configuration:
+{&amp;quot;apiVersion&amp;quot;:&amp;quot;autoscaling/v2beta1&amp;quot;,&amp;quot;kind&amp;quot;:&amp;quot;HorizontalPodAutoscaler&amp;quot;,&amp;quot;metadata&amp;quot;:{&amp;quot;annotations&amp;quot;:{},&amp;quot;name&amp;quot;:&amp;quot;nginx-custom-hpa&amp;quot;,&amp;quot;namespace&amp;quot;:&amp;quot;d...
+CreationTimestamp: Tue, 07 Apr 2020 17:54:55 +0800
+Reference: Deployment/hpa-prom-demo
+Metrics: ( current / target )
+&amp;quot;nginx_vts_server_requests_per_second&amp;quot; on pods: 533m / 10
+Min replicas: 2
+Max replicas: 5
+Deployment pods: 2 current / 2 desired
+Conditions:
+Type Status Reason Message
+---- ------ ------ -------
+AbleToScale True ReadyForNewScale recommended size matches current size
+ScalingActive True ValidMetricFound the HPA was able to successfully calculate a replica count from pods metric nginx_vts_server_requests_per_second
+ScalingLimited True TooFewReplicas the desired replica count is less than the minimum replica count
+Events:
+Type Reason Age From Message
+---- ------ ---- ---- -------
+Normal SuccessfulRescale 23m horizontal-pod-autoscaler New size: 2; reason: Current number of replicas below Spec.MinReplicas
+Normal SuccessfulRescale 19m horizontal-pod-autoscaler New size: 3; reason: pods metric nginx_vts_server_requests_per_second above target
+Normal SuccessfulRescale 4m2s horizontal-pod-autoscaler New size: 2; reason: All metrics below target
+&lt;/code>&lt;/pre>
+&lt;p>到这里我们就完成了使用自定义的指标对应用进行自动扩缩容的操作。如果 Prometheus 安装在我们的 Kubernetes 集群之外，则只需要确保可以从集群访问到查询的端点，并在 adapter 的部署清单中对其进行更新即可。在更复杂的场景中，可以获取多个指标结合使用来制定扩展策略。&lt;/p></description></item><item><title>Docs: kubeadm 命令行工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubeadm-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubeadm-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/setup-tools/kubeadm/">官方文档&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm">kubeadm 库&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/v1beta2">v1beta2 版本的 kubeadm 包的配置文件字段详解&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Kubeadm 是一个工具，它提供了 kubeadm init 以及 kubeadm join 这两个命令作为快速创建 kubernetes 集群的最佳实践。&lt;/p>
+&lt;p>kubeadm 通过执行必要的操作来启动和运行一个最小可用的集群。它被故意设计为只关心启动集群，而不是准备节点环境的工作。同样的，诸如安装各种各样的可有可无的插件，例如 Kubernetes 控制面板、监控解决方案以及特定云提供商的插件，这些都不在它负责的范围。&lt;/p>
+&lt;p>相反，我们期望由一个基于 kubeadm 从更高层设计的更加合适的工具来做这些事情；并且，理想情况下，使用 kubeadm 作为所有部署的基础将会使得创建一个符合期望的集群变得容易。&lt;/p>
+&lt;h2 id="kubeadm-中的资源">kubeadm 中的资源&lt;/h2>
+&lt;p>实际上，kubeadm 继承了 kubernetes 的哲学，一切介资源，只不过由于 kubeadm 并没有控制器逻辑、也并不需要将这些资源实例化为一个个的对象。这些资源主要是为了让 kubeadm 的概念以及使用方式，更贴近 Kubernetes，所以 &lt;strong>kubeadm 的资源仅仅作为定义配置所用&lt;/strong>。在 kubeadm 的 &lt;a href="https://github.com/kubernetes/kubernetes/blob/master/cmd/kubeadm/app/apis/kubeadm/v1beta2/types.go">API 代码&lt;/a>中，也可以看到这些资源的结构体定义。&lt;/p>
+&lt;p>kubeadm 的运行时行为通常由下面几个 API 资源来控制：&lt;/p>
+&lt;ol>
+&lt;li>**InitConfiguration(初始化配置) **#&lt;/li>
+&lt;li>&lt;strong>ClusterConfiguation(集群配置)&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>KubeletConfiguration(kubelet 程序配置)&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>KubeProxyConfiguration(kube-proxy 程序配置)&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>JoinConfiguration(加入集群配置)&lt;/strong> #&lt;/li>
+&lt;/ol>
+&lt;p>其中 InitConfiguration、ClusterConfiguation、JoinConfiguration 资源属于 kubeadm 在控制集群时所用的配置
+而 KubeletConfiguration 与 KubeProxyConfiguration 资源，实际上就是 kubelet 和 kube-proxy 程序的配置文件，kubeadm 可以通过其自身的配置文件，在控制集群时，修改 kubelet 与 kube-proxy 程序的配置文件。&lt;/p>
+&lt;p>可以通过 kubeadm config print init-defaults 命令可以输出这些资源的 Manifests 模板，该命令默认会输出 InitConfiguration 与 ClusterConfiguration 的默认配置，可以通过使用 &amp;ndash;component-configs STRING 选项来输出 KubeletConfiguration 和 KubeProxyConfiguration 的默认配置&lt;/p>
+&lt;p>&lt;strong>而 kubeadm 的这些资源的 Manifests，其实就是 kubeadm 在部署集群时所使用的配置文件。&lt;/strong>&lt;/p>
+&lt;h1 id="kubeadm-安装">kubeadm 安装&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/">官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h3 id="安装-run-time运行时">安装 run-time(运行时)&lt;/h3>
+&lt;p>Kubernetes 使用 container runtime 以便在 Pods 运行容器。&lt;/p>
+&lt;p>默认情况下，Kubernetes 使用 &lt;strong>Container Runtime Interface(容器运行时接口，简称 CRI&lt;/strong>) 与我们选择的容器运行时交互。&lt;/p>
+&lt;p>如果未指定运行时(可以通过 kubelet 程序的 &lt;code>--cri-socket&lt;/code> 标志指定运行时的 Sokcet 路径)，则 kubeadm 会通过扫描众所周知的 Unix 域套接字列表自动尝试检测已安装的容器运行时。下表列出了容器运行时及其关联的套接字路径：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>Runtime&lt;/th>
+&lt;th>Unix Socket 的路径&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>docker&lt;/td>
+&lt;td>/var/run/docker.sock&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>containerd&lt;/td>
+&lt;td>/run/containerd/containerd.sock&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>CRI-O&lt;/td>
+&lt;td>/var/run/crio/crio.sock&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>如果同时检测到 Docker 和 containerd，则 Docker 优先。这是必需的，因为 Docker 18.09 附带了容器，即使您仅安装了 Docker，也可以检测到两者。如果检测到其他两个或更多运行时，则 kubeadm 退出并显示错误。&lt;/p>
+&lt;blockquote>
+&lt;p>~~kubelet 通过内置&lt;del>&lt;del>的 dockershim CRI 实&lt;/del>&lt;/del>现与 Docker 集成。~~2020 年 12 月 2 日&lt;a href="https://kubernetes.io/blog/2020/12/02/dont-panic-kubernetes-and-docker/">官方博客发文&lt;/a>称，在 v1.20，您将收到 Docker 弃用警告。在将来的 Kubernetes 版本（目前计划在 2021 年下半年为 1.22 版本）中删除 Docker 运行时支持时，它将不再受支持，您将需要切换到其他兼容的容器运行时之一，例如 containerd 或 CRI-O 。&lt;/p>
+&lt;/blockquote>
+&lt;h1 id="kubeadm-配置">kubeadm 配置&lt;/h1>
+&lt;p>kubeadm 的配置文件主要用来&lt;strong>部署集群所用&lt;/strong>，其中包括初始化集群所需的所有信息。
+&lt;strong>kubeadm-config.yaml&lt;/strong> # kubeadm 所需的配置文件，一般使用这个名字。可以通过 &amp;ndash;config 参数指定其他的文件&lt;/p></description></item><item><title>Docs: kubeadm 命令行工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubeadm-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubeadm-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description/></item><item><title>Docs: kubectl 命令行工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/kubectl/overview/">官方文档&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/tools/#kubectl">官方文档,任务-安装工具-kubectl&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/kubectl/cheatsheet/">官方推荐常用命令备忘录&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>kubectl 所用的 kubeconfig 文件，默认在 ~/.kube/confg，该文件用于定位 Kubernetes 集群以及与 API Server 交互时进行认证，如果没有认证文件则 API Server 无法处理 kubectl 发出的任何指令并返回错误信息。&lt;/p>
+&lt;p>如果该文件不存在或配置不全(比如没有指定 current-context 字段)，kubectl 则会向 localhost:8080 发起请求(该端口是 API Server 默认监听的不安全端口，该端口不需要认证即可对集群执行所有操作)。&lt;/p>
+&lt;p>由于 API Server 默认不开启不安全端口，所以在没有配置文件时，就会报如下错误：&lt;code>The connection to the server localhost:8080 was refused - did you specify the right host or port?&lt;/code>&lt;/p>
+&lt;p>如果 kubectl 使用的 KubeConfig 文件中，没有集群的 ca 信息，则会报如下错误：&lt;code>Error from server (BadRequest): the server rejected our request for an unknown reason&lt;/code>&lt;/p>
+&lt;h1 id="kubeclt-安装">kubeclt 安装&lt;/h1>
+&lt;h2 id="在-linux-上安装-kubectl">在 Linux 上安装 kubectl&lt;/h2>
+&lt;p>&lt;strong>Ubuntu&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>sudo apt-get update &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> sudo apt-get install -y apt-transport-https gnupg2 curl
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>curl https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#e6db74">&amp;#39;deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main&amp;#39;&lt;/span> | sudo tee /etc/apt/sources.list.d/kubernetes.list
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo apt-get update
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo apt-get install -y kubectl
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>CentOS&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF &amp;gt; /etc/yum.repos.d/kubernetes.repo
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[kubernetes]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">name=Kubernetes
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">enabled=1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">gpgcheck=1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">repo_gpgcheck=1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>yum install -y kubectl
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="直接下载二进制文件">直接下载二进制文件&lt;/h2>
+&lt;pre>&lt;code>RELEASE=&amp;quot;v1.20.14&amp;quot;
+ARCH=&amp;quot;amd64&amp;quot;
+https://storage.googleapis.com/kubernetes-release/release/${RELEASE}/bin/linux/${ARCH}/kubectl
+&lt;/code>&lt;/pre>
+&lt;h1 id="kubectl-配置">kubectl 配置&lt;/h1>
+&lt;p>**~/.kube/config **# kubeclt 使用的 kubeconfig 文件的默认路径。kubectl 工具运行时将会使用该文件作为连接 kubernetes 集群的信息
+kubeamd 部署的集群一般直接使用 /etc/kubernetes/admin.conf 文件拷贝到 ~/.kube/ 目录下并改名为 config&lt;/p>
+&lt;p>环境变量&lt;/p>
+&lt;ul>
+&lt;li>KUBECONFIG # kubectl 命令加载 kubeconfig 文件的路径&lt;/li>
+&lt;/ul>
+&lt;h1 id="syntax语法">Syntax(语法)&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：官方文档：&lt;a href="https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands">https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>kubectl COMMAND [TYPE] [NAME] [FLAGS]&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>COMMAND&lt;/strong> # 指定要在一个或多个资源进行操作，例如 create，get，describe，delete。&lt;/li>
+&lt;li>&lt;strong>TYPE&lt;/strong> # 指定资源类型。资源类型不区分大小写，您可以指定单数，复数或缩写形式。&lt;/li>
+&lt;li>&lt;strong>NAME&lt;/strong> # 指定资源的名称。名称区分大小写。如果省略名称，则显示所有资源的详细信息$ kubectl get pods。&lt;/li>
+&lt;li>&lt;strong>FLAGS&lt;/strong> # 指定全局命令行标志。例如，可以使用&amp;ndash;kubeconfig 指定 kubectl 命令执行所使用的配置文件。&lt;/li>
+&lt;/ul>
+&lt;h2 id="global-flags全局标志">Global FLAGS(全局标志)&lt;/h2>
+&lt;ul>
+&lt;li>--alsologtostderr=false: log to standard error as well as files&lt;/li>
+&lt;li>--as=&amp;rsquo;&amp;rsquo;: Username to impersonate for the operation&lt;/li>
+&lt;li>--as-group=[]: Group to impersonate for the operation, this flag can be repeated to specify multiple groups.&lt;/li>
+&lt;li>--cache-dir=&amp;rsquo;/root/.kube/http-cache&amp;rsquo;: Default HTTP cache directory&lt;/li>
+&lt;li>--certificate-authority=&amp;rsquo;&amp;rsquo;: Path to a cert file for the certificate authority&lt;/li>
+&lt;li>--client-certificate=&amp;rsquo;&amp;rsquo;: Path to a client certificate file for TLS&lt;/li>
+&lt;li>--client-key=&amp;rsquo;&amp;rsquo;: Path to a client key file for TLS&lt;/li>
+&lt;li>--cluster=&amp;rsquo;&amp;rsquo;: The name of the kubeconfig cluster to use&lt;/li>
+&lt;li>--context=&amp;rsquo;&amp;rsquo;: The name of the kubeconfig context to use&lt;/li>
+&lt;li>--insecure-skip-tls-verify=false: If true, the server&amp;rsquo;s certificate will not be checked for validity. This will make your HTTPS connections insecure&lt;/li>
+&lt;li>--kubeconfig=/PATH/TO/FILE    #指定 kubectl 所要使用的配置文件(需要使用绝对路径)&lt;/li>
+&lt;li>--log-backtrace-at=:0: when logging hits line file:N, emit a stack trace&lt;/li>
+&lt;li>--log-dir=&amp;rsquo;&amp;rsquo;: If non-empty, write log files in this directory&lt;/li>
+&lt;li>--log-file=&amp;rsquo;&amp;rsquo;: If non-empty, use this log file&lt;/li>
+&lt;li>--log-flush-frequency=5s: Maximum number of seconds between log flushes&lt;/li>
+&lt;li>--logtostderr=true: log to standard error instead of files&lt;/li>
+&lt;li>--match-server-version=false: Require server version to match client version&lt;/li>
+&lt;li>-n, &amp;ndash;namespace=&amp;rsquo;&amp;rsquo;: If present, the namespace scope for this CLI request&lt;/li>
+&lt;li>--password=&amp;rsquo;&amp;rsquo;: Password for basic authentication to the API server&lt;/li>
+&lt;li>--profile=&amp;lsquo;none&amp;rsquo;: Name of profile to capture. One of (none|cpu|heap|goroutine|threadcreate|block|mutex)&lt;/li>
+&lt;li>--profile-output=&amp;lsquo;profile.pprof&amp;rsquo;: Name of the file to write the profile to&lt;/li>
+&lt;li>--request-timeout=&amp;lsquo;0&amp;rsquo;: The length of time to wait before giving up on a single server request. Non-zero values&lt;/li>
+&lt;li>should contain a corresponding time unit (e.g. 1s, 2m, 3h). A value of zero means don&amp;rsquo;t timeout requests.&lt;/li>
+&lt;li>-s, &amp;ndash;server=&amp;rsquo;&amp;rsquo;: The address and port of the Kubernetes API server&lt;/li>
+&lt;li>--skip-headers=false: If true, avoid header prefixes in the log messages&lt;/li>
+&lt;li>--stderrthreshold=2: logs at or above this threshold go to stderr&lt;/li>
+&lt;li>--token=&amp;rsquo;&amp;rsquo;: Bearer token for authentication to the API server&lt;/li>
+&lt;li>--user=&amp;rsquo;&amp;rsquo;: The name of the kubeconfig user to use&lt;/li>
+&lt;li>--username=&amp;rsquo;&amp;rsquo;: Username for basic authentication to the API server&lt;/li>
+&lt;li>**-v=NUM **# 指定 kubectl 命令执行的 debug 级别，默认为 0。如果使用高级别，可以看到 RESTful 风格请求 APIServer 时的请求头以及响应头信息。打开调试日志也可以看到每个 API 调用的格式。number for the log level verbosity&lt;/li>
+&lt;li>--vmodule=: comma-separated list of pattern=N settings for file-filtered logging&lt;/li>
+&lt;/ul>
+&lt;h2 id="basic-commands-beginner基本命令初学者">Basic Commands (Beginner)(基本命令(初学者))&lt;/h2>
+&lt;p>create # 从文件或者 stdin 上创建一个资源&lt;/p>
+&lt;p>expose # 创建一个新的 service 资源&lt;/p>
+&lt;ul>
+&lt;li>kubectl expose deployment nginx &amp;ndash;name nginx-svc &amp;ndash;port 80 &amp;ndash;type=NodePort&lt;/li>
+&lt;/ul>
+&lt;p>run # 在集群上创建并运行一个特定的镜像
+基于 deployment 或 job 来管理和创建容器&lt;/p>
+&lt;p>set # 配置应用程序资源，用法详见单独章节&lt;/p>
+&lt;h2 id="basic-commands-intermediate基本命令中级">Basic Commands (Intermediate)(基本命令(中级))&lt;/h2>
+&lt;h3 id="explain--解释列出资源所支持的字段">explain # 解释。列出资源所支持的字段&lt;/h3>
+&lt;p>kubectl explain RESOURCE[.FIELD1.FELD2&amp;hellip;FIELDn] [options] #每个 FIELD(字段)都可以用.后面跟字段名来查询这个字段下的描述信息，以及该字段下还可以声明什么字段&lt;/p>
+&lt;ul>
+&lt;li>EXAMPLE
+&lt;ul>
+&lt;li>kubectl explain pods.spec.containers&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>字段说明：&lt;/p>
+&lt;ul>
+&lt;li>-required- # 表示该字段为其父字段的必备字段&lt;/li>
+&lt;li>&amp;lt;[]Object&amp;gt; # 表示该字段下的子字段可以以列表形式定义，使用-符号定义多个该字段&lt;/li>
+&lt;li>#表示该字段需要加字符串来定义该字段，不再包含子字段&lt;/li>
+&lt;li>&amp;lt;[]string&amp;gt; # 表示该字段的字符串以列表形式，前面每个参数都要加-符号，依然要使用子字段来写这些字符串&lt;/li>
+&lt;/ul>
+&lt;h3 id="get--显示一个或多个资源">get # 显示一个或多个资源&lt;/h3>
+&lt;p>详见：get 和 describe 显示资源信息命令&lt;/p>
+&lt;h3 id="edit--编辑服务器上的资源">edit # 编辑服务器上的资源&lt;/h3>
+&lt;p>详见《[对象的创建与修改命令](✏IT 学习笔记/☁️10.云原生/2.3.Kubernetes%20 容器编排系统/Kubernetes%20 管理/kubectl%20 命令行工具/对象的创建与修改命令.md 命令行工具/对象的创建与修改命令.md)》&lt;/p>
+&lt;h3 id="delete--通过文件名标准输入资源名或者资源表删除资源">delete # 通过文件名、标准输入、资源名或者资源表删除资源&lt;/h3>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl delete deployment nginx-deployment&lt;/li>
+&lt;li>kubectl delete -f nginx.yaml&lt;/li>
+&lt;li>kubectl delete pods nginx &amp;ndash;grace-period=0 &amp;ndash;force # 强制删除 nginx 这个 pod&lt;/li>
+&lt;/ul>
+&lt;h2 id="deploy-commands部署命令">Deploy Commands(部署命令)&lt;/h2>
+&lt;h3 id="rollout--管理资源的滚动更新用法详见-setrollout-更新资源命令note">rollout # 管理资源的滚动更新，用法详见 set,rollout 更新资源命令.note&lt;/h3>
+&lt;p>scale #为 Deployment, ReplicaSet, Replication Controller, or Job 设置新的容量大小&lt;/p>
+&lt;p>autoscale      Auto-scale a Deployment, ReplicaSet, or ReplicationController&lt;/p>
+&lt;h2 id="cluster-management-commands集群管理命令">Cluster Management Commands(集群管理命令)&lt;/h2>
+&lt;p>certificate # 修改证书资源。Modify certificate resources.&lt;/p>
+&lt;p>approve # 批准一个证书请求 Approve a certificate signing request&lt;/p>
+&lt;p>deny # 拒绝一个证书请求。Deny a certificate signing request&lt;/p>
+&lt;h3 id="cluster-info--展示-kubernetes-集群的信息默认展示-master-运行的位置和-dns-运行的位置">cluster-info # 展示 kubernetes 集群的信息，默认展示 master 运行的位置和 DNS 运行的位置&lt;/h3>
+&lt;p>&lt;strong>kubectl cluster-info SubCommand [flags] [OPTIONS]&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@lichenhao:~# kubectl cluster-info
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Kubernetes control plane is running at https://k8s-api.bj-net.ehualu.local:6443
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>KubeDNS is running at https://k8s-api.bj-net.ehualu.local:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>To further debug and diagnose cluster problems, use &lt;span style="color:#e6db74">&amp;#39;kubectl cluster-info dump&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>SubCommand&lt;/p>
+&lt;ul>
+&lt;li>dump #为调试和诊断倾倒大量相关信息&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl cluster-info #显示集群信息，效果如图&lt;/li>
+&lt;li>kubectl cluster-info dump #显示集群的 dbug 信息&lt;/li>
+&lt;/ul>
+&lt;h3 id="top--显示硬件资源cpu内存存储的用量">top # 显示硬件资源(CPU/内存/存储)的用量&lt;/h3>
+&lt;p>该命令只有在集群部署玩 metrics-server 或者 kube-state-metrics 等资源后，才可以获得数据。显示每个 Node 或者每个 Pod 使用的硬件资源情况，效果如图
+&lt;strong>kubectl top [flags] [options]&lt;/strong>
+EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl top node #显示所有 Node 的硬件资源使用量&lt;/li>
+&lt;li>kubectl top pod &amp;ndash;all-namespaces #显示所有名称空间下的 Pod 对硬件资源的使用量&lt;/li>
+&lt;/ul>
+&lt;h3 id="cordon--将指定节点标记为不可调度">cordon # 将指定节点标记为不可调度&lt;/h3>
+&lt;h3 id="uncordon--将指定节点标记为可调度">uncordon # 将指定节点标记为可调度&lt;/h3>
+&lt;h3 id="drain--排空指定的节点为维护做准备">drain # 排空指定的节点，为维护做准备&lt;/h3>
+&lt;p>给定节点将被标记为不可调度(就是 &lt;code>cordon&lt;/code> 子命令)，以防止新 Pod 被调度到该节点。如果 APIServer 支持 &lt;a href="http://kubernetes.io/docs/admin/disruptions/">http://kubernetes.io/docs/admin/disruptions/&lt;/a>，则 &lt;code>drain&lt;/code> 会 evicts(驱逐) Pod。否则，它将使用普通的 DELETE 请求删除 Pod。&lt;code>drain&lt;/code> 会驱逐或删除除 mirror pods (不能通过 API 服务器删除) 之外的所有 pod。如果存在 DaemonSet 管理的 Pod，则不会在没有 &amp;ndash;ignore-daemonsets 标志的情况下进行，并且无论如何也不会删除任何 DaemonSet 管理的 Pod，因为这些 Pod 将立即被 DaemonSet 控制器替换，该控制器忽略不可调度的标记。如果有任何 Pod 既不是 mirror pods，也不是由 replicationcontrol,replicaset，DaemonSet，statprit set 或 Job 管理的，则除非使用 &amp;ndash;force，否则不会删除任何 Pod。&amp;ndash; force 还将允许在一个或多个 pod 的管理资源丢失时继续删除。&lt;/p>
+&lt;p>&lt;code>drain&lt;/code> 命令等待优雅的终止。在命令完成之前，不应在计算机上进行操作。&lt;/p>
+&lt;p>当您准备好将节点重新投入服务时，请使用 &lt;code>kubectl uncordon&lt;/code>，这将使节点再次可调度。&lt;/p>
+&lt;h3 id="taint--在一个或多个-node-上更新污点">taint # 在一个或多个 node 上更新污点&lt;/h3>
+&lt;p>&lt;strong>kubectl taint NODE NAME KEY_1=VAL_1:TAINT_EFFECT_1 &amp;hellip; KEY_N=VAL_N:TAINT_EFFECT_N [OPTIONS]&lt;/strong>
+定义的时候要指明 key，val 以及 effect，注意格式&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>删除 master 节点上 dedicated:NoSchedule 这个污点
+&lt;ul>
+&lt;li>k&lt;strong>ubectl taint nodes master dedicated:NoSchedule-&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>给 master 节点加一个污点，key 为 node-type，val 为 qa，effect 为 NoExecut
+&lt;ul>
+&lt;li>&lt;strong>kubectl taint nodes master node-type=qa:NoExecute&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="troubleshooting-and-debugging-commands故障排除和调试命令">Troubleshooting and Debugging Commands(故障排除和调试命令)&lt;/h2>
+&lt;h3 id="debug--创建调试-pod-以便对工作负载或节点进行故障排除">debug # 创建调试 Pod 以便对工作负载或节点进行故障排除&lt;/h3>
+&lt;p>详见：[故障处理技巧章节](✏IT 学习笔记/☁️10.云原生/2.3.Kubernetes%20 容器编排系统/Kubernetes%20 管理/性能优化%20 与%20 故障处理/故障处理技巧.md 与 故障处理/故障处理技巧.md)&lt;/p>
+&lt;h3 id="describe--显示特定资源或资源组的详细信息">describe # 显示特定资源或资源组的详细信息&lt;/h3>
+&lt;p>&lt;strong>kubectl describe (-f FILENAME | TYPE [NAME_PREFIX | -l label] | TYPE/NAME) [OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl describe node&lt;/li>
+&lt;li>kubectl describe pod kubernetes-dashboard-87f58dc9-j244f &amp;ndash;namespace=kube-system&lt;/li>
+&lt;/ul>
+&lt;p>[&lt;/p>
+&lt;p>](https://thoughts.teambition.com/workspaces/5f90e312c800160016ea22fb/docs/5f9a51a037398300016b16b3)&lt;/p>
+&lt;h3 id="logs--打印出在一个-pod-中的一个-container-的日志">logs # 打印出在一个 pod 中的一个 container 的日志&lt;/h3>
+&lt;p>kubectl logs [-f] [-p] (POD | TYPE/NAME) [OPTIONS]
+详解见：logs.note
+attach # 连接到一个正在运行的容器上(进入容器)
+EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl attach client-7c9999bd74-76s4t -it # 进入该 pod 中&lt;/li>
+&lt;/ul>
+&lt;h3 id="exec--在一个容器中执行一条命令">exec # 在一个容器中执行一条命令&lt;/h3>
+&lt;p>可执行/bin/sh 命令来进入容器当中
+&lt;strong>kubectl exec POD [-c CONTAINER] &amp;ndash; COMMAND [args&amp;hellip;] [options]&lt;/strong>
+OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>-i, &amp;ndash;stdin=false #传递 STDIN(标准输入)到这个容器&lt;/li>
+&lt;li>-t, &amp;ndash;tty=false #STDIN(标准输入)是一个 TTY 终端&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl exec -it httpd-79c4f99955-2s8rw &amp;ndash; /bin/sh #以 TTY 终端的形式传递/bin/sh 命令到容器中&lt;/li>
+&lt;/ul>
+&lt;h3 id="port-forward--转发一个或多个本地端口到一个-pod-上">port-forward # 转发一个或多个本地端口到一个 pod 上&lt;/h3>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>--address IP # 要监听的地址（逗号分隔），默认为 localhost。 仅接受 IP 或 localhost 为值。 提供 localhost 时，kubectl 将尝试同时绑定 127.0.0.1 和:: 1。&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl port-forward -n monitoring prometheus-k8s-0 9090&lt;/li>
+&lt;li>将名为 traefik 的 service 的 8080 和 443 端口，进行端口转发暴露出来，监听的地址是本地 0.0.0.0
+&lt;ul>
+&lt;li>kubectl port-forward &amp;ndash;address 0.0.0.0 service/traefik 8080:8080 443:4443&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="proxy--运行一个到-kubernetes-的-api-服务器的代理程序">proxy # 运行一个到 kubernetes 的 API 服务器的代理程序。&lt;/h3>
+&lt;p>在服务器和 Kubernetes API Server 之间创建代理服务器或应用程序级网关。 它还允许在指定的 HTTP 路径上保留静态内容。 所有传入数据都通过一个端口进入，并转发到远程 kubernetes API 服务器端口，但与静态内容路径匹配的路径除外
+&lt;strong>kubectl proxy [&amp;ndash;port=PORT] [&amp;ndash;www=static-dir] [&amp;ndash;www-prefix=prefix] [&amp;ndash;api-prefix=prefix] [options]&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>--accept-hosts=&amp;lsquo;EXPRESSION&amp;rsquo; #代理应接受的主机的正则表达式，每个匹配项以逗号分隔。默认为’localhost$,^127.0.0.1$,[::1]$&amp;rsquo;&lt;/li>
+&lt;li>--accept-paths=&amp;rsquo;^.*&amp;rsquo;: Regular expression for paths that the proxy should accept.&lt;/li>
+&lt;li>--address=&amp;lsquo;IP&amp;rsquo; #代理监听的 IP，默认 127.0.0.1&lt;/li>
+&lt;li>--api-prefix=&amp;rsquo;/&amp;rsquo;: Prefix to serve the proxied API under.&lt;/li>
+&lt;li>--disable-filter=false: If true, disable request filtering in the proxy. This is dangerous, and can leave you vulnerable to XSRF attacks, when used with an accessible port.&lt;/li>
+&lt;li>--keepalive=0s: keepalive specifies the keep-alive period for an active network connection. Set to 0 to disable keepalive.&lt;/li>
+&lt;li>-p, &amp;ndash;port=8001 #代理监听的端口， 设置为 0 则选择一个随机端口。默认 8001&lt;/li>
+&lt;li>--reject-methods=&amp;rsquo;^$&amp;rsquo;: Regular expression for HTTP methods that the proxy should reject (example&lt;/li>
+&lt;li>--reject-methods=&amp;lsquo;POST,PUT,PATCH&amp;rsquo;).&lt;/li>
+&lt;li>--reject-paths=&amp;rsquo;/api/.&lt;em>/pods/.&lt;/em>/exec,/api/.&lt;em>/pods/.&lt;/em>/attach&amp;rsquo;: Regular expression for paths that the proxy should reject. Paths specified here will be rejected even accepted by &amp;ndash;accept-paths.&lt;/li>
+&lt;li>-u, &amp;ndash;unix-socket=&amp;rsquo;&amp;rsquo;: Unix socket on which to run the proxy.&lt;/li>
+&lt;li>-w, &amp;ndash;www=&amp;rsquo;&amp;rsquo;: Also serve static files from the given directory under the specified prefix.&lt;/li>
+&lt;li>-P, &amp;ndash;www-prefix=&amp;rsquo;/static/&amp;rsquo;: Prefix to serve static files under, if static file directory is specified.&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>在本地 8080 端口上启动 API Server 的一个代理网关，以便使用 curl 直接访问 api server 并获取数据
+&lt;ul>
+&lt;li>kubectl proxy &amp;ndash;port=8080&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>kubectl proxy &amp;ndash;port=8080 &amp;ndash;address=0.0.0.0 &amp;ndash;accept-hosts=&amp;lsquo;localhost$,^127.0.0.1$,[::1]$,172.38.40.212&amp;rsquo; #&lt;/li>
+&lt;/ul>
+&lt;p>cp             Copy files and directories to and from containers.&lt;/p>
+&lt;p>auth           Inspect authorization&lt;/p>
+&lt;h2 id="advanced-commands-高级命令">Advanced Commands #高级命令&lt;/h2>
+&lt;h3 id="diff--diff-live-version-against-would-be-applied-version">diff # Diff live version against would-be applied version&lt;/h3>
+&lt;h3 id="apply--通过文件或标准输入将配置应用到资源">apply # 通过文件或标准输入将配置应用到资源&lt;/h3>
+&lt;p>详见《[对象的创建与修改命令](✏IT 学习笔记/☁️10.云原生/2.3.Kubernetes%20 容器编排系统/Kubernetes%20 管理/kubectl%20 命令行工具/对象的创建与修改命令.md 命令行工具/对象的创建与修改命令.md)》&lt;/p>
+&lt;h3 id="patch---用-strategic-mergejson-mergejson更新一个资源的字段">patch #   用 strategic merge、JSON merge、JSON，更新一个资源的字段&lt;/h3>
+&lt;p>&lt;strong>kubectl patch (-f FILENAME | TYPE NAME) -p PATCH [options]&lt;/strong>&lt;/p>
+&lt;h3 id="replace--替换使用文件或标准输入替换一个资源">replace # 替换。使用文件或标准输入替换一个资源&lt;/h3>
+&lt;p>详见《[对象的创建与修改命令](✏IT 学习笔记/☁️10.云原生/2.3.Kubernetes%20 容器编排系统/Kubernetes%20 管理/kubectl%20 命令行工具/对象的创建与修改命令.md 命令行工具/对象的创建与修改命令.md)》&lt;/p>
+&lt;h3 id="wait--experimental-wait-for-one-condition-on-one-or-many-resources">wait # Experimental: Wait for one condition on one or many resources&lt;/h3>
+&lt;h3 id="convert--convert-config-files-between-different-api-versions">convert # Convert config files between different API versions&lt;/h3>
+&lt;h2 id="settings-commands-设置命令">Settings Commands #设置命令&lt;/h2>
+&lt;h3 id="label--更新对象上的标签">label # 更新对象上的标签&lt;/h3>
+&lt;p>详见 [标签与选择器 文章中的 通过 kubectl 命令设置标签](Label%20and%20Selector(标签和选择器).md and Selector(标签和选择器).md) 章节&lt;/p>
+&lt;p>annotate       Update the annotations on a resource&lt;/p>
+&lt;p>completion     Output shell completion code for the specified shell (bash or zsh)&lt;/p>
+&lt;h2 id="other-commands-其他命令">Other Commands #其他命令&lt;/h2>
+&lt;h3 id="api-resources-显示所支持的所有-api-资源即对象">api-resources #显示所支持的所有 API 资源(即对象)。&lt;/h3>
+&lt;p>显示的信息包括：NAME(对象名),SHORTNAMES(短名称)，APIGROUP(API 组)，NAMESPACED，KIND(所属种类)，VERBS(动作，即该对象可以执行的命令)&lt;/p>
+&lt;p>&lt;strong>kubectl api-resources [OPTIONS]&lt;/strong>
+OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>--namespaced=true|false #显示所有&amp;lt;是 namesapce 的对象|不是 namespace 的对象&amp;gt;&lt;/li>
+&lt;li>-o wide|name #显示更多信息|只显示对象的名称&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;h3 id="api-versions--以组版本的方式在服务器上显示所支持的所有-api-版本">api-versions # 以“组/版本”的方式在服务器上显示所支持的所有 API 版本。&lt;/h3>
+&lt;p>在编写 yaml 文件中的“apiVersion”字段时，可以使用该命令显示出的组/版本&lt;/p>
+&lt;h3 id="config--使用子命令修改-kubeconfig-文件用法详见-config-子命令httpswwwyuquecomgodoc33163778">config # 使用子命令修改 kubeconfig 文件，用法详见 &lt;a href="https://www.yuque.com/go/doc/33163778">config 子命令&lt;/a>&lt;/h3>
+&lt;p>plugin         Runs a command-line plugin&lt;/p>
+&lt;p>version        Print the client and server version information&lt;/p></description></item><item><title>Docs: kubectl 命令行工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description/></item><item><title>Docs: Kubernetes 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;h1 id="telepresence">Telepresence&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/telepresenceio/telepresence">GitHub 项目，telepresenceio/telepresence&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/FhpgIqqbJeeGNjSqzMdP8Q">公众号-马哥 Linux 运维，K8S 运维开发调试神器 Telepresence 实践及踩坑记&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote></description></item><item><title>Docs: Kubernetes 管理案例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E7%AE%A1%E7%90%86%E6%A1%88%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E7%AE%A1%E7%90%86%E6%A1%88%E4%BE%8B/</guid><description>
+&lt;h1 id="资源删除场景">资源删除场景&lt;/h1>
+&lt;h2 id="处于-terminating-状态的对象处理">处于 Terminating 状态的对象处理&lt;/h2>
+&lt;p>使用 &lt;code>kubectl edit&lt;/code> 命令来编辑该对象的配置，删除其中 finalizers 字段及其附属字段，即可.&lt;/p>
+&lt;p>也可以使用 patch 命令来删除 finalizers 字段&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl patch -n NS Resource ResourceName -p &lt;span style="color:#e6db74">&amp;#39;{&amp;#34;metadata&amp;#34;:{&amp;#34;finalizers&amp;#34;:null}}&amp;#39;&lt;/span> -n log
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>或&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl patch -n test configmap mymap &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --type json &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --patch&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#39;[ { &amp;#34;op&amp;#34;: &amp;#34;remove&amp;#34;, &amp;#34;path&amp;#34;: &amp;#34;/metadata/finalizers&amp;#34; } ]&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="资源无法删除">资源无法删除&lt;/h2>
+&lt;p>首先使用命令找到该 ns 还有哪些对象，最后的 NAMESPACE 改为自己想要查找的 ns 名&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>export NAMESPACE&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;test&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl api-resources &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --verbs&lt;span style="color:#f92672">=&lt;/span>list --namespaced -o name | xargs -n &lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> kubectl get --show-kind --ignore-not-found -n NAMESPACE
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>找到对象后，删除，如果删不掉，使用处理 Terminationg 状态对象的方法进行处理&lt;/p></description></item><item><title>Docs: Kubernetes 管理案例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E7%AE%A1%E7%90%86%E6%A1%88%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E7%AE%A1%E7%90%86%E6%A1%88%E4%BE%8B/</guid><description/></item><item><title>Docs: Kubernetes 监控</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E7%9B%91%E6%8E%A7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E7%9B%91%E6%8E%A7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://kubernetes.io/docs/tasks/debug-application-cluster/resource-usage-monitoring">官方文档&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>对于 Kubernetes 集群的监控一般我们需要考虑以下几个方面：&lt;/p>
+&lt;ul>
+&lt;li>Kubernetes 节点的监控：比如节点的 cpu、load、disk、memory 等指标&lt;/li>
+&lt;li>集群系统组件的状态：比如 kubelet、kube-scheduler、kube-controller-manager、kubedns/coredns 等组件的详细运行状态&lt;/li>
+&lt;li>Pod 的监控：比如 Deployment 的状态、资源请求、调度和 API 延迟等数据指标&lt;/li>
+&lt;/ul>
+&lt;p>Kubernetes 中，应用程序监控不依赖于单个监控解决方案，目前主要有以下几种方案：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cboyz6/1616116947769-dcc7cae1-400b-41aa-9f37-55ef43d48d26.png" alt="">&lt;/p>
+&lt;ul>
+&lt;li>**Resource Metrics Pipeline **# 通过 API Server 中的 &lt;strong>Metrics API&lt;/strong> 暴露的一个用于显示集群指标接口，该接口在集群刚部署完成时，并不是默认自带的。需要通过其他方式来启用这个 API
+&lt;ul>
+&lt;li>可以通过 Resource Metrics 或 Full Metrics Pipelines 来收集监控指标数据&lt;/li>
+&lt;li>&lt;strong>cAdvisor&lt;/strong> # cAdvisor 是 Google 开源的容器资源监控和性能分析工具，它是专门为容器而生，本身也支持 Docker 容器，在 Kubernetes 中，我们不需要单独去安装，cAdvisor 作为 kubelet 内置的一部分程序可以直接使用。kubelet 中的子组件 cAdvisor 来收集资源用量信息，并暴露 OpemMetrics 格式的监控指标。&lt;/li>
+&lt;li>&lt;strong>metrics-server&lt;/strong> # metrics-server 是一个集群范围内的资源数据聚合工具，其前身是 Heapster。以 Pod 的形式运行在集群中，通过查询每个节点的 kubelet 以获取 CPU 和内存使用情况。
+&lt;ul>
+&lt;li>项目地址：&lt;a href="https://github.com/kubernetes-sigs/metrics-server">https://github.com/kubernetes-sigs/metrics-server&lt;/a>&lt;/li>
+&lt;li>Heapster # 由于 Heapster 无法通过 Metrics API 的方式提供监控指标，所以被废弃了。1.11 以后的版本中会使用 metrics-server 代替。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>kube-state-metrics 程序&lt;/strong>，用来监听 API Server 以补充 Metrics API 无法提供的集群指标，比如 Deployment、Node、Pod 等等资源的状态
+&lt;ul>
+&lt;li>项目地址：&lt;a href="https://github.com/kubernetes/kube-state-metrics#kube-state-metrics-vs-heapster">https://github.com/kubernetes/kube-state-metrics#kube-state-metrics-vs-heapster&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>各个系统组件暴露的 &lt;strong>&lt;code>**/metrics**&lt;/code>&lt;/strong> 端点&lt;/strong>，可以提供组件自身的指标&lt;/li>
+&lt;/ul>
+&lt;p>Note：以上几种监控方案只是简单提供一个 metrics 数据，并不会存储这些 metrics 数据，所以我们可以使用 Prometheus 来抓取这些数据然后存储。&lt;/p>
+&lt;h1 id="resource-metrics-pipelinemetrics-api--资源指标通道">Resource Metrics Pipeline(Metrics API) # 资源指标通道&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/">官方文档&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>Kubernetes 集群内的 &lt;strong>Resource Metrics Pipeline(资源指标通道)&lt;/strong>，指的是传输各种资源 Metrics(指标) 的 API 接口，该 API 通过 API 聚合功能添加。所以，也称之为 Metrics API，这种 API 是专门用来传输集群的 Metrics(指标) 数据&lt;/p>
+&lt;h2 id="metrics-api指标接口">Metrics API(指标接口)&lt;/h2>
+&lt;p>在 kuberntes 的监控体系中，Metrics API 一般分为两种&lt;/p>
+&lt;ol>
+&lt;li>**Core Metrics(核心指标) **# API 默认为 &lt;code>/apis/metrics.k8s.io&lt;/code>。该 API 一般是通过 metrics-server 等程序 从 Kubelet、cAdvisor 等获取指标。
+&lt;ol>
+&lt;li>核心指标包括 cpu 和 memory 两个&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>**Custom Metrics(自定义指标) **# API 默认为 &lt;code>/apis/custom.metrics.k8s.io&lt;/code>。该 API 一般是通过 Prometheus Adapter 从 adapter 关联的 prometheus 中查询到的数据获取度指标&lt;/li>
+&lt;/ol>
+&lt;p>Note：在 MetricsAPI 注册的每一个 metircs 也可以称为一个 kubernetes 的 resource ，只不过这些资源的 kind 会根据 MetricsAPI 的实现工具来命名(比如 prometheus-adapter 的自定义指标 kind 为 MetricValueList，metrics-server 和 prometheus-adapter 的核心指标 kind 为 NodeMetrics 和 PodMetrics)&lt;/p>
+&lt;p>通过 Metrics API，可以获取指定 node 或者 pod 当前使用的资源量 或者 某些自定义的资源指标值(比如某个 pod 的并发请求数等)。这些 metrics 可以直接被用户访问(比如使用 kubectl top 命令)，或者由集群中的控制器(比如 Horizontal Pod Autoscaler)来使用这些指标进行决策。&lt;/p>
+&lt;p>此 API 不存储 metrics 的值，因此想要获取某个指定节点 10 分钟前的资源使用量是不可能的，除非将每个时刻的 metrics 的值存储在某个地方才可以(比如 prometheus)&lt;/p>
+&lt;p>Note：Metrics API 需要在集群中部署 Metrics 服务(比如 metrics-server、prometheus-adapter 等)。否则 Metrics API 将不可用。&lt;/p>
+&lt;h2 id="实现原理">实现原理&lt;/h2>
+&lt;p>kubectl top 、 k8s dashboard 以及 HPA 等组件使用的数据是一样，对于 Core Metrics 来说，过程如下
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cboyz6/1616116947780-6dccbd72-f014-439e-9abd-4a1be9ae09cd.png" alt="">
+使用 heapster 时：apiserver 会直接将 metric 请求通过 proxy 的方式转发给集群内的 hepaster 服务。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cboyz6/1616116947765-60562da9-19b4-48dd-92f0-6b91dd92cb67.png" alt="">
+而使用 metrics-server 时：apiserver 是通过 /apis/metrics.k8s.io/ 的地址访问 metric
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cboyz6/1616116947787-3f27dbd0-b797-48b4-8de5-fa9919d7bdf5.png" alt="">
+可以发现，heapster 使用的是 proxy 转发，而 metric-server 和普通 pod 都是使用 api/xx 的资源接口，heapster 采用的这种 proxy 方式是有问题的：&lt;/p>
+&lt;ul>
+&lt;li>proxy 只是代理请求，一般用于问题排查，不够稳定，且版本不可控&lt;/li>
+&lt;li>heapster 的接口不能像 apiserver 一样有完整的鉴权以及 client 集成，两边都维护的话代价高，如 generic apiserver&lt;/li>
+&lt;li>pod 的监控数据是核心指标（HPA 调度），应该和 pod 本身拥有同等地位，即 metric 应该作为一种资源存在，如 metrics.k8s.io 的形式，称之为 Metric Api&lt;/li>
+&lt;/ul>
+&lt;p>于是官方从 1.8 版本开始逐步废弃 heapster，并提出了上边 Metric api 的概念，而 metrics-server 就是这种概念下官方的一种实现，用于从 kubelet 获取指标，替换掉之前的 heapster&lt;/p>
+&lt;h2 id="实现-metrics-api-的方式">实现 Metrics API 的方式&lt;/h2>
+&lt;p>当 Metrics API 实现后，可以通过如下命令查看是否成功注册 api，这俩命令可以获取自定义指标和核心指标的指标名。&lt;/p>
+&lt;ul>
+&lt;li>kubectl get &amp;ndash;raw &amp;ldquo;/apis/custom.metrics.k8s.io/v1beta1/&amp;rdquo;&lt;/li>
+&lt;li>kubectl get &amp;ndash;raw &amp;ldquo;/apis/metrics.k8s.io/v1beta1/&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;h3 id="metrics-server">Metrics Server&lt;/h3>
+&lt;p>Metrics Server 是资源使用情况数据的群集范围内的聚合器。使用其他方式部署的 Kubernetes(比如 kubeadm)，可以使用提供的部署文件 &lt;a href="https://github.com/kubernetes-sigs/metrics-server/releases">Components.yaml&lt;/a> 进行部署。&lt;/p>
+&lt;p>Metrics Server 的部署文件中，会通过 Kubernetes 的 API 聚合功能 注册一个名为 metrics.k8s.io 的新 API 作为 Metrics API。&lt;/p>
+&lt;p>部署成功后，会无法获取指标，报错提示 error: metrics not available yet&lt;/p>
+&lt;ul>
+&lt;li>根据&lt;a href="https://github.com/kubernetes-sigs/metrics-server/issues/143#issuecomment-477635264">https://github.com/kubernetes-sigs/metrics-server/issues/143#issuecomment-477635264&lt;/a> 这个 issue，修改 coredns 的的 configmap&lt;/li>
+&lt;li>根据&lt;a href="https://github.com/kubernetes-sigs/metrics-server/issues/143#issuecomment-469480247">https://github.com/kubernetes-sigs/metrics-server/issues/143#issuecomment-469480247&lt;/a>，给 metrics-server 添加运行时参数，因为 metrics-server 会从 kubelet 获取数据，但是 kubelet 需要认证，所以添加参数来跳过认证。&lt;/li>
+&lt;/ul>
+&lt;p>Note：Metrics Server 只能实现核心指标的 API，想要使用自定义指标的 API，可以参考下文的 prometheus-adpter&lt;/p>
+&lt;p>metrics-server 的部署文件在这个网址中：&lt;a href="https://github.com/kubernetes/kubernetes/tree/master/cluster/addons/metrics-server">https://github.com/kubernetes/kubernetes/tree/master/cluster/addons/metrics-server&lt;/a>&lt;/p>
+&lt;h3 id="prometheus-adapter">prometheus-adapter&lt;/h3>
+&lt;p>详见：&lt;a href="https://www.yuque.com/go/doc/33146377">Prometheus-adapter 章节&lt;/a>&lt;/p>
+&lt;h1 id="kube-state-metrics">kube-state-metrics&lt;/h1>
+&lt;p>详见 [kube-state-metrics](✏IT 学习笔记/☁️10.云原生/2.3.Kubernetes%20 容器编排系统/Kubernetes%20 管理/Kubernetes%20 监控/kube-state-metrics.md 监控/kube-state-metrics.md)&lt;/p>
+&lt;h1 id="系统组件指标">系统组件指标&lt;/h1>
+&lt;p>详见 [Kubernetes 系统组件指标](✏IT 学习笔记/☁️10.云原生/2.3.Kubernetes%20 容器编排系统/Kubernetes%20 管理/Kubernetes%20 监控/Kubernetes%20 系统组件指标.md 监控/Kubernetes 系统组件指标.md)&lt;/p></description></item><item><title>Docs: Kubernetes 监控</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E7%9B%91%E6%8E%A7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E7%9B%91%E6%8E%A7/</guid><description/></item><item><title>Docs: Kubernetes 日志</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E6%97%A5%E5%BF%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E6%97%A5%E5%BF%97/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/cluster-administration/logging/">官方文档,概念-集群管理-日志架构&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>集群级日志架构需要一个单独的后端来存储、分析和查询日志。Kubernetes 不提供日志数据的原生存储解决方案。相反，有许多与 Kubernetes 集成的日志记录解决方案。&lt;/p>
+&lt;h1 id="kubernetes-日志管理机制">Kubernetes 日志管理机制&lt;/h1>
+&lt;p>在 Kubernetes 中日志也主要有两大类：&lt;/p>
+&lt;ul>
+&lt;li>应用 Pod 日志；&lt;/li>
+&lt;li>Kuberntes 集群组件日志；&lt;/li>
+&lt;/ul>
+&lt;h2 id="应用-pod-日志">应用 Pod 日志&lt;/h2>
+&lt;p>Kubernetes Pod 的日志管理是基于 Docker 引擎的，Kubernetes 并不管理日志的轮转策略，日志的存储都是基于 Docker 的日志管理策略。k8s 集群调度的基本单位就是 Pod，而 Pod 是一组容器，所以 k8s 日志管理基于 Docker 引擎这一说法也就不难理解了，最终日志还是要落到一个个容器上面。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dstb2v/1616116985979-e135fbea-a7b9-4da3-81ab-ae6e56dc742b.png" alt="">&lt;/p>
+&lt;p>假设 Docker 日志驱动为 json-file，那么在 k8s 每个节点上，kubelet 会为每个容器的日志创建一个软链接，软连接存储路径为：/var/log/containers/，软连接会链接到 /var/log/pods/ 目录下相应 pod 目录的容器日志，被链接的日志文件也是软链接，最终链接到 Docker 容器引擎的日志存储目录：/var/lib/docker/container 下相应容器的日志。另外这些软链接文件名称含有 k8s 相关信息，比如：Pod id，名字空间，容器 ID 等信息，这就为日志收集提供了很大的便利。&lt;/p>
+&lt;p>举例：我们跟踪一个容器日志文件，证明上述的说明，跟踪一个 kong Pod 日志，Pod 副本数为 1&lt;/p>
+&lt;p>/var/log/containers/kong-kong-d889cf995-2ntwz_kong_kong-432e47df36d0992a3a8d20ef6912112615ffeb30e6a95c484d15614302f8db03.log&lt;/p>
+&lt;p>-&amp;mdash;&amp;mdash;&amp;gt;&lt;/p>
+&lt;p>/var/log/pods/kong_kong-kong-d889cf995-2ntwz_a6377053-9ca3-48f9-9f73-49856908b94a/kong/0.log&lt;/p>
+&lt;p>-&amp;mdash;&amp;mdash;&amp;gt;&lt;/p>
+&lt;p>/var/lib/docker/containers/432e47df36d0992a3a8d20ef6912112615ffeb30e6a95c484d15614302f8db03/432e47df36d0992a3a8d20ef6912112615ffeb30e6a95c484d15614302f8db03-json.log&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dstb2v/1616116985855-728179e1-7d6a-48da-a79e-d0e4c15be782.png" alt="">&lt;/p>
+&lt;h2 id="kuberntes-集群组件日志">Kuberntes 集群组件日志&lt;/h2>
+&lt;p>Kuberntes 集群组件日志分为两类：&lt;/p>
+&lt;ul>
+&lt;li>运行在容器中的 Kubernetes scheduler 和 kube-proxy。&lt;/li>
+&lt;li>未运行在容器中的 kubelet 和容器 runtime，比如 Docker。&lt;/li>
+&lt;/ul>
+&lt;p>在使用 systemd 机制的服务器上，kubelet 和容器 runtime 写入日志到 journald。如果没有 systemd，他们写入日志到 /var/log 目录的 .log 文件。容器中的系统组件通常将日志写到 /var/log 目录，在 kubeadm 安装的集群中它们以静态 Pod 的形式运行在集群中，因此日志一般在 /var/log/pods 目录下。&lt;/p>
+&lt;h1 id="kubernetes-集群日志收集方案">Kubernetes 集群日志收集方案&lt;/h1>
+&lt;p>Kubernetes 本身并未提供集群日志收集方案，k8s 官方文档给了三种日志收集的建议方案：&lt;/p>
+&lt;ul>
+&lt;li>使用运行在每个节点上的节点级的日志代理&lt;/li>
+&lt;li>在应用程序的 pod 中包含专门记录日志 sidecar 容器&lt;/li>
+&lt;li>应用程序直接将日志传输到日志平台&lt;/li>
+&lt;/ul>
+&lt;h2 id="节点级日志代理方案">节点级日志代理方案&lt;/h2>
+&lt;p>从前面的介绍我们已经了解到，k8s 每个节点都将容器日志统一存储到了 /var/log/containers/ 目录下，因此可以在每个节点安装一个日志代理，将该目录下的日志实时传输到日志存储平台。&lt;/p>
+&lt;p>由于需要每个节点运行一个日志代理，因此日志代理推荐以 DaemonSet 的方式运行在每个节点。官方推荐的日志代理是 fluentd，当然也可以使用其他日志代理，比如 filebeat，logstash 等。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dstb2v/1616116985903-131ba156-b0a4-448f-a2f0-474461f0d060.png" alt="">&lt;/p>
+&lt;h2 id="sidecar-容器方案">sidecar 容器方案&lt;/h2>
+&lt;p>有两种使用 sidecar 容器的方式：&lt;/p>
+&lt;ul>
+&lt;li>sidecar 容器重定向日志流&lt;/li>
+&lt;li>sidecar 容器作为日志代理&lt;/li>
+&lt;/ul>
+&lt;h3 id="sidecar-容器重定向日志流">sidecar 容器重定向日志流&lt;/h3>
+&lt;p>这种方式基于节点级日志代理方案，sidecar 容器和应用容器在同一个 Pod 运行，这个容器的作用就是读取应用容器的日志文件，然后将读取的日志内容重定向到 stdout 和 stderr，然后通过节点级日志代理统一收集。这种方式不推荐使用，缺点就是日志重复存储了，导致磁盘使用会成倍增加。比如应用容器的日志本身打到文件存储了一份，sidecar 容器重定向又存储了一份（存储到了 /var/lib/docker/containers/ 目录下）。这种方式的应用场景是应用本身不支持将日志打到 stdout 和 stderr，所以才需要 sidecar 容器重定向下。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dstb2v/1616116985876-0caf78da-d1b0-481d-b01a-7889a5a39e42.png" alt="">&lt;/p>
+&lt;h3 id="sidecar-容器作为日志代理">sidecar 容器作为日志代理&lt;/h3>
+&lt;p>这种方式不需要节点级日志代理，和应用容器在一起的 sidecar 容器直接作为日志代理方式运行在 Pod 中，sidecar 容器读取应用容器的日志，然后直接实时传输到日志存储平台。很显然这种方式也存在一个缺点，就是每个应用 Pod 都需要有个 sidecar 容器作为日志代理，而日志代理对系统 CPU、和内存都有一定的消耗，在节点 Pod 数很多的时候这个资源消耗其实是不小的。另外还有个问题就是在这种方式下由于应用容器日志不直接打到 stdout 和 stderr，所以是无法使用 kubectl logs 命令查看 Pod 中容器日志。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dstb2v/1616116985873-cb51bd59-c44d-4460-aa4e-35d6507e4fff.png" alt="">&lt;/p>
+&lt;h2 id="应用程序直接将日志传输到日志平台">应用程序直接将日志传输到日志平台&lt;/h2>
+&lt;p>这种方式就是应用程序本身直接将日志打到统一的日志收集平台，比如 Java 应用可以配置日志的 appender，打到不同的地方，很显然这种方式对应用程序有一定的侵入性，而且还要保证日志系统的健壮性，从这个角度看应用和日志系统还有一定的耦合性，所以个人不是很推荐这种方式。&lt;/p>
+&lt;p>总结：综合对比上述三种日志收集方案优缺点，更推荐使用节点级日志代理方案，这种方式对应用没有侵入性，而且对系统资源没有额外的消耗，也不影响 kubelet 工具查看 Pod 容器日志。&lt;/p></description></item><item><title>Docs: Kubernetes 日志</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E6%97%A5%E5%BF%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubernetes-%E6%97%A5%E5%BF%97/</guid><description/></item><item><title>Docs: Quota(配额)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/quota%E9%85%8D%E9%A2%9D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/quota%E9%85%8D%E9%A2%9D/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/policy/limit-range/">官方文档,概念-策略-LimitRange&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/policy/resource-quotas/">官方文档,概念-策略-ResourceQuotas&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="namespace-中的资源配额">namespace 中的资源配额&lt;/h1>
+&lt;p>官方文档：&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/">https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/&lt;/a>&lt;/p>
+&lt;p>当多个团队或者用户共用同一个集群的时候难免会有资源竞争的情况发生，这时候就需要对不同团队或用户的资源使用配额做出限制。比如，不同团队使用不同的 namespace，然后给该 namespace 进行资源限制即可&lt;/p>
+&lt;p>目前有两种 k8s 对象分配管理相关的控制策略&lt;/p>
+&lt;h2 id="limitrange限制范围">LimitRange(限制范围)&lt;/h2>
+&lt;p>设定 pod 等对象的默认资源消耗以及可以消耗的资源范围&lt;/p>
+&lt;p>官方文档：&lt;/p>
+&lt;ul>
+&lt;li>概念：&lt;a href="https://kubernetes.io/docs/concepts/policy/limit-range/">https://kubernetes.io/docs/concepts/policy/limit-range/&lt;/a>&lt;/li>
+&lt;li>用法：
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/cpu-constraint-namespace/">https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/cpu-constraint-namespace/&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/memory-constraint-namespace/">https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/memory-constraint-namespace/&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/cpu-default-namespace/">https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/cpu-default-namespace/&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/memory-default-namespace/">https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/memory-default-namespace/&lt;/a>&lt;/li>
+&lt;li>&amp;hellip;..等等&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="resourcequota资源配额">ResourceQuota(资源配额)&lt;/h2>
+&lt;p>基于 namespace，限制该 namesapce 下的总体资源的创建和消耗&lt;/p>
+&lt;p>官方文档：&lt;/p>
+&lt;ul>
+&lt;li>概念：&lt;a href="https://kubernetes.io/docs/concepts/policy/resource-quotas/">https://kubernetes.io/docs/concepts/policy/resource-quotas/&lt;/a>&lt;/li>
+&lt;li>用法：
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/">https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-memory-cpu-namespace/&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-pod-namespace/">https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/quota-pod-namespace/&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/quota-api-object/">https://kubernetes.io/docs/tasks/administer-cluster/quota-api-object/&lt;/a> #为指定的 API 对象设置 resourceQuota&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>资源配额分为三种类型：&lt;/p>
+&lt;ul>
+&lt;li>计算资源配额&lt;/li>
+&lt;li>存储资源配额&lt;/li>
+&lt;li>对象数量配额&lt;/li>
+&lt;/ul>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;ul>
+&lt;li>仅设置 ResourceQuota 时，如果不再 pod 上设置资源的需求和限制，则无法成功创建 pod，需要配合 LimitRange 设置 pod 的默认需求和限制，才可成功创建 pod&lt;/li>
+&lt;li>两种控制策略的作用范围都是对于某一 namespace
+&lt;ul>
+&lt;li>ResourceQuota 用来限制 namespace 中所有的 Pod 占用的总的资源 request 和 limit&lt;/li>
+&lt;li>LimitRange 是用来设置 namespace 中 Pod 的默认的资源 request 和 limit 值，还有，Pod 的可用资源的 request 和 limit 值的最大与最小值。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="简单的应用示例">简单的应用示例&lt;/h1>
+&lt;p>Note：polinux/stress 这是一个非常好用的压测容器，可以对容器指定其所使用的内存和 cpu 等资源的大小。当创建完资源配合等资源限制的对象后，可以通过该容器来测试资源限制是否生效。&lt;/p>
+&lt;h2 id="配置计算资源配额">配置计算资源配额&lt;/h2>
+&lt;p>为 test 名称空间分配了如下配合，最多能建立 2 个 pod，最多 request 的 cpu 数量为 2 个，内存为 10G，最多 limit 的 cpu 数量为 4 个，内存为 20G&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">ResourceQuota&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">compute-resources&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hard&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">pods&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">requests.cpu&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">requests.memory&lt;/span>: &lt;span style="color:#ae81ff">10Gi&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">limits.cpu&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;4&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">limits.memory&lt;/span>: &lt;span style="color:#ae81ff">20Gi&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="配置-api-对象数量限制">配置 API 对象数量限制&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">ResourceQuota&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">object-counts&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hard&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">configmaps&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">persistentvolumeclaims&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;4&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">replicationcontrollers&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">secrets&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">services&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">services.loadbalancers&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="配置-cpu-和内存-limitrange">配置 CPU 和内存 LimitRange&lt;/h2>
+&lt;p>test 名称空间下的 pod 启动后，默认 request 的 cpu 为 0.5，内存为 256M，默认 limit 的 cpu 为 1，内存为 512M&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">LimitRange&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">limit-range&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">limits&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">default&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">memory&lt;/span>: &lt;span style="color:#ae81ff">512Mi&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">cpu&lt;/span>: &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">defaultRequest&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">memory&lt;/span>: &lt;span style="color:#ae81ff">256Mi&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">cpu&lt;/span>: &lt;span style="color:#ae81ff">0.5&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">Container&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Note:&lt;/p>
+&lt;ul>
+&lt;li>default 即 limit 的值&lt;/li>
+&lt;li>defaultRequest 即 request 的值&lt;/li>
+&lt;/ul>
+&lt;p>在 limits 字段下还有其他的可用字段如下：&lt;/p>
+&lt;ul>
+&lt;li>max 代表 limit 的最大值&lt;/li>
+&lt;li>min 代表 request 的最小值&lt;/li>
+&lt;li>maxLimitRequestRatio 代表 limit / request 的最大值。由于节点是根据 pod request 调度资源，可以做到节点超卖，maxLimitRequestRatio 代表 pod 最大超卖比例。&lt;/li>
+&lt;/ul></description></item><item><title>Docs: 好用的镜像-有特殊功能</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/%E5%A5%BD%E7%94%A8%E7%9A%84%E9%95%9C%E5%83%8F-%E6%9C%89%E7%89%B9%E6%AE%8A%E5%8A%9F%E8%83%BD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/%E5%A5%BD%E7%94%A8%E7%9A%84%E9%95%9C%E5%83%8F-%E6%9C%89%E7%89%B9%E6%AE%8A%E5%8A%9F%E8%83%BD/</guid><description>
+&lt;p>polinux/stress&lt;/p>
+&lt;p>一个非常好用的压测容器，可以对容器指定其所使用的内存和 cpu 等资源的大小。当创建完资源配合等资源限制的对象后，可以通过该容器来测试资源限制是否生效。&lt;/p>
+&lt;p>containous/whoami&lt;/p>
+&lt;p>一个 go 语言编写的 web 服务器，当请求该容器时，可以输出操作系统信息和 HTTP 请求等，信息如下所示：包括当前容器的 ip 地址，容器的主机名等等&lt;/p>
+&lt;pre>&lt;code>Hostname: whoami-bd6b677dc-7tq7h
+IP: 127.0.0.1
+IP: 10.252.131.122
+RemoteAddr: 127.0.0.1:35358
+GET /notls HTTP/1.1
+Host: 10.10.9.51:30272
+User-Agent: curl/7.29.0
+Accept: */*
+Accept-Encoding: gzip
+X-Forwarded-For: 10.10.9.51
+X-Forwarded-Host: 10.10.9.51:30272
+X-Forwarded-Port: 30272
+X-Forwarded-Proto: http
+X-Forwarded-Server: traefik-6fbbb464b5-mcq99
+X-Real-Ip: 10.10.9.51
+&lt;/code>&lt;/pre>
+&lt;!-- raw HTML omitted -->
+&lt;p>该容器会持续监听指定的 configmap 和 secret 资源，当 configmap 或 secret 对象被创建或更新时，会将该对象内的数据，转换成文件，并保存在容器内指定的路径中。&lt;/p>
+&lt;p>这个&lt;strong>镜像常常作为 sidecar 容器使用&lt;/strong>，与主容器共享相同目录，这样，主程序就可以实时读取到新创建的 configmap 或 secret&lt;/p>
+&lt;p>比如，该容器可以与 Grafana 一起使用，用来为 Grafana 实时提供 provisioning 功能的 dashboard。kiwigrid/k8s-sidecar 容器与 Grafana 容器 首先挂载相同的目录。此时，我们可以为每个 dashboard 都创建一个 configmap，然后带上 kiwigrid/k8s-sidecar 容器所需的标签。这样每当创建或修改一个仪表盘时， kiwigrid/k8s-sidecar 容器就会将 configmap 变为文件，并保存到与 Grafana 相同挂载的目录，此时，Grafana 的 provisioning 功能定时扫描该目录时，就会加载到相关的仪表盘&lt;/p></description></item><item><title>Docs: 性能优化 与 故障处理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96-%E4%B8%8E-%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96-%E4%B8%8E-%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</guid><description>
+&lt;h2 id="为什么-pod-突然就不见了">为什么 Pod 突然就不见了？&lt;/h2>
+&lt;p>&lt;a href="https://mp.weixin.qq.com/s/bbp3OoEF0_Cc1obFBsROSg">https://mp.weixin.qq.com/s/bbp3OoEF0_Cc1obFBsROSg&lt;/a>&lt;/p>
+&lt;h1 id="创建测试容器">创建测试容器&lt;/h1>
+&lt;h2 id="web">web&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Service&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">app&lt;/span>: &lt;span style="color:#ae81ff">myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ipFamilyPolicy&lt;/span>: &lt;span style="color:#ae81ff">PreferDualStack&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ipFamilies&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">IPv6&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">IPv4&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ports&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">http&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">80&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">targetPort&lt;/span>: &lt;span style="color:#ae81ff">80&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">nodePort&lt;/span>: &lt;span style="color:#ae81ff">30080&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">NodePort&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">app&lt;/span>: &lt;span style="color:#ae81ff">myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>---
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">apps/v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Deployment&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">app&lt;/span>: &lt;span style="color:#ae81ff">myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">replicas&lt;/span>: &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">matchLabels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">app&lt;/span>: &lt;span style="color:#ae81ff">myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">template&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">app&lt;/span>: &lt;span style="color:#ae81ff">myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">myapp-container&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># image: lchdzh/network-test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">containous/whoami&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tty&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>---
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">networking.k8s.io/v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Ingress&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">annotations&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">nginx.ingress.kubernetes.io/rewrite-target&lt;/span>: &lt;span style="color:#ae81ff">/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ingressClassName&lt;/span>: &lt;span style="color:#ae81ff">nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">rules&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">host&lt;/span>: &lt;span style="color:#ae81ff">myapp.example.com&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">http&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">paths&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">backend&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">service&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">number&lt;/span>: &lt;span style="color:#ae81ff">80&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/myapp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">pathType&lt;/span>: &lt;span style="color:#ae81ff">ImplementationSpecific&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="debug">debug&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">debug&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">app&lt;/span>: &lt;span style="color:#ae81ff">debug&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">debug-container&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">lchdzh/k8s-debug:v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tty&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: 性能优化 与 故障处理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96-%E4%B8%8E-%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96-%E4%B8%8E-%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</guid><description/></item><item><title>Docs: 重大变化</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/%E9%87%8D%E5%A4%A7%E5%8F%98%E5%8C%96/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/%E9%87%8D%E5%A4%A7%E5%8F%98%E5%8C%96/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/kubernetes/kubernetes/tree/master/CHANGELOG">GitHub,kubernetes/kubernetes-CHANGELOG&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>该文档记录 Kubernetes 历史上的重大事件，以及比较重要的版本更新信息。
+&lt;a href="https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG/CHANGELOG-1.16.md">1.16 更新日志&lt;/a>
+&lt;a href="https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG/CHANGELOG-1.19.md">1.19 更新日志&lt;/a>
+1.24&lt;/p>
+&lt;ul>
+&lt;li>Dockershim 从 kubelet 中删除&lt;/li>
+&lt;/ul></description></item><item><title>Docs: 重大变化</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/%E9%87%8D%E5%A4%A7%E5%8F%98%E5%8C%96/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/%E9%87%8D%E5%A4%A7%E5%8F%98%E5%8C%96/</guid><description/></item></channel></rss>

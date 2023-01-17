@@ -1,0 +1,456 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 2.2.实现容器的工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/</link><description>Recent content in 2.2.实现容器的工具 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 2.2.实现容器的工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;h1 id="oci-runtime-规范的实现">OCI Runtime 规范的实现&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/NPxLLhRkpNdTgVcKQSLcFA">公众号-k8s 技术圈，Containerd 深度剖析-runtime 篇&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>当人们想到容器运行时，可能会想到一连串的相关概念；runc、runv、lxc、lmctfy、Docker（containerd）、rkt、cri-o。每一个都是基于不同的场景而实现的，均实现了不同的功能。如 containerd 和 cri-o，实际均可使用 runc 来运行容器，但其实现了如镜像管理、容器 API 等功能，可以将这些看作是比 runc 具备的更高级的功能。
+可以发现，容器运行时是相当复杂的。每个运行时都涵盖了从低级到高级的不同部分，如下图所示。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ctvy4o/1653965809357-01c7d7f1-81d0-49f1-beaa-15bd63e7acd6.png" alt="">
+根据功能范围划分，将其分为 &lt;strong>Low level Container Runtime(低级容器运行时)&lt;/strong> 和 &lt;strong>High level Container Runtime(高级容器运行时)&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>低级容器运行时 # 只关注容器的本身运行&lt;/li>
+&lt;li>高级容器运行时 # 支持更多高级功能的运行时，如镜像管理及一些 gRPC/Web APIs，通常被称为&lt;/li>
+&lt;/ul>
+&lt;p>需要注意的是，低级运行时和高级运行时有本质区别，各自解决的问题也不同。&lt;/p>
+&lt;h2 id="低级运行时">低级运行时&lt;/h2>
+&lt;p>低级运行时的功能有限，通常执行运行容器的低级任务。大多数开发者日常工作中不会使用到。其一般指按照 OCI 规范、能够接收可运行 roofs 文件系统和配置文件并运行隔离进程的实现。这种运行时只负责将进程运行在相对隔离的资源空间里，不提供存储实现和网络实现。但是其他实现可以在系统中预设好相关资源，低级容器运行时可通过 config.json 声明加载对应资源。低级运行时的特点是底层、轻量，限制也很一目了然：&lt;/p>
+&lt;ul>
+&lt;li>只认识 rootfs 和 config.json，没有其他镜像能力&lt;/li>
+&lt;li>不提供网络实现&lt;/li>
+&lt;li>不提供持久实现&lt;/li>
+&lt;li>无法跨平台等&lt;/li>
+&lt;/ul>
+&lt;h3 id="runc">RunC&lt;/h3>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/opencontainers/runc">GitHub 项目，opencontainers/runc&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>runc 是一个 CLI 工具，用于根据 OCI 规范生成和运行容器。&lt;/p>
+&lt;h3 id="youki">youki&lt;/h3>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/containers/youki">GitHub 项目，containers/youki&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>使用 Rust 语言写的，类似于 Runc 的容器运行时，&lt;/p>
+&lt;h3 id="sysbox">Sysbox&lt;/h3>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/nestybox/sysbox">GitHub 项目，nestybox/sysbox&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Sysbox 是一个新型的 OCI 容器运行时，对标 runc。相比于 runc，Sysbox 在以下两个方面做了增强：&lt;/p>
+&lt;ul>
+&lt;li>增强容器隔离性：Sysbox 为所有容器开启 user namespace（即容器中的 root 用户映射为主机中的普通用户），在容器中隐藏宿主机的信息，锁定容器的初始挂载，等等。&lt;/li>
+&lt;li>容器不仅可以运行普通进程，还可以运行 systemd、Docker、K8s、K3s 等系统级软件，一定程度上可以替换虚拟机。&lt;/li>
+&lt;/ul>
+&lt;p>最初 Sysbox 只支持 Docker，但最新版本 v0.4.0 已支持直接作为 Kubernetes 的 CRI 运行时。&lt;/p>
+&lt;h3 id="kata-container">Kata Container&lt;/h3>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/kata-containers/kata-containers">GitHub 项目，kata-containers/kata-containers&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Kata Containers 是一个开源项目和社区，致力于构建轻量级虚拟机 (vm) 的标准实现，该虚拟机感觉和性能类似于容器，但提供 vm 的工作负载隔离和安全性优势。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ctvy4o/1616122531941-6b13921a-78c5-45a1-9a38-6695b517bca8.png" alt="">&lt;/p>
+&lt;h2 id="高级运行时">高级运行时&lt;/h2>
+&lt;p>高级运行时负责容器镜像的传输和管理，解压镜像，并传递给低级运行时来运行容器。通常情况下，高级运行时提供一个守护程序和一个 API，远程应用程序可以使用它来运行容器并监控它们，它们位于低层运行时或其他高级运行时之上。&lt;/p>
+&lt;p>高层运行时也会提供一些看似很低级的功能。例如，管理网络命名空间，并允许容器加入另一个容器的网络命名空间。
+这里有一个类似逻辑分层图，可以帮助理解这些组件是如何结合在一起工作的。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ctvy4o/1653966607306-f97afdfd-66fd-4d4d-ab04-364b1b60f27e.png" alt="">&lt;/p>
+&lt;h3 id="docker">Docker&lt;/h3>
+&lt;h3 id="containerd">Containerd&lt;/h3></description></item><item><title>Docs: Containerd</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/containerd/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/containerd/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://containerd.io/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/containerd/containerd">GitHub 项目，containerd/containerd&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/containerd/containerd/blob/main/docs/PLUGINS.md">GitHub 项目文档，containerd/docs/PLUGINS.md&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://fuckcloudnative.io/posts/getting-started-with-containerd/">云原生实验室，Containerd 使用教程&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://blog.frognew.com/tags/containerd.html">架构小白，Containerd 标签&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/Dr6851XnkNLVFHaj1b13RQ">公众号-云原生实验室，容器中的 Shim 到底是个什么鬼&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Containerd 是行业标准的容器运行时，着重于简单性，健壮性和可移植性。&lt;/p>
+&lt;h2 id="containerd-的前世今生">Containerd 的前世今生&lt;/h2>
+&lt;p>很久以前，Docker 强势崛起，以“镜像”这个大招席卷全球，对其他容器技术进行致命的降维打击，使其毫无招架之力，就连 Google 也不例外。Google 为了不被拍死在沙滩上，被迫拉下脸面（当然，跪舔是不可能的），希望 Docker 公司和自己联合推进一个开源的容器运行时作为 Docker 的核心依赖，不然就走着瞧。Docker 公司觉得自己的智商被侮辱了，走着瞧就走着瞧，谁怕谁啊！&lt;/p>
+&lt;p>很明显，Docker 公司的这个决策断送了自己的大好前程，造成了今天的悲剧。&lt;/p>
+&lt;p>紧接着，Google 联合 Red Hat、IBM 等几位巨佬连哄带骗忽悠 Docker 公司将 &lt;code>libcontainer&lt;/code> 捐给中立的社区（OCI，Open Container Intiative），并改名为 &lt;code>runc&lt;/code>，不留一点 Docker 公司的痕迹~~这还不够，为了彻底扭转 Docker 一家独大的局面，几位大佬又合伙成立了一个基金会叫 &lt;code>CNCF&lt;/code>（Cloud Native Computing Fundation），这个名字想必大家都很熟了，我就不详细介绍了。CNCF 的目标很明确，既然在当前的维度上干不过 Docker，干脆往上爬，升级到大规模容器编排的维度，以此来击败 Docker。Docker 公司当然不甘示弱，搬出了 Swarm 和 Kubernetes 进行 PK，最后的结局大家都知道了，Swarm 战败。然后 Docker 公司耍了个小聪明，将自己的核心依赖 &lt;code>Containerd&lt;/code> 捐给了 CNCF，以此来标榜 Docker 是一个 PaaS 平台。&lt;/p>
+&lt;p>很明显，这个小聪明又大大加速了自己的灭亡。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ox2yd7/1616122481377-1a01b919-efe6-450a-a439-5493a17e6d70.png" alt="">
+巨佬们心想，想当初想和你合作搞个中立的核心运行时，你死要面子活受罪，就是不同意，好家伙，现在自己搞了一个，还捐出来了，马老师，发生甚莫事了？&lt;/p>
+&lt;p>这好吗？&lt;/p>
+&lt;p>这不好&lt;/p>
+&lt;p>也罢，这倒省事了，我就直接拿 &lt;code>Containerd&lt;/code> 来做文章吧。首先呢，为了表示 Kubernetes 的中立性，当然要搞个标准化的容器运行时接口，只要适配了这个接口的容器运行时，都可以和我一起玩耍哦，第一个支持这个接口的当然就是 &lt;code>Containerd&lt;/code> 啦。至于这个接口的名字，大家应该都知道了，它叫 CRI（Container Runntime Interface）。这样还不行，为了蛊惑 Docker 公司，Kubernetes 暂时先委屈自己，专门在自己的组件中集成了一个 &lt;code>shim&lt;/code>（你可以理解为垫片），用来将 CRI 的调用翻译成 Docker 的 API，让 Docker 也能和自己愉快地玩耍，温水煮青蛙，养肥了再杀。。。&lt;/p>
+&lt;p>就这样，Kubernetes 一边假装和 Docker 愉快玩耍，一边背地里不断优化 Containerd 的健壮性以及和 CRI 对接的丝滑性。现在 Containerd 的翅膀已经完全硬了，是时候卸下我的伪装，和 Docker say bye bye 了。后面的事情大家也都知道了~~&lt;/p>
+&lt;p>Docker 这门技术成功了，Docker 这个公司却失败了。&lt;/p>
+&lt;h2 id="containerd-架构">&lt;strong>Containerd 架构&lt;/strong>&lt;/h2>
+&lt;p>时至今日，Containerd 已经变成一个工业级的容器运行时了，连口号都有了：超简单！超健壮！可移植性超强！&lt;/p>
+&lt;p>当然，为了让 Docker 以为自己不会抢饭碗，Containerd 声称自己的设计目的主要是为了嵌入到一个更大的系统中（暗指 Kubernetes），而不是直接由开发人员或终端用户使用。&lt;/p>
+&lt;p>事实上呢，Containerd 现在基本上啥都能干了，开发人员或者终端用户可以在宿主机中管理完整的容器生命周期，包括容器镜像的传输和存储、容器的执行和管理、存储和网络等。大家可以考虑学起来了。&lt;/p>
+&lt;p>先来看看 Containerd 的架构：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ox2yd7/1616122481393-e3bb2fce-f18d-40ec-ac46-4c6d6a664cd6.png" alt="">
+可以看到 Containerd 仍然采用标准的 C/S 架构，服务端通过 &lt;code>GRPC&lt;/code> 协议提供稳定的 API，客户端通过调用服务端的 API 进行高级的操作。&lt;/p>
+&lt;p>为了解耦，Containerd 将不同的职责划分给不同的组件，每个组件就相当于一个&lt;strong>子系统&lt;/strong>（subsystem）。连接不同子系统的组件被称为模块。&lt;/p>
+&lt;p>总体上 Containerd 被划分为两个子系统：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Bundle&lt;/strong> : 在 Containerd 中，&lt;code>Bundle&lt;/code> 包含了配置、元数据和根文件系统数据，你可以理解为容器的文件系统。而 &lt;strong>Bundle 子系统&lt;/strong>允许用户从镜像中提取和打包 Bundles。&lt;/li>
+&lt;li>&lt;strong>Runtime&lt;/strong> : Runtime 子系统用来执行 Bundles，比如创建容器。&lt;/li>
+&lt;/ul>
+&lt;p>其中，每一个子系统的行为都由一个或多个&lt;strong>模块&lt;/strong>协作完成（架构图中的 &lt;code>Core&lt;/code> 部分）。每一种类型的模块都以 **Plugin(插件) **的形式集成到 Containerd 中，而且插件之间是相互依赖的。例如，上图中的每一个长虚线的方框都表示一种类型的插件，包括 &lt;code>Service Plugin&lt;/code>、&lt;code>Metadata Plugin&lt;/code>、&lt;code>GC Plugin&lt;/code>、&lt;code>Runtime Plugin&lt;/code> 等，其中 &lt;code>Service Plugin&lt;/code> 又会依赖 Metadata Plugin、GC Plugin 和 Runtime Plugin。每一个小方框都表示一个细分的插件，例如 &lt;code>Metadata Plugin&lt;/code> 依赖 Containers Plugin、Content Plugin 等。总之，万物皆插件，插件就是模块，模块就是插件。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ox2yd7/1616122481388-5272b6c1-efb6-49f4-a180-5425bef8ed64.png" alt="">
+这里介绍几个常用的插件：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Content Plugin&lt;/strong> : 提供对镜像中可寻址内容的访问，所有不可变的内容都被存储在这里。&lt;/li>
+&lt;li>&lt;strong>Snapshot Plugin&lt;/strong> : 用来管理容器镜像的文件系统快照。镜像中的每一个 layer 都会被解压成文件系统快照，类似于 Docker 中的 &lt;code>graphdriver&lt;/code>。&lt;/li>
+&lt;li>&lt;strong>Metrics&lt;/strong> : 暴露各个组件的监控指标。&lt;/li>
+&lt;/ul>
+&lt;p>从总体来看，Containerd 被分为三个大块：&lt;code>Storage&lt;/code>、&lt;code>Metadata&lt;/code> 和 &lt;code>Runtime&lt;/code>，可以将上面的架构图提炼一下：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ox2yd7/1616122481410-b77c18a6-2bcd-48be-b676-1b285bf1c862.png" alt="">
+这是使用 &lt;strong>bucketbench[1]&lt;/strong> 对 &lt;code>Docker&lt;/code>、&lt;code>crio&lt;/code> 和 &lt;code>Containerd&lt;/code> 的性能测试结果，包括启动、停止和删除容器，以比较它们所耗的时间：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ox2yd7/1616122481422-8a56805f-3ef0-46a4-be19-a0a5b1eef44f.png" alt="">
+可以看到 Containerd 在各个方面都表现良好，总体性能还是优越于 &lt;code>Docker&lt;/code> 和 &lt;code>crio&lt;/code> 的。&lt;/p>
+&lt;h1 id="containerd-关联文件">Containerd 关联文件&lt;/h1>
+&lt;p>&lt;strong>/etc/containerd/config.toml&lt;/strong> # Containerd 运行时配置文件。该文件可以通过 containerd config default 命令来生成一个默认的配置。
+&lt;strong>/var/lib/containerd/*&lt;/strong> # Root(根) 文件夹。用于保存持久化数据，镜像、元数据 所在路径。包括 Snapshots, Content, Metadata 以及各种插件的数据。每一个插件都有自己单独的目录，Containerd 本身不存储任何数据，它的所有功能都来自于已加载的插件。&lt;/p>
+&lt;ul>
+&lt;li>.**/io.containerd.content.v1.content/* **# 镜像的上下文
+&lt;ul>
+&lt;li>.**/blobs/* **# 镜像文件系统布局中，blobs 目录数据的存放路径&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>./io.containerd.snapshotter.v1.overlayfs/*&lt;/strong> # 镜像的层信息所在目录。&lt;/li>
+&lt;li>/var/lib/containerd 目录下的内容详解，见 [《Containerd Image 章节》](✏IT 学习笔记/☁️10.云原生/2.2.实现容器的工具/Containerd/Containerd%20Image.md Image.md)&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>/run/containerd/*&lt;/strong> # State(状态) 文件夹。用于保存运行时产生的临时数据，也就是容器启动后数据存放目录。包括 sockets、pid、挂载点、运行时状态以及不需要持久化保存的插件数据。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>./io.containerd.runtime.VERSION.ID/*&lt;/strong> # Containerd 运行容器时所使用的 runtime 插件，该目录的名称就是插件的版本和名称。该目录下的目录以名称空间命名。
+&lt;ul>
+&lt;li>&lt;strong>./NAMESPACE/*&lt;/strong> # 指定名称空间下的容器启动后的数据(主要就是符合 OCI 标准的 一组 Bundle 文件)保存路径，其内目录名为 ContainerID。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="目录结构">目录结构&lt;/h2>
+&lt;p>在 /var/lib/containerd 和 /run/containerd 目录下，保存了 Containerd 运行所需的所有数据。Containerd 本身不存储任何数据，所有数据都来源于插件的功能。
+看一下目录下的层次结构就一目了然了：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>? → tree -L &lt;span style="color:#ae81ff">2&lt;/span> /var/lib/containerd/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/containerd/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.content.v1.content
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── blobs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── ingest
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.grpc.v1.cri
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── containers
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── sandboxes
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.metadata.v1.bolt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── meta.db
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.runtime.v1.linux
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── k8s.io
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.runtime.v2.task
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.snapshotter.v1.aufs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── snapshots
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.snapshotter.v1.btrfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.snapshotter.v1.native
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── snapshots
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.snapshotter.v1.overlayfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── metadata.db
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── snapshots
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── tmpmounts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">18&lt;/span> directories, &lt;span style="color:#ae81ff">2&lt;/span> files
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>每个子目录，其实都表示的是一个插件名称。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>? → tree -L &lt;span style="color:#ae81ff">2&lt;/span> /run/containerd/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/containerd/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── containerd.sock
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── containerd.sock.ttrpc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.grpc.v1.cri
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── containers
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── sandboxes
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.runtime.v1.linux
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── k8s.io
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.runtime.v2.task
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── runc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── k8s.io
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">8&lt;/span> directories, &lt;span style="color:#ae81ff">2&lt;/span> files
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="containerd-插件">Containerd 插件&lt;/h1></description></item><item><title>Docs: Containerd</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/containerd/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/containerd/</guid><description/></item><item><title>Docs: Docker</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/docker/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/docker/</guid><description/></item><item><title>Docs: Docker</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/docker/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/docker/</guid><description/></item><item><title>Docs: Podman</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/podman/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/podman/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;p>alias docker=podman&lt;/p>
+&lt;p>podman 与 cri-o 同属 libpod 项目，&lt;a href="https://github.com/containers/podman">https://github.com/containers/podman&lt;/a>&lt;/p>
+&lt;p>项目地址：&lt;a href="https://github.com/containers/libpod">https://github.com/containers/libpod&lt;/a>&lt;/p>
+&lt;h1 id="podman-命令行工具">podman 命令行工具&lt;/h1>
+&lt;p>podman [OPTIONS] COMMAND&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;p>COMMAND&lt;/p>
+&lt;p>attach Attach to a running container&lt;/p>
+&lt;p>build Build an image using instructions from Dockerfiles&lt;/p>
+&lt;p>commit Create new image based on the changed container&lt;/p>
+&lt;p>container Manage Containers&lt;/p>
+&lt;p>cp Copy files/folders between a container and the local filesystem&lt;/p>
+&lt;p>create Create but do not start a container&lt;/p>
+&lt;p>diff Inspect changes on container&amp;rsquo;s file systems&lt;/p>
+&lt;p>events Show podman events&lt;/p>
+&lt;p>exec Run a process in a running container&lt;/p>
+&lt;p>export Export container&amp;rsquo;s filesystem contents as a tar archive&lt;/p>
+&lt;h2 id="generate--生成结构化数据">generate # 生成结构化数据&lt;/h2>
+&lt;p>通过该命令，可以根据已经运行的容器生成 pod 类型的 yaml 文件或者 systemd 类型的 daemon 文件&lt;/p>
+&lt;p>Note：仅可对一个容器执行该命令，如果对俩容器执行命令则会报错：&lt;/p>
+&lt;pre>&lt;code>[root@lichenhao ~]# podman generate systemd generate_test test
+Error: provide only one container name or ID
+&lt;/code>&lt;/pre>
+&lt;p>pod 类型 yaml 生成效果如下：&lt;/p>
+&lt;pre>&lt;code>[root@lichenhao ~]# podman generate kube generate_test
+# Generation of Kubernetes YAML is still under development!
+#
+# Save the output of this file and use kubectl create -f to import
+# it into Kubernetes.
+#
+# Created with podman-1.4.4
+apiVersion: v1
+kind: Pod
+metadata:
+creationTimestamp: &amp;quot;2020-01-21T03:02:52Z&amp;quot;
+labels:
+app: generatetest
+name: generatetest
+spec:
+containers:
+- command:
+- ..... #内容省略
+image: docker.io/lchdzh/network-test:v2.0
+name: generatetest
+resources: {}
+securityContext:
+allowPrivilegeEscalation: true
+capabilities: {}
+privileged: false
+readOnlyRootFilesystem: false
+workingDir: /
+status: {}
+&lt;/code>&lt;/pre>
+&lt;p>systemd 生成效果如下：&lt;/p>
+&lt;pre>&lt;code>[root@lichenhao ~]# podman generate systemd generate_test
+[Unit]
+Description=efa0ab2e648439a516372ecb907f5e506631d033e50978666f032ab5d9ecb788 Podman Container
+[Service]
+Restart=on-failure
+ExecStart=/usr/bin/podman start efa0ab2e648439a516372ecb907f5e506631d033e50978666f032ab5d9ecb788
+ExecStop=/usr/bin/podman stop -t 10 efa0ab2e648439a516372ecb907f5e506631d033e50978666f032ab5d9ecb788
+KillMode=none
+Type=forking
+PIDFile=/var/lib/containers/storage/overlay-containers/efa0ab2e648439a516372ecb907f5e506631d033e50978666f032ab5d9ecb788/userdata/efa0ab2e648439a516372ecb907f5e506631d033e50978666f032ab5d9ecb788.pid
+[Install]
+WantedBy=multi-user.target
+&lt;/code>&lt;/pre>
+&lt;h2 id="healthcheck-manage-healthcheck">healthcheck Manage Healthcheck&lt;/h2>
+&lt;p>help Help about any command&lt;/p>
+&lt;p>history Show history of a specified image&lt;/p>
+&lt;p>image Manage images&lt;/p>
+&lt;p>images List images in local storage&lt;/p>
+&lt;p>import Import a tarball to create a filesystem image&lt;/p>
+&lt;p>info Display podman system information&lt;/p>
+&lt;p>init Initialize one or more containers&lt;/p>
+&lt;p>inspect Display the configuration of a container or image&lt;/p>
+&lt;p>kill Kill one or more running containers with a specific signal&lt;/p>
+&lt;p>load Load an image from container archive&lt;/p>
+&lt;p>login Login to a container registry&lt;/p>
+&lt;p>logout Logout of a container registry&lt;/p>
+&lt;p>logs Fetch the logs of a container&lt;/p>
+&lt;p>mount Mount a working container&amp;rsquo;s root filesystem&lt;/p>
+&lt;p>pause Pause all the processes in one or more containers&lt;/p>
+&lt;p>play Play a pod&lt;/p>
+&lt;p>pod Manage pods&lt;/p>
+&lt;p>port List port mappings or a specific mapping for the container&lt;/p>
+&lt;p>ps List containers&lt;/p>
+&lt;p>pull Pull an image from a registry&lt;/p>
+&lt;p>push Push an image to a specified destination&lt;/p>
+&lt;p>restart Restart one or more containers&lt;/p>
+&lt;p>rm Remove one or more containers&lt;/p>
+&lt;p>rmi Removes one or more images from local storage&lt;/p>
+&lt;p>run Run a command in a new container&lt;/p>
+&lt;p>save Save image to an archive&lt;/p>
+&lt;p>search Search registry for image&lt;/p>
+&lt;p>start Start one or more containers&lt;/p>
+&lt;p>stats Display a live stream of container resource usage statistics&lt;/p>
+&lt;p>stop Stop one or more containers&lt;/p>
+&lt;p>system Manage podman&lt;/p>
+&lt;p>tag Add an additional name to a local image&lt;/p>
+&lt;p>top Display the running processes of a container&lt;/p>
+&lt;p>umount Unmounts working container&amp;rsquo;s root filesystem&lt;/p>
+&lt;p>unpause Unpause the processes in one or more containers&lt;/p>
+&lt;p>unshare Run a command in a modified user namespace&lt;/p>
+&lt;p>version Display the Podman Version Information&lt;/p>
+&lt;p>volume Manage volumes&lt;/p>
+&lt;p>wait Block on one or more containers&lt;/p></description></item><item><title>Docs: 构建 OCI Image</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/">官方文档，使用 Docker 开发-构建镜像-编写 Dockerfile 的最佳实践&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在容器刚刚流行的时候，想要构建一个容器镜像通常只有两种方式：&lt;/p>
+&lt;ul>
+&lt;li>通过对 Container 执行 commit 命令来创建基于该 Container 的 Image&lt;/li>
+&lt;li>通过 Dockerfile 功能来构建 Image&lt;/li>
+&lt;/ul>
+&lt;p>Dockerfile 构建镜像的方式逐渐成为主流甚至标准，但是随着各个项目的去 Docker 化，大家都想消除自身对 Docker 的依赖，这其中包括 Docker 项目的起源 Moby，从&lt;a href="https://github.com/moby/moby/issues/34227">这里(moby/moby 的 issue #34227)&lt;/a>可以略窥 12。但是 Dockerfile 的影响已经深入人心，所以各家一时半会也无法完全舍弃，只能说基于 Dockerfile 形式进行优化。时至今日(2022 年 6 月 3 日)，Dockerfile 依然是最常见最通用的构建镜像的方式，不管构建程序是什么，总归是要通过 Dockerfile 文件的。&lt;/p>
+&lt;h1 id="dockerfile">Dockerfile&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/">官方文档&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.docker.com/engine/reference/builder/">Dockerfile 参考&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Docker 通过读取 &lt;strong>Dockerfile 文件&lt;/strong>中的指令来构建符合 OCI 标准的容器镜像。Dockerfile 这个称呼有多个理解方式，可以是指一个&lt;strong>功能&lt;/strong>，也可以指一个文件的&lt;strong>文件名&lt;/strong>，也可以代指一类文件的&lt;strong>统称。&lt;/strong>&lt;/p>
+&lt;h2 id="dockerfile-功能的工作逻辑">DockerFile 功能的工作逻辑：&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ymn9n3/1616121926992-8640dd4a-029c-487c-9fa2-f20ee1b61b83.png" alt="">&lt;/p>
+&lt;ul>
+&lt;li>找一个专用目录，在目录中放入默认的名为 Dockerfile 的文件，该文件名首字母必须大写
+&lt;ul>
+&lt;li>Dockerfile 文件，类似于一个脚本，使用 docker build 命令创建镜像的时候默认使用名为 Dockerfile 的文件，通过该文件中的各种指令来执行操作。（如果想使用其余名字的文件，则需要使用-f 参数来指明需要使用的 DockerFile 的文件，这时候可以使用名字不为 Dockerfile 的文件）&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>如果该 Image 中需要打包进去很多文件(比如 rpm 包、配置文件等等)，则这些文件必须做好后，放到 Dockerfile 所在的目录中(可以有子目录)。&lt;/li>
+&lt;li>使用 docker build 命令并用指定目录路径，则该命令会自动查找该目录下的名为 Dockerfile 文件并根据其中内容创建 Image，效果如上图所示&lt;/li>
+&lt;/ul>
+&lt;h3 id="具体过程详解如下">具体过程详解如下&lt;/h3>
+&lt;ul>
+&lt;li>首先在当前目录创建一个名为 Dockerfile 的文件，在该文件中写入需要执行的指令&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ll&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#ae81ff">4&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r--. &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">49&lt;/span> Nov &lt;span style="color:#ae81ff">27&lt;/span> 21:02 test
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>FROM ubuntu
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN apt update &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> apt install -y vim
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN apt install -y iproute2
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>使用 docker build -t ubuntu-vi -f test /dockerfile/ 命令创建镜像
+&lt;ul>
+&lt;li>当创建镜像的时候，会使用命令中定义的 PATH 中的默认名为 Dockerfile 文件中的指令来进行自动操作，可以通过-f 选项来选择指定路径下的 Dockerfile 文件（注：命令会从/dockerfile/目录中查找 Dockerfile 文件，然后把/root 目录中的所有文件发送给 Docker daemon 来使用，所以定义创建环境的时候最好使用一个空目录）
+&lt;ul>
+&lt;li>sending(发送)build context(创建环境)to(给)docker daemon(容器守护进程) 17.92KB(这个文件 17.92K)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker build -t ubuntu-vi -f test /dockerfile/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Sending build context to Docker daemon 2.048kB
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>执行文件中 FROM 指令,将 ubuntu 作为基础镜像，IMAGE ID 为 93fd78260bd1&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>Step 1/3 : FROM ubuntu
+---&amp;gt; 93fd78260bd1
+&lt;/code>&lt;/pre>
+&lt;ul>
+&lt;li>基于 93fd78260bd1 这个 IMAGE 启动名为 607ce2e8553f 的临时容器，执行 RUN 后面的命令执行文件中的第二行 RUN 指令,安装 VIM&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>Step 2/3 : RUN apt update &amp;amp;&amp;amp; apt install -y vim
+---&amp;gt; Running in 607ce2e8553f
+&lt;/code>&lt;/pre>
+&lt;ul>
+&lt;li>开始执行安装程序，会有警告，具体过程忽略不截图了&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+Get:1 http://archive.ubuntu.com/ubuntu bionic InRelease [242 kB]
+Get:2 http://security.ubuntu.com/ubuntu bionic-security InRelease [83.2 kB]
+Get:3 http://security.ubuntu.com/ubuntu bionic-security/multiverse amd64 Packages [1364 B]
+Get:4 http://archive.ubuntu.com/ubuntu bionic-updates InRelease [88.7 kB]
+Get:5 http://security.ubuntu.com/ubuntu bionic-security/main amd64 Packages [264 kB]
+Get:6 http://archive.ubuntu.com/ubuntu bionic-backports InRelease [74.6 kB]
+Get:7 http://archive.ubuntu.com/ubuntu bionic/main amd64 Packages [1344 kB]
+。。。。。。。后面省略
+&lt;/code>&lt;/pre>
+&lt;ul>
+&lt;li>生成临时 IMAGE，ID 为 f5d8205bae1b，移除临时容器 607ce2e8553f&lt;/li>
+&lt;li>注：这一步使用的就是 docker commit 命令类似的功能，提交一个运行中的容器生成镜像，只不过该容器是缓存状态，最后会彻底删除&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>Removing intermediate container 607ce2e8553f
+---&amp;gt; f5d8205bae1b
+&lt;/code>&lt;/pre>
+&lt;ul>
+&lt;li>基于 f5d8205bae1b 这个临时 IMAGE 启动 ddceac75c0ef 容器，执行 Dockerfile 中第三行的 RUN 指令&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>Step 3/3 : RUN apt install -y iproute2
+---&amp;gt; Running in ddceac75c0ef .......命令执行结果省略
+&lt;/code>&lt;/pre>
+&lt;ul>
+&lt;li>处理成功，生成最终 IMAGE，ID 为 9e0ddfd39bb1，并移除临时容器 ddceac75c0ef&lt;/li>
+&lt;li>注：这一步使用的就是 docker commit 命令类似的功能，提交一个运行中的容器生成镜像，只不过该容器是缓存状态，最后会彻底删除&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>Processing triggers for libc-bin (2.27-3ubuntu1) ...
+Removing intermediate container ddceac75c0ef
+---&amp;gt; 9e0ddfd39bb1
+&lt;/code>&lt;/pre>
+&lt;ul>
+&lt;li>创建 IMAGE ID 为 9e0ddfd39bb1 的 IMAGE 成功，并成功给 IMAGE 打上标签为 ubuntu-vi:latest&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>Successfully built 9e0ddfd39bb1
+Successfully tagged ubuntu-vi:latest
+&lt;/code>&lt;/pre>
+&lt;ul>
+&lt;li>下图是创建过程中查询容器，会发现，中间创建的临时 Container 已经都被删除了，并且还会有一个没有名字只有 IMAGE ID 的 IMAGE&lt;/li>
+&lt;/ul>
+&lt;!-- raw HTML omitted -->
+&lt;pre>&lt;code>[root@master0 ~]# docker ps -a
+CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
+607ce2e8553f 93fd78260bd1 &amp;quot;/bin/sh -c 'apt ins…&amp;quot; 2 seconds ago Up 2 seconds jovial_almeida
+[root@master0 ~]# docker ps -a
+CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
+ddceac75c0ef f5d8205bae1b &amp;quot;/bin/sh -c 'apt ins…&amp;quot; 2 seconds ago Up 2 seconds serene_rosalind
+[root@master0 ~]# docker ps -a
+CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
+[root@master0 ~]# docker ps -a
+[root@master0 ~]# docker images -a
+ubuntu-vi latest 9e0ddfd39bb1 58 seconds ago 169M
+&amp;lt;none&amp;gt; &amp;lt;none&amp;gt; f5d8205bae1b 58 seconds ago 151MB
+ubuntu latest 93fd78260bd1 7 days ago 86.2MB
+&lt;/code>&lt;/pre>
+&lt;ul>
+&lt;li>该过程结束&lt;/li>
+&lt;li>总结
+&lt;ul>
+&lt;li>dockerfile 的每一个命令，就是给 base image 上新加一层 image&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="dockerfile-构建镜像的过程">Dockerfile 构建镜像的过程：&lt;/h3>
+&lt;ol>
+&lt;li>从 base 镜像运行一个容器。&lt;/li>
+&lt;li>执行一条指令，对容器做修改。&lt;/li>
+&lt;li>执行类似 docker commit 的操作，生成一个新的镜像层。&lt;/li>
+&lt;li>Docker 再基于刚刚提交的镜像运行一个新容器。&lt;/li>
+&lt;li>重复 2-4 步，直到 Dockerfile 中的所有指令执行完毕&lt;/li>
+&lt;/ol>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ymn9n3/1616121927006-3431594b-1d7d-4764-b6ce-6227bcfc9966.png" alt="">&lt;/p>
+&lt;h1 id="dockerfile-格式">Dockerfile 格式&lt;/h1>
+&lt;p>Dockerfile 遵循特定的格式和指令集，也就是说，Dockerfile 实际上是 &lt;strong>Instruction(指令)&lt;/strong> 的合集，Dockerfile 文件中每行都是一个指令极其参数:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-dockerfile" data-lang="dockerfile">&lt;span style="display:flex;">&lt;span>INSTRUCTION-1 arguments&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>INSTRUCTION-2 arguments&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>.......&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>INSTRUCTION-n arguments&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>实际上指令是不区分大小写的，但是，一般情况，都将他们写成大写，以便在人类阅读时，可以一眼就与参数区分开。&lt;/p>
+&lt;h2 id="dockerfile-指令">Dockerfile 指令&lt;/h2>
+&lt;p>详见 &lt;a href="https://www.yuque.com/go/doc/33171452">Dockerfile 指令详解&lt;/a>&lt;/p></description></item><item><title>Docs: 构建 OCI Image</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E6%9E%84%E5%BB%BA-oci-image/</guid><description/></item><item><title>Docs: 容器管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E5%AE%B9%E5%99%A8%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E5%AE%B9%E5%99%A8%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;/blockquote>
+&lt;p>容器管理分为两块，容器镜像与容器运行时管理&lt;/p></description></item><item><title>Docs: 容器管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E5%AE%B9%E5%99%A8%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/%E5%AE%B9%E5%99%A8%E7%AE%A1%E7%90%86/</guid><description/></item></channel></rss>

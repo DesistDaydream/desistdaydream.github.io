@@ -1,0 +1,876 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 2.1.容器</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/</link><description>Recent content in 2.1.容器 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 1.Namespaces</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/1.namespaces/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/1.namespaces/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Linux_namespaces">Wiki,Linux_namespaces&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://segmentfault.com/a/1190000009732550">思否，Linux Namespace 和 Cgroup&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.junmajinlong.com/virtual/namespace">骏马金龙博客，Linux namespace&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/rhO5GUuWycRiFxdYaV-yiQ">公众号，YP 小站-Namespace 机制详解&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/lscMpc5BWAEzjgYw6H0wBw">公众号，开发内功修炼-Linux 网络名称空间&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/jJ9peydbNSd6Fv5bsJR3yA">公众号，MoeLove-彻底搞懂容器技术的基石：namespace&lt;/a>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/o5nZZzOTNXOFjv2aaIZ6OA">https://mp.weixin.qq.com/s/o5nZZzOTNXOFjv2aaIZ6OA&lt;/a>(下)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Linux Namespaces(Linux 名称空间) 是 Linux 内核的一个特性，Namespaces 可以对内核资源进行划分，使得一组进程看到一组资源，而另一组进程看到一组不同的资源。&lt;/p>
+&lt;blockquote>
+&lt;p>这里的资源包括 进程 ID、主机名、用户 ID、网络 等等。&lt;/p>
+&lt;/blockquote>
+&lt;p>如果把 Linux 操作系统比作一个大房子，那名称空间指的就是这个房子中的一个个房间，住在每个房间里的人都自以为独享了整个房子的资源，但其实大家仅仅只是在共享的基础之上互相隔离，共享指的是共享全局的资源，而隔离指的是局部上彼此保持隔离，因而名称空间的本质就是指：一种在空间上隔离的概念，当下盛行的许多容器虚拟化技术（典型代表如 LXC、Docker）就是基于 Linux 名称空间的概念而来的。&lt;/p>
+&lt;p>很早以前的 Unix 有一个叫 chroot 的系统调用(通过修改根目录把用户 &lt;strong>jail(监狱)&lt;/strong> 到一个特定目录下)，chroot 提供了一种简单的隔离模式(隔离目录)：chroot 内部的文件系统无法访问外部的内容，详见 ftp 实现工具，chroot 说明。Linux Namespace 就是基于 chroot 的概念扩展而来，提供了对系统下更多资源的隔离机制。&lt;/p>
+&lt;p>操作系统通过虚拟内存技术，使得每个用户进程都认为自己拥有所有的物理内存，这是操作系统对内存的虚拟化。操作系统通过分时调度系统，每个进程都能被【公平地】调度执行，即每个进程都能获取到 CPU，使得每个进程都认为自己在进程活动期间拥有所有的 CPU 时间，这是操作系统对 CPU 的虚拟化。&lt;/p>
+&lt;p>从这两种虚拟化方式可推知，当使用某种虚拟化技术去管理进程时，进程会认为自己拥有某种物理资源的全部。&lt;/p>
+&lt;p>虚拟内存和分时系统均是对物理资源进行虚拟化，其实操作系统中还有很多非物理资源，比如用户权限系统资源、网络协议栈资源、文件系统挂载路径资源等。通过 Linux 的 namespace 功能，可以对这些非物理全局资源进行虚拟化。&lt;/p>
+&lt;p>Linux namespace 是在当前运行的系统环境中创建(隔离)另一个进程的运行环境出来，并在此运行环境中将一些必要的系统全局资源进行【虚拟化】。进程可以运行在指定的 namespace 中，因此，namespace 中的每个进程都认为自己拥有所有这些虚拟化的全局资源。&lt;/p>
+&lt;h2 id="背景">背景&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gp34mf/1640133594098-db8cd29e-8628-4117-a5ec-ea14de312485.webp" alt="">
+Linux Namespaces 的灵感来自 &lt;a href="https://en.wikipedia.org/wiki/Plan_9_from_Bell_Labs">Plan 9 from Bell Labs&lt;/a> 中大量使用的名称空间功能。Plan 9 from Bell Labs 是贝尔实验室弄出来的分布式操作系统。&lt;/p>
+&lt;h2 id="linux-namespace-类型">Linux Namespace 类型&lt;/h2>
+&lt;p>Note：随着技术的发展，Linux 内核支持的的 Namespace 类型在逐步增加&lt;/p>
+&lt;p>目前，Linux 已经支持 8 种全局资源的虚拟化(每种资源都是随着 Linux 内核版本的迭代而逐渐加入的，因此有些内核版本可能不具备某种 namespace)：&lt;/p>
+&lt;ul>
+&lt;li>cgroup namespace：该 namespace 可单独管理自己的 cgroup&lt;/li>
+&lt;li>ipc namespace：该 namespace 有自己的 IPC，比如共享内存、信号量等&lt;/li>
+&lt;li>network namespace：该 namespace 有自己的网络资源，包括网络协议栈、网络设备、路由表、防火墙、端口等&lt;/li>
+&lt;li>mount namespace：该 namespace 有自己的挂载信息，即拥有独立的目录层次&lt;/li>
+&lt;li>pid namespace：该 namespace 有自己的进程号，使得 namespace 中的进程 PID 单独编号，比如可以 PID=1&lt;/li>
+&lt;li>time namespace：该 namespace 有自己的启动时间点信息和单调时间，比如可设置某个 namespace 的开机时间点为 1 年前启动，再比如不同的 namespace 创建后可能流逝的时间不一样&lt;/li>
+&lt;li>user namespace：该 namespace 有自己的用户权限管理机制(比如独立的 UID/GID)，使得 namespace 更安全&lt;/li>
+&lt;li>uts namespace：该 namepsace 有自己的主机信息，包括主机名(hostname)、NIS domain name&lt;/li>
+&lt;/ul>
+&lt;p>用户可以同时创建具有多种资源类型的 namespace，比如创建一个同时具有 uts、pid 和 user 的 namespace。&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>类型&lt;/th>
+&lt;th>功能说明&lt;/th>
+&lt;th>系统调用参数&lt;/th>
+&lt;th>内核版本&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>MNT Namespace&lt;/td>
+&lt;td>提供磁盘挂载点和文件系统的隔离能力&lt;/td>
+&lt;td>CLONE_NEWNS&lt;/td>
+&lt;td>2.4.19&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>IPC Namespace&lt;/td>
+&lt;td>提供进程间通信的隔离能力&lt;/td>
+&lt;td>CLONE_NEWIPC&lt;/td>
+&lt;td>2.6.19&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Net Namespace&lt;/td>
+&lt;td>提供网络隔离能力&lt;/td>
+&lt;td>CLONE_NEWNET&lt;/td>
+&lt;td>2.6.29&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>UTS Namespace&lt;/td>
+&lt;td>提供主机名隔离能力&lt;/td>
+&lt;td>CLONE_NEWUTS&lt;/td>
+&lt;td>2.6.19&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>PID Namespace&lt;/td>
+&lt;td>提供进程隔离能力&lt;/td>
+&lt;td>CLONE_NEWPID&lt;/td>
+&lt;td>2.6.24&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>User Namespace&lt;/td>
+&lt;td>提供用户隔离能力&lt;/td>
+&lt;td>CLONE_NEWUSER&lt;/td>
+&lt;td>3.8&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>CGroup Namespace&lt;/td>
+&lt;td>Cgroup root directory&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>4.6&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h2 id="理解-linux-namespace">理解 Linux namespace&lt;/h2>
+&lt;p>用户可以创建指定类型的 namespace 并将进程放入该 namespace 中运行，这表示从当前的系统运行环境中隔离一个进程的运行环境，在此 namespace 中运行的进程将认为自己享有该 namespace 中的独立资源。&lt;/p>
+&lt;p>实际上，即使用户没有手动创建 Linux namespace，Linux 系统开机后也会创建一个默认的 namespace，称为 root namespace，所有进程默认都运行在 root namespace 中，每个进程都认为自己拥有该 namespace 中的所有系统全局资源。&lt;/p>
+&lt;p>回顾一下 Linux 的开机启动流程，内核加载成功后将初始化系统运行环境，这个运行环境就是 root namespace 环境，系统运行环境初始化完成后，便可以认为操作系统已经开始工作了。&lt;/p>
+&lt;p>每一个 namespace 都基于当前内核，无论是默认的 root namespace 还是用户创建的每一个 namespace，都基于当前内核工作。所以可以认为 namespace 是内核加载后启动的一个特殊系统环境，用户进程可以在此环境中独立享用资源。更严格地说，root namespace 直接基于内核，而用户创建的 namespace 运行环境基于当前所在的 namespace。之所以用户创建的 namespace 不直接基于内核环境，是因为每一个 namespace 可能都会修改某些运行时内核参数。&lt;/p>
+&lt;p>比如，用户创建的 uts namespace1 中修改了主机名为 ns1，然后在 namespace1 中创建 uts namespace2 时，namespace2 默认将共享 namespace1 的其他资源并拷贝 namespace1 的主机名资源，因此 namespace2 的主机名初始时也是 ns1。当然，namespace2 是隔离的，可以修改其主机名为 ns2，这不会影响其他 namespace，修改后，将只有 namespace2 中的进程能看到其主机名为 ns2。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gp34mf/1616122902978-3836fe05-d484-4fba-8626-939d6795c4d2.png" alt="">&lt;/p>
+&lt;p>可以通过如下方式查看某个进程运行在哪一个 namespace 中，即该进程享有的独立资源来自于哪一个 namespace。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># ls -l /proc/&amp;lt;PID&amp;gt;/ns&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ ls -l /proc/$$/ns | awk &lt;span style="color:#e6db74">&amp;#39;{print $1,$(NF-2),$(NF-1),$NF}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx cgroup -&amp;gt; cgroup:&lt;span style="color:#f92672">[&lt;/span>4026531835&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx ipc -&amp;gt; ipc:&lt;span style="color:#f92672">[&lt;/span>4026531839&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx mnt -&amp;gt; mnt:&lt;span style="color:#f92672">[&lt;/span>4026531840&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx net -&amp;gt; net:&lt;span style="color:#f92672">[&lt;/span>4026531992&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx pid -&amp;gt; pid:&lt;span style="color:#f92672">[&lt;/span>4026531836&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx pid_for_children -&amp;gt; pid:&lt;span style="color:#f92672">[&lt;/span>4026531836&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx user -&amp;gt; user:&lt;span style="color:#f92672">[&lt;/span>4026531837&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx uts -&amp;gt; uts:&lt;span style="color:#f92672">[&lt;/span>4026531838&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ sudo ls -l /proc/1/ns | awk &lt;span style="color:#e6db74">&amp;#39;{print $1,$(NF-2),$(NF-1),$NF}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx cgroup -&amp;gt; cgroup:&lt;span style="color:#f92672">[&lt;/span>4026531835&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx ipc -&amp;gt; ipc:&lt;span style="color:#f92672">[&lt;/span>4026531839&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx mnt -&amp;gt; mnt:&lt;span style="color:#f92672">[&lt;/span>4026531840&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx net -&amp;gt; net:&lt;span style="color:#f92672">[&lt;/span>4026531992&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx pid -&amp;gt; pid:&lt;span style="color:#f92672">[&lt;/span>4026531836&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx pid_for_children -&amp;gt; pid:&lt;span style="color:#f92672">[&lt;/span>4026531836&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx user -&amp;gt; user:&lt;span style="color:#f92672">[&lt;/span>4026531837&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx uts -&amp;gt; uts:&lt;span style="color:#f92672">[&lt;/span>4026531838&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这些文件表示当前进程打开的 namespace 资源，每一个文件都是一个软链接，所指向的文件是一串格式特殊的名称。冒号后面中括号内的数值表示该 namespace 的 inode。如果不同进程的 namespace inode 相同，说明这些进程属于同一个 namespace。&lt;/p>
+&lt;p>从结果上来看，每个进程都运行在多个 namespace 中，且 pid=1 和 pid=$$(当前 Shell 进程)两个进程的 namespace 完全一样，说明它们运行在相同的环境下(root namespace)。&lt;/p>
+&lt;pre>&lt;code># namespace概念和细节相关man文档。这些 man 手册在 3.10 内核及之前版本是没有的
+man namespaces
+man uts_namespaces
+man network_namespaces
+man ipc_namespaces
+man pid_namespaces
+man mount_namespaces
+man user_namespaces
+man time_namespaces
+man cgroup_namespaces
+# namespace管理工具
+man unshare # 创建namespace
+man nscreate # 创建namespace，老版本的内核没有该工具
+man nsenter # 切换namespace
+man lsns # 查看当前已创建的namespace
+&lt;/code>&lt;/pre>
+&lt;h1 id="namespace-的具体实现">Namespace 的具体实现&lt;/h1>
+&lt;p>对于 Linux 系统来说，自己本身就是一个 Namespace。系统启动的第一个进程 systemd 自己就有对应的 6 个名称空间，可以通过 lsns 命令看到 pid 为 1 的进程所使用的 Namespace，我们平时操作的地方就是 systemd 所在的 jail，所以能看到的 &lt;code>/&lt;/code> 就是 systemd 所在 jail 规定出来的 &lt;code>/&lt;/code>&lt;/p>
+&lt;p>Linux Namespace 主要使用三个系统调用来实现&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>clone()&lt;/strong> # 实现线程的系统调用，用来创建一个新的进程 。&lt;/li>
+&lt;li>&lt;strong>unshare()&lt;/strong> # 使某进程脱离某个 Namespace&lt;/li>
+&lt;li>&lt;strong>setns()&lt;/strong> # 把某进程加入到某个 Namespace&lt;/li>
+&lt;/ul>
+&lt;p>每个 NameSpace 的说明：&lt;/p>
+&lt;ol>
+&lt;li>当调用 clone 时，设定了 CLONE_NEWPID，就会创建一个新的 PID Namespace，clone 出来的新进程将成为 Namespace 里的第一个进程。一个 PID Namespace 为进程提供了一个独立的 PID 环境，PID Namespace 内的 PID 将从 1 开始，在 Namespace 内调用 fork，vfork 或 clone 都将产生一个在该 Namespace 内独立的 PID。新创建的 Namespace 里的第一个进程在该 Namespace 内的 PID 将为 1，就像一个独立的系统里的 init 进程一样。该 Namespace 内的孤儿进程都将以该进程为父进程，当该进程被结束时，该 Namespace 内所有的进程都会被结束。PID Namespace 是层次性，新创建的 Namespace 将会是创建该 Namespace 的进程属于的 Namespace 的子 Namespace。子 Namespace 中的进程对于父 Namespace 是可见的，一个进程将拥有不止一个 PID，而是在所在的 Namespace 以及所有直系祖先 Namespace 中都将有一个 PID。系统启动时，内核将创建一个默认的 PID Namespace，该 Namespace 是所有以后创建的 Namespace 的祖先，因此系统所有的进程在该 Namespace 都是可见的。&lt;/li>
+&lt;li>当调用 clone 时，设定了 CLONE_NEWIPC，就会创建一个新的 IPC Namespace，clone 出来的进程将成为 Namespace 里的第一个进程。一个 IPC Namespace 有一组 System V IPC objects 标识符构成，这标识符有 IPC 相关的系统调用创建。在一个 IPC Namespace 里面创建的 IPC object 对该 Namespace 内的所有进程可见，但是对其他 Namespace 不可见，这样就使得不同 Namespace 之间的进程不能直接通信，就像是在不同的系统里一样。当一个 IPC Namespace 被销毁，该 Namespace 内的所有 IPC object 会被内核自动销毁。
+&lt;ol>
+&lt;li>PID Namespace 和 IPC Namespace 可以组合起来一起使用，只需在调用 clone 时，同时指定 CLONE_NEWPID 和 CLONE_NEWIPC，这样新创建的 Namespace 既是一个独立的 PID 空间又是一个独立的 IPC 空间。不同 Namespace 的进程彼此不可见，也不能互相通信，这样就实现了进程间的隔离&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>当调用 clone 时，设定了 CLONE_NEWNS，就会创建一个新的 mount Namespace。每个进程都存在于一个 mount Namespace 里面，mount Namespace 为进程提供了一个文件层次视图。如果不设定这个 flag，子进程和父进程将共享一个 mount Namespace，其后子进程调用 mount 或 umount 将会影响到所有该 Namespace 内的进程。如果子进程在一个独立的 mount Namespace 里面，就可以调用 mount 或 umount 建立一份新的文件层次视图。该 flag 配合 pivot_root 系统调用，可以为进程创建一个独立的目录空间。&lt;/li>
+&lt;li>当调用 clone 时，设定了 CLONE_NEWNET，就会创建一个新的 Network Namespace。一个 Network Namespace 为进程提供了一个完全独立的网络协议栈的视图。包括网络设备接口，IPv4 和 IPv6 协议栈，IP 路由表，防火墙规则，sockets 等等。一个 Network Namespace 提供了一份独立的网络环境，就跟一个独立的系统一样。一个物理设备只能存在于一个 Network Namespace 中，可以从一个 Namespace 移动另一个 Namespace 中。虚拟网络设备(virtual network device)提供了一种类似管道的抽象，可以在不同的 Namespace 之间建立隧道。利用虚拟化网络设备，可以建立到其他 Namespace 中的物理设备的桥接。当一个 Network Namespace 被销毁时，物理设备会被自动移回 init Network Namespace，即系统最开始的 Namespace&lt;/li>
+&lt;li>当调用 clone 时，设定了 CLONE_NEWUTS，就会创建一个新的 UTS Namespace。一个 UTS Namespace 就是一组被 uname 返回的标识符。新的 UTS Namespace 中的标识符通过复制调用进程所属的 Namespace 的标识符来初始化。Clone 出来的进程可以通过相关系统调用改变这些标识符，比如调用 sethostname 来改变该 Namespace 的 hostname。这一改变对该 Namespace 内的所有进程可见。CLONE_NEWUTS 和 CLONE_NEWNET 一起使用，可以虚拟出一个有独立主机名和网络空间的环境，就跟网络上一台独立的主机一样。&lt;/li>
+&lt;/ol>
+&lt;p>以上所有 clone flag 都可以一起使用，为进程提供了一个独立的运行环境。LXC 正是通过在 clone 时设定这些 flag，为进程创建一个有独立 PID，IPC，FS，Network，UTS 空间的 container。一个 container 就是一个虚拟的运行环境，对 container 里的进程是透明的，它会以为自己是直接在一个系统上运行的。&lt;/p>
+&lt;h1 id="namespace-关联文件">Namespace 关联文件&lt;/h1>
+&lt;p>主信息：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>/proc/PID/ns/*&lt;/strong> # 由于 namespace 都是与进程相关联，那么可以通过从每个进程的 ns 目录查看相关进程的 namespace 使用情况&lt;/li>
+&lt;/ul>
+&lt;p>Network Namespace：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>/var/run/netns/NAME&lt;/strong> # 该目录为 &lt;code>ip netns&lt;/code> 命令所能调取查看的目录
+&lt;ol>
+&lt;li>如果想让 &lt;code>ip netns&lt;/code> 命令查看到网络名称空间的信息，则需要把 /proc/PID/ns/net 文件链接到该目录即可&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ul></description></item><item><title>Docs: 1.Namespaces</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/1.namespaces/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/1.namespaces/</guid><description/></item><item><title>Docs: 2.1.容器</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/2.1.%E5%AE%B9%E5%99%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/2.1.%E5%AE%B9%E5%99%A8/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/OS-level_virtualization">Wiki,OS-level virtualization&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Container(容器)&lt;/strong> 是一种基础工具；泛指任何可以用于容纳其它物品的工具，可以部分或完全封闭，被用于容纳、储存、运输物品。物体可以被放置在容器中，而容器则可以保护内容物。人类使用容器的历史至少有十万年，甚至可能有数百万年的历史。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lei5gl/1616122918518-107de7cd-51b4-4427-8281-8e81f7c2383d.png" alt="">
+自 1979 年，Unix 版本 7 引用 Chroot Jail 以及 Chroot 系统调用开始，直到 2013 年开源出的 Docker，2014 年开源出来的 Kubernetes，直到现在的云原生生态的火热。容器技术已经逐步成为主流的基础技术之一。&lt;/p>
+&lt;h2 id="一什么是容器">一、什么是容器&lt;/h2>
+&lt;p>IT 里的容器技术是英文单词 Linux Container 的直译。Container 这个单词有集装箱、容器的含义（主要偏集装箱意思）。不过，在中文环境下，咱们要交流要传授，如果翻译成“集装箱技术” 就有点拗口，所以结合中国人的吐字习惯和文化背景，更喜欢用容器这个词。不过，如果要形象的理解 Linux Container 技术的话，还是得念成集装箱会比较好。我们知道，海边码头里的集装箱是运载货物用的，它是一种按规格标准化的钢制箱子。集装箱的特色，在于其格式划一，并可以层层重叠，所以可以大量放置在特别设计的远洋轮船中（早期航运是没有集装箱概念的，那时候货物杂乱无章的放，很影响出货和运输效率）。有了集装箱，那么这就更加快捷方便的为生产商提供廉价的运输服务。&lt;/p>
+&lt;p>因此，IT 世界里借鉴了这一理念。早期，大家都认为硬件抽象层基于 hypervisor 的虚拟化方式可以最大程度上提供虚拟化管理的灵活性。各种不同操作系统的虚拟机都能通过 hypervisor（KVM、XEN 等）来衍生、运行、销毁。然而，随着时间推移，用户发现 hypervisor 这种方式麻烦越来越多。为什么？因为对于 hypervisor 环境来说，每个虚拟机都需要运行一个完整的操作系统以及其中安装好的大量应用程序。但实际生产开发环境里，我们更关注的是自己部署的应用程序，如果每次部署发布我都得搞一个完整操作系统和附带的依赖环境，那么这让任务和性能变得很重和很低下。&lt;/p>
+&lt;p>基于上述情况，人们就在想，有没有其他什么方式能让人更加的关注应用程序本身，底层多余的操作系统和环境我可以共享和复用？换句话来说，那就是我部署一个服务运行好后，我再想移植到另外一个地方，我可以不用再安装一套操作系统和依赖环境。这就像集装箱运载一样，我把货物一辆兰博基尼跑车（好比开发好的应用 APP），打包放到一容器集装箱里，它通过货轮可以轻而易举的从上海码头（CentOS7.2 环境）运送到纽约码头（Ubuntu14.04 环境）。而且运输期间，我的兰博基尼（APP）没有受到任何的损坏（文件没有丢失），在另外一个码头卸货后，依然可以完美风骚的赛跑（启动正常）。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lei5gl/1616122918592-560b0741-407f-4354-bc87-d0ef48160754.png" alt="">&lt;/p>
+&lt;h2 id="二容器技术的实现方式lxcrunckata-等">二、容器技术的实现方式，lxc、runc、kata 等&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lei5gl/1616122918517-21a8c653-b45e-44a9-b54e-86ca53db6fd7.png" alt="">&lt;/p>
+&lt;p>Linux Container(LXC)容器技术的诞生（2008 年）就解决了 IT 世界里“集装箱运输”的问题。Linux Container（简称 LXC）它是一种 内核轻量级的操作系统层 虚拟化技术，也称为容器的运行时(runtime 运行环境)。Linux Container 主要由 Namespace 和 Cgroup 两大机制来保证实现。那么 Namespace 和 Cgroup 是什么呢？刚才我们上面提到了集装箱，集装箱的作用当然是可以对货物进行打包隔离了，不让 A 公司的货跟 B 公司的货混在一起，不然卸货就分不清楚了。那么 Namespace 也是一样的作用，做隔离。光有隔离还没用，我们还需要对货物进行资源的管理。同样的，航运码头也有这样的管理机制：货物用什么样规格大小的集装箱，货物用多少个集装箱，货物哪些优先运走，遇到极端天气怎么暂停运输服务怎么改航道等等&amp;hellip; 通用的，与此对应的 Cgroup 就负责资源管理控制作用，比如进程组使用 CPU/MEM 的限制，进程组的优先级控制，进程组的挂起和恢复等等。&lt;/p>
+&lt;p>经过多年的发展，陆续推出了 runc、kata 等容器底层技术&lt;/p>
+&lt;p>runc 是 lxc 的替代品，官方说明：&lt;a href="https://www.docker.com/blog/runc/">https://www.docker.com/blog/runc/&lt;/a>&lt;/p>
+&lt;p>kata 是自带内核的虚拟机型的容器 runtime，官方网址：&lt;a href="https://katacontainers.io/">https://katacontainers.io/&lt;/a>&lt;/p>
+&lt;h2 id="三容器技术的特点">三、容器技术的特点&lt;/h2>
+&lt;p>容器的特点其实我们拿跟它跟硬件抽象层虚拟化 hypervisor 技术对比就清楚了，我们之前也提到过，传统的虚拟化（虚拟机）技术，创建环境和部署应用都很麻烦，而且应用的移植性也很繁琐，比如你要把 vmware 里的虚拟机迁移到 KVM 里就很繁琐（需要做镜像格式的转换）。那么有了容器技术就简单了，总结下容器技术主要有三个特点：&lt;/p>
+&lt;ul>
+&lt;li>极其轻量：只打包了必要的 Bin/Lib；&lt;/li>
+&lt;li>秒级部署：根据镜像的不同，容器的部署大概在毫秒与秒之间（比虚拟机强很多）；&lt;/li>
+&lt;li>易于移植：一次构建，随处部署；&lt;/li>
+&lt;li>弹性伸缩：Kubernetes、Swam、Mesos 这类开源、方便、好使的容器管理平台有着非常强大的弹性管理能力。&lt;/li>
+&lt;/ul>
+&lt;h2 id="四容器的标准化-open-container-initiativeoci">四、容器的标准化 Open Container Initiative(OCI)&lt;/h2>
+&lt;p>当前，docker 几乎是容器的代名词，很多人以为 docker 就是容器。其实，这是错误的认识(docker 只是可以实现容器的引擎, docker 调用 containerd，containerd 再调用 runc 来启动一个容器)。除了 docker 还有 podman 等等。所以，容器世界里并不是只有 docker 一家。既然不是一家就很容易出现分歧。任何技术出现都需要一个标准来规范它，不然各搞各的很容易导致技术实现的碎片化，出现大量的冲突和冗余。因此，在 2015 年，由 Google，Docker、CoreOS、IBM、微软、红帽等厂商联合发起的 &lt;a href="https://www.opencontainers.org/">OCI(Open Container Initiative)&lt;/a> 项目成立了，并于 2016 年 4 月推出了第一个开放容器标准。标准主要包括 runtime(运行时)标准 和 image(镜像)标准。标准的推出，有助于替成长中市场带来稳定性，让企业能放心采用容器技术，用户在打包、部署应用程序后，可以自由选择不同的容器 Runtime；同时，镜像打包、建立、认证、部署、命名也都能按照统一的规范来做。&lt;/p>
+&lt;p>两种标准主要包含以下内容：&lt;/p>
+&lt;ul>
+&lt;li>容器运行时标准 （runtime spec）
+&lt;ul>
+&lt;li>creating：使用 create 命令创建容器，这个过程称为创建中 b). created：容器创建出来，但是还没有运行，表示镜像和配置没有错误，容器能够运行在当前平台 c).&lt;/li>
+&lt;li>running：容器的运行状态，里面的进程处于 up 状态，正在执行用户设定的任务 d)&lt;/li>
+&lt;li>stopped：容器运行完成，或者运行出错，或者 stop 命令之后，容器处于暂停状态。这个状态，容器还有很多信息保存在平台中，并没有完全被删除&lt;/li>
+&lt;li>&amp;hellip;.等等&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>容器镜像标准（image spec）
+&lt;ul>
+&lt;li>文件系统：以 layer 保存的文件系统，每个 layer 保存了和上层之间变化的部分，layer 应该保存哪些文件，怎么表示增加、修改和删除的文件等;&lt;/li>
+&lt;li>config 文件：保存了文件系统的层级信息（每个层级的 hash 值，以及历史信息），以及容器运行时需要的一些信息（比如环境变量、工作目录、命令参数、mount 列表），指定了镜像在某个特定平台和系统的配置。比较接近我们使用 docker inspect&lt;/li>
+&lt;li>&amp;hellip;.等等&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="五容器的主要应用场景">五、容器的主要应用场景&lt;/h2>
+&lt;p>容器技术的诞生其实主要解决了 PAAS 的层的技术实现。像 OpenStack、Cloudstack 这样的技术是解决 IAAS 层的问题。IAAS 层和 PAAS 层大家估计也听得很多了，关于他们的区别和特性我这里不在描述。那么容器技术主要应用在哪些场景呢？目前主流的有以下几种：&lt;/p>
+&lt;ul>
+&lt;li>1.容器化传统应用 容器不仅能提高现有应用的安全性和可移植性，还能节约成本。
+&lt;ul>
+&lt;li>每个企业的环境中都有一套较旧的应用来服务于客户或自动执行业务流程。即使是大规模的单体应用，通过容器隔离的增强安全性、以及可移植性特点，也能从 容器 中获益，从而降低成本。一旦容器化之后，这些应用可以扩展额外的服务或者转变到微服务架构之上。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;ol start="2">
+&lt;li>持续集成和持续部署 (CI/CD) 通过 Docker 加速应用管道自动化和应用部署，交付速度提高至少 13 倍。&lt;/li>
+&lt;/ol>
+&lt;ul>
+&lt;li>现代化开发流程快速、持续且具备自动执行能力，最终目标是开发出更加可靠的软件。通过持续集成 (CI) 和持续部署 (CD)，每次开发人员签入代码并顺利测试之后，IT 团队都能够集成新代码。作为开发运维方法的基础，CI/CD 创造了一种实时反馈回路机制，持续地传输小型迭代更改，从而加速更改，提高质量。CI 环境通常是完全自动化的，通过 git 推送命令触发测试，测试成功时自动构建新镜像，然后推送到 Docker 镜像库。通过后续的自动化和脚本，可以将新镜像的容器部署到预演环境，从而进行进一步测试。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;ol start="3">
+&lt;li>微服务 加速应用架构现代化进程。&lt;/li>
+&lt;/ol>
+&lt;ul>
+&lt;li>应用架构正在从采用瀑布模型开发法的单体代码库转变为独立开发和部署的松耦合服务。成千上万个这样的服务相互连接就形成了应用。Docker 允许开发人员选择最适合于每种服务的工具或技术栈，隔离服务以消除任何潜在的冲突，从而避免“地狱式的矩阵依赖”。这些容器可以独立于应用的其他服务组件，轻松地共享、部署、更新和瞬间扩展。Docker 的端到端安全功能让团队能够构建和运行最低权限的微服务模型，服务所需的资源（其他应用、涉密信息、计算资源等）会适时被创建并被访问。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;ol start="4">
+&lt;li>IT 基础设施优化 充分利用基础设施，节省资金。&lt;/li>
+&lt;/ol>
+&lt;ul>
+&lt;li>Docker 和容器有助于优化 IT 基础设施的利用率和成本。优化不仅仅是指削减成本，还能确保在适当的时间有效地使用适当的资源。容器是一种轻量级的打包和隔离应用工作负载的方法，所以 Docker 允许在同一物理或虚拟服务器上毫不冲突地运行多项工作负载。企业可以整合数据中心，将并购而来的 IT 资源进行整合，从而获得向云端的可迁移性，同时减少操作系统和服务器的维护工作。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="container-的基本核心概念">Container 的基本核心概念&lt;/h1>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lei5gl/1641604740718-d450d041-4e36-462a-844d-d330f0a8715e.png" alt="image.png">&lt;/p>
+&lt;h2 id="image镜像">Image(镜像)&lt;/h2>
+&lt;p>镜像就是一个只读的模板。&lt;/p>
+&lt;p>例如：一个镜像可以包含一个完整的 CentOS 操作系统环境，里面仅安装了 Apache 或用户需要的其他应用程序。&lt;/p>
+&lt;p>镜像可以用来创建 Container。&lt;/p>
+&lt;h3 id="reference引用">Reference(引用)&lt;/h3>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.docker.com/engine/reference/commandline/images/">https://docs.docker.com/engine/reference/commandline/images/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在互联网上，我们通过 &lt;strong>Reference(引用)&lt;/strong> 表示唯一一个 Image，就像 URL 之于 HTTP 的 Resource 一样，&lt;strong>Reference 就是 Image 的 URL&lt;/strong>。&lt;/p>
+&lt;h4 id="syntax语法">Syntax(语法)&lt;/h4>
+&lt;p>&lt;strong>Scheme://Registry/[Namespace/]Repository:{Tag|Digest}&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>**Scheme:// **# 访问 Registry 时所使用的协议，比如 HTTP、HTTPS&lt;/li>
+&lt;li>&lt;strong>Registry(注册中心)&lt;/strong> # 提供 Image 管理服务的提供商，通常是一个域名
+&lt;ul>
+&lt;li>现阶段常见的 Registry 有：
+&lt;ul>
+&lt;li>docker.io&lt;/li>
+&lt;li>k8s.gcr.io&lt;/li>
+&lt;li>quay.io&lt;/li>
+&lt;li>ghcr.io&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip; 等等&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Namespace(名称空间)&lt;/strong> # 在一个 Registry 中可能会有多个同名的 Repository，所以需要通过 Namespace 将这些 Repository 隔开。
+&lt;ul>
+&lt;li>docker.io 将用户注册的账户名称作为 Namespace，若 Namespace 被省略，则 Image 就是这个 Registry 官方的。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Repository(仓库)&lt;/strong> # 顾名思义，存放镜像的仓库&lt;/li>
+&lt;li>&lt;strong>Tag(标签)&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>Digest(摘要)&lt;/strong> # Image 内容的 sha256 计算结果。通常是互联网唯一的&lt;/li>
+&lt;/ul>
+&lt;p>假如我在 docker.io 注册了一个账号 lchdzh 用来存放容器镜像，有一个 k8s-debug 的镜像，版本号是 v1，我想把镜像放在 dd_k8s 仓库中。&lt;/p>
+&lt;ul>
+&lt;li>那么正常的 Image Reference 是：&lt;code>docker.io/lchdzh/dd_k8s:k8s-debug-v1&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>但是，后来人们一般情况 Repository 都存放同一个软件的 Image，把 Tag 仅仅当做了镜像的版本&lt;/p>
+&lt;ul>
+&lt;li>那么上面例子的 Image Reference 就变成了：&lt;code>docker.io/lchdzh/k8s-debug:v1&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;h3 id="registry注册中心">Registry(注册中心)&lt;/h3>
+&lt;p>Registry 可以理解为一个网站，通过 https 协议与 docker daemon 交互;也可以自己搭建私有单位 registry，提供多个功能&lt;/p>
+&lt;ul>
+&lt;li>用于存储 image 的 Repository 功能，一个 Registry 上有多个 Repository&lt;/li>
+&lt;li>用户来获取 image 时的认证功能&lt;/li>
+&lt;li>当前 registry 所有 image 的索引 功能&lt;/li>
+&lt;/ul>
+&lt;p>Registry 上有多个 Repository，每个 Repository 中又包含了多个 TAG(标签)。一个 registry 中分两种：顶层仓库与用户仓库，顶层仓库里的 Repository 是这个 Registry 官方所创建的，用户仓库里的 Repository 是在该 Registry 创建的用户所创建的。image 名字中有 namespace 的就是用户仓库，没有就是顶层仓库&lt;/p>
+&lt;h3 id="repository仓库">Repository(仓库)&lt;/h3>
+&lt;p>想要定位一个 Registry 下的一个 Repository，至少需要两部分&lt;/p>
+&lt;ul>
+&lt;li>Namespace(名称空间) # 有的也称为 ProjectID。
+&lt;ul>
+&lt;li>Docker 将用户注册的账户名称作为 Namespace，若 Namespace 被省略，则就是这个 Registry 官方的。所以也可以这么理解。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Repository(仓库) # 仓库名称&lt;/li>
+&lt;/ul>
+&lt;p>很多时候都将 Namespace 和 Repository 合起来，统一称为 Repository&lt;/p>
+&lt;p>仓库分为公开仓库(Public)和私有仓库(Private)两种形式。当用户创建了自己的镜像之后就可以使用 push 命令将它上传到公有或者私有仓库，这样下载在另外一台机器上使用这个镜像时候，只需需要从仓库上 pull 下来就可以了。&lt;/p>
+&lt;p>注意：Docker 仓库的概念跟 Git 类似，Registry 可以理解为 GitHub 这样的托管服务。&lt;/p>
+&lt;h3 id="tag标签">Tag(标签)&lt;/h3>
+&lt;p>Repository 可以存放不同的 Image(比如 nginx,redis,centos 等)，通过 Tag 来区分这些 Image。说白了，Tag 就是 Image 的名称。&lt;/p>
+&lt;h2 id="container容器">Container(容器)&lt;/h2>
+&lt;p>容器是从镜像创建的运行实例。它可以被启动、开始、停止、删除。每个容器都是相互隔离的，保证安全的平台。可以把容器看做是一个简易版的 Linux 环境（包括 root 用户权限、进程空间、用户空间和网络空间等）和运行在其中的应用程序。注意：镜像是只读的，容器在启动的时候创建一层可写层作为最上层。&lt;/p>
+&lt;p>Image 与 Container 的关系，就好比是程序与进程之间的关系。Image 类似程序是静态的。Container 类似进程是动态的，是有生命周期的。&lt;/p>
+&lt;h2 id="联合文件系统">联合文件系统&lt;/h2>
+&lt;ul>
+&lt;li>当我们在下载镜像的时候，会发现每一层都有一个 id，这是 &lt;strong>Layer(层)&lt;/strong> 的概念，是 **UnionFS(联合文件系统) **中的重要概念&lt;/li>
+&lt;li>联合文件系统（UnionFS）是一种分层、轻量级并且高性能的文件系统，它支持对文件系统的修改作为一次提交来一层层的叠加，同时可以将不同目录挂载到同一个虚拟文件系统下&lt;/li>
+&lt;li>联合文件系统是 Docker 镜像的基础。镜像可以通过分层来进行继承，基于基础镜像（没有父镜像），可以制作各种具体的应用镜像。&lt;/li>
+&lt;li>不同容器就可以共享一些基础的文件系统层，同时再加上自己独有的改动层，大大提高了存储的效率。&lt;/li>
+&lt;/ul>
+&lt;h1 id="rootless-containers">Rootless Containers&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/rootless-containers">GitHub 项目,rootless-containers&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Rootless Containers(无根容器)&lt;/strong> 是指非特权用户能够创建、运行和以各种方式管理容器。这个术语还包括围绕容器的各种工具，这些工具也可以作为非特权用户运行。&lt;/p>
+&lt;p>运行 Rootless Containers 通常需要弃用 CGroupV2 来限制 CPU、内存、I/O、PID 这些资源的消耗。&lt;/p></description></item><item><title>Docs: 2.CGroup</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/2.cgroup/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/2.cgroup/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Cgroups">Wiki,Cgroups&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man7/cgroups.7.html">Manual(手册),cgroup(7)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/index.html">Linux Kernel 官方文档,Linux 内核用户和管理员指南-Control Group V1&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">Linux Kernel 官方文档,Linux 内核用户和管理员指南-Control Group V2&lt;/a>&lt;/li>
+&lt;li>红帽文档：
+&lt;ul>
+&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/system_design_guide/using-control-groups-through-a-virtual-file-system_setting-limits-for-applications">https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/system_design_guide/using-control-groups-through-a-virtual-file-system_setting-limits-for-applications&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/resource_management_guide/index">https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/resource_management_guide/index&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;a href="https://segmentfault.com/a/1190000009732550">思否，Linux Namespace 和 Cgroup&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://fuckcloudnative.io/posts/understanding-cgroups-part-1-basics/">https://fuckcloudnative.io/posts/understanding-cgroups-part-1-basics/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Control Groups(控制组，简称 CGroups)&lt;/strong> 是一个 Linux 内核特性，用于限制、隔离一组进程集合的资源使用，资源包括 CPU、内存、磁盘 IO、网络 等。CGroups 由 Google 的两位工程师开发，自 2008 年 1 月发布的 Linux 2.6.24 版本的内核中提供此能力。到目前为止，CGroups 分 v1 和 v2 两个版本，v1 实现较早，功能比较多，但是由于它里面的功能都是零零散散的实现的，所以规划的不是很好，导致了一些使用和维护上的不便，v2 的出现就是为了解决 v1 中这方面的问题，在最新的 4.5 内核中，cgroup v2 声称已经可以用于生产环境了，但它所支持的功能还很有限，随着 v2 一起引入内核的还有 cgroup namespace。v1 和 v2 可以混合使用，但是这样会更复杂，所以一般没人会这样用。&lt;/p>
+&lt;p>在 Linux 里，一直以来就有对进程进行分组的概念和需求，比如 session group， progress group 等，后来随着人们对这方面的需求越来越多，比如需要追踪一组进程的内存和 IO 使用情况等，于是出现了 cgroup，用来统一将进程进行分组，并在分组的基础上对进程进行监控和资源控制管理等。&lt;/p>
+&lt;p>Cgroup 是 Linux kernel 的一项功能：它是在一个系统中运行的层级制进程组，你可对其进行资源分配（如 CPU 时间、系统内存、网络带宽或者这些资源的组合）。通过使用 cgroup，系统管理员在分配、排序、拒绝、管理和监控系统资源等方面，可以进行精细化控制。硬件资源可以在应用程序和用户间智能分配，从而增加整体效率。&lt;/p>
+&lt;p>cgroup 和 namespace 类似，也是将进程进行分组，但它的目的和 namespace 不一样，namespace 是为了隔离进程组之间的资源，而 cgroup 是为了对一组进程进行统一的资源监控和限制。CGroup 还能对进程进行优先级设置、审计、以及将进程挂起和恢复等操作&lt;/p>
+&lt;h2 id="术语">术语&lt;/h2>
+&lt;p>cgroup 在不同的上下文中代表不同的意思，可以指整个 Linux 的 cgroup 技术，也可以指一个具体进程组。&lt;/p>
+&lt;p>cgroup 是 Linux 下的一种将进程按组进行管理的机制，在用户层看来，cgroup 技术就是把系统中的所有进程组织成一颗一颗独立的树，每棵树都包含系统的所有进程，树的每个节点是一个进程组，而每颗树又和一个或者多个 subsystem 关联，树的作用是将进程分组，而 subsystem 的作用就是对这些组进行操作。&lt;/p>
+&lt;p>cgroup 主要包括下面两部分：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>subsystem(子系统)&lt;/strong> # 一个 subsystem 就是一个内核模块，他被关联到一颗 cgroup 树之后，就会 在树的每个节点（进程组）上做具体的操作。subsystem 经常被称作 resource controller，因为它主要被用来调度或者限制每个进程组的资源，但是这个说法不完全准确，因为有时我们将进程分组只是为了做一些监控，观察一下他们的状态，比如 perf_event subsystem。到目前为止，Linux 支持 12 种 subsystem，比如限制 CPU 的使用时间，限制使用的内存，统计 CPU 的使用情况，冻结和恢复一组进程等，后续会对它们一一进行介绍。&lt;/li>
+&lt;li>&lt;strong>hierarchy(层次结构)&lt;/strong> # 一个 hierarchy 可以理解为一棵 cgroup 树，树的每个节点就是一个进程组，每棵树都会与零到多个 subsystem 关联。在一颗树里面，会包含 Linux 系统中的所有进程，但每个进程只能属于一个节点（进程组）。系统中可以有很多颗 cgroup 树，每棵树都和不同的 subsystem 关联，一个进程可以属于多颗树，即一个进程可以属于多个进程组，只是这些进程组和不同的 subsystem 关联。目前 Linux 支持 12 种 subsystem，如果不考虑不与任何 subsystem 关联的情况（systemd 就属于这种情况），Linux 里面最多可以建 12 颗 cgroup 树，每棵树关联一个 subsystem，当然也可以只建一棵树，然后让这棵树关联所有的 subsystem。当一颗 cgroup 树不和任何 subsystem 关联的时候，意味着这棵树只是将进程进行分组，至于要在分组的基础上做些什么，将由应用程序自己决定，systemd 就是一个这样的例子。&lt;/li>
+&lt;/ul>
+&lt;h2 id="cgroup-子系统类型">CGroup 子系统类型&lt;/h2>
+&lt;p>可以通过 /proc/cgroups 文件查看当前系统支持哪些 subsystem：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat /proc/cgroups&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#subsys_name hierarchy num_cgroups enabled&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cpuset 6 5 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cpu 8 95 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cpuacct 8 95 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>blkio 4 95 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>memory 12 236 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>devices 11 95 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>freezer 9 5 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>net_cls 10 5 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>perf_event 5 5 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>net_prio 10 5 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hugetlb 2 5 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pids 3 103 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>rdma 7 1 &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>整理一下：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>subsys_name&lt;/th>
+&lt;th>hierarchy&lt;/th>
+&lt;th>num_cgroups&lt;/th>
+&lt;th>enabled&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>cpuset&lt;/td>
+&lt;td>6&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>cpu&lt;/td>
+&lt;td>8&lt;/td>
+&lt;td>95&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>cpuacct&lt;/td>
+&lt;td>8&lt;/td>
+&lt;td>95&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>blkio&lt;/td>
+&lt;td>4&lt;/td>
+&lt;td>95&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>memory&lt;/td>
+&lt;td>12&lt;/td>
+&lt;td>236&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>devices&lt;/td>
+&lt;td>11&lt;/td>
+&lt;td>95&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>freezer&lt;/td>
+&lt;td>9&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>net_cls&lt;/td>
+&lt;td>10&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>perf_event&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>net_prio&lt;/td>
+&lt;td>10&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>hugetlb&lt;/td>
+&lt;td>2&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>pids&lt;/td>
+&lt;td>3&lt;/td>
+&lt;td>103&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>rdma&lt;/td>
+&lt;td>7&lt;/td>
+&lt;td>1&lt;/td>
+&lt;td>1&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>从左到右，字段的含义分别是：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>subsys_name&lt;/strong> # subsystem 的名字
+&lt;ul>
+&lt;li>blkio # 块设备 IO&lt;/li>
+&lt;li>cpu # 基于 CFS 对 CPU 时间配额进行限制的子系统，CFS 概念详见：CPU 管理 章节中的 CFS 调度器。该子系统是 cgroup 对进程使用 CPU 资源进行限制的主要手段&lt;/li>
+&lt;li>cpuacct # CPU 资源使用报告&lt;/li>
+&lt;li>cpuset # 多处理器平台上的 CPU 集合&lt;/li>
+&lt;li>devices # 设备访问&lt;/li>
+&lt;li>freezer # 挂载器或恢复任务&lt;/li>
+&lt;li>hungetlb #&lt;/li>
+&lt;li>memory # 内存用量及报告&lt;/li>
+&lt;li>net_cls # cgroup 中的任务创建的数据包的类别标识符&lt;/li>
+&lt;li>net_prio #&lt;/li>
+&lt;li>perf_event # 对 cgroup 中的任务进行统一性能测试&lt;/li>
+&lt;li>pids #&lt;/li>
+&lt;li>rdma #&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>hierarchy&lt;/strong> # subsystem 所关联到的 cgroup 树的 ID，如果多个 subsystem 关联到同一颗 cgroup 树，那么他们的这个字段将一样，比如这里的 cpu 和 cpuacct 就一样，表示他们绑定到了同一颗树。如果出现下面的情况，这个字段将为 0：
+&lt;ul>
+&lt;li>当前 subsystem 没有和任何 cgroup 树绑定&lt;/li>
+&lt;li>当前 subsystem 已经和 cgroup v2 的树绑定&lt;/li>
+&lt;li>当前 subsystem 没有被内核开启&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>num_cgroups&lt;/strong> # subsystem 所关联的 cgroup 树中进程组的个数，也即树上节点的个数&lt;/li>
+&lt;li>&lt;strong>enabled&lt;/strong> # 1 表示开启，0 表示没有被开启(可以通过设置内核的启动参数“cgroup_disable”来控制 subsystem 的开启).&lt;/li>
+&lt;/ul>
+&lt;h1 id="cgroup-关联文件">CGroup 关联文件&lt;/h1>
+&lt;h2 id="sysfscgroup--cgroup-根目录">/sys/fs/cgroup/* # CGroup 根目录。&lt;/h2>
+&lt;p>CGroup 的相关操作都是基于内核中的 &lt;strong>CGroup Virtual Filesystem(控制组虚拟文件系统)&lt;/strong>。所以，使用 CGroup 首先需要挂载这个文件系统，通常，现代系统在启动时，都默认会挂载相关的 CGroup 文件系统：&lt;/p>
+&lt;ul>
+&lt;li>**CGroupV1，**该目录下的每个目录都是 CGroup 子系统的名称。其中包含该子系统中所关联的进程的资源控制信息。&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># mount -t cgroup&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup on /sys/fs/cgroup/systemd type cgroup &lt;span style="color:#f92672">(&lt;/span>rw,nosuid,nodev,noexec,relatime,xattr,name&lt;span style="color:#f92672">=&lt;/span>systemd&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup on /sys/fs/cgroup/pids type cgroup &lt;span style="color:#f92672">(&lt;/span>rw,nosuid,nodev,noexec,relatime,pids&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup on /sys/fs/cgroup/blkio type cgroup &lt;span style="color:#f92672">(&lt;/span>rw,nosuid,nodev,noexec,relatime,blkio&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup on /sys/fs/cgroup/cpu,cpuacct type cgroup &lt;span style="color:#f92672">(&lt;/span>rw,nosuid,nodev,noexec,relatime,cpu,cpuacct&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup on /sys/fs/cgroup/memory type cgroup &lt;span style="color:#f92672">(&lt;/span>rw,nosuid,nodev,noexec,relatime,memory&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...... 略
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>**CGroupV2，**则只会有一个 cgroup2 on /sys/fs/cgroup type cgroup2 (&amp;hellip;&amp;hellip;) 的挂载项&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># mount -t cgroup2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup2 on /sys/fs/cgroup type cgroup2 &lt;span style="color:#f92672">(&lt;/span>rw,nosuid,nodev,noexec,relatime&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这里面的 &lt;strong>/sys/fs/cgroup&lt;/strong> 目录，就称为 **CGroup 的根目录。CGroup 文件系统的 V1 与 V2 的根目录下的内容，各不相同，详见 &lt;strong>[&lt;/strong>《CGroup FS》 **](✏IT 学习笔记/☁️10.云原生/2.1.容器/2.CGroup/CGroup%20FS.md FS.md)&lt;strong>章节&lt;/strong>&lt;/p>
+&lt;h2 id="procpidcgroup--进程号为-pid-的进程所属的-cgroup-信息">/proc/PID/cgroup # 进程号为 PID 的进程所属的 cgroup 信息。&lt;/h2>
+&lt;p>在** &lt;strong>/proc/PID/cgroup&lt;/strong> **文件中会指定进程所使用的 CGropu 的相对路径。文件中每行都是进程所属的 CGroup 子系统，每行子系统信息由以 &lt;code>:&lt;/code> 分割的三个字段组成&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>hierarchy-ID&lt;/strong> # Hierarchy 唯一标识符。与 /proc/cgroups 文件中的 Hierarchy ID 相同。
+&lt;ul>
+&lt;li>CGroup v2 版本该字段始终为 0&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>controller-list&lt;/strong> # 绑定到 Hierarchy ID 的控制器列表。也就是 CGroup 的子系统。
+&lt;ul>
+&lt;li>CGroup v2 版本该字段为空&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>cgroup-path&lt;/strong> # 进程所属 CGroup 子系统的信息的路径。这是一个相对路径。
+&lt;ul>
+&lt;li>这里面的 &lt;code>/&lt;/code> 就是指 CGroup 的根节点中对应子系统的目录
+&lt;ul>
+&lt;li>对于 CGroupV1 来说通常是 /sys/fs/cgroup/SUBSYSTEM。所以，一个完整的 cgroup-path 应该是 &lt;code>/sys/fs/cgroup/SUBSYSTEM/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope/*&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>cgroup 的 v1 和 v2 版本显示的信息不同&lt;/p>
+&lt;h3 id="cgroupv1">CGroupV1&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat /proc/1185/cgroup&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>12:memory:/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>11:devices:/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:net_cls,net_prio:/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>9:freezer:/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>8:cpu,cpuacct:/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>7:rdma:/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>6:cpuset:/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>5:perf_event:/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>4:blkio:/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>3:pids:/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>2:hugetlb:/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>1:name&lt;span style="color:#f92672">=&lt;/span>systemd:/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0::/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>比如，1185 进程的 cpu 子系统的 CGroup 信息，就在 &lt;code>/sys/fs/cgroup/cpu/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope/&lt;/code> 目录中：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls /sys/fs/cgroup/cpu/system.slice/docker-b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460.scope&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup.clone_children cpuacct.usage cpuacct.usage_percpu_sys cpuacct.usage_user cpu.shares cpu.uclamp.min
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup.procs cpuacct.usage_all cpuacct.usage_percpu_user cpu.cfs_period_us cpu.stat notify_on_release
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cpuacct.stat cpuacct.usage_percpu cpuacct.usage_sys cpu.cfs_quota_us cpu.uclamp.max tasks
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="cgropuv2">CGropuV2&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat /proc/1277/cgroup&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0::/system.slice/docker-020cfdfbd4cd43981570f4fa7def9a2b600025b2e60e3150e742a5049562f30f.scope
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>比如，1277 进程的 CGroup 信息，就在 &lt;code>/sys/fs/cgroup/system.slice/docker-020cfdfbd4cd43981570f4fa7def9a2b600025b2e60e3150e742a5049562f30f.scope/&lt;/code> 目录中：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls /sys/fs/cgroup/system.slice/docker-020cfdfbd4cd43981570f4fa7def9a2b600025b2e60e3150e742a5049562f30f.scope/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup.controllers cgroup.procs cpu.max cpuset.mems cpu.weight io.weight memory.low memory.stat rdma.max
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup.events cgroup.stat cpu.pressure cpuset.mems.effective cpu.weight.nice memory.current memory.max pids.current
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup.freeze cgroup.subtree_control cpuset.cpus cpu.stat io.max memory.events memory.min pids.events
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup.max.depth cgroup.threads cpuset.cpus.effective cpu.uclamp.max io.pressure memory.events.local memory.oom.group pids.max
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cgroup.max.descendants cgroup.type cpuset.cpus.partition cpu.uclamp.min io.stat memory.high memory.pressure rdma.current
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="其他文件">其他文件&lt;/h2>
+&lt;p>&lt;strong>/proc/cgroups&lt;/strong> # 当前系统支持的所有 CGroup 子系统&lt;/p>
+&lt;h1 id="systemd-的-slice-单元">systemd 的 slice 单元&lt;/h1>
+&lt;p>在 Systemd 作为 1 号进程的系统中，进程的 CGroup 都可以配置为由 Systemd 管理，其中 Slice 类型的单元就是用来控制 CGroup 的。默认会创建 3 个顶级 Slice&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>system.slice&lt;/strong> # 所有 Service Unit 的默认。&lt;/li>
+&lt;li>&lt;strong>user.lice&lt;/strong> # 所有用户进程的默认。&lt;/li>
+&lt;li>&lt;strong>machine.slice&lt;/strong> # 所有虚拟机和容器的默认。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;code>systemd-cgls&lt;/code> 命令可以查看 CGroup 的层次结构&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># systemd-cgls&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Control group /:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-.slice
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├─931 bpfilter_umh
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├─user.slice
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └─user-1000.slice
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├─user@1000.service …
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ └─init.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ ├─81271 /lib/systemd/systemd --user
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ └─81276 &lt;span style="color:#f92672">(&lt;/span>sd-pam&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├─session-431.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ ├─81902 sshd: lichenhao &lt;span style="color:#f92672">[&lt;/span>priv&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ ├─81998 sshd: lichenhao@pts/1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ ├─82001 -bash
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ ├─82100 su - root
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ ├─82101 -bash
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ ├─82697 systemd-cgls
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ └─82698 pager
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └─session-432.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├─82013 sshd: lichenhao &lt;span style="color:#f92672">[&lt;/span>priv&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├─82097 sshd: lichenhao@notty
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └─82098 /usr/lib/openssh/sftp-server
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├─init.scope
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └─1 /sbin/init nospectre_v2 nopti noibrs noibpb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└─system.slice
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├─irqbalance.service
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ └─524 /usr/sbin/irqbalance --foreground
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├─uniagent.service
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ └─537 /usr/local/uniagent/bin/uniagent
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├─containerd.service …
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ ├─ &lt;span style="color:#ae81ff">714&lt;/span> /usr/bin/containerd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ ├─ &lt;span style="color:#ae81ff">1140&lt;/span> /usr/bin/containerd-shim-runc-v2 -namespace moby -id b8f92f970f0d17377e7ad4c9b75f8316cdb15a6dd7dd81466f415e6fcaed6460 -address /run/containerd/containerd.sock
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ ├─31778 /usr/bin/containerd-shim-runc-v2 -namespace moby -id 4c5ec4bc9717bb9fd2a2ea7b507ac3c0e16da95fa87974152f0fe3b3a653cef9 -address /run/containerd/containerd.sock
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>systemd-cgtop&lt;/code> 命令可以查看 CGroup 的动态信息。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>Control Group Tasks %CPU Memory Input/s Output/s
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/ &lt;span style="color:#ae81ff">221&lt;/span> 1.0 3.1G - -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>user.slice &lt;span style="color:#ae81ff">11&lt;/span> 0.7 1.5G - -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>system.slice &lt;span style="color:#ae81ff">139&lt;/span> 0.4 1.2G - -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>system.slice/containerd.service &lt;span style="color:#ae81ff">46&lt;/span> 0.2 276.0M - -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>system.slice/cloudResetPwdUpdateAgent.service &lt;span style="color:#ae81ff">18&lt;/span> 0.2 102.4M - -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>system.slice/docker-4c5ec4…d2a2ea7b507ac3c0e16da95fa87974152f0fe3b3a653cef9.scope &lt;span style="color:#ae81ff">1&lt;/span> 0.1 1.3M - -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>system.slice/multipathd.service &lt;span style="color:#ae81ff">7&lt;/span> 0.0 13.8M - -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>init.scope &lt;span style="color:#ae81ff">1&lt;/span> - 7.6M - -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>system.slice/ModemManager.service &lt;span style="color:#ae81ff">3&lt;/span> - 6.8M - -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>system.slice/NetworkManager.service &lt;span style="color:#ae81ff">3&lt;/span> - 13.6M - -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>system.slice/accounts-daemon.service &lt;span style="color:#ae81ff">3&lt;/span> - 6.5M - -
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="cgroupv2">CGroupV2&lt;/h1>
+&lt;h2 id="检查-cgroup-v2-是否已启用">检查 cgroup v2 是否已启用&lt;/h2>
+&lt;p>如果 &lt;code>/sys/fs/cgroup/cgroup.controllers&lt;/code> 存在于您的系统上，则您使用的是 v2，否则您使用的是 v1。
+已知以下发行版默认使用 cgroup v2：&lt;/p>
+&lt;ul>
+&lt;li>Fedora（31 起）&lt;/li>
+&lt;li>Arch Linux（自 2021 年 4 月起）&lt;/li>
+&lt;li>openSUSE Tumbleweed（自 2021 年起）&lt;/li>
+&lt;li>Debian GNU/Linux（从 11 开始）&lt;/li>
+&lt;li>Ubuntu（自 21.10 起）&lt;/li>
+&lt;/ul>
+&lt;h2 id="启用-cgroup-v2">启用 cgroup v2&lt;/h2>
+&lt;p>为容器启用 cgroup v2 需要内核 4.15 或更高版本。建议使用内核 5.2 或更高版本。
+然而，将 cgroup v2 控制器委派给非 root 用户需要最新版本的 systemd。建议使用 systemd 244 或更高版本。
+要使用 cgroup v2 引导主机，请将以下字符串添加到 GRUB_CMDLINE_LINUXin 行/etc/default/grub，然后运行 sudo update-grub.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>systemd.unified_cgroup_hierarchy&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="启用-cpucpuset-和-io-委派">启用 CPU、CPUSET 和 I/O 委派&lt;/h2>
+&lt;p>默认情况下，非 root 用户只能获取 memory 控制器和 pids 要委托的控制器。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat /sys/fs/cgroup/user.slice/user-&lt;span style="color:#66d9ef">$(&lt;/span>id -u&lt;span style="color:#66d9ef">)&lt;/span>.slice/user@&lt;span style="color:#66d9ef">$(&lt;/span>id -u&lt;span style="color:#66d9ef">)&lt;/span>.service/cgroup.controllers
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>memory pids
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>要允许委派其他控制器，例如 cpu、cpuset 和 io，请运行以下命令：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ sudo mkdir -p /etc/systemd/system/user@.service.d
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ cat &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF | sudo tee /etc/systemd/system/user@.service.d/delegate.conf
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[Service]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Delegate=cpu cpuset io memory pids
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ sudo systemctl daemon-reload
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>建议使用委派 cpuset 以及 cpu. 委派 cpuset 需要 systemd 244 或更高版本。
+更改 systemd 配置后，您需要重新登录或重新启动主机。建议重启主机。&lt;/p></description></item><item><title>Docs: 2.CGroup</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/2.cgroup/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/2.cgroup/</guid><description/></item><item><title>Docs: Open Containers Initiative(开放容器倡议)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/open-containers-initiative%E5%BC%80%E6%94%BE%E5%AE%B9%E5%99%A8%E5%80%A1%E8%AE%AE/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/open-containers-initiative%E5%BC%80%E6%94%BE%E5%AE%B9%E5%99%A8%E5%80%A1%E8%AE%AE/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://opencontainers.org/">OCI 官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/opencontainers">GitHub 账户,OpenContainers&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://segmentfault.com/u/public0821/articles">segmentfault,《走进 docker》系列文章&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>**Open Containers Initiative(开放容器倡议，简称 OCI)。**是一个轻量级的，开放的治理结构（项目），由 Linux Foundation 主持成立，其明确目的是围绕 Container 镜像格式和运行时创建 开放的行业标准。OCI 由 Docker，CoreOS 和其他容器行业领导者于 2015 年 6 月 22 日启动。&lt;/p>
+&lt;p>OCI 公有如下几个个规范：
+一开始有两个&lt;/p>
+&lt;ul>
+&lt;li>**Image-spec(镜像规范) **# 容器镜像所包含的内容以及格式都遵循统一的格式标准，由 OCI 负责维护，官方详解地址为：image-spec&lt;/li>
+&lt;li>&lt;strong>Runtime-spec(运行时规范)&lt;/strong> # 容器运行时的内容以及格式都遵循统一的格式标准，由 OCI 负责维护，官方详解地址为：runtime-spec&lt;/li>
+&lt;/ul>
+&lt;p>后来新加的一个&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Distribution-spec(分发规范)&lt;/strong> #&lt;/li>
+&lt;/ul>
+&lt;p>在所有企业、各人在构建镜像、运行容器时，都应该遵守 OCI 标准，比如想用 docker 工具构建一个镜像，那么构建出来的镜像规范，必须符合 OCI 标准。其他类似 docker 的工具同理。如果想自己开发一个构建镜像的工具或者运行容器的运行时，都需要符合 OCI 的标准。这样大家都遵守同一套规范，才有利于技术的发展。&lt;/p></description></item><item><title>Docs: Open Containers Initiative(开放容器倡议)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/open-containers-initiative%E5%BC%80%E6%94%BE%E5%AE%B9%E5%99%A8%E5%80%A1%E8%AE%AE/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/open-containers-initiative%E5%BC%80%E6%94%BE%E5%AE%B9%E5%99%A8%E5%80%A1%E8%AE%AE/</guid><description/></item><item><title>Docs: 容器开发</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/%E5%AE%B9%E5%99%A8%E5%BC%80%E5%8F%91/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.1.%E5%AE%B9%E5%99%A8/%E5%AE%B9%E5%99%A8%E5%BC%80%E5%8F%91/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/google/go-containerregistry">GitHub 项目，google/go-containerregistry&lt;/a>
+&lt;ul>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/google/go-containerregistry">https://pkg.go.dev/github.com/google/go-containerregistry&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>go-containerregistry 是一个用于控制容器镜像的 Go 库。这个库的整体设计理念是将容器镜像抽象为 3 个接口：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1#Image">Image{}&lt;/a> # 定义了与 OCI 标准的 Image 交互的接口&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1#Layer">Layer{}&lt;/a> # 定义了访问 OCI Image 标准的 Layer 的交互接口&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1#ImageIndex">ImageIndex{}&lt;/a> # 定义了与 OCI Image 标准的 Index 交互的接口&lt;/li>
+&lt;/ul>
+&lt;p>这三个被抽象出来的接口可以通过多种 &lt;strong>Medium(手段)&lt;/strong> 实现：&lt;/p>
+&lt;ul>
+&lt;li>Registry(注册中心) # 控制各种容器镜像的 Registry 中的镜像。比如 docker.io、gcr.io 等等
+&lt;ul>
+&lt;li>由 &lt;a href="https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1/remote">remote 包&lt;/a>实现&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Tarball(压缩文件) # 控制 &lt;code>docker save&lt;/code> 之类命令生成的 tarball 的镜像。
+&lt;ul>
+&lt;li>由 &lt;a href="https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1/tarball">tarball 包&lt;/a>实现&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Daemon(守护进程) # 控制 Docker 守护进程中的镜像。这个包还不够完善
+&lt;ul>
+&lt;li>由 &lt;a href="https://pkg.go.dev/github.com/google/go-containerregistry/pkg/v1/daemon">daemon 包&lt;/a>实现&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip; 等等。随着库的扩展，可以实现三个接口的 Medium 将会越来越多&lt;/li>
+&lt;/ul>
+&lt;p>用人话说：
+我们可以通过多个途径获取到容器镜像，比如容器镜像的注册中心，本地的压缩包(&lt;code>docker save&lt;/code> 命令生成的文件等)、容器管理程序(Docker、Containerd 等)。这些可以获取到镜像的地方，称为 &lt;strong>Medium(手段、介质)&lt;/strong>。&lt;/p>
+&lt;p>go-containerregisty 中编写了很多处理镜像的逻辑(也就是函数)，这些处理镜像的逻辑符合 OCI 标准，但是很多逻辑都需要将“镜像”作为参数传递以便处理它们，但是通过这些 Medium 获取到的镜像格式可能不太一样，那么就需要对这些“镜像”建模，以便进行统一管理，所以就将“镜像”抽象为 &lt;code>Image{}&lt;/code>、&lt;code>Layer{}&lt;/code>、&lt;code>ImageIndex{}&lt;/code> 这三个接口。&lt;/p>
+&lt;p>此时，每个 Medium 就可以自己实现想要的镜像管理逻辑了，只要其定义的结构体可以实现上述三个接口，那么就可以通过 go-containerregistry 中的函数处理 OCI 标准的镜像了。&lt;/p>
+&lt;p>说白了，go-containerregsitry 本质就是处理容器镜像的&lt;strong>通用逻辑&lt;/strong>，那些 Medium 相关的代码其实并不真正属于该库的一部分，而是对该库的一种调用。&lt;/p>
+&lt;h2 id="简单示例">简单示例&lt;/h2>
+&lt;p>比如我们用 remote 这个 Medium 作为示例。
+首先我们需要实例化一个 &lt;code>Image{}&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">img&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">remote&lt;/span>.&lt;span style="color:#a6e22e">Image&lt;/span>(&lt;span style="color:#a6e22e">ref&lt;/span>, &lt;span style="color:#a6e22e">remote&lt;/span>.&lt;span style="color:#a6e22e">WithAuthFromKeychain&lt;/span>(&lt;span style="color:#a6e22e">authn&lt;/span>.&lt;span style="color:#a6e22e">DefaultKeychain&lt;/span>))
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>想要实例化一个 &lt;code>Image{}&lt;/code> 需要知道镜像的 tag、digest 中任意一个&lt;/p>
+&lt;pre>&lt;code>ref, _ := name.ParseReference(&amp;quot;nginx&amp;quot;)
+&lt;/code>&lt;/pre>
+&lt;p>然后就可以通过实例化的 &lt;code>Image{}&lt;/code> 处理镜像了，比如这里是获取镜像占用空间的大小&lt;/p>
+&lt;pre>&lt;code>imageSize, _ := img.Size()
+&lt;/code>&lt;/pre>
+&lt;p>这几步合在一起&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/google/go-containerregistry/pkg/authn&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/google/go-containerregistry/pkg/name&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/google/go-containerregistry/pkg/v1/remote&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 通过镜像的 tag 或者 digest 实例化一个镜像的引用。其实就是告诉 Medium 需要操作的镜像
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 这里之所以不在 remote.Image() 的第一个参数中只写填写镜像的 tag 或 digest，是为了可以在实例化 Image{} 之前对镜像名称进行一些操作，
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 比如通过 Reference{},我们可以获取镜像的 注册中心、名称 等等信息，
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 假如 ParseReference() 的参数是通过外部变量传递进来的，那么在实例化 Image{} 之前，我们可以先分析一下镜像的名称，对其进行过滤。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">ref&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">name&lt;/span>.&lt;span style="color:#a6e22e">ParseReference&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;nginx&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 通过镜像的引用实例化 Image{}
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">img&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">remote&lt;/span>.&lt;span style="color:#a6e22e">Image&lt;/span>(&lt;span style="color:#a6e22e">ref&lt;/span>, &lt;span style="color:#a6e22e">remote&lt;/span>.&lt;span style="color:#a6e22e">WithAuthFromKeychain&lt;/span>(&lt;span style="color:#a6e22e">authn&lt;/span>.&lt;span style="color:#a6e22e">DefaultKeychain&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 通过实例化的镜像控制镜像，这里是获取镜像所占容量的大小
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">imageSize&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">img&lt;/span>.&lt;span style="color:#a6e22e">Size&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#a6e22e">imageSize&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="v1image">v1.Image&lt;/h1>
+&lt;p>实现了该接口的结构体：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/remote#Image">remote.Image&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/tarball#Image">tarball.Image&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/daemon#Image">daemon.Image&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/layout#Path.Image">layout.Image&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/random#Image">random.Image&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Image 定义了与 OCI Image 交互的接口
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Image&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回了当前镜像的所有层级， 最老/最基础的层在数组的前面，最上面/最新的层在数组的后面
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Layers&lt;/span>() ([]&lt;span style="color:#a6e22e">Layer&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回当前 image 的 MediaType
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">MediaType&lt;/span>() (&lt;span style="color:#a6e22e">types&lt;/span>.&lt;span style="color:#a6e22e">MediaType&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个 Image manifest 的大小
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Size&lt;/span>() (&lt;span style="color:#66d9ef">int64&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个镜像 ConfigFile 的hash值，也是这个镜像的 ImageID
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">ConfigName&lt;/span>() (&lt;span style="color:#a6e22e">Hash&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个镜像的 ConfigFile
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">ConfigFile&lt;/span>() (&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">ConfigFile&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个镜像的 ConfigFile 的字节数组
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">RawConfigFile&lt;/span>() ([]&lt;span style="color:#66d9ef">byte&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个Image Manifest 的sha256 值
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Digest&lt;/span>() (&lt;span style="color:#a6e22e">Hash&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个Image Manifest
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Manifest&lt;/span>() (&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Manifest&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回 ImageManifest 的bytes数组
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">RawManifest&lt;/span>() ([]&lt;span style="color:#66d9ef">byte&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个镜像中的某一层layer， 根据 digest（压缩后的hash值） 来查找
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">LayerByDigest&lt;/span>(&lt;span style="color:#a6e22e">Hash&lt;/span>) (&lt;span style="color:#a6e22e">Layer&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个镜像中的某一层layer， 根据 diffid （未压缩的hash值） 来查找
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">LayerByDiffID&lt;/span>(&lt;span style="color:#a6e22e">Hash&lt;/span>) (&lt;span style="color:#a6e22e">Layer&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="v1imageindex">v1.ImageIndex&lt;/h1>
+&lt;p>实现了该接口的结构体：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/remote#Index">remote.Index&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/random#Index">random.Index&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/layout#ImageIndexFromPath">layout.ImageIndexFromPath&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// ImageIndex 定义与 OCI ImageIndex 交互的接口
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">ImageIndex&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回当前 imageIndex 的 MediaType
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">MediaType&lt;/span>() (&lt;span style="color:#a6e22e">types&lt;/span>.&lt;span style="color:#a6e22e">MediaType&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个 ImageIndex manifest 的 sha256值。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Digest&lt;/span>() (&lt;span style="color:#a6e22e">Hash&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个 ImageIndex manifest 的大小
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Size&lt;/span>() (&lt;span style="color:#66d9ef">int64&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个 ImageIndex 的 manifest 结构
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">IndexManifest&lt;/span>() (&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">IndexManifest&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个 ImageIndex 的 manifest 字节数组
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">RawManifest&lt;/span>() ([]&lt;span style="color:#66d9ef">byte&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个 ImageIndex 引用的 Image
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Image&lt;/span>(&lt;span style="color:#a6e22e">Hash&lt;/span>) (&lt;span style="color:#a6e22e">Image&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回这个 ImageIndex 引用的 ImageIndex
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">ImageIndex&lt;/span>(&lt;span style="color:#a6e22e">Hash&lt;/span>) (&lt;span style="color:#a6e22e">ImageIndex&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="v1layer">v1.Layer&lt;/h1>
+&lt;p>实现了该接口的结构体：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/remote#Layer">remote.Layer&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/tarball#LayerFromFile">tarball.LayerFromFile&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/random#Layer">random.Layer&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://godoc.org/github.com/google/go-containerregistry/pkg/v1/stream#Layer">stream.Layer&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Layer 定义了访问 OCI Image 特定 Layer 的接口
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Layer&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回了压缩后的layer的sha256 值
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Digest&lt;/span>() (&lt;span style="color:#a6e22e">Hash&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回了 未压缩的layer 的sha256值.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">DiffID&lt;/span>() (&lt;span style="color:#a6e22e">Hash&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回了压缩后的镜像层
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Compressed&lt;/span>() (&lt;span style="color:#a6e22e">io&lt;/span>.&lt;span style="color:#a6e22e">ReadCloser&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回了未压缩的镜像层
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Uncompressed&lt;/span>() (&lt;span style="color:#a6e22e">io&lt;/span>.&lt;span style="color:#a6e22e">ReadCloser&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回了压缩后镜像层的大小
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Size&lt;/span>() (&lt;span style="color:#66d9ef">int64&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 返回当前 layer 的 MediaType
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">MediaType&lt;/span>() (&lt;span style="color:#a6e22e">types&lt;/span>.&lt;span style="color:#a6e22e">MediaType&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>

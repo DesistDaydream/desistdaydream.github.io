@@ -1,0 +1,333 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 证书 与 PKI</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/cryptography%E5%AF%86%E7%A0%81%E5%AD%A6/%E5%85%AC%E5%BC%80%E5%AF%86%E9%92%A5%E5%8A%A0%E5%AF%86/%E8%AF%81%E4%B9%A6-%E4%B8%8E-pki/</link><description>Recent content in 证书 与 PKI on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/cryptography%E5%AF%86%E7%A0%81%E5%AD%A6/%E5%85%AC%E5%BC%80%E5%AF%86%E9%92%A5%E5%8A%A0%E5%AF%86/%E8%AF%81%E4%B9%A6-%E4%B8%8E-pki/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: X.509</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/cryptography%E5%AF%86%E7%A0%81%E5%AD%A6/%E5%85%AC%E5%BC%80%E5%AF%86%E9%92%A5%E5%8A%A0%E5%AF%86/%E8%AF%81%E4%B9%A6-%E4%B8%8E-pki/x.509/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/cryptography%E5%AF%86%E7%A0%81%E5%AD%A6/%E5%85%AC%E5%BC%80%E5%AF%86%E9%92%A5%E5%8A%A0%E5%AF%86/%E8%AF%81%E4%B9%A6-%E4%B8%8E-pki/x.509/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/X.509">Wiki,X.509&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://datatracker.ietf.org/doc/html/rfc5280">RFC,5280&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://arthurchiao.art/blog/everything-about-pki-zh/">Arthurchiao 博客,[译] 写给工程师：关于证书（certificate）和公钥基础设施（PKI）的一切（SmallStep, 2018）&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://datatracker.ietf.org/doc/html/rfc5280">RFC 5280,Internet X.509 PKI 证书和 CRL 配置文件&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>X.509 是&lt;a href="https://www.yuque.com/go/doc/33178368">密码学&lt;/a>里定义公钥证书格式的&lt;strong>标准&lt;/strong>。X.509 格式的证书已应用在包括 TSL/SSL 在内的众多网络协议里，它是 HTTPS 的基础。&lt;/p>
+&lt;p>在大部分时候，人们提到证书而没有加额外的限定词时，通常都是指 X.509 v3 证书。&lt;/p>
+&lt;ul>
+&lt;li>更准确的说，是 RFC 5280 中描述、 CA/Browser Forum &lt;a href="https://cabforum.org/baseline-requirements-documents/">Baseline Requirements&lt;/a>中进一步完善的 PKIX 变种。&lt;/li>
+&lt;li>也可以说，指的是浏览器理解并用来做 HTTPS 的那些证书。&lt;/li>
+&lt;li>也是那些具有通过 HTTP + TLS 协议交互的程序们所使用的证书&lt;/li>
+&lt;/ul>
+&lt;p>当然，全世界并不是只有 X.509 这一种格式，SSH 和 PGP 都有其各自的格式。&lt;/p>
+&lt;p>X.509 在 1988 年作为 ITU(国际电信联盟) X.500 项目的一部分首次标准化。 这是 telecom(通信) 领域的标准，想通过它构建一个 global telephone book(全球电话簿)。 虽然这个项目没有成功，但却留下了一些遗产，X.509 就是其中之一。如果查看 X.509 的证书，会看到其中包含了 locality、state、country 等信息， 之前可能会有疑问为什么为 web 设计的证书会有这些东西，现在应该明白了，因为 X.509 并不是为 web 设计的。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/puor14/1635944301557-e8774c02-d1c8-4e0f-9f7a-a2c3a7180ce0.png" alt="image.png">
+图片补充：可以说 Subject 其实就是符合 &lt;a href="https://en.wikipedia.org/wiki/Lightweight_Directory_Access_Protocol#Directory_structure">Distinguished Name(专有名称，简称 DN)&lt;/a> 的规范，只不过 Subject 只是包含了 DN 中的部分字段罢了。也可以说，&lt;strong>Subject 是符合 X.509 标准的 DN。&lt;/strong>&lt;/p>
+&lt;h1 id="x509-证书的格式">X.509 证书的格式&lt;/h1>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/puor14/1635931450920-fd8cad72-9ee7-476a-96ef-5e6ed60cc52b.png" alt="image.png">
+&lt;strong>Certificate: &lt;!-- raw HTML omitted -->&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>**Data: &lt;!-- raw HTML omitted --> **# 证书的数据
+&lt;ul>
+&lt;li>&lt;strong>Version: STRING&lt;/strong> # 版本号&lt;/li>
+&lt;li>**Serial Number: STRING **# 序列号&lt;/li>
+&lt;li>&lt;strong>Signature Algorithm: STRING&lt;/strong> # 签名算法&lt;/li>
+&lt;li>&lt;strong>Issuer: STRING&lt;/strong> # 发行人名称，也就是这个证书的签发者。&lt;/li>
+&lt;li>**Validity: &lt;!-- raw HTML omitted --> **# 有效期
+&lt;ul>
+&lt;li>**Not Before: STRING **# 不能早于该日期。即证书从本日期开始生效&lt;/li>
+&lt;li>**Not After: STRING **# 不能晚于该日期。即证书到本日期为止失效&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>**Subject: STRING **# 主体信息。如何 X.509 规范的 Distinguished Name。
+&lt;ul>
+&lt;li>对于 CA 证书来说， Subject 与 Issuer 的值相同。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>**Subject Public Key Info: **# 主体的公钥信息
+&lt;ul>
+&lt;li>**Public Key Algorithm: STRING **# 公钥算法&lt;/li>
+&lt;li>&lt;strong>主体的公钥&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Issuer Unique Identifier:&lt;/strong> # 颁发者唯一身份信息（可选项）&lt;/li>
+&lt;li>&lt;strong>Subject Unique Identifier:&lt;/strong> # 主体唯一身份信息（可选项）&lt;/li>
+&lt;li>&lt;strong>Extensions: &lt;!-- raw HTML omitted -->&lt;/strong> # 扩展信息（可选项）
+&lt;ul>
+&lt;li>&amp;hellip;&amp;hellip;&lt;/li>
+&lt;li>&lt;strong>X509v3 Subject Alternative Name:&lt;/strong> # SAN 信息。常用来作为该证书的名称。&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>**Signature Algorithm: STRING **# 证书签名算法&lt;/li>
+&lt;li>证书签名&lt;/li>
+&lt;/ul>
+&lt;p>证书的 Issuer 和证书的 Subject 用 X.509 DN 表示，DN 是由 RDN 构成的序列。RDN 用“属性类型=属性值”的形式表示。常用的属性类型名称以及简写如下：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>属性类型名称&lt;/th>
+&lt;th>含义&lt;/th>
+&lt;th>简写&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Common Name&lt;/td>
+&lt;td>通用名称&lt;/td>
+&lt;td>CN&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Organizational Unit name&lt;/td>
+&lt;td>机构单元名称&lt;/td>
+&lt;td>OU&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Organization name&lt;/td>
+&lt;td>机构名&lt;/td>
+&lt;td>O&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Locality&lt;/td>
+&lt;td>地理位置&lt;/td>
+&lt;td>L&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>State or province name&lt;/td>
+&lt;td>州/省名&lt;/td>
+&lt;td>S&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Country&lt;/td>
+&lt;td>国名&lt;/td>
+&lt;td>C&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h2 id="dn-与-san-命名的历史包袱">DN 与 SAN 命名的历史包袱&lt;/h2>
+&lt;h3 id="dn-distinguished-names">DN (distinguished names)&lt;/h3>
+&lt;p>历史上，X.509 使用 X.500 distinguished names (DN) 来命名证书的使用者（name the subject of a certificate），即 subscriber。 一个 DN 包含了一个 common name （对作者我来说，就是 “Mike Malone”），此外还可以包含 locality、country、organization、organizational unit 及其他一些东西（数字电话簿相关）。&lt;/p>
+&lt;ul>
+&lt;li>没人理解 DN，它在互联网上也没什么意义。&lt;/li>
+&lt;li>应该避免使用 DN。如果真的要用，也要尽量保持简单。&lt;/li>
+&lt;li>无需使用全部字段，实际上，也不应该使用全部字段。&lt;/li>
+&lt;li>common name 可能就是需要用到的全部字段了，如果你是一个 thrill seeker ，可以在用上一个 organization name。&lt;/li>
+&lt;/ul>
+&lt;p>PKIX 规定一个网站的 DNS hostname 应该关联到 DN common name。最近，CAB Forum 已 经废弃了这个规定，使整个 DN 字段变成可选的（Baseline Requirements, sections 7.1.4.2）。&lt;/p>
+&lt;h3 id="san-subject-alternative-name">SAN (subject alternative name)&lt;/h3>
+&lt;p>在 &lt;a href="https://tools.ietf.org/html/rfc5280#section-4.2.1.6">RFC 5280 的 4.2.1.6 部分&lt;/a>中，推荐的现代最佳实践是使用 &lt;strong>证书扩展中的 subject alternative name(SAN)&lt;/strong> 来绑定证书中的 name。&lt;/p>
+&lt;p>常用的 SAN 有四种类型，绑定的都是广泛使用的名字：&lt;/p>
+&lt;ul>
+&lt;li>domain names (DNS)&lt;/li>
+&lt;li>email addresse&lt;/li>
+&lt;li>IP addresse&lt;/li>
+&lt;li>URI&lt;/li>
+&lt;/ul>
+&lt;p>在我们讨论的上下文中，这些都是唯一的，而且它们能很好地映射到我们想识别的东西：&lt;/p>
+&lt;ul>
+&lt;li>email addresses for people&lt;/li>
+&lt;li>domain names and IP addresses for machines and code,&lt;/li>
+&lt;li>URIs if you want to get fancy&lt;/li>
+&lt;/ul>
+&lt;p>应该使用 SAN。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/puor14/1638258551706-2b7a5b62-a093-4b12-8b34-7c6b9eefe49b.png" alt="image.png">
+注意，Web PKI 允许在一个证书内 bind 多个 name，name 也允许通配符。也就是说，&lt;/p>
+&lt;ul>
+&lt;li>一个证书可以有多个 SNA，也可以有类似 *.smallstep.com 这样的 SAN。&lt;/li>
+&lt;li>这对有多个域名的的网站来说很有用。&lt;/li>
+&lt;/ul>
+&lt;h1 id="证书扩展名与编码">证书扩展名与编码&lt;/h1>
+&lt;p>通常，为了便于传输，需要为证书进行编码。就好比传输 JSON 数据时，也需要对其进行编码，收到后再解码。&lt;/p>
+&lt;p>一般情况下，X.509 格式证书的原始数据，会使用 ASN.1 的 DER 进行编码，将编码后的二进制数据再使用根据 PEM 格式使用 Base64 编码，然后就会生成 PEM 格式的证书数据，实际上，所谓的 X.509 格式的文件，其实就是具有 CERTIFICATE 标志的 PEM 格式文件。&lt;/p>
+&lt;ul>
+&lt;li>可以将 ASN.1 理解成 X.509 的 JSON&lt;/li>
+&lt;li>但是实际上，更像是 protobuf、thrift 或 SQL DDL。说白了就是通过一种算法，将人类可读的明文的证书编码成另一种便于传输的格式。&lt;/li>
+&lt;/ul>
+&lt;h2 id="oid">OID&lt;/h2>
+&lt;p>ASN.1 除了有常见的数据类型，如整形、字符串、集合、列表等， 还有一个&lt;strong>不常见但很重要的类型：OID&lt;/strong>（object identifier，&lt;strong>对象标识符&lt;/strong>）。&lt;/p>
+&lt;ul>
+&lt;li>OID &lt;strong>与 URI 有些像&lt;/strong>，但比 URI 要怪。&lt;/li>
+&lt;li>OID （在设计上）是&lt;strong>全球唯一标识符&lt;/strong>。&lt;/li>
+&lt;li>在结构上，OID 是在一个 hierarchical namespace 中的一个整数序列（例如 2.5.4.3）。&lt;/li>
+&lt;/ul>
+&lt;p>可以用 OID 来 tag 一段数据的类型。例如，一个 string 本来只是一个 string，但可 以 tag 一个 OID 2.5.4.3，然后就&lt;strong>变成了一个特殊 string&lt;/strong>：这是 &lt;strong>X.509 的通用名字（common name）&lt;/strong> 字段。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/puor14/1638343160689-8e109cf9-cb84-4a14-94fb-99421dab444c.png" alt="oids.png">&lt;/p>
+&lt;h2 id="证书的扩展名">证书的扩展名&lt;/h2>
+&lt;p>X.509 有多种常用的扩展名。不过其中的一些还用于其它用途，就是说具有这个扩展名的文件可能并不是证书，比如说可能只是保存了私钥。&lt;/p>
+&lt;ul>
+&lt;li>.pem # 将使用 DER 格式编码的内容，再通过 PEM 进行 Base64 编码，得出来的数据存放在&amp;quot;&amp;mdash;&amp;ndash;BEGIN CERTIFICATE&amp;mdash;&amp;ndash;&amp;ldquo;和&amp;rdquo;&amp;mdash;&amp;ndash;END CERTIFICATE&amp;mdash;&amp;ndash;&amp;ldquo;之中&lt;/li>
+&lt;li>.cer, .crt, .der – 通常是 DER 二进制格式的，但 Base64 编码后也很常见。&lt;/li>
+&lt;li>.p7b, .p7c – PKCS#7 SignedData structure without data, just certificate(s) or CRL(s)&lt;/li>
+&lt;li>.p12 – PKCS#12 格式，包含证书的同时可能还有带密码保护的私钥&lt;/li>
+&lt;li>.pfx – PFX，PKCS#12 之前的格式（通常用 PKCS#12 格式，比如那些由 IIS 产生的 PFX 文件）&lt;/li>
+&lt;/ul>
+&lt;p>更多的编码信息见：
+[密钥/证书 的编码](✏IT 学习笔记/🔐7.信息安全/Cryptography(密码学)/公开密钥加密/密钥_证书%20 的编码.md 的编码.md)&lt;/p>
+&lt;h1 id="证书示例">证书示例&lt;/h1>
+&lt;h3 id="终端实体证书">终端实体证书&lt;/h3>
+&lt;p>这是 wikipedia.org 和其他几个维基百科网站使用的解码 X.509 证书的示例。它由 &lt;a href="https://en.wikipedia.org/wiki/GlobalSign">GlobalSign&lt;/a> 颁发，如 &lt;code>Issuer&lt;/code> 字段中所述。它的 &lt;code>Subject&lt;/code> 字段将维基百科描述为一个组织，它的 &lt;code>Subject Alternative Name&lt;/code> 字段描述了可以使用它的域名。主题公钥信息字段包含一个&lt;a href="https://en.wikipedia.org/wiki/ECDSA">ECDSA&lt;/a>公钥，而底部的签名是由 GlobalSign 的&lt;a href="https://en.wikipedia.org/wiki/RSA_(cryptosystem)">RSA&lt;/a>私钥生成的。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>Certificate:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Data:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 证书版本&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Version: &lt;span style="color:#ae81ff">3&lt;/span> &lt;span style="color:#f92672">(&lt;/span>0x2&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 序列号&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Serial Number:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 10:e6:fc:62:b7:41:8a:d5:00:5e:45:b6
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 证书的签名算法&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Signature Algorithm: sha256WithRSAEncryption
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 证书的颁发者信息。CA 证书的 Issuer 与 Subject 相同&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Issuer: C&lt;span style="color:#f92672">=&lt;/span>BE, O&lt;span style="color:#f92672">=&lt;/span>GlobalSign nv-sa, CN&lt;span style="color:#f92672">=&lt;/span>GlobalSign Organization Validation CA - SHA256 - G2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 证书有效期&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Validity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Not Before: Nov &lt;span style="color:#ae81ff">21&lt;/span> 08:00:00 &lt;span style="color:#ae81ff">2016&lt;/span> GMT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Not After : Nov &lt;span style="color:#ae81ff">22&lt;/span> 07:59:59 &lt;span style="color:#ae81ff">2017&lt;/span> GMT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 证书主体信息。i.e.该证书颁发给谁&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subject: C&lt;span style="color:#f92672">=&lt;/span>US, ST&lt;span style="color:#f92672">=&lt;/span>California, L&lt;span style="color:#f92672">=&lt;/span>San Francisco, O&lt;span style="color:#f92672">=&lt;/span>Wikimedia Foundation, Inc., CN&lt;span style="color:#f92672">=&lt;/span>*.wikipedia.org
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 证书公钥信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subject Public Key Info:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 证书主体的公钥算法&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Public Key Algorithm: id-ecPublicKey
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Public-Key: &lt;span style="color:#f92672">(&lt;/span>&lt;span style="color:#ae81ff">256&lt;/span> bit&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> pub:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 00:c9:22:69:31:8a:d6:6c:ea:da:c3:7f:2c:ac:a5:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> af:c0:02:ea:81:cb:65:b9:fd:0c:6d:46:5b:c9:1e:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 9d:3b:ef
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ASN1 OID: prime256v1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NIST CURVE: P-256
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># X509 v3版本的扩展信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 extensions:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 密钥用法：critical级别。包括数字签名、密钥加密&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Key Usage: critical
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Digital Signature, Key Agreement
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Authority Information Access:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CA Issuers - URI:http://secure.globalsign.com/cacert/gsorganizationvalsha2g2r1.crt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> OCSP - URI:http://ocsp2.globalsign.com/gsorganizationvalsha2g2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Certificate Policies:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Policy: 1.3.6.1.4.1.4146.1.20
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPS: https://www.globalsign.com/repository/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Policy: 2.23.140.1.2.2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Basic Constraints:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CA:FALSE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 CRL Distribution Points:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Full Name:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> URI:http://crl.globalsign.com/gs/gsorganizationvalsha2g2.crl
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 证书主体名称的替代名称。i.e.别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Subject Alternative Name:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DNS:*.wikipedia.org, DNS:*.m.mediawiki.org, DNS:*.m.wikibooks.org, DNS:*.m.wikidata.org, DNS:*.m.wikimedia.org, DNS:*.m.wikimediafoundation.org, DNS:*.m.wikinews.org, DNS:*.m.wikipedia.org, DNS:*.m.wikiquote.org, DNS:*.m.wikisource.org, DNS:*.m.wikiversity.org, DNS:*.m.wikivoyage.org, DNS:*.m.wiktionary.org, DNS:*.mediawiki.org, DNS:*.planet.wikimedia.org, DNS:*.wikibooks.org, DNS:*.wikidata.org, DNS:*.wikimedia.org, DNS:*.wikimediafoundation.org, DNS:*.wikinews.org, DNS:*.wikiquote.org, DNS:*.wikisource.org, DNS:*.wikiversity.org, DNS:*.wikivoyage.org, DNS:*.wiktionary.org, DNS:*.wmfusercontent.org, DNS:*.zero.wikipedia.org, DNS:mediawiki.org, DNS:w.wiki, DNS:wikibooks.org, DNS:wikidata.org, DNS:wikimedia.org, DNS:wikimediafoundation.org, DNS:wikinews.org, DNS:wikiquote.org, DNS:wikisource.org, DNS:wikiversity.org, DNS:wikivoyage.org, DNS:wiktionary.org, DNS:wmfusercontent.org, DNS:wikipedia.org
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 扩展密钥用法&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Extended Key Usage:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TLS Web Server Authentication, TLS Web Client Authentication
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Subject Key Identifier:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 28:2A:26:2A:57:8B:3B:CE:B4:D6:AB:54:EF:D7:38:21:2C:49:5C:36
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Authority Key Identifier:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> keyid:96:DE:61:F1:BD:1C:16:29:53:1C:C0:CC:7D:3B:83:00:40:E6:1A:7C
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 证书的签名算法及其标识符&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Signature Algorithm: sha256WithRSAEncryption
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 8b:c3:ed:d1:9d:39:6f:af:40:72:bd:1e:18:5e:30:54:23:35:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="中级证书">中级证书&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>Certificate:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Data:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Version: &lt;span style="color:#ae81ff">3&lt;/span> &lt;span style="color:#f92672">(&lt;/span>0x2&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Serial Number:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 04:00:00:00:00:01:44:4e:f0:42:47
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Signature Algorithm: sha256WithRSAEncryption
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Issuer: C&lt;span style="color:#f92672">=&lt;/span>BE, O&lt;span style="color:#f92672">=&lt;/span>GlobalSign nv-sa, OU&lt;span style="color:#f92672">=&lt;/span>Root CA, CN&lt;span style="color:#f92672">=&lt;/span>GlobalSign Root CA
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Validity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Not Before: Feb &lt;span style="color:#ae81ff">20&lt;/span> 10:00:00 &lt;span style="color:#ae81ff">2014&lt;/span> GMT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Not After : Feb &lt;span style="color:#ae81ff">20&lt;/span> 10:00:00 &lt;span style="color:#ae81ff">2024&lt;/span> GMT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subject: C&lt;span style="color:#f92672">=&lt;/span>BE, O&lt;span style="color:#f92672">=&lt;/span>GlobalSign nv-sa, CN&lt;span style="color:#f92672">=&lt;/span>GlobalSign Organization Validation CA - SHA256 - G2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subject Public Key Info:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Public Key Algorithm: rsaEncryption
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Public-Key: &lt;span style="color:#f92672">(&lt;/span>&lt;span style="color:#ae81ff">2048&lt;/span> bit&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Modulus:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 00:c7:0e:6c:3f:23:93:7f:cc:70:a5:9d:20:c3:0e:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Exponent: &lt;span style="color:#ae81ff">65537&lt;/span> &lt;span style="color:#f92672">(&lt;/span>0x10001&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 extensions:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Key Usage: critical
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Certificate Sign, CRL Sign
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Basic Constraints: critical
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CA:TRUE, pathlen:0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Subject Key Identifier:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 96:DE:61:F1:BD:1C:16:29:53:1C:C0:CC:7D:3B:83:00:40:E6:1A:7C
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Certificate Policies:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Policy: X509v3 Any Policy
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPS: https://www.globalsign.com/repository/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 CRL Distribution Points:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Full Name:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> URI:http://crl.globalsign.net/root.crl
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Authority Information Access:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> OCSP - URI:http://ocsp.globalsign.com/rootr1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Authority Key Identifier:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> keyid:60:7B:66:1A:45:0D:97:CA:89:50:2F:7D:04:CD:34:A8:FF:FC:FD:4B
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Signature Algorithm: sha256WithRSAEncryption
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 46:2a:ee:5e:bd:ae:01:60:37:31:11:86:71:74:b6:46:49:c8:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="根证书">根证书&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>Certificate:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Data:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Version: &lt;span style="color:#ae81ff">3&lt;/span> &lt;span style="color:#f92672">(&lt;/span>0x2&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Serial Number:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 04:00:00:00:00:01:15:4b:5a:c3:94
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Signature Algorithm: sha1WithRSAEncryption
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Issuer: C&lt;span style="color:#f92672">=&lt;/span>BE, O&lt;span style="color:#f92672">=&lt;/span>GlobalSign nv-sa, OU&lt;span style="color:#f92672">=&lt;/span>Root CA, CN&lt;span style="color:#f92672">=&lt;/span>GlobalSign Root CA
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Validity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Not Before: Sep &lt;span style="color:#ae81ff">1&lt;/span> 12:00:00 &lt;span style="color:#ae81ff">1998&lt;/span> GMT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Not After : Jan &lt;span style="color:#ae81ff">28&lt;/span> 12:00:00 &lt;span style="color:#ae81ff">2028&lt;/span> GMT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subject: C&lt;span style="color:#f92672">=&lt;/span>BE, O&lt;span style="color:#f92672">=&lt;/span>GlobalSign nv-sa, OU&lt;span style="color:#f92672">=&lt;/span>Root CA, CN&lt;span style="color:#f92672">=&lt;/span>GlobalSign Root CA
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subject Public Key Info:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Public Key Algorithm: rsaEncryption
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Public-Key: &lt;span style="color:#f92672">(&lt;/span>&lt;span style="color:#ae81ff">2048&lt;/span> bit&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Modulus:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 00:da:0e:e6:99:8d:ce:a3:e3:4f:8a:7e:fb:f1:8b:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Exponent: &lt;span style="color:#ae81ff">65537&lt;/span> &lt;span style="color:#f92672">(&lt;/span>0x10001&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 extensions:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Key Usage: critical
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Certificate Sign, CRL Sign
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Basic Constraints: critical
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CA:TRUE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Subject Key Identifier:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 60:7B:66:1A:45:0D:97:CA:89:50:2F:7D:04:CD:34:A8:FF:FC:FD:4B
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Signature Algorithm: sha1WithRSAEncryption
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> d6:73:e7:7c:4f:76:d0:8d:bf:ec:ba:a2:be:34:c5:28:32:b5:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="x509-格式证书数据示例">X.509 格式证书数据示例&lt;/h1>
+&lt;h2 id="pem-格式数据">PEM 格式数据&lt;/h2>
+&lt;p>从 &lt;code>-----BEGIN CERTIFICATE-----&lt;/code> 开始到 &lt;code>-----END CERTIFICATE-----&lt;/code> 为止是证书的明文格式经过 ASN.1 编码再经过 Base64 编码得到的。&lt;/p>
+&lt;p>对于私钥文件，真正的私钥是包含在字符串 &lt;code>-----BEGIN PRIVATE KEY-----&lt;/code> 和字符串 &lt;code>-----END PRIVATE KEY-----&lt;/code> 之间。&lt;/p>
+&lt;h2 id="原始数据">原始数据&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master-1 pki&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># openssl x509 -text -noout -in apiserver.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Certificate:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Data:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Version: &lt;span style="color:#ae81ff">3&lt;/span> &lt;span style="color:#f92672">(&lt;/span>0x2&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#75715e"># 证书版本&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Serial Number: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#f92672">(&lt;/span>0x0&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#75715e"># 序列号&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Signature Algorithm: sha256WithRSAEncryption &lt;span style="color:#75715e"># 证书的签名算法&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Issuer: CN&lt;span style="color:#f92672">=&lt;/span>kubernetes &lt;span style="color:#75715e"># 证书的颁发者信息。CA证书的Issuer与Subject相同&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Validity &lt;span style="color:#75715e"># 证书有效期&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Not Before: Nov &lt;span style="color:#ae81ff">20&lt;/span> 08:45:23 &lt;span style="color:#ae81ff">2019&lt;/span> GMT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Not After : Nov &lt;span style="color:#ae81ff">17&lt;/span> 08:45:23 &lt;span style="color:#ae81ff">2029&lt;/span> GMT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subject: CN&lt;span style="color:#f92672">=&lt;/span>kube-apiserver &lt;span style="color:#75715e"># 证书主体信息。i.e.该证书颁发给谁&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subject Public Key Info: &lt;span style="color:#75715e"># 证书公钥信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Public Key Algorithm: rsaEncryption &lt;span style="color:#75715e"># 证书主体的公钥算法&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Public-Key: &lt;span style="color:#f92672">(&lt;/span>&lt;span style="color:#ae81ff">2048&lt;/span> bit&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Modulus:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 00:c7:2e:02:61:db:b0:24:db:22:aa:46:94:de:7e:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> .......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Exponent: &lt;span style="color:#ae81ff">65537&lt;/span> &lt;span style="color:#f92672">(&lt;/span>0x10001&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 extensions: &lt;span style="color:#75715e"># X509 v3版本的扩展信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Key Usage: critical &lt;span style="color:#75715e"># 密钥用法：critical级别。包括数字签名、密钥加密&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Digital Signature, Key Encipherment
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Extended Key Usage: &lt;span style="color:#75715e"># 扩展密钥用法&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TLS Web Server Authentication
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> X509v3 Subject Alternative Name: &lt;span style="color:#75715e"># 证书主体名称的替代名称。i.e.别名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DNS:master-1.k8s.cloud.tjiptv.net, DNS:kubernetes, DNS:kubernetes.default, DNS:kubernetes.default.svc, DNS:kubernetes.default.svc.cluster.local, IP Address:10.96.0.1, IP Address:10.10.9.51, IP Address:10.10.9.54
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Signature Algorithm: sha256WithRSAEncryption &lt;span style="color:#75715e"># 证书的签名算法及其标识符&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 47:38:42:cf:02:85:71:49:ac:19:9c:ba:3a:f3:74:c3:4b:09:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> .....
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>

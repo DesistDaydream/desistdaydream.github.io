@@ -1,0 +1,431 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Interrupts(中断)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/4.cpu-%E7%AE%A1%E7%90%86/interrupts%E4%B8%AD%E6%96%AD/</link><description>Recent content in Interrupts(中断) on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/4.cpu-%E7%AE%A1%E7%90%86/interrupts%E4%B8%AD%E6%96%AD/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Interrupts(中断)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/4.cpu-%E7%AE%A1%E7%90%86/interrupts%E4%B8%AD%E6%96%AD/interrupts%E4%B8%AD%E6%96%AD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/4.cpu-%E7%AE%A1%E7%90%86/interrupts%E4%B8%AD%E6%96%AD/interrupts%E4%B8%AD%E6%96%AD/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Interrupt">Wiki,Interrupt&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/RPF-0e0oTYsUDefIEhgH_A">公众号-云原生实验室，Linux 中断（IRQ/softirq）基础：原理及内核实现&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Interrupte Request(终端请求，简称 IRQ)&lt;/strong>，是一种信号，该信号来源于外围硬件(相对于 CPU 和内存)的异步信号或者来自软件的同步信号，收到该信号后进行相应的硬件、软件处理。中断其实是一种异步的事件处理机制，可以提高系统的并发处理能力。&lt;/p>
+&lt;p>Linux 内核对计算机上所有的设备进行管理，进行管理的方式是内核和设备之间的通信。解决通信的方式有两种：&lt;/p>
+&lt;ol>
+&lt;li>轮询。轮询是指内核对设备状态进行周期性的查询&lt;/li>
+&lt;li>中断。中断是指在设备需要 CPU 的时候主动发起通信&lt;/li>
+&lt;/ol>
+&lt;p>从物理学的角度看，中断是一种电信号，由硬件设备产生，并直接送入中断控制器（如 8259A）的输入引脚上，然后再由中断控制器向处理器发送相应的信号。处理器一经检测到该信号，便中断自己当前正在处理的工作，转而去处理中断。此后，处理器会通知 OS 已经产生中断。这样，OS 就可以对这个中断进行适当的处理。不同的设备对应的中断不同，而每个中断都通过一个唯一的数字标识，这些值通常被称为中断线。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gw3w7b/1616168186714-4fa3beb1-a385-452f-a110-10b7291a875f.jpeg" alt="">&lt;/p>
+&lt;p>中断可以分为 NMI(不可屏蔽中断) 和 INTR(可屏蔽中断)。其中 NMI 通常用于电源掉电和物理存储器奇偶校验；INTR 是可屏蔽中断，可以通过设置中断屏蔽位来进行中断屏蔽，它主要用于接受外部硬件的中断信号，这些信号由中断控制器传递给 CPU。&lt;/p>
+&lt;p>常见的两种中断控制器：&lt;/p>
+&lt;ol>
+&lt;li>**Programmable Interrupt Controller(可编程中断控制器，简称 PIC)**8259A&lt;/li>
+&lt;li>&lt;strong>Advanced Programmable Interrupt Controller(高级可编程中断控制器，简称 APIC)&lt;/strong>&lt;/li>
+&lt;/ol>
+&lt;p>传统的 PIC 是由两片 8259A 风格的外部芯片以“级联”的方式连接在一起。每个芯片可处理多达 8 个不同的 IRQ。因为从 PIC 的 INT 输出线连接到主 PIC 的 IRQ2 引脚，所以可用 IRQ 线的个数达到 15 个&lt;/p>
+&lt;h1 id="硬中断与软中断">硬中断与软中断&lt;/h1>
+&lt;p>中断处理分为两部分，上半部与下半部。&lt;/p>
+&lt;ol>
+&lt;li>硬中断，也就是中断处理的上半部
+&lt;ol>
+&lt;li>外围硬件发给 CPU 或者内存的异步信号就称之为硬中断&lt;/li>
+&lt;li>由与系统相连的外设(比如网卡、硬盘)自动产生的。主要是用来通知操作系统系统外设状态的变化。比如当网卡收到数据包的时候，就会发出一个中断。我们通常所说的中断指的是硬中断(hardirq)。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>软中断：也就是中断处理的下半部
+&lt;ol>
+&lt;li>由软件系统本身发给操作系统内核的中断信号，称之为软中断。通常是由硬中断处理程序或进程调度程序对操作系统内核的中断，也就是我们常说的系统调用(System Call)&lt;/li>
+&lt;li>为了满足实时系统的要求，中断处理应该是越快越好。linux 为了实现这个特点，当中断发生的时候，硬中断处理那些短时间就可以完成的工作，而将那些处理事件比较长的工作，放到中断之后来完成，也就是软中断(softirq)来完成。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>也就是说，如果在一个完整的中断流程中，硬中断首先产生，然后硬中断的处理程序将会发出中断信号后，再有软中断进行处理。&lt;/p>
+&lt;h2 id="硬中断中断的上半部">硬中断(中断的上半部)&lt;/h2>
+&lt;h3 id="网络设备的中断">网络设备的中断&lt;/h3>
+&lt;p>在内核中，网络设备驱动是通过中断的方式来接受和处理数据包。当网卡设备上有数据到达的时候，会触发一个硬件中断来通知 CPU 来处理数据，此类处理中断的程序一般称作 &lt;strong>Interrupt Service Routines(中断服务程序，简称 ISR)&lt;/strong>。ISR 程序不宜处理过多逻辑，否则会让设备的中断处理无法及时响应。因此 Linux 中将中断处理函数分为上半部和下半部。上半部是只进行最简单的工作，快速处理然后释放 CPU。剩下将绝大部分的工作都放到下半部中，下半部中逻辑由内核线程选择合适时机进行处理。&lt;/p>
+&lt;h2 id="软中断中断的下半部">软中断(中断的下半部)&lt;/h2>
+&lt;p>Linux 2.4 以后内核版本采用的下半部实现方式是软中断，由 &lt;code>ksoftirqd&lt;/code> 内核线程全权处理， 正常情况下每个 CPU 核上都有自己的软中断处理数队列和 &lt;code>ksoftirqd&lt;/code> 内核线程。软中断实现只是通过给内存中设置一个对应的二进制值来标识，软中断处理的时机主要为以下 2 种：&lt;/p>
+&lt;ul>
+&lt;li>硬件中断 &lt;code>irq_exit&lt;/code>退出时；&lt;/li>
+&lt;li>被唤醒 &lt;code>ksoftirqd&lt;/code> 内核线程进行处理软中断；&lt;/li>
+&lt;/ul>
+&lt;p>常见的软中断类型如下，代码：&lt;a href="https://github.com/torvalds/linux/blob/v5.19/include/linux/interrupt.h#L548">include/linux/interrupt.h&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">enum&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> HI_SOFTIRQ&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#75715e">// tasklet
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> TIMER_SOFTIRQ, &lt;span style="color:#75715e">// timer
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> NET_TX_SOFTIRQ, &lt;span style="color:#75715e">// 网络数据包发送软中断
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> NET_RX_SOFTIRQ, &lt;span style="color:#75715e">// 网络数据包接受软中断
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> BLOCK_SOFTIRQ, &lt;span style="color:#75715e">// IO
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> IRQ_POLL_SOFTIRQ,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TASKLET_SOFTIRQ, &lt;span style="color:#75715e">// tasklet
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> SCHED_SOFTIRQ, &lt;span style="color:#75715e">// schedule
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> HRTIMER_SOFTIRQ, &lt;span style="color:#75715e">// timer
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> RCU_SOFTIRQ, &lt;span style="color:#75715e">// lock
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> NR_SOFTIRQS
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>};
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>/proc/softirqs&lt;/code> 文件中显示的内容，即是这一段代码的实例化。&lt;/p>
+&lt;p>优先级自上而下，HI_SOFTIRQ 的优先级最高。其中 &lt;code>NET_TX_SOFTIRQ&lt;/code> 对应于网络数据包的发送， &lt;code>NET_RX_SOFTIRQ&lt;/code> 对应于网络数据包接受，两者共同完成网络数据包的发送和接收。网络相关的中断程序在网络子系统初始化的时候进行注册， &lt;code>NET_RX_SOFTIRQ&lt;/code> 的对应函数为 &lt;code>net_rx_action()&lt;/code> ，在 &lt;code>net_rx_action()&lt;/code> 函数中会调用网卡设备设置的 &lt;code>poll&lt;/code> 函数，批量收取网络数据包并调用上层注册的协议函数进行处理，如果是为 ip 协议，则会调用 &lt;code>ip_rcv&lt;/code>，上层协议为 icmp 的话，继续调用 &lt;code>icmp_rcv&lt;/code> 函数进行后续的处理。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gw3w7b/1616168186704-b346f542-96a8-4a50-a268-031938aadb86.png" alt="">&lt;/p>
+&lt;h2 id="硬中断与软中断之区别与联系">硬中断与软中断之区别与联系？&lt;/h2>
+&lt;ul>
+&lt;li>硬中断是由外设硬件发出的，需要有中断控制器之参与。其过程是外设侦测到变化，告知中断控制器，中断控制器通过 CPU 或内存的中断脚通知 CPU，然后硬件进行程序计数器及堆栈寄存器之现场保存工作（引发上下文切换），并根据中断向量调用硬中断处理程序进行中断处理&lt;/li>
+&lt;li>软中断则通常是由硬中断处理程序或者进程调度程序等软件程序发出的中断信号，无需中断控制器之参与，直接以一个 CPU 指令之形式指示 CPU 进行程序计数器及堆栈寄存器之现场保存工作(亦会引发上下文切换)，并调用相应的软中断处理程序进行中断处理(即我们通常所言之系统调用)&lt;/li>
+&lt;li>硬中断直接以硬件的方式引发，处理速度快。软中断以软件指令之方式适合于对响应速度要求不是特别严格的场景&lt;/li>
+&lt;li>硬中断通过设置 CPU 的屏蔽位可进行屏蔽，软中断则由于是指令之方式给出，不能屏蔽&lt;/li>
+&lt;li>硬中断发生后，通常会在硬中断处理程序中调用一个软中断来进行后续工作的处理&lt;/li>
+&lt;li>硬中断和软中断均会引起上下文切换(进程/线程之切换)，进程切换的过程是差不多的&lt;/li>
+&lt;/ul>
+&lt;h1 id="查看中断情况">查看中断情况&lt;/h1>
+&lt;p>查看中断分布情况即 CPU 都在哪些设备上干活，干了多少(也可以使用 itop 工具实时查看)？&lt;/p>
+&lt;blockquote>
+&lt;p>注意：下面查看的信息只列出了前 4 个 CPU，实际该设备有 128 核&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="cat-procinterrupts-命令查看硬中断信息">&lt;code>cat /proc/interrupts&lt;/code> 命令查看硬中断信息&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 从左至右依次显示IRQ编号，每个cpu对该IRQ的处理次数(每个CPU占一列)，中断控制器的名字，IRQ的名字以及驱动程序注册该IRQ时使用的名字&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@host-3 ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat /proc/interrupts&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU0 CPU1 CPU2 CPU3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 0: &lt;span style="color:#ae81ff">620&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> IR-IO-APIC-edge timer
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 8: &lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> IR-IO-APIC-edge rtc0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 9: &lt;span style="color:#ae81ff">20774&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> IR-IO-APIC-fasteoi acpi
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 16: &lt;span style="color:#ae81ff">28&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> IR-IO-APIC-fasteoi ehci_hcd:usb1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 23: &lt;span style="color:#ae81ff">243&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> IR-IO-APIC-fasteoi ehci_hcd:usb2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 88: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> DMAR_MSI-edge dmar0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 89: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> DMAR_MSI-edge dmar1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 90: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> IR-PCI-MSI-edge PCIe PME
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>101: &lt;span style="color:#ae81ff">169988&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> IR-PCI-MSI-edge i40e-enp25s0f0-TxRx-0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>134: &lt;span style="color:#ae81ff">1900138&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> IR-PCI-MSI-edge eth2-q0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>150: &lt;span style="color:#ae81ff">4262209&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> IR-PCI-MSI-edge eth3-q0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>166: &lt;span style="color:#ae81ff">4&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> IR-PCI-MSI-edge ioat-msix
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NMI: &lt;span style="color:#ae81ff">710&lt;/span> &lt;span style="color:#ae81ff">280&lt;/span> &lt;span style="color:#ae81ff">658&lt;/span> &lt;span style="color:#ae81ff">235&lt;/span> Non-maskable interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>LOC: &lt;span style="color:#ae81ff">4230314&lt;/span> &lt;span style="color:#ae81ff">2640664&lt;/span> &lt;span style="color:#ae81ff">2427443&lt;/span> &lt;span style="color:#ae81ff">1337890&lt;/span> Local timer interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>SPU: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> Spurious interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PMI: &lt;span style="color:#ae81ff">710&lt;/span> &lt;span style="color:#ae81ff">280&lt;/span> &lt;span style="color:#ae81ff">658&lt;/span> &lt;span style="color:#ae81ff">235&lt;/span> Performance monitoring interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>IWI: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> IRQ work interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RES: &lt;span style="color:#ae81ff">679921&lt;/span> &lt;span style="color:#ae81ff">1369165&lt;/span> &lt;span style="color:#ae81ff">1013002&lt;/span> &lt;span style="color:#ae81ff">573776&lt;/span> Rescheduling interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>CAL: &lt;span style="color:#ae81ff">46507&lt;/span> &lt;span style="color:#ae81ff">67439&lt;/span> &lt;span style="color:#ae81ff">67569&lt;/span> &lt;span style="color:#ae81ff">67567&lt;/span> Function call interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>TLB: &lt;span style="color:#ae81ff">6547&lt;/span> &lt;span style="color:#ae81ff">3416&lt;/span> &lt;span style="color:#ae81ff">1798&lt;/span> &lt;span style="color:#ae81ff">1015&lt;/span> TLB shootdowns
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>TRM: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> Thermal event interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>THR: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> Threshold APIC interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>MCE: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> Machine check exceptions
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>MCP: &lt;span style="color:#ae81ff">569&lt;/span> &lt;span style="color:#ae81ff">569&lt;/span> &lt;span style="color:#ae81ff">569&lt;/span> &lt;span style="color:#ae81ff">569&lt;/span> Machine check polls
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ERR: &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>MIS: &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这些信息在不同环境下，内容不同。比如对于网卡来说，物理机上一般是以 网卡名表示，比如上面的 eth2-q0 等等。而对于 kvm 虚拟机，一般是 virtio0-input.0 、 virtio0-output.0、virtio0-input.1、virtio0-output.1 等等，virtio0 这网卡有几个队列，就有几个对应的 input 和 output，input 和 output 分别表示该网卡队列的输出和输出的中断情况。&lt;/p>
+&lt;p>在 CPU 数量过多时，输出的信息非常杂乱，通常有这么几种方式可以简化输出
+&lt;strong>cat /proc/interrupts | tr -s &amp;quot; &amp;ldquo;&lt;/strong> # 让数据更紧凑，逐行查看
+&lt;strong>for i in $(egrep &amp;ldquo;-input.&amp;rdquo; /proc/interrupts |awk -F &amp;ldquo;:&amp;rdquo; &amp;lsquo;{print $1}&amp;rsquo;);do cat /proc/irq/$i/smp_affinity_list;done&lt;/strong> # 从 KVM 虚拟机中找到处理 IRQ 的 CPU。&lt;/p>
+&lt;blockquote>
+&lt;p>如果是物理机的话，把 grep 筛选的 -input. 这段内容改为物理机里网络设备名称即可&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="cat-procsoftirqs-命令查看软中断请求信息">cat /proc/softirqs 命令查看软中断请求信息&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master-1 ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat /proc/softirqs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU0 CPU1 CPU2 CPU3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> HI: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TIMER: &lt;span style="color:#ae81ff">64617617&lt;/span> &lt;span style="color:#ae81ff">68513491&lt;/span> &lt;span style="color:#ae81ff">69044942&lt;/span> &lt;span style="color:#ae81ff">72115635&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NET_TX: &lt;span style="color:#ae81ff">69847&lt;/span> &lt;span style="color:#ae81ff">732&lt;/span> &lt;span style="color:#ae81ff">763&lt;/span> &lt;span style="color:#ae81ff">789&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NET_RX: &lt;span style="color:#ae81ff">27520994&lt;/span> &lt;span style="color:#ae81ff">45465624&lt;/span> &lt;span style="color:#ae81ff">45524602&lt;/span> &lt;span style="color:#ae81ff">56388657&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> BLOCK: &lt;span style="color:#ae81ff">1107314&lt;/span> &lt;span style="color:#ae81ff">1290437&lt;/span> &lt;span style="color:#ae81ff">1396335&lt;/span> &lt;span style="color:#ae81ff">1263193&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>BLOCK_IOPOLL: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TASKLET: &lt;span style="color:#ae81ff">444161&lt;/span> &lt;span style="color:#ae81ff">163638&lt;/span> &lt;span style="color:#ae81ff">518738&lt;/span> &lt;span style="color:#ae81ff">264470&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> SCHED: &lt;span style="color:#ae81ff">34176300&lt;/span> &lt;span style="color:#ae81ff">27939686&lt;/span> &lt;span style="color:#ae81ff">24531928&lt;/span> &lt;span style="color:#ae81ff">24977357&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> HRTIMER: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> RCU: &lt;span style="color:#ae81ff">152761131&lt;/span> &lt;span style="color:#ae81ff">170249352&lt;/span> &lt;span style="color:#ae81ff">156225062&lt;/span> &lt;span style="color:#ae81ff">158460201&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 CPU 数量过多时，输出的信息非常杂乱，通常有这么几种方式可以简化输出
+awk 脚本：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>BEGIN&lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> cpucount &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">6&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NR &lt;span style="color:#f92672">==&lt;/span> 1&lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> num &lt;span style="color:#f92672">=&lt;/span> 5;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> printf&lt;span style="color:#f92672">(&lt;/span>&lt;span style="color:#e6db74">&amp;#34;%30s&amp;#34;&lt;/span>,$1&lt;span style="color:#f92672">)&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#f92672">(&lt;/span>i&lt;span style="color:#f92672">=&lt;/span>2;i&amp;lt;&lt;span style="color:#f92672">=&lt;/span>cpucount;i++&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> printf&lt;span style="color:#f92672">(&lt;/span>&lt;span style="color:#e6db74">&amp;#34;%15s\t&amp;#34;&lt;/span>,$i&lt;span style="color:#f92672">)&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> printf&lt;span style="color:#f92672">(&lt;/span>RS&lt;span style="color:#f92672">)&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NR &amp;gt; 1&lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#f92672">(&lt;/span>i&lt;span style="color:#f92672">=&lt;/span>1;i&amp;lt;&lt;span style="color:#f92672">=&lt;/span>cpucount+1;i++&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> printf&lt;span style="color:#f92672">(&lt;/span>&lt;span style="color:#e6db74">&amp;#34;%15s\t&amp;#34;&lt;/span>,$i&lt;span style="color:#f92672">)&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> printf&lt;span style="color:#f92672">(&lt;/span>RS&lt;span style="color:#f92672">)&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>awk 命令持续观察&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#!/bin/bash
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#75715e">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>run&lt;span style="color:#f92672">()&lt;/span> &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 这个是输出指定列。即看个别 CPU 的软中断&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># awk &amp;#39;NR&amp;gt;1{printf(&amp;#34;%15s\t%10s\t%10s\t%10s\t%10s\n&amp;#34;,$1,$3,$4,$5,$6)}&amp;#39; &amp;lt;/proc/softirqs | grep NET_RX&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 通过循环输出每行所有列。即看所有 CPU 的软中断&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> awk &lt;span style="color:#e6db74">&amp;#39;NR&amp;gt;1{for(i=1;i&amp;lt;10;i++){printf(&amp;#34;%10s&amp;#34;,$i)}printf(&amp;#34;\n&amp;#34;)}&amp;#39;&lt;/span> &amp;lt;/proc/softirqs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>printf -v run_str &lt;span style="color:#e6db74">&amp;#39;%q&amp;#39;&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>&lt;span style="color:#66d9ef">$(&lt;/span>declare -f run&lt;span style="color:#66d9ef">)&lt;/span>&lt;span style="color:#e6db74">; run&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>watch -c -d &lt;span style="color:#e6db74">&amp;#34;bash -c &lt;/span>$run_str&lt;span style="color:#e6db74">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="其他">其他&lt;/h3>
+&lt;p>总的中断次数可以通过 vmstat 或者 dstat 查看，其中 vmstat 中的 in 表示每秒的中断次数；&lt;/p>
+&lt;p>通过 mpstat -P ALL 2,每隔两秒查看下所有核状态信息，其中%irq 为硬中断，%soft 为软中断&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@geekwolf:~# mpstat -P ALL &lt;span style="color:#ae81ff">2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:04 AM CPU %usr %nice %sys %iowait %irq %soft %steal %guest %idle
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:05 AM all 4.31 0.00 0.70 0.00 0.00 0.06 0.00 0.00 94.93
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:05 AM &lt;span style="color:#ae81ff">0&lt;/span> 5.26 0.00 1.05 0.00 0.00 60.05 0.00 0.00 92.63
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:05 AM &lt;span style="color:#ae81ff">1&lt;/span> 7.07 0.00 1.01 0.00 0.00 0.00 0.00 0.00 91.92
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:05 AM &lt;span style="color:#ae81ff">2&lt;/span> 8.91 0.00 0.99 0.00 0.00 0.00 0.00 0.00 90.10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:05 AM &lt;span style="color:#ae81ff">3&lt;/span> 8.00 0.00 1.00 0.00 0.00 0.00 0.00 0.00 91.00
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="通过-取外卖-事件来类比中断">通过 “取外卖” 事件来类比中断&lt;/h1>
+&lt;p>说到中断，我在前面关于“上下文切换”的文章，简单说过中断的含义，先来回顾一下。&lt;/p>
+&lt;p>中断是系统用来响应硬件设备请求的一种机制，它会打断进程的正常调度和执行，然后调用内核中的中断处理程序来响应设备的请求。&lt;/p>
+&lt;p>你可能要问了，为什么要有中断呢？我可以举个生活中的例子，让你感受一下中断的魅力。&lt;/p>
+&lt;p>比如说你订了一份外卖，但是不确定外卖什么时候送到，也没有别的方法了解外卖的进度，但是，配送员送外卖是不等人的，到了你这儿没人取的话，就直接走人了。所以你只能苦苦等着，时不时去门口看看外卖送到没，而不能干其他事情。&lt;/p>
+&lt;p>不过呢，如果在订外卖的时候，你就跟配送员约定好，让他送到后给你打个电话，那你就不用苦苦等待了，就可以去忙别的事情，直到电话一响，接电话、取外卖就可以了。&lt;/p>
+&lt;p>这里的“打电话”，其实就是一个中断。没接到电话的时候，你可以做其他的事情；只有接到了电话（也就是发生中断），你才要进行另一个动作：取外卖。&lt;/p>
+&lt;p>这个例子你就可以发现，中断其实是一种异步的事件处理机制，可以提高系统的并发处理能力。&lt;/p>
+&lt;p>由于中断处理程序会打断其他进程的运行，所以，为了减少对正常进程运行调度的影响，中断处理程序就需要尽可能快地运行。如果中断本身要做的事情不多，那么处理起来也不会有太大问题；但如果中断要处理的事情很多，中断服务程序就有可能要运行很长时间。特别是，中断处理程序在响应中断时，还会临时关闭中断。这就会导致上一次中断处理完成之前，其他中断都不能响应，也就是说中断有可能会丢失。那么还是以取外卖为例。假如你订了 2 份外卖，一份主食和一份饮料，并且是由 2 个不同的配送员来配送。这次你不用时时等待着，两份外卖都约定了电话取外卖的方式。但是，问题又来了。&lt;/p>
+&lt;p>当第一份外卖送到时，配送员给你打了个长长的电话，商量发票的处理方式。与此同时，第二个配送员也到了，也想给你打电话。&lt;/p>
+&lt;p>但是很明显，因为电话占线（也就是关闭了中断响应），第二个配送员的电话是打不通的。所以，第二个配送员很可能试几次后就走掉了（也就是丢失了一次中断）。&lt;/p>
+&lt;p>软中断&lt;/p>
+&lt;p>如果你弄清楚了“取外卖”的模式，那对系统的中断机制就很容易理解了。事实上，为了解决中断处理程序执行过长和中断丢失的问题，Linux 将中断处理过程分成了两个阶段，也就是上半部和下半部：&lt;/p>
+&lt;ol>
+&lt;li>上半部用来快速处理中断，它在中断禁止模式下运行，主要处理跟硬件紧密相关的或时间敏感的工作。&lt;/li>
+&lt;li>上半部直接处理硬件请求，也就是我们常说的硬中断，特点是快速执行&lt;/li>
+&lt;li>下半部用来延迟处理上半部未完成的工作，通常以内核线程的方式运行。&lt;/li>
+&lt;li>下半部则是由内核触发，也就是我们常说的软中断，特点是延迟执行。&lt;/li>
+&lt;/ol>
+&lt;p>比如说前面取外卖的例子：&lt;/p>
+&lt;ul>
+&lt;li>上半部就是你接听电话，告诉配送员你已经知道了，其他事儿见面再说，然后电话就可以挂断了&lt;/li>
+&lt;li>下半部才是取外卖的动作，以及见面后商量发票处理的动作。&lt;/li>
+&lt;/ul>
+&lt;p>这样，第一个配送员不会占用你太多时间，当第二个配送员过来时，照样能正常打通你的电话。&lt;/p>
+&lt;p>除了取外卖，我再举个最常见的网卡接收数据包的例子，让你更好地理解。&lt;/p>
+&lt;p>网卡接收到数据包后，会通过&lt;strong>硬件中断&lt;/strong>的方式，通知内核有新的数据到了。这时，内核就应该调用中断处理程序来响应它。你可以自己先想一下，这种情况下的上半部和下半部分别负责什么工作呢？&lt;/p>
+&lt;ol>
+&lt;li>对上半部来说，既然是快速处理，其实就是要把网卡的数据读到内存中，然后更新一下硬件寄存器的状态（表示数据已经读好了），最后再发送一个&lt;strong>软中断&lt;/strong>信号，通知下半部做进一步的处理。&lt;/li>
+&lt;li>而下半部被软中断信号唤醒后，需要从内存中找到网络数据，再按照网络协议栈，对数据进行逐层解析和处理，直到把它送给应用程序。&lt;/li>
+&lt;/ol>
+&lt;p>实际上，上半部会打断 CPU 正在执行的任务，然后立即执行中断处理程序。而下半部以内核线程的方式执行，并且每个 CPU 都对应一个软中断内核线程，名字为 “ksoftirqd/CPU 编号”，比如说， 0 号 CPU 对应的软中断内核线程的名字就是 ksoftirqd/0。&lt;/p>
+&lt;p>不过要注意的是，软中断不只包括了刚刚所讲的硬件设备中断处理程序的下半部，一些内核自定义的事件也属于软中断，比如内核调度和 RCU 锁（Read-Copy Update 的缩写，RCU 是 Linux 内核中最常用的锁之一）等。&lt;/p>
+&lt;p>那要怎么知道你的系统里有哪些软中断呢？&lt;/p>
+&lt;h2 id="查看软中断和内核线程">查看软中断和内核线程&lt;/h2>
+&lt;p>运行下面的命令，查看 /proc/softirqs 文件的内容，你就可以看到各种类型软中断在不同 CPU 上的累积运行次数：
+/proc/softirqs 提供了软中断的运行情况；
+/proc/interrupts 提供了硬中断的运行情况&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master-1 ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat /proc/softirqs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU0 CPU1 CPU2 CPU3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> HI: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TIMER: &lt;span style="color:#ae81ff">64617617&lt;/span> &lt;span style="color:#ae81ff">68513491&lt;/span> &lt;span style="color:#ae81ff">69044942&lt;/span> &lt;span style="color:#ae81ff">72115635&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NET_TX: &lt;span style="color:#ae81ff">69847&lt;/span> &lt;span style="color:#ae81ff">732&lt;/span> &lt;span style="color:#ae81ff">763&lt;/span> &lt;span style="color:#ae81ff">789&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NET_RX: &lt;span style="color:#ae81ff">27520994&lt;/span> &lt;span style="color:#ae81ff">45465624&lt;/span> &lt;span style="color:#ae81ff">45524602&lt;/span> &lt;span style="color:#ae81ff">56388657&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> BLOCK: &lt;span style="color:#ae81ff">1107314&lt;/span> &lt;span style="color:#ae81ff">1290437&lt;/span> &lt;span style="color:#ae81ff">1396335&lt;/span> &lt;span style="color:#ae81ff">1263193&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>BLOCK_IOPOLL: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TASKLET: &lt;span style="color:#ae81ff">444161&lt;/span> &lt;span style="color:#ae81ff">163638&lt;/span> &lt;span style="color:#ae81ff">518738&lt;/span> &lt;span style="color:#ae81ff">264470&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> SCHED: &lt;span style="color:#ae81ff">34176300&lt;/span> &lt;span style="color:#ae81ff">27939686&lt;/span> &lt;span style="color:#ae81ff">24531928&lt;/span> &lt;span style="color:#ae81ff">24977357&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> HRTIMER: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> RCU: &lt;span style="color:#ae81ff">152761131&lt;/span> &lt;span style="color:#ae81ff">170249352&lt;/span> &lt;span style="color:#ae81ff">156225062&lt;/span> &lt;span style="color:#ae81ff">158460201&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在查看 /proc/softirqs 文件内容时，你要特别注意以下这两点。&lt;/p>
+&lt;ul>
+&lt;li>第一，要注意软中断的类型，也就是这个界面中第一列的内容。从第一列你可以看到，软中断包括了 10 个类别，分别对应不同的工作类型。比如 NET_RX 表示网络接收中断，而 NET_TX 表示网络发送中断。&lt;/li>
+&lt;li>第二，要注意同一种软中断在不同 CPU 上的分布情况，也就是同一行的内容。正常情况下，同一种中断在不同 CPU 上的累积次数应该差不多。比如这个界面中，NET_RX 在 CPU0 和 CPU1 上的中断次数基本是同一个数量级，相差不大。&lt;/li>
+&lt;/ul>
+&lt;p>不过你可能发现，TASKLET 在不同 CPU 上的分布并不均匀。TASKLET 是最常用的软中断实现机制，每个 TASKLET 只运行一次就会结束 ，并且只在调用它的函数所在的 CPU 上运行。&lt;/p>
+&lt;p>因此，使用 TASKLET 特别简便，当然也会存在一些问题，比如说由于只在一个 CPU 上运行导致的调度不均衡，再比如因为不能在多个 CPU 上并行运行带来了性能限制。&lt;/p>
+&lt;p>另外，刚刚提到过，软中断实际上是以内核线程的方式运行的，每个 CPU 都对应一个软中断内核线程，这个软中断内核线程就叫做 ksoftirqd/CPU 编号。那要怎么查看这些线程的运行状况呢？&lt;/p>
+&lt;p>其实用 ps 命令就可以做到，比如执行下面的指令：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master-1 ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ps aux | grep softirq&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">6&lt;/span> 0.1 0.0 &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> ? S Sep25 8:32 &lt;span style="color:#f92672">[&lt;/span>ksoftirqd/0&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">14&lt;/span> 0.2 0.0 &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> ? S Sep25 11:55 &lt;span style="color:#f92672">[&lt;/span>ksoftirqd/1&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">19&lt;/span> 0.1 0.0 &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> ? S Sep25 10:48 &lt;span style="color:#f92672">[&lt;/span>ksoftirqd/2&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">24&lt;/span> 0.2 0.0 &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> ? S Sep25 13:36 &lt;span style="color:#f92672">[&lt;/span>ksoftirqd/3&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>注意，这些线程的名字外面都有中括号，这说明 ps 无法获取它们的命令行参数（cmline）。一般来说，ps 的输出中，名字括在中括号里的，一般都是内核线程。&lt;/p>
+&lt;p>小结
+Linux 中的中断处理程序分为上半部和下半部：&lt;/p>
+&lt;ol>
+&lt;li>上半部对应硬件中断，用来快速处理中断。&lt;/li>
+&lt;li>下半部对应软中断，用来异步处理上半部未完成的工作。&lt;/li>
+&lt;/ol>
+&lt;p>Linux 中的软中断包括网络收发、定时、调度、RCU 锁等各种类型，可以通过查看 /proc/softirqs 来观察软中断的运行情况。&lt;/p></description></item><item><title>Docs: 中断的理解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/4.cpu-%E7%AE%A1%E7%90%86/interrupts%E4%B8%AD%E6%96%AD/%E4%B8%AD%E6%96%AD%E7%9A%84%E7%90%86%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/4.cpu-%E7%AE%A1%E7%90%86/interrupts%E4%B8%AD%E6%96%AD/%E4%B8%AD%E6%96%AD%E7%9A%84%E7%90%86%E8%A7%A3/</guid><description>
+&lt;p>回到操作系统：中断&lt;/p>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://www.junmajinlong.com/os/interrupt/">https://www.junmajinlong.com/os/interrupt/&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>要想在任何需要的时候回到操作系统，这相当于是改变了 CPU 的正常执行流程，所以一个非常熟悉的字眼——中断（Interrupt）就出现了。通过中断，可以保证回到操作系统，从而将 CPU 的控制权交给操作系统。&lt;/p>
+&lt;p>中断的字面意思就是打断正常执行流程，但是注意，它表示的是打断流程而不是终止流程，这是不同的概念。中断是操作系统中非常重要的机制，正如上面所描述的：中断用于保证 CPU 控制权交给操作系统，从而让操作系统可以执行某些操作。&lt;/p>
+&lt;p>中断分为硬件中断和软件中断。&lt;/p>
+&lt;p>任何硬件，都有自己的 IRQ（中断请求），都可以在需要的时候通过总线向 CPU 发送硬件中断通知。比如时钟中断，当进程执行耗光时间片时将产生一个时钟中断，使得能够立刻进入操作系统并调度下一个要执行的进程，时钟中断是操作系统具有安全感的保证，只要时钟开始运行后，就意味着操作系统最终总能够获取到 CPU 控制权。再比如硬盘的 IO 中断，当硬盘读取所请求的数据完成后，就会发送硬盘 IO 中断，CPU 接到该中断后就会切换到操作系统，让操作系统去处理这个中断事件。&lt;/p>
+&lt;p>软件也可以发送中断，比如请求一个系统调用（system call），关于系统调用，后面再介绍。&lt;/p>
+&lt;p>无论是软中断还是硬件中断，最终的目的都是为了回到操作系统，将 CPU 交给操作系统。那么，中断是如何回到操作系统的呢？换句话说，中断时是如何进入内核态的呢？内核态又如何回到用户态呢？&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kyn5yh/1616168171360-7e09a04c-820d-4ce2-ba2d-97a99e529b28.jpeg" alt="">&lt;/p>
+&lt;p>当操作系统执行完相关操作后，就要回到用户态，要回到用户态也只需执行特殊的指令即可，一般称之为 return-from-trap 指令。（此处的 trap 又似乎是个名词，表示脱离陷阱，回到用户态之下。它将内核态描述为陷阱，这其实也是可以理解的，中断是事件，收到事件表示捕获到事件，什么具有捕获的能力？陷阱。在 bash 中也有一个 trap 命令，也可以理解为陷进，它用来设置信号处理程序，当捕获到信号时就做出某些处理。我们不管 trap 是陷入还是陷阱，我们关注的是作用：进入内核态和退出内核态。）&lt;/p>
+&lt;p>中断既然是打断 CPU 的执行流程，那么可能需要重新回到中断点继续正常的执行流程。所以，在发生中断时，需要保存好中断点以及相关的一些状态，以便能够在处理完中断后恢复执行流程继续向下执行。&lt;/p>
+&lt;p>所以，中断就像是突发事件，处理完成后如果恢复到断点处，那么对整个流程来说，中断就像是从未发生过的事一样，但却实实在在的被处理了。但是，中断后并不一定会恢复到断点处，因为中断处理程序可能会在恢复断点前直接退出这个执行流程，比如有些硬件中断表示一些异常现象（比如除 0 异常），这些异常可能会导致终止进程。&lt;/p></description></item><item><title>Docs: 中断优化</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/4.cpu-%E7%AE%A1%E7%90%86/interrupts%E4%B8%AD%E6%96%AD/%E4%B8%AD%E6%96%AD%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/4.cpu-%E7%AE%A1%E7%90%86/interrupts%E4%B8%AD%E6%96%AD/%E4%B8%AD%E6%96%AD%E4%BC%98%E5%8C%96/</guid><description>
+&lt;h1 id="如何优化软中断-cpu0-过高问题">如何优化软中断 CPU0 过高问题&lt;/h1>
+&lt;p>RSS(Receive Side Scaling，需网卡支持多队列)&lt;/p>
+&lt;h2 id="查看网卡是否支持队列">查看网卡是否支持队列&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@geekwolf:~# lscpi -vvv
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>06:00.0 Ethernet controller: Broadcom Corporation BCM57840 NetXtreme II 10/20-Gigabit Ethernet &lt;span style="color:#f92672">(&lt;/span>rev 11&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Hewlett-Packard Company Device 22fa
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ Stepping- SERR+ FastB2B- DisINTx+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL&lt;span style="color:#f92672">=&lt;/span>fast &amp;gt;TAbort- &amp;lt;tabort - &amp;lt;MAbort- &amp;gt;SERR- &amp;lt;perr - INTx-
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Latency: 0, Cache Line Size: &lt;span style="color:#ae81ff">64&lt;/span> bytes
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Interrupt: pin A routed to IRQ &lt;span style="color:#ae81ff">32&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Region 0: Memory at &lt;span style="color:#ae81ff">93800000&lt;/span> &lt;span style="color:#f92672">(&lt;/span>64-bit, prefetchable&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#f92672">[&lt;/span>size&lt;span style="color:#f92672">=&lt;/span>8M&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Region 2: Memory at &lt;span style="color:#ae81ff">93000000&lt;/span> &lt;span style="color:#f92672">(&lt;/span>64-bit, prefetchable&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#f92672">[&lt;/span>size&lt;span style="color:#f92672">=&lt;/span>8M&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Region 4: Memory at &lt;span style="color:#ae81ff">95000000&lt;/span> &lt;span style="color:#f92672">(&lt;/span>64-bit, prefetchable&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#f92672">[&lt;/span>size&lt;span style="color:#f92672">=&lt;/span>64K&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>virtual&lt;span style="color:#f92672">]&lt;/span> Expansion ROM at &lt;span style="color:#ae81ff">95080000&lt;/span> &lt;span style="color:#f92672">[&lt;/span>disabled&lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#f92672">[&lt;/span>size&lt;span style="color:#f92672">=&lt;/span>512K&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Capabilities: &lt;span style="color:#f92672">[&lt;/span>48&lt;span style="color:#f92672">]&lt;/span> Power Management version &lt;span style="color:#ae81ff">3&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Flags: PMEClk- DSI- D1- D2- AuxCurrent&lt;span style="color:#f92672">=&lt;/span>0mA PME&lt;span style="color:#f92672">(&lt;/span>D0+,D1-,D2-,D3hot+,D3cold+&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Status: D0 NoSoftRst+ PME-Enable- DSel&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">0&lt;/span> DScale&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span> PME-
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Capabilities: &lt;span style="color:#f92672">[&lt;/span>50&lt;span style="color:#f92672">]&lt;/span> Vital Product Data
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Product Name: HP FlexFabric 10Gb 2-port 536FLB Adapter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Read-only fields:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>PN&lt;span style="color:#f92672">]&lt;/span> Part number: 766488-001
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>EC&lt;span style="color:#f92672">]&lt;/span> Engineering changes: A-5444
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>MN&lt;span style="color:#f92672">]&lt;/span> Manufacture ID: &lt;span style="color:#ae81ff">31&lt;/span> &lt;span style="color:#ae81ff">30&lt;/span> &lt;span style="color:#ae81ff">33&lt;/span> &lt;span style="color:#ae81ff">43&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>V0&lt;span style="color:#f92672">]&lt;/span> Vendor specific: 12W PCIeGen3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>V1&lt;span style="color:#f92672">]&lt;/span> Vendor specific: 7.10.55
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>V3&lt;span style="color:#f92672">]&lt;/span> Vendor specific: 7.10.72
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>V5&lt;span style="color:#f92672">]&lt;/span> Vendor specific: 0A
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>V6&lt;span style="color:#f92672">]&lt;/span> Vendor specific: 7.10.72
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>V7&lt;span style="color:#f92672">]&lt;/span> Vendor specific: 536FLB
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>SN&lt;span style="color:#f92672">]&lt;/span> Serial number: 7C444703LG
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>V2&lt;span style="color:#f92672">]&lt;/span> Vendor specific: &lt;span style="color:#ae81ff">5447&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>V4&lt;span style="color:#f92672">]&lt;/span> Vendor specific: 8CDCD419D870
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[&lt;/span>RV&lt;span style="color:#f92672">]&lt;/span> Reserved: checksum good, &lt;span style="color:#ae81ff">186&lt;/span> byte&lt;span style="color:#f92672">(&lt;/span>s&lt;span style="color:#f92672">)&lt;/span> reserved
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> End
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> : &lt;span style="color:#f92672">[&lt;/span>a0&lt;span style="color:#f92672">]&lt;/span> MSI-X: Enable+ Count&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">32&lt;/span> Masked-
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>找到 Ethernet controller 项，如果有 MSI-X,Enable+ 并且 Count&amp;gt;1，表示该网卡支持多队列&lt;/p>
+&lt;p>查看网卡支持多少个队列&lt;/p>
+&lt;pre>&lt;code>root@geekwolf:~# grep eth0 /proc/interrupts |awk '{print $NF}'
+eth0
+eth0-fp-0
+eth0-fp-1
+eth0-fp-2
+eth0-fp-3
+eth0-fp-4
+eth0-fp-5
+eth0-fp-6
+eth0-fp-7
+&lt;/code>&lt;/pre>
+&lt;p>配置 SMP IRQ affinity&lt;/p>
+&lt;p>(即绑定队列到不同 CPU,Kernel&amp;gt;2.4)&lt;/p>
+&lt;p>方法 1：开启系统 irqbalance 服务&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>apt-get -y install irqbalanceservice irqbalance start
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>方法 2: 手动绑定&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>/proc/irq/：该目录下存放的是以IRQ号命名的目录，如/proc/irq/40/，表示中断号为40的相关信息
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/proc/irq/&lt;span style="color:#f92672">[&lt;/span>irq_num&lt;span style="color:#f92672">]&lt;/span>/smp_affinity：该文件存放的是CPU位掩码（十六进制）。修改该文件中的值可以改变CPU和某中断的亲和性
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/proc/irq/&lt;span style="color:#f92672">[&lt;/span>irq_num&lt;span style="color:#f92672">]&lt;/span>/smp_affinity_list：该文件存放的是CPU列表（十进制）。注意，CPU核心个数用表示编号从0开始，如cpu0,cpu1等,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>smp_affinity和smp_affinity_list修改其一即可，下面修改smp_affinity：
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo $bitmask &amp;gt; /proc/irq/IRQ#/smp_affinity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>示例&lt;span style="color:#f92672">(&lt;/span>把140号中断绑定到前4个CPU&lt;span style="color:#f92672">[&lt;/span>cpu0-3&lt;span style="color:#f92672">]&lt;/span>上面&lt;span style="color:#f92672">)&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo f &amp;gt;/proc/irq/140/smp_affinity
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="cpu-位掩码计算">CPU 位掩码计算&lt;/h2>
+&lt;p>一个十六进制 f 转换成二进制为 1111，每一位表示一个 CPU 核，最靠右值是最低位即 CPU0&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span> Binary Hex
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0001&lt;/span> &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU &lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#ae81ff">0010&lt;/span> &lt;span style="color:#ae81ff">2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU &lt;span style="color:#ae81ff">2&lt;/span> &lt;span style="color:#ae81ff">0100&lt;/span> &lt;span style="color:#ae81ff">4&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU &lt;span style="color:#ae81ff">3&lt;/span> &lt;span style="color:#ae81ff">1000&lt;/span> &lt;span style="color:#ae81ff">8&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 其中十六进制2就表示CPU1，十六进制8就表示CPU3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Binary Hex
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0001&lt;/span> &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> + CPU &lt;span style="color:#ae81ff">2&lt;/span> &lt;span style="color:#ae81ff">0100&lt;/span> &lt;span style="color:#ae81ff">4&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> -----------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> both &lt;span style="color:#ae81ff">0101&lt;/span> &lt;span style="color:#ae81ff">5&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 其中得出的十六进制和5表示CPU0 和CPU2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Binary Hex
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0001&lt;/span> &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU &lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#ae81ff">0010&lt;/span> &lt;span style="color:#ae81ff">2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU &lt;span style="color:#ae81ff">2&lt;/span> &lt;span style="color:#ae81ff">0100&lt;/span> &lt;span style="color:#ae81ff">4&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> + CPU &lt;span style="color:#ae81ff">3&lt;/span> &lt;span style="color:#ae81ff">1000&lt;/span> &lt;span style="color:#ae81ff">8&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> -----------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> both &lt;span style="color:#ae81ff">1111&lt;/span> f
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 4个CPU参与中断，即可设置为f，8个CPU参与中断可设置为ff，以此类推
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>配置 RSS&lt;/p>
+&lt;p>过滤 eth0 中断号，绑定到 0-7 号 CPU 核上（eth0-fp 命名可能有所不同）:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@geekwolf:~# grep eth0-fp /proc/interrupts |awk &lt;span style="color:#e6db74">&amp;#39;{print $1, $NF}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>147: eth0-fp-0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>148: eth0-fp-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>149: eth0-fp-2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>150: eth0-fp-3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>151: eth0-fp-4
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>152: eth0-fp-5
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>153: eth0-fp-6
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>154: eth0-fp-7
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#ae81ff">1&lt;/span> &amp;gt;/proc/irq/147/smp_affinity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#ae81ff">2&lt;/span> &amp;gt;/proc/irq/148/smp_affinity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#ae81ff">4&lt;/span> &amp;gt;/proc/irq/149/smp_affinity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#ae81ff">8&lt;/span> &amp;gt;/proc/irq/150/smp_affinity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#ae81ff">10&lt;/span> &amp;gt;/proc/irq/151/smp_affinity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#ae81ff">20&lt;/span> &amp;gt;/proc/irq/152/smp_affinity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#ae81ff">40&lt;/span> &amp;gt;/proc/irq/153/smp_affinity
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#ae81ff">80&lt;/span> &amp;gt;/proc/irq/154/smp_affinity
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以通过 top 命令查看%si 是否均衡分摊到 0-7 核 CPU&lt;/p>
+&lt;p>注意事项&lt;/p>
+&lt;p>1、启动 irqbalance 后，手动绑定将失效&lt;/p>
+&lt;p>2、当 CPU 工作在最高性能模式时，irqbalance 会均匀分配中断到其他 CPU，节能模式时中断会集中分配到 CPU0&lt;/p>
+&lt;p>3、以上设置均以网卡支持多队列为前提，建议手动绑定 SMP IRQ affinity&lt;/p>
+&lt;p>网卡多队列需 tg3,bnx2,bnx2x,b44 等驱动的支持，Broadcom 的网卡驱动已经内置在内核中向后兼容大部分的 2.6 内核及大于 2.4.24 的 2.4 内核&lt;/p>
+&lt;p>4、笔者实际测试过程中遇到 BladeCenter HS23 刀片服务器 Emulex Corporation OneConnect 10Gb NIC (be3)本身支持多队列，在连接到千兆网 5、环境下无法使用多队列问题，万兆网络下可以使用，只好通过下面 RPS/RFS 方式实现&lt;/p>
+&lt;p>RPS/RFS&lt;/p>
+&lt;p>Receive Packet Steering/Receive Flow Streering,软件方式实现 CPU 均衡，接收包中断的优化&lt;/p>
+&lt;p>RPS: 网卡驱动对每一个数据库包根据四元组(SIP,SPORT,DIP,DPORT)生成 HASH 值,通过 HASH 值将每个连接和 CPU 绑定&lt;/p>
+&lt;p>RFS： 由于 RPS 只是单纯的把数据包均衡到不同的 CPU 上，此时如果应用程序所在 CPU 和中断处理的 CPU 不在同一个核，将会对 CPU Cache 影响很大，RFS 的作用就是将应用程序和软中断处理分配到同一个 CPU&lt;/p>
+&lt;p>配置步骤:&lt;/p>
+&lt;p>根据上述说明一个十六进制 f 表示四个 CPU 核，那么均衡到 32 核即 ffffffff&lt;/p>
+&lt;p>配置 RPS&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>rps_cpus&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#39;ffffffffff&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">for&lt;/span> rxdir in /sys/class/net/eth0/queues/rx-*
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo $rps_cpus &amp;gt;$rxdir/rps_cpus
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">done&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>配置 RFS&lt;/p>
+&lt;p>RFS 扩展了 RPS 的性能以增加 CPU 缓存命中率，减少网络延迟,默认是禁用的&lt;/p>
+&lt;p>/proc/sys/net/core/rps_sock_flow_entries&lt;/p>
+&lt;p>设置此文件至同时活跃连接数的最大预期值。对于中等服务器负载，推荐值为 32768 。所有输入的值四舍五入至最接近的 2 的幂&lt;/p>
+&lt;p>/sys/class/net/device/queues/rx-queue/rps_flow_cnt&lt;/p>
+&lt;p>将 device 改为想要配置的网络设备名称（例如，eth0），将 rx-queue 改为想要配置的接收队列名称（例如，rx-0）。&lt;/p>
+&lt;p>将此文件的值设为 rps_sock_flow_entries 除以 N，其中 N 是设备中接收队列的数量。例如，如果 rps_flow_entries 设为 32768，并且有 16 个配置接收队列，那么 rps_flow_cnt 就应设为 2048。对于单一队列的设备，rps_flow_cnt 的值和 rps_sock_flow_entries 的值是一样的&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>ls /sys/class/net/eth0/queues/rx-*|grep queues|wc -l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">8&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>rps_flow_cnt&lt;span style="color:#f92672">=&lt;/span>32768/8&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">4096&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#ae81ff">32768&lt;/span> &amp;gt;/proc/sys/net/core/rps_sock_flow_entries
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">for&lt;/span> rxdir in /sys/class/net/eth0/queues/rx-*
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo $rps_cpus &amp;gt;$rxdir/rps_cpus
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> echo $rps_flow_cnt &amp;gt;$rxdir/rps_flow_cnt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">done&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#ae81ff">32768&lt;/span> &amp;gt;/proc/sys/net/core/rps_sock_flow_entries
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>优化脚本可参考: &lt;a href="https://github.com/geekwolf/sa-scripts/blob/master/ops-scripts/performance_tuning/set_rps.sh">https://github.com/geekwolf/sa-scripts/blob/master/ops-scripts/performance_tuning/set_rps.sh&lt;/a>&lt;/p>
+&lt;p>网卡常规优化方案&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xf9t5g/1616168147129-0c79b8dd-1827-4ecb-9687-63b8ea2dfc63.jpeg" alt="">&lt;/p>
+&lt;p>关于发包的优化 XPS 还未做测试，有时间在做补充！&lt;/p>
+&lt;p>参考&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>TCP/UDP 压测工具 netperf &lt;a href="https://sanwen8.cn/p/P8bHgn.html">https://sanwen8.cn/p/P8bHgn.html&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>多队列网卡及网卡中断绑定阐述 &lt;a href="http://www.ywnds.com/?p=4380">http://www.ywnds.com/?p=4380&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Netperf 压测数据分析 &lt;a href="http://www.docin.com/p-1654134152.html">http://www.docin.com/p-1654134152.html&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>RHEL7.0 Performance_Tuning_Guide &lt;a href="https://access.redhat.com/documentation/zh-CN/Red_Hat_Enterprise_Linux/7/html/Performance_Tuning_Guide/">https://access.redhat.com/documentation/zh-CN/Red_Hat_Enterprise_Linux/7/html/Performance_Tuning_Guide/&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>RPS/RFS/RSS 性能测试 &lt;a href="http://www.cnblogs.com/Bozh/archive/2013/03/21/2973769.html">http://www.cnblogs.com/Bozh/archive/2013/03/21/2973769.html&lt;/a>&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>原文连接：&lt;a href="http://www.simlinux.com/archives/1798.html">http://www.simlinux.com/archives/1798.html&lt;/a>&lt;/p></description></item></channel></rss>

@@ -1,0 +1,175 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Instrumenting 原理解析</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/instrumenting-%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/</link><description>Recent content in Instrumenting 原理解析 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/instrumenting-%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Exporter 开发实践</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/instrumenting-%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/exporter-%E5%BC%80%E5%8F%91%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/prometheus/prometheus-%E5%BC%80%E5%8F%91/instrumenting-%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/exporter-%E5%BC%80%E5%8F%91%E5%AE%9E%E8%B7%B5/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/DesistDaydream/prometheus-instrumenting">GitHub 自学代码&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/prometheus/client_golang/blob/master/prometheus/go_collector.go">默认自带的 Metrics 的实现方式&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/s1nSaC-8ejvM342v5KPdxA">公众号,k8s 技术圈-使用 Go 开发 Prometheus Exporter&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在 &lt;a href="https://www.yuque.com/go/doc/33146247">Exporter 原理解析&lt;/a>中，逐一了解了实现 Exporter 的方法&lt;/p>
+&lt;ul>
+&lt;li>首先，定义了一个包含 Metrics 描述符的结构体。以及实例化结构体的函数(也就是自定义一些 Metrics 的基本信息)&lt;/li>
+&lt;li>然后让该 结构体 实现 Collector 接口(i.e.为这个结构体添加 &lt;code>Describe()&lt;/code> 与 &lt;code>Collect()&lt;/code> 方法)&lt;/li>
+&lt;li>该 结构体 实现了 Collector 之后，就需要注册该 Metric，注册之后即可让 Prometheus 库通过 Collector 接口直接操作这个 Metric&lt;/li>
+&lt;li>而想要注册，首先需要一个新的注册器&lt;/li>
+&lt;li>创建完新的注册器之后，即可使用该注册器，将实现了 Collector 的 Metric 注册给 Prometheus 库。&lt;/li>
+&lt;li>最后，使用 HandlerFor() 将注册器作为参数传递进去，并返回一个 http.Handler，指定 访问路径，并设置监听端口&lt;/li>
+&lt;li>启动后，通过指定的访问路径，请求将会进入到 返回的 http.Handler 中，开始执行代码，最后获取完 Metric 信息，再响应给客户端&lt;/li>
+&lt;/ul>
+&lt;p>现在我将前面学习过程中零散的代码合并起来&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;math/rand&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;sync&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/prometheus/client_golang/prometheus&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/prometheus/client_golang/prometheus/promhttp&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// HelloWorldMetrics 用来保存所有 Metrics
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">HelloWorldMetrics&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">HelloWorldDesc&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Desc&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mutex&lt;/span> &lt;span style="color:#a6e22e">sync&lt;/span>.&lt;span style="color:#a6e22e">Mutex&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 加锁用，与主要处理逻辑无关
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// NewHelloWorldMetrics 实例化 HelloWorldMetrics，就是为所有 Mestirs 设定一些基本信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">NewHelloWorldMetrics&lt;/span>() &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">HelloWorldMetrics&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">HelloWorldMetrics&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">HelloWorldDesc&lt;/span>: &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewDesc&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;a_hello_world_exporter&amp;#34;&lt;/span>, &lt;span style="color:#75715e">// Metric 名称
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#e6db74">&amp;#34;Help Info for Hello World Exporter &amp;#34;&lt;/span>, &lt;span style="color:#75715e">// Metric 的帮助信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> []&lt;span style="color:#66d9ef">string&lt;/span>{&lt;span style="color:#e6db74">&amp;#34;name&amp;#34;&lt;/span>}, &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#75715e">// Metric 的可变标签值的标签 与 不可变标签值的标签
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> ),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Describe 让 HelloWorldMetrics 实现 Collector 接口。将 Metrics 的描述符传到 channel 中
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">ms&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">HelloWorldMetrics&lt;/span>) &lt;span style="color:#a6e22e">Describe&lt;/span>(&lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span>&lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Desc&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">ms&lt;/span>.&lt;span style="color:#a6e22e">HelloWorldDesc&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Collect 让 HelloWorldMetrics 实现 Collector 接口。采集 Metrics 的具体行为并设置 Metrics 的值类型,将 Metrics 的信息传到 channel 中
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">ms&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">HelloWorldMetrics&lt;/span>) &lt;span style="color:#a6e22e">Collect&lt;/span>(&lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span>&lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Metric&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ms&lt;/span>.&lt;span style="color:#a6e22e">mutex&lt;/span>.&lt;span style="color:#a6e22e">Lock&lt;/span>() &lt;span style="color:#75715e">// 加锁
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">defer&lt;/span> &lt;span style="color:#a6e22e">ms&lt;/span>.&lt;span style="color:#a6e22e">mutex&lt;/span>.&lt;span style="color:#a6e22e">Unlock&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 为 ms.HelloWorldDesc 这个 Metric 设置其属性的值
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 该 Metric 值的类型为 Gauge，name 标签值为 haohao 时，Metric 的值为 1000 以内的随机数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">MustNewConstMetric&lt;/span>(&lt;span style="color:#a6e22e">ms&lt;/span>.&lt;span style="color:#a6e22e">HelloWorldDesc&lt;/span>, &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">GaugeValue&lt;/span>, float64(&lt;span style="color:#a6e22e">rand&lt;/span>.&lt;span style="color:#a6e22e">Int31n&lt;/span>(&lt;span style="color:#ae81ff">1000&lt;/span>)), &lt;span style="color:#e6db74">&amp;#34;haohao&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 该 Metric 值的类型为 Gauge，name 标签值为 nana 时，Metric 的值为 100 以内的随机数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">MustNewConstMetric&lt;/span>(&lt;span style="color:#a6e22e">ms&lt;/span>.&lt;span style="color:#a6e22e">HelloWorldDesc&lt;/span>, &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">GaugeValue&lt;/span>, float64(&lt;span style="color:#a6e22e">rand&lt;/span>.&lt;span style="color:#a6e22e">Int31n&lt;/span>(&lt;span style="color:#ae81ff">100&lt;/span>)), &lt;span style="color:#e6db74">&amp;#34;nana&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 实例化自己定义的所有 Metrics
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">NewHelloWorldMetrics&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 两种注册 Metrics 的方式
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">//
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 第一种：实例化一个新注册器，用来注册 自定义Metrics
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 使用 HandlerFor 将自己定义的已注册的 Metrics 作为参数，以便可以通过 http 获取 metric 信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">reg&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewRegistry&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">reg&lt;/span>.&lt;span style="color:#a6e22e">MustRegister&lt;/span>(&lt;span style="color:#a6e22e">m&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Handle&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/metrics&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">promhttp&lt;/span>.&lt;span style="color:#a6e22e">HandlerFor&lt;/span>(&lt;span style="color:#a6e22e">reg&lt;/span>, &lt;span style="color:#a6e22e">promhttp&lt;/span>.&lt;span style="color:#a6e22e">HandlerOpts&lt;/span>{}))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">//
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 第二种：使用自带的默认注册器，用来注册 自定义Metrics
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// prometheus.MustRegister(m)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// http.Handle(&amp;#34;/metrics&amp;#34;, promhttp.Handler())
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 让该 exporter 监听在8080 上
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ListenAndServe&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;:8080&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">/*
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">Export 暴露结果：
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># HELP a_hello_world_exporter Help Info for Hello World Exporter
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># TYPE a_hello_world_exporter gauge
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">a_hello_world_exporter{name=&amp;#34;haohao&amp;#34;} 81
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">a_hello_world_exporter{name=&amp;#34;nana&amp;#34;} 87
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">*/&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="prometheus-自带的-metrics">Prometheus 自带的 Metrics&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;log&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/prometheus/client_golang/prometheus/promhttp&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Handle&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/metrics&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">promhttp&lt;/span>.&lt;span style="color:#a6e22e">Handler&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Fatal&lt;/span>(&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ListenAndServe&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;:8080&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这个最简单的 Exporter 内部其实是使用了一个 &lt;strong>prometheus 库&lt;/strong> 默认的采集器 &lt;code>NewGoCollector()&lt;/code> 和 &lt;code>NewProcessCollector()&lt;/code> 采集当前 Go 运行时的相关信息，比如 go 堆栈使用、goroutine 数据、当前程序所用资源等等。内容如下：&lt;/p>
+&lt;pre>&lt;code>root@lichenhao:~# curl localhost:8080/metrics
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile=&amp;quot;0&amp;quot;} 0
+go_gc_duration_seconds{quantile=&amp;quot;0.25&amp;quot;} 0
+go_gc_duration_seconds{quantile=&amp;quot;0.5&amp;quot;} 0
+go_gc_duration_seconds{quantile=&amp;quot;0.75&amp;quot;} 0
+go_gc_duration_seconds{quantile=&amp;quot;1&amp;quot;} 0
+go_gc_duration_seconds_sum 0
+go_gc_duration_seconds_count 0
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 7
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version=&amp;quot;go1.15.5&amp;quot;} 1
+# ........后面略，还有很多
+&lt;/code>&lt;/pre>
+&lt;h2 id="promhttphandler">promhttp.Handler()&lt;/h2>
+&lt;p>&lt;code>promhttp.Handler()&lt;/code> 使用默认的 &lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus/promhttp?utm_source=gopls#HandlerOpts">promhttp.HandlerOpts&lt;/a> 为 &lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#pkg-variables">prometheus.DefaultGatherer&lt;/a> 返回一个&lt;a href="https://pkg.go.dev/net/http#Handler"> http.Handler&lt;/a>。&lt;/p>
+&lt;pre>&lt;code>func Handler() http.Handler {
+return InstrumentMetricHandler(
+prometheus.DefaultRegisterer, HandlerFor(prometheus.DefaultGatherer, HandlerOpts{}),
+)
+}
+&lt;/code>&lt;/pre>
+&lt;p>&lt;code>promhttp.Handler()&lt;/code> 会注册默认采集器并采集一些默认指标。&lt;/p>
+&lt;p>DefaultGatherer 是 &lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#Gatherer">Gatherer&lt;/a> 接口的实现；DefaultRegisterer 是 &lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#Registerer">Registerer &lt;/a>接口的实现。最初这两个&lt;a href="https://pkg.go.dev/github.com/prometheus/client_golang/prometheus?utm_source=gopls#pkg-variables">变量&lt;/a>都指向同一个 Registry，这个默认的 Registry 中包含 &lt;code>NewGoCollector()&lt;/code> 和 &lt;code>NewProcessCollector()&lt;/code> 这两个采集器&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">var&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">defaultRegistry&lt;/span> = &lt;span style="color:#a6e22e">NewRegistry&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">DefaultRegisterer&lt;/span> &lt;span style="color:#a6e22e">Registerer&lt;/span> = &lt;span style="color:#a6e22e">defaultRegistry&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">DefaultGatherer&lt;/span> &lt;span style="color:#a6e22e">Gatherer&lt;/span> = &lt;span style="color:#a6e22e">defaultRegistry&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">init&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">MustRegister&lt;/span>(&lt;span style="color:#a6e22e">NewProcessCollector&lt;/span>(&lt;span style="color:#a6e22e">ProcessCollectorOpts&lt;/span>{}))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">MustRegister&lt;/span>(&lt;span style="color:#a6e22e">NewGoCollector&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="instrumentmetrichandler">InstrumentMetricHandler()&lt;/h2>
+&lt;p>在 InstrumentMetricHandler() 函数中，使用了比 NewDesc() 更高级的 NewConterVec()、NewGauge() 来定义一个 Metric&lt;/p>
+&lt;p>InstrumentMetricHandler is usually used with an http.Handler returned by the HandlerFor function. It instruments the provided http.Handler with two metrics: A counter vector &amp;ldquo;promhttp_metric_handler_requests_total&amp;rdquo; to count scrapes partitioned by HTTP status code, and a gauge &amp;ldquo;promhttp_metric_handler_requests_in_flight&amp;rdquo; to track the number of simultaneous scrapes. This function idempotently registers collectors for both metrics with the provided Registerer. It panics if the registration fails. The provided metrics are useful to see how many scrapes hit the monitored target (which could be from different Prometheus servers or other scrapers), and how often they overlap (which would result in more than one scrape in flight at the same time). Note that the scrapes-in-flight gauge will contain the scrape by which it is exposed, while the scrape counter will only get incremented after the scrape is complete (as only then the status code is known). For tracking scrape durations, use the &amp;ldquo;scrape_duration_seconds&amp;rdquo; gauge created by the Prometheus server upon each scrape.&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">InstrumentMetricHandler&lt;/span>(&lt;span style="color:#a6e22e">reg&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Registerer&lt;/span>, &lt;span style="color:#a6e22e">handler&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Handler&lt;/span>) &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Handler&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">cnt&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewCounterVec&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">CounterOpts&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;promhttp_metric_handler_requests_total&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Help&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;Total number of scrapes by HTTP status code.&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> []&lt;span style="color:#66d9ef">string&lt;/span>{&lt;span style="color:#e6db74">&amp;#34;code&amp;#34;&lt;/span>},
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Initialize the most likely HTTP status codes.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">cnt&lt;/span>.&lt;span style="color:#a6e22e">WithLabelValues&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">cnt&lt;/span>.&lt;span style="color:#a6e22e">WithLabelValues&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;500&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">cnt&lt;/span>.&lt;span style="color:#a6e22e">WithLabelValues&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;503&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">reg&lt;/span>.&lt;span style="color:#a6e22e">Register&lt;/span>(&lt;span style="color:#a6e22e">cnt&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">are&lt;/span>, &lt;span style="color:#a6e22e">ok&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span>.(&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">AlreadyRegisteredError&lt;/span>); &lt;span style="color:#a6e22e">ok&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">cnt&lt;/span> = &lt;span style="color:#a6e22e">are&lt;/span>.&lt;span style="color:#a6e22e">ExistingCollector&lt;/span>.(&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">CounterVec&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> } &lt;span style="color:#66d9ef">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> panic(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">gge&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">NewGauge&lt;/span>(&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">GaugeOpts&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;promhttp_metric_handler_requests_in_flight&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Help&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;Current number of scrapes being served.&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> })
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">reg&lt;/span>.&lt;span style="color:#a6e22e">Register&lt;/span>(&lt;span style="color:#a6e22e">gge&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">are&lt;/span>, &lt;span style="color:#a6e22e">ok&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span>.(&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">AlreadyRegisteredError&lt;/span>); &lt;span style="color:#a6e22e">ok&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">gge&lt;/span> = &lt;span style="color:#a6e22e">are&lt;/span>.&lt;span style="color:#a6e22e">ExistingCollector&lt;/span>.(&lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Gauge&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> } &lt;span style="color:#66d9ef">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> panic(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">InstrumentHandlerCounter&lt;/span>(&lt;span style="color:#a6e22e">cnt&lt;/span>, &lt;span style="color:#a6e22e">InstrumentHandlerInFlight&lt;/span>(&lt;span style="color:#a6e22e">gge&lt;/span>, &lt;span style="color:#a6e22e">handler&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;pre>&lt;code>registry.MustRegister(metrics)
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>这个 Collector 接口又代表什么意思呢&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ig8l2r/1616068562616-5c10af60-c810-4622-bc0f-35d331cbd2b0.png" alt="">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ig8l2r/1616068562665-009ae48a-3f65-48d1-b08f-49d7ae2089ca.png" alt="">&lt;/p>
+&lt;h1 id="添加新的-gatherer采集器">添加新的 Gatherer(采集器)&lt;/h1></description></item></channel></rss>
