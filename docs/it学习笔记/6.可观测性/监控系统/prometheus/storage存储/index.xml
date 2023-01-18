@@ -282,7 +282,7 @@ something_weird{problem=&amp;quot;division by zero&amp;quot;} +Inf -3982045
 &lt;h1 id="local-storage本地存储">Local Storage(本地存储)&lt;/h1>
 &lt;p>&lt;strong>注意：&lt;/strong> Prometheus 的本地存储不支持不兼容 POSIX 的文件系统，因为可能会发生不可恢复的损坏。不支持 NFS 文件系统（包括 AWS 的 EFS）。NFS 可能符合 POSIX，但大多数实现均不符合。强烈建议使用本地文件系统以提高可靠性。Prometheus 启动时会有如下 warn：
 &lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lh6032/1623820971678-3d263b32-2760-4e77-9a22-b2c438bc62d5.png" alt="image.png">
-并且，经过实践，在数据量足够多时，当 Prometheus 压缩数据时，有不小的概率会丢失某个 Block 中的 meta.json 文件。进而导致压缩失败，并频繁产生告警，详见故障：[compaction failed](✏IT 学习笔记/👀6.可观测性/监控系统/Prometheus/Prometheus%20 管理/故障处理/compaction%20failed.md 管理/故障处理/compaction failed.md)&lt;/p>
+并且，经过实践，在数据量足够多时，当 Prometheus 压缩数据时，有不小的概率会丢失某个 Block 中的 meta.json 文件。进而导致压缩失败，并频繁产生告警，详见故障：[compaction failed](/docs/IT学习笔记/6.可观测性/监控系统/Prometheus/Prometheus%20 管理/故障处理/compaction%20failed.md 管理/故障处理/compaction failed.md)&lt;/p>
 &lt;p>Prometheus 的本地时间序列数据库将数据以自定义的高效格式存储在本地存储上。也就是说，Prometheus 采集到的指标数据，以文件的形式直接保存在操作系统的文件系统中。On-disk Layout 章节将会详细介绍这些数据在本地存储中布局。&lt;/p>
 &lt;h2 id="on-disk-layout磁盘上的布局">On-disk Layout(磁盘上的布局)&lt;/h2>
 &lt;p>本地存储的目录看起来应该是下面这个样子：&lt;/p>
@@ -376,7 +376,7 @@ something_weird{problem=&amp;quot;division by zero&amp;quot;} +Inf -3982045
 &lt;h3 id="compaction压缩">Compaction(压缩)&lt;/h3>
 &lt;p>这些 2 小时的 Block 会在后台压缩成更大的 Block，数据压缩合并成更高级别的 Block 文件后删除低级别的 Block 文件。一个高级别的块通常包含数据保留时间 10%的时间周期的时序数据，若是 10% 小于 31 天，则默认为 31 天。&lt;/p>
 &lt;p>这个和 leveldb、rocksdb 等 LSM 树的思路一致。这些设计和 Gorilla 的设计高度相似，所以 Prometheus 几乎就是等于一个缓存 TSDB。它本地存储的特点决定了它不能用于 long-term 数据存储，只能用于短期窗口的 timeseries 数据保存和查询，并且不具有高可用性（宕机会导致历史数据无法读取）。&lt;/p>
-&lt;p>所以，Prometheus 实现了下文的 [Remote Storage 功能](&amp;lt;✏IT 学习笔记/👀6.可观测性/监控系统/Prometheus/Storage(存储).md&amp;raquo;)，可以通过该功能，将数据通过网络转存到其他存储中。但是，需要仔细评估它们，性能和效率方面会产生很大的变化。&lt;/p>
+&lt;p>所以，Prometheus 实现了下文的 [Remote Storage 功能](&amp;lt;/docs/IT学习笔记/6.可观测性/监控系统/Prometheus/Storage(存储).md&amp;raquo;)，可以通过该功能，将数据通过网络转存到其他存储中。但是，需要仔细评估它们，性能和效率方面会产生很大的变化。&lt;/p>
 &lt;p>现有存储层的样本压缩功能在 Prometheus 的早期版本中发挥了重要作用。单个原始数据点占用 16 个字节的存储空间。但当普罗米修斯每秒收集数十万个数据点时，可以快速填满硬盘。但，同一系列中的样本往往非常相似，我们可以利用这一类样品（同样 label）进行有效的压缩。批量压缩一系列的许多样本的块，在内存中，将每个数据点压缩到平均 1.37 字节的存储。这种压缩方案运行良好，也保留在新版本 2 存储层的设计中。具体压缩算法可以参考：&lt;a href="http://www.vldb.org/pvldb/vol8/p1816-teller.pdf">Facebook 的“Gorilla”论文中&lt;/a>&lt;/p>
 &lt;h3 id="基准测试">基准测试&lt;/h3>
 &lt;p>cpu、内存、查询效率都比 1.x 版本得到了大幅度的提升
