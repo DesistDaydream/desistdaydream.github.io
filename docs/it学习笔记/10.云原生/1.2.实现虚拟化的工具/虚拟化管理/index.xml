@@ -104,4 +104,71 @@ writeback 类型 de 命令速度为 不到 300MB/s&lt;/p>
 &amp;lt;/interface&amp;gt;
 &lt;/code>&lt;/pre>
 &lt;p>ethtool -L eth0 combined 8 #修改实际队列&lt;/p>
-&lt;p>可以使用 ethtool -l eth0 来查看 eth0 网卡的队列数，收到的数据是由几个 cpu 进行处理的&lt;/p></description></item></channel></rss>
+&lt;p>可以使用 ethtool -l eth0 来查看 eth0 网卡的队列数，收到的数据是由几个 cpu 进行处理的&lt;/p></description></item><item><title>Docs: 虚拟化管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;h1 id="扩大-kvm-虚拟机-image-镜像">扩大 KVM 虚拟机 image 镜像&lt;/h1>
+&lt;p>直接使用 qemu-img resize 的时候一定要先备份镜像。先使用 virsh shutdown VM 关闭镜像再进行如下操作：&lt;/p>
+&lt;ul>
+&lt;li>给原始系统文件添加磁盘空间
+&lt;ul>
+&lt;li>qemu-img resize centos7-baseImage-50G.qcow2 +500G&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>进入虚拟机操作新建硬盘分区
+&lt;ul>
+&lt;li>parted /dev/vda mkpart primary XXX 100%(XX 改为指定的最后一块扇区的容量)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>扩容 LVM，注意/dev/vda4 设备为真实情况的设备名称，注意修改
+&lt;ul>
+&lt;li>partprobe(可能还需要重启)&lt;/li>
+&lt;li>pvcreate /dev/vda4&lt;/li>
+&lt;li>vgextend vg0 /dev/vda4&lt;/li>
+&lt;li>lvextend -l+100%FREE /dev/mapper/vg0-root
+&lt;ul>
+&lt;li>这里可以使用 lvextend -l +单元数量 /dev/mapper/vg0-lv101&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>扩展文件系统大小，注意/dev/mapper/vg0-root 修改为真实情况的分区路径
+&lt;ul>
+&lt;li>xfs_growfs /dev/mapper/vg0-root&lt;/li>
+&lt;li>或者普通文件系统使用下面的命令&lt;/li>
+&lt;li>resize2fs /dev/mapper/vg0-root (-f 强制扩展)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="通过-veth-设备查找对应的虚拟机">通过 veth 设备查找对应的虚拟机&lt;/h1>
+&lt;p>通过 xml 文件查看虚拟机的 mac 地址&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># grep &amp;#34;mac addr&amp;#34; lchTest.xml&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&amp;lt;mac address&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#39;52:54:00:6a:86:89&amp;#39;&lt;/span>/&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>筛选网络设备 mac&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ip a | grep &amp;#34;86:89&amp;#34; -B 1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>127: vnet1: &amp;lt;BROADCAST,MULTICAST,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#ae81ff">1500&lt;/span> qdisc pfifo_fast master br1 state UNKNOWN group default qlen &lt;span style="color:#ae81ff">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether fe:54:00:6a:86:89 brd ff:ff:ff:ff:ff:ff
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>由此可见，vnet 设备的 mac 与虚拟机的 mac 在后面几位是永远保持一致的，所以可以通过 vnet 设备的 mac ，从所有虚拟机中的 xml 进行筛选就行可以找到 vnet 设备对应的虚拟机了。&lt;/p>
+&lt;h2 id="应用实例">应用实例&lt;/h2>
+&lt;p>比如我现在能看到 4 个 vnet 设备。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ip a&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.....
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>62: vnet3: &amp;lt;BROADCAST,MULTICAST,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#ae81ff">1500&lt;/span> qdisc pfifo_fast master br1 state UNKNOWN group default qlen &lt;span style="color:#ae81ff">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether fe:54:00:5c:11:85 brd ff:ff:ff:ff:ff:ff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> inet6 fe80::fc54:ff:fe5c:1185/64 scope link
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> valid_lft forever preferred_lft forever
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>79: vnet0: &amp;lt;BROADCAST,MULTICAST,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#ae81ff">1500&lt;/span> qdisc mq master br1 state UNKNOWN group default qlen &lt;span style="color:#ae81ff">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether fe:54:00:68:20:51 brd ff:ff:ff:ff:ff:ff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> inet6 fe80::fc54:ff:fe68:2051/64 scope link
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> valid_lft forever preferred_lft forever
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>127: vnet1: &amp;lt;BROADCAST,MULTICAST,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#ae81ff">1500&lt;/span> qdisc pfifo_fast master br1 state UNKNOWN group default qlen &lt;span style="color:#ae81ff">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether fe:54:00:6a:86:89 brd ff:ff:ff:ff:ff:ff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> inet6 fe80::fc54:ff:fe6a:8689/64 scope link
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> valid_lft forever preferred_lft forever
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>139: vnet2: &amp;lt;BROADCAST,MULTICAST,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#ae81ff">1500&lt;/span> qdisc pfifo_fast master br1 state UNKNOWN group default qlen &lt;span style="color:#ae81ff">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether fe:54:00:3a:95:ef brd ff:ff:ff:ff:ff:ff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> inet6 fe80::fc54:ff:fe3a:95ef/64 scope link
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> valid_lft forever preferred_lft forever
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我想看看 vnet3 是关联到哪个虚拟机上了，就可以进行如下操作：(首先看到 vnet3 的 mac 为 fe:54:00:5c:11:85)&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># grep -r &amp;#34;5c:11:85&amp;#34; /etc/libvirt/qemu/*&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/etc/libvirt/qemu/cobbler.test.tjiptv.net.xml: &amp;lt;mac address&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#39;52:54:00:5c:11:85&amp;#39;&lt;/span>/&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这时候可以看到，是 cobbler.test.tjiptv.net.xml 这台虚拟机在使用 vnet3 。&lt;/p></description></item></channel></rss>
