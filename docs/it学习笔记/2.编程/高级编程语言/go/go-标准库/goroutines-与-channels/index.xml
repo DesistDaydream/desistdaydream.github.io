@@ -37,22 +37,25 @@ close(c)
 &lt;h3 id="closechan">&lt;code>**closechan**&lt;/code>&lt;/h3>
 &lt;p>对应编译函数为 &lt;code>closechan&lt;/code> ，该函数很简单，大概做 3 个事情：&lt;/p>
 &lt;ol>
-&lt;li>标志位置 1 ，也就是 &lt;code>c.closed = 1&lt;/code>；&lt;/li>
-&lt;li>释放资源，唤醒所有等待取元素的协程；&lt;/li>
-&lt;li>释放资源，唤醒所有等待写元素的协程；&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>func closechan(c *hchan) {
+&lt;li>
+&lt;p>标志位置 1 ，也就是 &lt;code>c.closed = 1&lt;/code>；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>释放资源，唤醒所有等待取元素的协程；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>释放资源，唤醒所有等待写元素的协程；&lt;/p>
+&lt;p>func closechan(c *hchan) {
 // 以下为锁内操作
 lock(&amp;amp;c.lock)
 // 不能重复 close 一个 channel，否则 panic
 if c.closed != 0 {
 unlock(&amp;amp;c.lock)
-panic(plainError(&amp;quot;close of closed channel&amp;quot;))
-}
-// closed 标志位置 1
-c.closed = 1
-var glist gList
+panic(plainError(&amp;ldquo;close of closed channel&amp;rdquo;))
+}&lt;/p>
+&lt;p>// closed 标志位置 1
+c.closed = 1&lt;/p>
+&lt;p>var glist gList
 // 释放所有等待取元素的 waiter 资源
 for {
 // 等待读的 waiter 出队
@@ -64,10 +67,10 @@ sg.elem = nil
 }
 gp := sg.g
 gp.param = nil
-// 相应 goroutine 加到统一队列，下面会统一唤醒
-glist.push(gp)
-}
-// 释放所有等待写元素的 waiter 资源（他们之后将会 panic）
+// 相应 goroutine 加到统一队列，下面会统一唤醒&lt;/p>
+&lt;p>glist.push(gp)
+}&lt;/p>
+&lt;p>// 释放所有等待写元素的 waiter 资源（他们之后将会 panic）
 for {
 // 等待写的 waiter 出队
 sg := c.sendq.dequeue()
@@ -78,15 +81,16 @@ gp.param = nil
 // 对应 goroutine 加到统一队列，下面会统一唤醒
 glist.push(gp)
 }
-unlock(&amp;amp;c.lock)
-// 唤醒所有的 waiter 对应的 goroutine （这个协程列表是上面 push 进来的）
+unlock(&amp;amp;c.lock)&lt;/p>
+&lt;p>// 唤醒所有的 waiter 对应的 goroutine （这个协程列表是上面 push 进来的）
 for !glist.empty() {
 gp := glist.pop()
 gp.schedlink = 0
 goready(gp, 3)
 }
-}
-&lt;/code>&lt;/pre>
+}&lt;/p>
+&lt;/li>
+&lt;/ol>
 &lt;p>通过上面的代码逻辑，我们窥视到两个重要的信息：&lt;/p>
 &lt;ol>
 &lt;li>close chan 是有标识位的；&lt;/li>

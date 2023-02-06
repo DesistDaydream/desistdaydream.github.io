@@ -281,20 +281,25 @@ return list
 &lt;p>不过基本流程是一样的。&lt;/p>
 &lt;/blockquote>
 &lt;ol>
-&lt;li>如果客户端没传 &lt;code>**ListOption**&lt;/code>，则初始化一个默认值，其中的 &lt;code>ResourceVersion&lt;/code> 设置为空字符串， 这将使 apiserver &lt;strong>从 etcd 拉取数据来返回给客户端，而不使用本地缓存&lt;/strong>（除非本地缓存还没有建好）；
+&lt;li>
+&lt;p>如果客户端没传 &lt;code>**ListOption**&lt;/code>，则初始化一个默认值，其中的 &lt;code>ResourceVersion&lt;/code> 设置为空字符串， 这将使 apiserver &lt;strong>从 etcd 拉取数据来返回给客户端，而不使用本地缓存&lt;/strong>（除非本地缓存还没有建好）；
 举例，客户端设置 &lt;code>ListOption{Limit: 5000, ResourceVersion: 0}&lt;/code> list ciliumendpoints 时，发送的请求将为 &lt;code>**/apis/cilium.io/v2/ciliumendpoints?limit=500&amp;amp;resourceVersion=0**&lt;/code>。
-&lt;code>ResourceVersion&lt;/code> 为空字符串的行为，后面会看到对它的解析。&lt;/li>
-&lt;li>用 listoptions 中的字段分别&lt;strong>初始化过滤器&lt;/strong>（SelectionPredicate）的 limit/continue 字段；&lt;/li>
-&lt;li>初始化返回结果，&lt;code>list := e.NewListFunc()&lt;/code>；&lt;/li>
-&lt;li>将 API 侧的 ListOption 转成底层存储的 ListOption，字段区别见下文
-&lt;code>metainternalversion.ListOptions&lt;/code> 是 &lt;strong>API 侧的结构体&lt;/strong>，包含了&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code> // staging/src/k8s.io/apimachinery/pkg/apis/meta/internalversion/types.go
-// ListOptions is the query options to a standard REST list call.
+&lt;code>ResourceVersion&lt;/code> 为空字符串的行为，后面会看到对它的解析。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>用 listoptions 中的字段分别&lt;strong>初始化过滤器&lt;/strong>（SelectionPredicate）的 limit/continue 字段；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>初始化返回结果，&lt;code>list := e.NewListFunc()&lt;/code>；&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>将 API 侧的 ListOption 转成底层存储的 ListOption，字段区别见下文
+&lt;code>metainternalversion.ListOptions&lt;/code> 是 &lt;strong>API 侧的结构体&lt;/strong>，包含了&lt;/p>
+&lt;p>// staging/src/k8s.io/apimachinery/pkg/apis/meta/internalversion/types.go&lt;/p>
+&lt;p>// ListOptions is the query options to a standard REST list call.
 type ListOptions struct {
-metav1.TypeMeta
-LabelSelector labels.Selector // 标签过滤器，例如 app=nginx
+metav1.TypeMeta&lt;/p>
+&lt;pre>&lt;code> LabelSelector labels.Selector // 标签过滤器，例如 app=nginx
 FieldSelector fields.Selector // 字段过滤器，例如 spec.nodeName=node1
 Watch bool
 AllowWatchBookmarks bool
@@ -303,8 +308,10 @@ ResourceVersionMatch metav1.ResourceVersionMatch
 TimeoutSeconds *int64 // Timeout for the list/watch call.
 Limit int64
 Continue string // a token returned by the server. return a 410 error if the token has expired.
-}
 &lt;/code>&lt;/pre>
+&lt;p>}&lt;/p>
+&lt;/li>
+&lt;/ol>
 &lt;p>&lt;code>storage.ListOptions&lt;/code> 是传给&lt;strong>底层存储的结构体&lt;/strong>，字段有一些区别：&lt;/p>
 &lt;h2 id="24-请求指定了资源名resource-name获取单个对象">2.4 请求指定了资源名（resource name）：获取单个对象&lt;/h2>
 &lt;p>接下来根据请求中是否指定了 &lt;code>meta.Name&lt;/code> 分为两种情况：&lt;/p>
@@ -770,14 +777,18 @@ sys 0m0.188s
 &lt;h3 id="553-监控和调优-etcd">5.5.3 监控和调优 etcd&lt;/h3>
 &lt;p>需要针对性能相关的关键指标做好监控和告警：&lt;/p>
 &lt;ol>
-&lt;li>内存&lt;/li>
-&lt;li>带宽&lt;/li>
-&lt;li>大 LIST 请求数量及响应耗时
-比如下面这个 &lt;code>LIST all pods&lt;/code> 日志：&lt;/li>
+&lt;li>
+&lt;p>内存&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>带宽&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>大 LIST 请求数量及响应耗时
+比如下面这个 &lt;code>LIST all pods&lt;/code> 日志：&lt;/p>
+&lt;p>{ &amp;ldquo;level&amp;rdquo;:&amp;ldquo;warn&amp;rdquo;, &amp;ldquo;msg&amp;rdquo;:&amp;ldquo;apply request took too long&amp;rdquo;, &amp;ldquo;took&amp;rdquo;:&amp;ldquo;5357.87304ms&amp;rdquo;, &amp;ldquo;expected-duration&amp;rdquo;:&amp;ldquo;100ms&amp;rdquo;, &amp;ldquo;prefix&amp;rdquo;:&amp;ldquo;read-only range &amp;ldquo;, &amp;ldquo;request&amp;rdquo;:&amp;ldquo;key:&amp;quot;/registry/pods/&amp;quot; range_end:&amp;quot;/registry/pods0&amp;quot; &amp;ldquo;, &amp;ldquo;response&amp;rdquo;:&amp;ldquo;range_response_count:60077 size:602251227&amp;rdquo; }&lt;/p>
+&lt;/li>
 &lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code> { &amp;quot;level&amp;quot;:&amp;quot;warn&amp;quot;, &amp;quot;msg&amp;quot;:&amp;quot;apply request took too long&amp;quot;, &amp;quot;took&amp;quot;:&amp;quot;5357.87304ms&amp;quot;, &amp;quot;expected-duration&amp;quot;:&amp;quot;100ms&amp;quot;, &amp;quot;prefix&amp;quot;:&amp;quot;read-only range &amp;quot;, &amp;quot;request&amp;quot;:&amp;quot;key:\&amp;quot;/registry/pods/\&amp;quot; range_end:\&amp;quot;/registry/pods0\&amp;quot; &amp;quot;, &amp;quot;response&amp;quot;:&amp;quot;range_response_count:60077 size:602251227&amp;quot; }
-&lt;/code>&lt;/pre>
 &lt;p>部署和配置调优：&lt;/p>
 &lt;ol>
 &lt;li>K8s events 拆到单独的 etcd 集群&lt;/li>

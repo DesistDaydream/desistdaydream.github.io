@@ -2222,23 +2222,29 @@ uh-&amp;gt;check = 0;
 &lt;/code>&lt;/pre>
 &lt;p>接下来，处理校验和。有几种情况：&lt;/p>
 &lt;ol>
-&lt;li>首先处理&lt;a href="https://en.wikipedia.org/wiki/UDP-Lite">UDP-Lite&lt;/a>校验和&lt;/li>
-&lt;li>接下来，如果 socket 校验和选项被关闭（&lt;code>setsockopt&lt;/code> 带 &lt;code>SO_NO_CHECK&lt;/code> 参数），它将被标记为校 验和关闭&lt;/li>
-&lt;li>接下来，如果硬件支持 UDP 校验和，则将调用 &lt;code>udp4_hwcsum&lt;/code> 来设置它。请注意，如果数 据包是分段的，内核将在软件中生成校验和，你可以在 &lt;a href="https://github.com/torvalds/linux/blob/v3.13/net/ipv4/udp.c#L720-L763">udp4_hwcsum&lt;/a> 的源代码中看到这一点&lt;/li>
-&lt;li>最后，通过调用 &lt;code>udp_csum&lt;/code> 生成软件校验和&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>if (is_udplite) /* UDP-Lite */
+&lt;li>
+&lt;p>首先处理&lt;a href="https://en.wikipedia.org/wiki/UDP-Lite">UDP-Lite&lt;/a>校验和&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>接下来，如果 socket 校验和选项被关闭（&lt;code>setsockopt&lt;/code> 带 &lt;code>SO_NO_CHECK&lt;/code> 参数），它将被标记为校 验和关闭&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>接下来，如果硬件支持 UDP 校验和，则将调用 &lt;code>udp4_hwcsum&lt;/code> 来设置它。请注意，如果数 据包是分段的，内核将在软件中生成校验和，你可以在 &lt;a href="https://github.com/torvalds/linux/blob/v3.13/net/ipv4/udp.c#L720-L763">udp4_hwcsum&lt;/a> 的源代码中看到这一点&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>最后，通过调用 &lt;code>udp_csum&lt;/code> 生成软件校验和&lt;/p>
+&lt;p>if (is_udplite) /* UDP-Lite &lt;em>/
 csum = udplite_csum(skb);
-else if (sk-&amp;gt;sk_no_check == UDP_CSUM_NOXMIT) { /* UDP csum disabled */
+else if (sk-&amp;gt;sk_no_check == UDP_CSUM_NOXMIT) { /&lt;/em> UDP csum disabled &lt;em>/
 skb-&amp;gt;ip_summed = CHECKSUM_NONE;
 goto send;
-} else if (skb-&amp;gt;ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
+} else if (skb-&amp;gt;ip_summed == CHECKSUM_PARTIAL) { /&lt;/em> UDP hardware csum */
 udp4_hwcsum(skb, fl4-&amp;gt;saddr, fl4-&amp;gt;daddr);
 goto send;
 } else
-csum = udp_csum(skb);
-&lt;/code>&lt;/pre>
+csum = udp_csum(skb);&lt;/p>
+&lt;/li>
+&lt;/ol>
 &lt;p>接下来，添加了&lt;a href="https://en.wikipedia.org/wiki/User_Datagram_Protocol#IPv4_Pseudo_Header">伪头  &lt;/a>：&lt;/p>
 &lt;pre>&lt;code>uh-&amp;gt;check = csum_tcpudp_magic(fl4-&amp;gt;saddr, fl4-&amp;gt;daddr, len,
 sk-&amp;gt;sk_protocol, csum);

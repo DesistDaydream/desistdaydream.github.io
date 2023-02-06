@@ -342,35 +342,33 @@ completed.
 &lt;h3 id="使用-go-pprof-工具对-kubelet-函数调用进行分析">使用 go pprof 工具对 kubelet 函数调用进行分析&lt;/h3>
 &lt;p>早期的 k8s 版本，可以直接通过&lt;code>debug/pprof&lt;/code> 接口获取 debug 数据，后面考虑到相关安全性的问题，取消了这个接口，参考&lt;a href="https://github.com/kubernetes/kubernetes/issues/81023">CVE-2019-11248&lt;/a>，我们可以通过 kubectl 开启 proxy 进行相关数据指标的获取&lt;/p>
 &lt;ol>
-&lt;li>首先使用&lt;code>kubectl proxy&lt;/code>命令启动 API server 代理&lt;/li>
+&lt;li>
+&lt;p>首先使用&lt;code>kubectl proxy&lt;/code>命令启动 API server 代理&lt;/p>
+&lt;p>kubectl proxy &amp;ndash;address=&amp;lsquo;0.0.0.0&amp;rsquo; &amp;ndash;accept-hosts=&amp;rsquo;^*$&amp;rsquo;&lt;/p>
+&lt;/li>
 &lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>kubectl proxy --address='0.0.0.0' --accept-hosts='^*$'
-&lt;/code>&lt;/pre>
 &lt;p>这里需要注意，如果使用的是 Rancher UI 上 copy 的 kubeconfig 文件，则需要使用指定了 master IP 的 context，如果是 RKE 或者其他工具安装则可以忽略&lt;/p>
 &lt;ol start="2">
-&lt;li>构建 golang 环境。go pprof 需要在 golang 环境下使用，本地如果没有安装 golang，则可以通过 docker 快速构建 golang 环境&lt;/li>
+&lt;li>
+&lt;p>构建 golang 环境。go pprof 需要在 golang 环境下使用，本地如果没有安装 golang，则可以通过 docker 快速构建 golang 环境&lt;/p>
+&lt;p>docker run -itd &amp;ndash;name golang-env &amp;ndash;net host golang bash&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>使用 go pprof 工具导出采集的指标，这里替换 127.0.0.1 为 apiserver 节点的 IP，默认端口是 8001，如果 docker run 的环境跑在 apiserver 所在的节点上，可以使用 127.0.0.1。另外，还要替换 NODENAME 为对应的节点名称。&lt;/p>
+&lt;p>docker exec -it golang-env bash
+go tool pprof -seconds=60 -raw -output=kubelet.pprof http://127.0.0.1:8001/api/v1/nodes/${NODENAME}/proxy/debug/pprof/profile&lt;/p>
+&lt;/li>
 &lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>docker run -itd --name golang-env --net host golang bash
-&lt;/code>&lt;/pre>
-&lt;ol start="3">
-&lt;li>使用 go pprof 工具导出采集的指标，这里替换 127.0.0.1 为 apiserver 节点的 IP，默认端口是 8001，如果 docker run 的环境跑在 apiserver 所在的节点上，可以使用 127.0.0.1。另外，还要替换 NODENAME 为对应的节点名称。&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>docker exec -it golang-env bash
-go tool pprof -seconds=60 -raw -output=kubelet.pprof http://127.0.0.1:8001/api/v1/nodes/${NODENAME}/proxy/debug/pprof/profile
-&lt;/code>&lt;/pre>
 &lt;p>这里等待 60s 后，会将这 60s 内相关的函数调用输出到当前目录的 kubelet.pprof 文件中。&lt;/p>
 &lt;ol start="4">
-&lt;li>输出好的 pprof 文件不方便查看，需要转换成火焰图，推荐使用 FlameGraph 工具生成 svg 图&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>git clone https://github.com/brendangregg/FlameGraph.git
+&lt;li>
+&lt;p>输出好的 pprof 文件不方便查看，需要转换成火焰图，推荐使用 FlameGraph 工具生成 svg 图&lt;/p>
+&lt;p>git clone &lt;a href="https://github.com/brendangregg/FlameGraph.git">https://github.com/brendangregg/FlameGraph.git&lt;/a>
 cd FlameGraph/
 ./stackcollapse-go.pl kubelet.pprof &amp;gt; kubelet.out
-./flamegraph.pl kubelet.out &amp;gt; kubelet.svg
-&lt;/code>&lt;/pre>
+./flamegraph.pl kubelet.out &amp;gt; kubelet.svg&lt;/p>
+&lt;/li>
+&lt;/ol>
 &lt;p>转换成火焰图后，就可以在浏览器很直观的看到函数相关调用和具体调用时间比了。&lt;/p>
 &lt;ol start="5">
 &lt;li>分析火焰图&lt;/li>
@@ -448,15 +446,15 @@ sys 0m9.064s
 &lt;p>内核通过伙伴算法进行内存分配，每当有进程申请内存空间时，会为其分配至少一个内存页面，也就是最少会分配 4k 内存，每次释放内存，也是按照最少一个页面来进行释放。当请求分配的内存大小为几十个字节或几百个字节时，4k 对其来说是一个巨大的内存空间，在 Linux 中，为了解决这个问题，引入了 slab 内存分配管理机制，用来处理这种小量的内存请求，这就会导致，当 CGroup 中的所有进程都退出时，不会轻易回收这部分的内存，而这部分内存中的缓存数据，还会被读取到 stats 中，从而导致影响读取的性能。&lt;/p>
 &lt;h2 id="解决方法">解决方法&lt;/h2>
 &lt;ol>
-&lt;li>清理节点缓存，这是一个临时的解决方法，暂时清空节点内存缓存，能够缓解 kubelet CPU 使用率，但是后面缓存上来了，CPU 使用率又会升上来。&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>echo 2 &amp;gt; /proc/sys/vm/drop_caches
-&lt;/code>&lt;/pre>
-&lt;ol start="2">
-&lt;li>升级内核版本
+&lt;li>
+&lt;p>清理节点缓存，这是一个临时的解决方法，暂时清空节点内存缓存，能够缓解 kubelet CPU 使用率，但是后面缓存上来了，CPU 使用率又会升上来。&lt;/p>
+&lt;p>echo 2 &amp;gt; /proc/sys/vm/drop_caches&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>升级内核版本
 2.1. 其实这个主要还是内核的问题，在 GitHub 上这个&lt;a href="https://github.com/torvalds/linux/commit/205b20cc5a99cdf197c32f4dbee2b09c699477f0">commit&lt;/a>中有提到，在 5.2+以上的内核版本中，优化了 CGroup stats 相关的查询性能，如果想要更好的解决该问题，建议可以参考自己操作系统和环境，合理的升级内核版本。
-2.2. 另外 Redhat 在&lt;a href="https://bugzilla.redhat.com/show_bug.cgi?id=1795049">kernel-4.18.0-176&lt;/a>版本中也优化了相关 CGroup 的性能问题，而 CentOS 8/RHEL 8 默认使用的内核版本就是 4.18，如果目前您使用的操作系统是 RHEL7/CentOS7，则可以尝试逐渐替换新的操作系统，使用这个 4.18.0-176 版本以上的内核，毕竟新版本内核总归是对容器相关的体验会好很多。&lt;/li>
+2.2. 另外 Redhat 在&lt;a href="https://bugzilla.redhat.com/show_bug.cgi?id=1795049">kernel-4.18.0-176&lt;/a>版本中也优化了相关 CGroup 的性能问题，而 CentOS 8/RHEL 8 默认使用的内核版本就是 4.18，如果目前您使用的操作系统是 RHEL7/CentOS7，则可以尝试逐渐替换新的操作系统，使用这个 4.18.0-176 版本以上的内核，毕竟新版本内核总归是对容器相关的体验会好很多。&lt;/p>
+&lt;/li>
 &lt;/ol>
 &lt;blockquote>
 &lt;p>kernel 相关 commit：&lt;a href="https://github.com/torvalds/linux/commit/205b20cc5a99cdf197c32f4dbee2b09c699477f0">https://github.com/torvalds/linux/commit/205b20cc5a99cdf197c32f4dbee2b09c699477f0&lt;/a>&lt;/p>

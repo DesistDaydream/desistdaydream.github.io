@@ -378,16 +378,16 @@ RUN echo &amp;quot;192.168.0.1 node1&amp;quot; &amp;amp;gt;&amp;amp;gt; /tmp/hos
 ...
 &lt;/code>&lt;/pre>
 &lt;ol start="3">
-&lt;li>在 dockerfile 中，使用脚本作为镜像入口，然后利用脚本运行修改 hosts 文件的命令以及真正的应用程序入口，下面是一个 Dockerfile 实例：&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>FROM centos:6
+&lt;li>
+&lt;p>在 dockerfile 中，使用脚本作为镜像入口，然后利用脚本运行修改 hosts 文件的命令以及真正的应用程序入口，下面是一个 Dockerfile 实例：&lt;/p>
+&lt;p>FROM centos:6
 RUN mkdir /data
 COPY run.sh /data/
 COPY myhosts /data/
 RUN chmod +x /data/run.sh
-ENTRYPOINT /bin/sh -c /data/run.sh
-&lt;/code>&lt;/pre>
+ENTRYPOINT /bin/sh -c /data/run.sh&lt;/p>
+&lt;/li>
+&lt;/ol>
 &lt;p>其中 run.sh 示例：
 #!/bin/bash
 cat /data/myhosts &amp;raquo; /etc/hosts # 向 hosts 文件追加内容&lt;/p>
@@ -413,38 +413,40 @@ cat /data/myhosts &amp;raquo; /etc/hosts # 向 hosts 文件追加内容&lt;/p>
 &lt;p>docker run 命令直接创建并运行一个容器，它的背后其实包含独立的两步，一步是 docker create 创建容器，另一步是 docker start 启动容器，先介绍在 docker create 这一步中，docker 做了哪些事情。&lt;/p>
 &lt;p>简单点来说，dockerd 在收到客户端的创建容器请求后，做了两件事情&lt;/p>
 &lt;ol>
-&lt;li>准备容器所需的 layer&lt;/li>
-&lt;li>检查客户端传过来的参数，并和 image 配置文件中的参数进行合并，然后存储成容器的配置文件。&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code># 创建容器前的 layers
-[root@lichenhao overlay2]# ls
+&lt;li>
+&lt;p>准备容器所需的 layer&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>检查客户端传过来的参数，并和 image 配置文件中的参数进行合并，然后存储成容器的配置文件。&lt;/p>
+&lt;h1 id="创建容器前的-layers">创建容器前的 layers&lt;/h1>
+&lt;p>[root@lichenhao overlay2]# ls
 113a9d8407c2db3892944c17beba7a635ea39aa5108c7f716088466ea302a7e3 7704e53a9392b092479707d38b2b183b17bbe2cc220e2283cead9493e19aa651 l
-5de7ac8af2fb0a5fb0be4244aa07685bfcfcfc4c4b1c149bc753eb044d7f4a12 8f377ae99a442b37f5a831724951ce1cf8bfc7b874843c97d09e8027c3dd19e6
-# 创建容器后的 layers，多了两个
-[root@lichenhao overlay2]# docker create -it --name docker_runtime_test ubuntu:latest
+5de7ac8af2fb0a5fb0be4244aa07685bfcfcfc4c4b1c149bc753eb044d7f4a12 8f377ae99a442b37f5a831724951ce1cf8bfc7b874843c97d09e8027c3dd19e6&lt;/p>
+&lt;h1 id="创建容器后的-layers多了两个">创建容器后的 layers，多了两个&lt;/h1>
+&lt;p>[root@lichenhao overlay2]# docker create -it &amp;ndash;name docker_runtime_test ubuntu:latest
 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
 [root@lichenhao overlay2]# ls
 113a9d8407c2db3892944c17beba7a635ea39aa5108c7f716088466ea302a7e3 8f377ae99a442b37f5a831724951ce1cf8bfc7b874843c97d09e8027c3dd19e6 l
 5de7ac8af2fb0a5fb0be4244aa07685bfcfcfc4c4b1c149bc753eb044d7f4a12 d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd
-7704e53a9392b092479707d38b2b183b17bbe2cc220e2283cead9493e19aa651 d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init
-# 这俩 layers 的元数据在 ${DockerRootDir}/image/${StorageDriver}/layerdb/mounts目录中
-[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# pwd
+7704e53a9392b092479707d38b2b183b17bbe2cc220e2283cead9493e19aa651 d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init&lt;/p>
+&lt;h1 id="这俩-layers-的元数据在-dockerrootdirimagestoragedriverlayerdbmounts目录中">这俩 layers 的元数据在 ${DockerRootDir}/image/${StorageDriver}/layerdb/mounts目录中&lt;/h1>
+&lt;p>[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# pwd
 /var/lib/docker/image/overlay2/layerdb/mounts/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
 [root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# ls
-init-id mount-id parent
-# init-id 文件包含了 init layer 的 cacheID
-# init layer 的 cacheid 就是在 mount layer 的 cacheID 后面加上了一个“-init”
-[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# cat init-id
-d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init
-# mount-id 文件包含了 mount layer 的 cacheID
-[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# cat mount-id
-d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd
-# parent 里面包含的是 image 的最上 layer 的 chainID
-# 表示这个容器的 init layer 的父 layer 是 image 的最顶层 layer
-[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# cat parent
-sha256:8a8d1f0b34041a66f09e49bdc03e75c2190f606b0db7e08b75eb6747f7b49e11
-&lt;/code>&lt;/pre>
+init-id mount-id parent&lt;/p>
+&lt;h1 id="init-id-文件包含了-init-layer-的-cacheid">init-id 文件包含了 init layer 的 cacheID&lt;/h1>
+&lt;h1 id="init-layer-的-cacheid-就是在-mount-layer-的-cacheid-后面加上了一个-init">init layer 的 cacheid 就是在 mount layer 的 cacheID 后面加上了一个“-init”&lt;/h1>
+&lt;p>[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# cat init-id
+d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init&lt;/p>
+&lt;h1 id="mount-id-文件包含了-mount-layer-的-cacheid">mount-id 文件包含了 mount layer 的 cacheID&lt;/h1>
+&lt;p>[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# cat mount-id
+d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd&lt;/p>
+&lt;h1 id="parent-里面包含的是-image-的最上-layer-的-chainid">parent 里面包含的是 image 的最上 layer 的 chainID&lt;/h1>
+&lt;h1 id="表示这个容器的-init-layer-的父-layer-是-image-的最顶层-layer">表示这个容器的 init layer 的父 layer 是 image 的最顶层 layer&lt;/h1>
+&lt;p>[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# cat parent
+sha256:8a8d1f0b34041a66f09e49bdc03e75c2190f606b0db7e08b75eb6747f7b49e11&lt;/p>
+&lt;/li>
+&lt;/ol>
 &lt;p>Note:&lt;/p>
 &lt;ol>
 &lt;li>新加的这两层 layer 比较特殊，元数据只保存在 layerdb/mounts 下面，在 layerdb/sha256 目录下没有相关信息，说明 docker 将 container 的 layer 和 image 的 layer 的元数据放在了不同的两个目录中。&lt;/li>
@@ -452,22 +454,19 @@ sha256:8a8d1f0b34041a66f09e49bdc03e75c2190f606b0db7e08b75eb6747f7b49e11
 &lt;/ol>
 &lt;p>从上面的文章可以看到，每个创建完的容器都会新增两个层&lt;/p>
 &lt;ol>
-&lt;li>mount layer #供容器写数据的层，如果容器仅创建而没运行的话，那么该层的目录中，没有 merged 目录，并且其余目录也是空的&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>[root@lichenhao d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd]# tree
+&lt;li>
+&lt;p>mount layer #供容器写数据的层，如果容器仅创建而没运行的话，那么该层的目录中，没有 merged 目录，并且其余目录也是空的&lt;/p>
+&lt;p>[root@lichenhao d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd]# tree
 .
 ├── diff
 ├── link
 ├── lower
 └── work
-└── work
-&lt;/code>&lt;/pre>
-&lt;ol>
-&lt;li>init layer #包含了 docker 为容器所预先准备的文件&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>[root@lichenhao d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init]# tree
+└── work&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>init layer #包含了 docker 为容器所预先准备的文件&lt;/p>
+&lt;p>[root@lichenhao d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init]# tree
 .
 ├── committed
 ├── diff
@@ -483,8 +482,9 @@ sha256:8a8d1f0b34041a66f09e49bdc03e75c2190f606b0db7e08b75eb6747f7b49e11
 ├── link
 ├── lower
 └── work
-└── work
-&lt;/code>&lt;/pre>
+└── work&lt;/p>
+&lt;/li>
+&lt;/ol>
 &lt;p>init layer 里面的文件有什么作用呢？从下面的结果可以看出，除了 mtab 文件是指向/proc/mounts 的软连接之外，其他的都是空的普通文件。&lt;/p>
 &lt;p>这几个文件都是 Linux 运行时必须的文件，如果缺少的话会导致某些程序或者库出现异常，所以 docker 需要为容器准备好这些文件：&lt;/p>
 &lt;ul>
@@ -637,9 +637,7 @@ workdir=/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a32651
 .
 └── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
 └── state.json
-&lt;/code>&lt;/pre>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>[root@lichenhao moby]# cat 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10/state.json | jq .
+[root@lichenhao moby]# cat 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10/state.json | jq .
 {
 &amp;quot;id&amp;quot;: &amp;quot;28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&amp;quot;,
 &amp;quot;init_process_pid&amp;quot;: 32221,
@@ -1043,31 +1041,25 @@ Docker 对使用者来讲是一个 C/S 模式的架构，而 Docker 的后端是
 &lt;h2 id="docker-日志驱动loging-driver配置">Docker 日志驱动（loging driver）配置&lt;/h2>
 &lt;p>上面我们已经知道 Docker 支持多种日志驱动类型，我们可以修改默认的日志驱动配置。日志驱动可以全局配置，也可以给特定容器配置。&lt;/p>
 &lt;ul>
-&lt;li>查看 Docker 当前的日志驱动配置&lt;/li>
+&lt;li>
+&lt;p>查看 Docker 当前的日志驱动配置&lt;/p>
+&lt;p>$ docker info |grep &amp;ldquo;Logging Driver&amp;rdquo;&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>查看单个容器的设置的日志驱动&lt;/p>
+&lt;p>$ docker inspect -f &amp;lsquo;{{.HostConfig.LogConfig.Type}}&amp;rsquo; 容器id&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Docker 日志驱动全局配置，全局配置意味所有容器都生效，编辑 /etc/docker/daemon.json 文件（如果文件不存在新建一个），添加日志驱动配置。示例：配置 Docker 引擎日志驱动为 syslog&lt;/p>
+&lt;p>{
+&amp;ldquo;log-driver&amp;rdquo;: &amp;ldquo;syslog&amp;rdquo;
+}&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>给特定容器配置日志驱动，在启动容器时指定日志驱动 &amp;ndash;log-driver 参数。示例：启动 nginx 容器，日志驱动指定为 journald&lt;/p>
+&lt;p>$ docker run &amp;ndash;name nginx -d &amp;ndash;log-driver journald nginx&lt;/p>
+&lt;/li>
 &lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>$ docker info |grep &amp;quot;Logging Driver&amp;quot;
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>查看单个容器的设置的日志驱动&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>$ docker inspect -f '{{.HostConfig.LogConfig.Type}}' 容器id
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>Docker 日志驱动全局配置，全局配置意味所有容器都生效，编辑 /etc/docker/daemon.json 文件（如果文件不存在新建一个），添加日志驱动配置。示例：配置 Docker 引擎日志驱动为 syslog&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>{
-&amp;quot;log-driver&amp;quot;: &amp;quot;syslog&amp;quot;
-}
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>给特定容器配置日志驱动，在启动容器时指定日志驱动 &amp;ndash;log-driver 参数。示例：启动 nginx 容器，日志驱动指定为 journald&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>$ docker run --name nginx -d --log-driver journald nginx
-&lt;/code>&lt;/pre>
 &lt;h2 id="docker-默认的日志驱动-json-file">Docker 默认的日志驱动 json-file&lt;/h2>
 &lt;p>json-file 日志驱动记录所有容器的 STOUT/STDERR 的输出 ，用 JSON 的格式写到文件中，每一条 json 日志中默认包含 log, stream, time 三个字段，示例日志如下：文件路径为： /var/lib/docker/containers/40f1851f5eb9e684f0b0db216ea19542529e0a2a2e7d4d8e1d69f3591a573c39/40f1851f5eb9e684f0b0db216ea19542529e0a2a2e7d4d8e1d69f3591a573c39-json.log&lt;/p>
 &lt;pre>&lt;code>{&amp;quot;log&amp;quot;:&amp;quot;14:C 25 Jul 2019 12:27:04.072 * DB saved on disk\n&amp;quot;,&amp;quot;stream&amp;quot;:&amp;quot;stdout&amp;quot;,&amp;quot;time&amp;quot;:&amp;quot;2019-07-25T12:27:04.072712524Z&amp;quot;}
@@ -1130,29 +1122,31 @@ EXAMPLE&lt;/p>
 &lt;p>&lt;strong>docker system COMMAND&lt;/strong>&lt;/p>
 &lt;p>COMMAND:&lt;/p>
 &lt;ul>
-&lt;li>df # 显示 docker 系统的磁盘使用情况，效果如下：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>[root@master-1 ~]# docker system df
+&lt;li>
+&lt;p>df # 显示 docker 系统的磁盘使用情况，效果如下：&lt;/p>
+&lt;p>[root@master-1 ~]# docker system df
 TYPE TOTAL ACTIVE SIZE RECLAIMABLE
 Images 11 10 1.043GB 96.12MB (9%)
 Containers 34 18 4.588kB 2.294kB (50%)
 Local Volumes 2 2 152.8MB 0B (0%)
-Build Cache 0 0 0B 0B
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>events # Get real time events from the server&lt;/li>
-&lt;li>info # 等同于 docker info 命令&lt;/li>
-&lt;li>prune # 删除未使用的数据。删除内容如下&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>[root@lichenhao ~]# docker system prune
+Build Cache 0 0 0B 0B&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>events # Get real time events from the server&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>info # 等同于 docker info 命令&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>prune # 删除未使用的数据。删除内容如下&lt;/p>
+&lt;p>[root@lichenhao ~]# docker system prune
 WARNING! This will remove:
 - all stopped containers
 - all networks not used by at least one container
 - all dangling images
-- all dangling build cache
-&lt;/code>&lt;/pre>
+- all dangling build cache&lt;/p>
+&lt;/li>
+&lt;/ul>
 &lt;p>EXAMPLE&lt;/p>
 &lt;h2 id="volume--管理-docker-的卷">volume # 管理 docker 的卷&lt;/h2>
 &lt;p>详见 《[Docker 存储](/docs/IT学习笔记/10.云原生/2.2.实现容器的工具/Docker/Docker%20 存储.md 存储.md)》&lt;/p>

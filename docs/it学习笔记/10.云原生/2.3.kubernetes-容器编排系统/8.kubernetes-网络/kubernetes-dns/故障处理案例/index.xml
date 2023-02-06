@@ -142,27 +142,25 @@
 &lt;p>实施步骤&lt;/p>
 &lt;p>其实就是要给容器的&lt;code>/etc/resolv.conf&lt;/code>文件添加选项，目前有两个方案比较合适：&lt;/p>
 &lt;ol>
-&lt;li>通过修改 pod 的 postStart hook 来设置&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>lifecycle:
+&lt;li>
+&lt;p>通过修改 pod 的 postStart hook 来设置&lt;/p>
+&lt;p>lifecycle:
 postStart:
 exec:
 command:
 - /bin/sh
 - -c
-- &amp;quot;/bin/echo 'options single-request-reopen' &amp;gt;&amp;gt; /etc/resolv.conf&amp;quot;
-&lt;/code>&lt;/pre>
-&lt;ol>
-&lt;li>通过修改 pod 的 template.spec.dnsConfig 来设置&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>template:
+- &amp;ldquo;/bin/echo &amp;lsquo;options single-request-reopen&amp;rsquo; &amp;raquo; /etc/resolv.conf&amp;rdquo;&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>通过修改 pod 的 template.spec.dnsConfig 来设置&lt;/p>
+&lt;p>template:
 spec:
 dnsConfig:
 options:
-- name: single-request-reopen
-&lt;/code>&lt;/pre>
+- name: single-request-reopen&lt;/p>
+&lt;/li>
+&lt;/ol>
 &lt;p>缺点&lt;/p>
 &lt;p>不支持&lt;code>alpine&lt;/code>基础镜像的容器，因为&lt;code>apline&lt;/code>底层使用的&lt;code>musl libc&lt;/code>库并不支持这些 resolv.conf 选项，所以如果使用&lt;code>alpine&lt;/code>基础镜像构建的应用，还是无法规避超时的问题。&lt;/p>
 &lt;h3 id="方案三本地-dns-缓存">方案（三）：本地 DNS 缓存&lt;/h3>
@@ -173,61 +171,55 @@ options:
 &lt;/blockquote>
 &lt;p>部署&lt;/p>
 &lt;ol>
-&lt;li>获取当前&lt;code>kube-dns service&lt;/code>的 clusterIP&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code># kubectl -n kube-system get svc kube-dns -o jsonpath=&amp;quot;{.spec.clusterIP}&amp;quot;
-10.96.0.10
-复制代码
-&lt;/code>&lt;/pre>
-&lt;ol>
-&lt;li>下载官方提供的 yaml 模板进行关键字替换&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>wget -O nodelocaldns.yaml &amp;quot;https://github.com/kubernetes/kubernetes/raw/master/cluster/addons/dns/nodelocaldns/nodelocaldns.yaml&amp;quot; &amp;amp;&amp;amp; \
-sed -i 's/__PILLAR__DNS__SERVER__/10.96.0.10/g' nodelocaldns.yaml &amp;amp;&amp;amp; \
-sed -i 's/__PILLAR__LOCAL__DNS__/169.254.20.10/g' nodelocaldns.yaml &amp;amp;&amp;amp; \
-sed -i 's/__PILLAR__DNS__DOMAIN__/cluster.local/g' nodelocaldns.yaml &amp;amp;&amp;amp; \
-sed -i 's/__PILLAR__CLUSTER__DNS__/10.96.0.10/g' nodelocaldns.yaml &amp;amp;&amp;amp; \
-sed -i 's/__PILLAR__UPSTREAM__SERVERS__/\/etc\/resolv.conf/g' nodelocaldns.yaml
-&lt;/code>&lt;/pre>
-&lt;ol>
-&lt;li>最终 yaml 文件如下：&lt;/li>
-&lt;/ol>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code># Copyright 2018 The Kubernetes Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the &amp;quot;License&amp;quot;);
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an &amp;quot;AS IS&amp;quot; BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-apiVersion: v1
+&lt;li>
+&lt;p>获取当前&lt;code>kube-dns service&lt;/code>的 clusterIP&lt;/p>
+&lt;h1 id="kubectl--n-kube-system-get-svc-kube-dns--o-jsonpathspecclusterip">kubectl -n kube-system get svc kube-dns -o jsonpath=&amp;quot;{.spec.clusterIP}&amp;quot;&lt;/h1>
+&lt;p>10.96.0.10
+复制代码&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>下载官方提供的 yaml 模板进行关键字替换&lt;/p>
+&lt;p>wget -O nodelocaldns.yaml &amp;ldquo;&lt;a href="https://github.com/kubernetes/kubernetes/raw/master/cluster/addons/dns/nodelocaldns/nodelocaldns.yaml%22">https://github.com/kubernetes/kubernetes/raw/master/cluster/addons/dns/nodelocaldns/nodelocaldns.yaml&amp;quot;&lt;/a> &amp;amp;&amp;amp; &lt;br>
+sed -i &amp;rsquo;s/&lt;strong>PILLAR__DNS__SERVER&lt;/strong>/10.96.0.10/g&amp;rsquo; nodelocaldns.yaml &amp;amp;&amp;amp; &lt;br>
+sed -i &amp;rsquo;s/&lt;strong>PILLAR__LOCAL__DNS&lt;/strong>/169.254.20.10/g&amp;rsquo; nodelocaldns.yaml &amp;amp;&amp;amp; &lt;br>
+sed -i &amp;rsquo;s/&lt;strong>PILLAR__DNS__DOMAIN&lt;/strong>/cluster.local/g&amp;rsquo; nodelocaldns.yaml &amp;amp;&amp;amp; &lt;br>
+sed -i &amp;rsquo;s/&lt;strong>PILLAR__CLUSTER__DNS&lt;/strong>/10.96.0.10/g&amp;rsquo; nodelocaldns.yaml &amp;amp;&amp;amp; &lt;br>
+sed -i &amp;rsquo;s/&lt;strong>PILLAR__UPSTREAM__SERVERS&lt;/strong>//etc/resolv.conf/g&amp;rsquo; nodelocaldns.yaml&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>最终 yaml 文件如下：&lt;/p>
+&lt;h1 id="copyright-2018-the-kubernetes-authors">Copyright 2018 The Kubernetes Authors.&lt;/h1>
+&lt;h1 id="heading">&lt;/h1>
+&lt;h1 id="licensed-under-the-apache-license-version-20-the-license">Licensed under the Apache License, Version 2.0 (the &amp;ldquo;License&amp;rdquo;);&lt;/h1>
+&lt;h1 id="you-may-not-use-this-file-except-in-compliance-with-the-license">you may not use this file except in compliance with the License.&lt;/h1>
+&lt;h1 id="you-may-obtain-a-copy-of-the-license-at">You may obtain a copy of the License at&lt;/h1>
+&lt;h1 id="heading-1">&lt;/h1>
+&lt;h1 id="httpwwwapacheorglicenseslicense-20">&lt;a href="http://www.apache.org/licenses/LICENSE-2.0">http://www.apache.org/licenses/LICENSE-2.0&lt;/a>&lt;/h1>
+&lt;h1 id="heading-2">&lt;/h1>
+&lt;h1 id="unless-required-by-applicable-law-or-agreed-to-in-writing-software">Unless required by applicable law or agreed to in writing, software&lt;/h1>
+&lt;h1 id="distributed-under-the-license-is-distributed-on-an-as-is-basis">distributed under the License is distributed on an &amp;ldquo;AS IS&amp;rdquo; BASIS,&lt;/h1>
+&lt;h1 id="without-warranties-or-conditions-of-any-kind-either-express-or-implied">WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.&lt;/h1>
+&lt;h1 id="see-the-license-for-the-specific-language-governing-permissions-and">See the License for the specific language governing permissions and&lt;/h1>
+&lt;h1 id="limitations-under-the-license">limitations under the License.&lt;/h1>
+&lt;h1 id="heading-3">&lt;/h1>
+&lt;h2 id="addonmanagerkubernetesiomode-reconcile">apiVersion: v1
 kind: ServiceAccount
 metadata:
 name: node-local-dns
 namespace: kube-system
 labels:
-kubernetes.io/cluster-service: &amp;quot;true&amp;quot;
-addonmanager.kubernetes.io/mode: Reconcile
----
-apiVersion: v1
+kubernetes.io/cluster-service: &amp;ldquo;true&amp;rdquo;
+addonmanager.kubernetes.io/mode: Reconcile&lt;/h2>
+&lt;h2 id="k8s-app-kube-dns">apiVersion: v1
 kind: Service
 metadata:
 name: kube-dns-upstream
 namespace: kube-system
 labels:
 k8s-app: kube-dns
-kubernetes.io/cluster-service: &amp;quot;true&amp;quot;
+kubernetes.io/cluster-service: &amp;ldquo;true&amp;rdquo;
 addonmanager.kubernetes.io/mode: Reconcile
-kubernetes.io/name: &amp;quot;KubeDNSUpstream&amp;quot;
+kubernetes.io/name: &amp;ldquo;KubeDNSUpstream&amp;rdquo;
 spec:
 ports:
 - name: dns
@@ -239,9 +231,8 @@ port: 53
 protocol: TCP
 targetPort: 53
 selector:
-k8s-app: kube-dns
----
-apiVersion: v1
+k8s-app: kube-dns&lt;/h2>
+&lt;h2 id="heading-4">apiVersion: v1
 kind: ConfigMap
 metadata:
 name: node-local-dns
@@ -297,16 +288,15 @@ forward . /etc/resolv.conf {
 force_tcp
 }
 prometheus :9253
-}
----
-apiVersion: apps/v1
+}&lt;/h2>
+&lt;p>apiVersion: apps/v1
 kind: DaemonSet
 metadata:
 name: node-local-dns
 namespace: kube-system
 labels:
 k8s-app: node-local-dns
-kubernetes.io/cluster-service: &amp;quot;true&amp;quot;
+kubernetes.io/cluster-service: &amp;ldquo;true&amp;rdquo;
 addonmanager.kubernetes.io/mode: Reconcile
 spec:
 updateStrategy:
@@ -323,10 +313,10 @@ spec:
 priorityClassName: system-node-critical
 serviceAccountName: node-local-dns
 hostNetwork: true
-dnsPolicy: Default # Don't use cluster DNS.
+dnsPolicy: Default # Don&amp;rsquo;t use cluster DNS.
 tolerations:
-- key: &amp;quot;CriticalAddonsOnly&amp;quot;
-operator: &amp;quot;Exists&amp;quot;
+- key: &amp;ldquo;CriticalAddonsOnly&amp;rdquo;
+operator: &amp;ldquo;Exists&amp;rdquo;
 containers:
 - name: node-cache
 image: k8s.gcr.io/k8s-dns-node-cache:1.15.7
@@ -336,12 +326,12 @@ cpu: 25m
 memory: 5Mi
 args:
 [
-&amp;quot;-localip&amp;quot;,
-&amp;quot;169.254.20.10,10.96.0.10&amp;quot;,
-&amp;quot;-conf&amp;quot;,
-&amp;quot;/etc/Corefile&amp;quot;,
-&amp;quot;-upstreamsvc&amp;quot;,
-&amp;quot;kube-dns-upstream&amp;quot;,
+&amp;ldquo;-localip&amp;rdquo;,
+&amp;ldquo;169.254.20.10,10.96.0.10&amp;rdquo;,
+&amp;ldquo;-conf&amp;rdquo;,
+&amp;ldquo;/etc/Corefile&amp;rdquo;,
+&amp;ldquo;-upstreamsvc&amp;rdquo;,
+&amp;ldquo;kube-dns-upstream&amp;rdquo;,
 ]
 securityContext:
 privileged: true
@@ -384,8 +374,9 @@ configMap:
 name: node-local-dns
 items:
 - key: Corefile
-path: Corefile.base
-&lt;/code>&lt;/pre>
+path: Corefile.base&lt;/p>
+&lt;/li>
+&lt;/ol>
 &lt;p>通过 yaml 可以看到几个细节：&lt;/p>
 &lt;ol>
 &lt;li>
@@ -414,10 +405,9 @@ path: Corefile.base
 &lt;p>通过压测发现并没有解决超时的问题，按理说没有&lt;code>conntrack&lt;/code>冲突应该表现出的情况与方案(二)类似才对，也可能是我使用的姿势不对，不过虽然这个问题还存在，但是通过&lt;code>DaemonSet&lt;/code>将 dns 请求压力分散到各个 node 节点，也可以有效的缓解域名解析超时问题。&lt;/p>
 &lt;p>实施&lt;/p>
 &lt;ul>
-&lt;li>方案（一）：通过修改 pod 的 template.spec.dnsConfig 来设置，并将&lt;code>dnsPolicy&lt;/code>设置为&lt;code>None&lt;/code>&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>template:
+&lt;li>
+&lt;p>方案（一）：通过修改 pod 的 template.spec.dnsConfig 来设置，并将&lt;code>dnsPolicy&lt;/code>设置为&lt;code>None&lt;/code>&lt;/p>
+&lt;p>template:
 spec:
 dnsConfig:
 nameservers:
@@ -428,14 +418,13 @@ searches:
 - cluster.local
 options:
 - name: ndots
-value: &amp;quot;5&amp;quot;
-dnsPolicy: None
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>方案（二）：修改默认的&lt;code>cluster-dns&lt;/code>，在 node 节点上将&lt;code>/etc/systemd/system/kubelet.service.d/10-kubeadm.conf&lt;/code>文件中的&lt;code>--cluster-dns&lt;/code>参数值修改为&lt;code>169.254.20.10&lt;/code>，然后重启&lt;code>kubelet&lt;/code>&lt;/li>
+value: &amp;ldquo;5&amp;rdquo;
+dnsPolicy: None&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>方案（二）：修改默认的&lt;code>cluster-dns&lt;/code>，在 node 节点上将&lt;code>/etc/systemd/system/kubelet.service.d/10-kubeadm.conf&lt;/code>文件中的&lt;code>--cluster-dns&lt;/code>参数值修改为&lt;code>169.254.20.10&lt;/code>，然后重启&lt;code>kubelet&lt;/code>&lt;/p>
+&lt;p>systemctl restart kubelet&lt;/p>
+&lt;/li>
 &lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>systemctl restart kubelet
-&lt;/code>&lt;/pre>
 &lt;h2 id="最终解决方案">最终解决方案&lt;/h2>
 &lt;p>最后还是决定使用&lt;code>方案(二)+方案(三)&lt;/code>配合使用，来最大程度的优化此问题，并且将线上所有的基础镜像都替换为非&lt;code>apline&lt;/code>的镜像版本，至此问题基本解决，也希望 K8S 官方能早日将此功能直接集成进去。&lt;/p></description></item></channel></rss>

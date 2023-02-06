@@ -503,225 +503,7 @@ $ ip route show table main
 $ ip route show table local
 # 获取到特定 IP 的路由
 $ ip route get 192.0.2.3
-&lt;/code>&lt;/pre></description></item><item><title>Docs: Wireguard 全互联模式（full mesh）权威指南</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://mp.weixin.qq.com/s/0NntpHp3ghQEvgZvoV9eWw">公众号,云原生实验室-Wireguard 全互联模式（full mesh）权威指南&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>上篇文章给大家介绍了如何&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247491998&amp;amp;idx=1&amp;amp;sn=840c87b4ecc2108d4a121aa26825ce65&amp;amp;chksm=fbeda153cc9a284516e177a6bdbfc90e57a4f253beb5f2d1abaa9bca54a388e1fc60a5b61b2c&amp;amp;scene=21#wechat_redirect">👉 使用 wg-gen-web 来方便快捷地管理 WireGuard 的配置和秘钥&lt;/a>，文末埋了两个坑：一个是 &lt;code>WireGuard&lt;/code> 的全互联模式（full mesh），另一个是使用 WireGuard 作为 &lt;code>Kubernetes&lt;/code> 的 CNI 插件。今天就来填第一个坑。&lt;/p>
-&lt;p>首先解释一下什么是全互联模式（full mesh），全互联模式其实就是一种网络连接形式，即所有结点之间都直接连接，不会通过第三方节点中转流量。和前面提到的点对多点架构[1] 其实是一个意思。&lt;/p>
-&lt;h2 id="1-全互联模式架构与配置">1. 全互联模式架构与配置&lt;/h2>
-&lt;p>在 WireGuard 的世界里没有 Server 和 Client 之分，所有的节点都是 &lt;code>Peer&lt;/code>。大家使用 WireGuard 的常规做法是找一个节点作为中转节点，也就是 VPN 网关，然后所有的节点都和这个网关进行连接，所有节点之间都通过这个网关来进行通信。这种架构中，为了方便理解，我们可以把网关看成 Server，其他的节点看成 Client，但实际上是不区分 Server 和 Client 的。&lt;/p>
-&lt;p>举个例子，假设有 &lt;code>4&lt;/code> 个节点，分别是 A/B/C/D，且这 4 个节点都不在同一个局域网，常规的做法是选取一个节点作为 VPN 网关，架构如图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
-&lt;p>这种架构的缺点我在之前的文章里也介绍过了，缺点相当明显：&lt;/p>
-&lt;ul>
-&lt;li>当 Peer 越来越多时，VPN 网关就会变成垂直扩展的瓶颈。&lt;/li>
-&lt;li>通过 VPN 网关转发流量的成本很高，毕竟云服务器的流量很贵。&lt;/li>
-&lt;li>通过 VPN 网关转发流量会带来很高的延迟。&lt;/li>
-&lt;/ul>
-&lt;p>那么全互联模式是什么样的架构呢？还是假设有 A/B/C/D 四个节点，每个节点都和其他节点建立 WireGuard 隧道，架构如图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
-&lt;p>这种架构带来的直接优势就是快！任意一个 Peer 和其他所有 Peer 都是直连，无需中转流量。那么在 WireGuard 的场景下如何实现全互联模式呢？其实这个问题不难，难点在于配置的繁琐程度，本文的主要目标就是精简 WireGuard 全互联模式的配置流程。为了让大家更容易理解，咱们还是先通过架构图来体现各个 Peer 的配置：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
-&lt;p>配置一目了然，每个 Peer 和其他所有 Peer 都是直连，根本没有 VPN 网关这种角色。当然，现实世界的状况没有图中这么简单，有些 Peer 是没有公网 IP 的，躲在 NAT 后面，这里又分两种情况：&lt;/p>
-&lt;ol>
-&lt;li>NAT 受自己控制。这种情况可以在公网出口设置端口转发，其他 Peer 就可以通过这个公网 IP 和端口连接当前 Peer。如果公网 IP 是动态的，可以通过 DDNS 来解决，但 DDNS 会出现一些小问题，解决方法可以参考 WireGuard 的优化[2]。&lt;/li>
-&lt;li>NAT 不受自己控制。这种情况无法在公网出口设置端口转发，只能通过 UDP 打洞来实现互联，具体可以参考 &lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247492210&amp;amp;idx=1&amp;amp;sn=64cfcbf15253c7bdbbbe8939c3fb90da&amp;amp;chksm=fbeda2bfcc9a2ba9785f0f1d74653c757ad74c8c9f4feec2248fdfec2379e11d20a693877921&amp;amp;scene=21#wechat_redirect">👉WireGuard 教程：使用 DNS-SD 进行 NAT-to-NAT 穿透&lt;/a>。&lt;/li>
-&lt;/ol>
-&lt;p>&lt;strong>接着上述方案再更进一步，打通所有 Peer 的私有网段，让任意一个 Peer 可以访问其他所有 Peer 的私有网段的机器&lt;/strong>。上述配置只是初步完成了全互联，让每个 Peer 可以相互访问彼此而已，要想相互访问私有网段，还得继续增加配置，还是直接看图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
-&lt;p>红色字体部分就是新增的配置，表示允许访问相应 Peer 的私有网段，就是这么简单。详细的配置步骤请看下一节。&lt;/p>
-&lt;h2 id="2-全互联模式最佳实践">2. 全互联模式最佳实践&lt;/h2>
-&lt;p>对如何配置有了清晰的思路之后，接下来就可以进入实践环节了。我不打算从 WireGuard 安装开始讲起，而是以前几篇文章为基础添砖加瓦。所以我建议读者先按顺序看下这两篇文章：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247488853&amp;amp;idx=1&amp;amp;sn=38acb5689db9d9d69ab1ebc78248e0ed&amp;amp;chksm=fbee5598cc99dc8ee81dc6e2a6ed12bb1fd61efd19f152c75e6e41aadb79a15562d7a6c9cb81&amp;amp;scene=21#wechat_redirect">👉WireGuard 快速安装教程&lt;/a>&lt;/li>
-&lt;li>&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247491998&amp;amp;idx=1&amp;amp;sn=840c87b4ecc2108d4a121aa26825ce65&amp;amp;chksm=fbeda153cc9a284516e177a6bdbfc90e57a4f253beb5f2d1abaa9bca54a388e1fc60a5b61b2c&amp;amp;scene=21#wechat_redirect">👉WireGuard 配置教程：使用 wg-gen-web 来管理 WireGuard 的配置&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;p>咱们直接从配置开始说起。手撸配置的做法是不明智的，因为当节点增多之后工作量会很大，我还是建议通过图形化界面来管理配置，首选 &lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247491998&amp;amp;idx=1&amp;amp;sn=840c87b4ecc2108d4a121aa26825ce65&amp;amp;chksm=fbeda153cc9a284516e177a6bdbfc90e57a4f253beb5f2d1abaa9bca54a388e1fc60a5b61b2c&amp;amp;scene=21#wechat_redirect">👉wg-gen-web&lt;/a>。&lt;/p>
-&lt;p>现在还是假设有上节所述的 4 个 Peer，我们需要从中挑选一个 Peer 来安装 &lt;code>wg-gen-web&lt;/code>，然后通过 &lt;code>wg-gen-web&lt;/code> 来生成配置。挑选哪个 Peer 无所谓，这个没有特殊限制，这里假设挑选 &lt;code>AWS&lt;/code> 来安装 &lt;code>wg-gen-web&lt;/code>。&lt;/p>
-&lt;p>安装的步骤直接略过，不是本文的重点，不清楚的可以阅读我之前的文章 &lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247491998&amp;amp;idx=1&amp;amp;sn=840c87b4ecc2108d4a121aa26825ce65&amp;amp;chksm=fbeda153cc9a284516e177a6bdbfc90e57a4f253beb5f2d1abaa9bca54a388e1fc60a5b61b2c&amp;amp;scene=21#wechat_redirect">👉WireGuard 配置教程：使用 wg-gen-web 来管理 WireGuard 的配置&lt;/a>。Server 配置如图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
-&lt;p>生成 &lt;code>Azure&lt;/code> 的配置：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
-&lt;p>SUBMIT 之后再查看 &lt;code>wg0.conf&lt;/code> 的内容：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat /etc/wireguard/wg0.conf
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Updated: 2021-02-24 07:34:23.805535396 +0000 UTC / Created: 2021-02-24 07:24:02.208816462 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ListenPort &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">51820&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> eEnHKGkGksx0jqrEDogjRj5l417BrEA39lr7WW9L9U0&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreUp &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreUp
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostUp &lt;span style="color:#f92672">=&lt;/span> iptables -I FORWARD -i wg0 -j ACCEPT; iptables -I FORWARD -o wg0 -j ACCEPT; iptables -I INPUT -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreDown &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreDown
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostDown &lt;span style="color:#f92672">=&lt;/span> iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -D INPUT -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Azure / / Updated: 2021-02-24 07:43:52.717385042 +0000 UTC / Created: 2021-02-24 07:43:52.717385042 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> OzdH42suuOpVY5wxPrxM+rEAyEPFg2eL0ZI29N7eSTY&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这里无法通过图形化界面添加私有网段的配置，我们可以直接修改 &lt;code>wg0.conf&lt;/code> 添加配置：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat /etc/wireguard/wg0.conf
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Updated: 2021-02-24 07:34:23.805535396 +0000 UTC / Created: 2021-02-24 07:24:02.208816462 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ListenPort &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">51820&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> eEnHKGkGksx0jqrEDogjRj5l417BrEA39lr7WW9L9U0&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreUp &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreUp
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostUp &lt;span style="color:#f92672">=&lt;/span> iptables -I FORWARD -i wg0 -j ACCEPT; iptables -I FORWARD -o wg0 -j ACCEPT; iptables -I INPUT -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreDown &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreDown
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostDown &lt;span style="color:#f92672">=&lt;/span> iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -D INPUT -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Azure / / Updated: 2021-02-24 07:43:52.717385042 +0000 UTC / Created: 2021-02-24 07:43:52.717385042 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> OzdH42suuOpVY5wxPrxM+rEAyEPFg2eL0ZI29N7eSTY&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.20.0/24
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>下载 Azure 配置文件：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
-&lt;p>可以看到配置文件内容为：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat Azure.conf
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> IFhAyIWY7sZmabsqDDESj9fqoniE/uZFNIvAfYHjN2o&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> JgvmQFmhUtUoS3xFMFwEgP3L1Wnd8hJc3laJ90Gwzko&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/32, 192.168.10.0/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aws.com:51820
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>先不急着修改，一鼓作气生成所有 Peer 的配置文件：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
-&lt;p>这时你会发现 &lt;code>wg0.conf&lt;/code> 中已经包含了所有 Peer 的配置：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat /etc/wireguard/wg0.conf
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Updated: 2021-02-24 07:57:00.745287945 +0000 UTC / Created: 2021-02-24 07:24:02.208816462 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ListenPort &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">51820&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> eEnHKGkGksx0jqrEDogjRj5l417BrEA39lr7WW9L9U0&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreUp &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreUp
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostUp &lt;span style="color:#f92672">=&lt;/span> iptables -I FORWARD -i wg0 -j ACCEPT; iptables -I FORWARD -o wg0 -j ACCEPT; iptables -I INPUT -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreDown &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreDown
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostDown &lt;span style="color:#f92672">=&lt;/span> iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -D INPUT -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Aliyun / / Updated: 2021-02-24 07:57:45.941019829 +0000 UTC / Created: 2021-02-24 07:57:45.941019829 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> kVq2ATMTckCKEJFF4TM3QYibxzlh+b9CV4GZ4meQYAo&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> v818B5etpRlyVYHGUrv9abM5AIQK5xeoCizdWj1AqcE&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.4/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># GCP / / Updated: 2021-02-24 07:57:27.3555646 +0000 UTC / Created: 2021-02-24 07:57:27.3555646 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> qn0Xfyzs6bLKgKcfXwcSt91DUxSbtATDIfe4xwsnsGg&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> T5UsVvOEYwfMJQDJudC2ryKeCpnO3RV8GFMoi76ayyI&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.3/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Azure / / Updated: 2021-02-24 07:57:00.751653134 +0000 UTC / Created: 2021-02-24 07:43:52.717385042 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> OzdH42suuOpVY5wxPrxM+rEAyEPFg2eL0ZI29N7eSTY&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>现在问题就好办了，我们只需将 wg0.conf 中的 Aliyun 和 GCP 部分的配置拷贝到 Azure 的配置中，并删除 PresharedKey 的配置，再添加 Endpoint 和私有网段的配置：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat Azure.conf
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> IFhAyIWY7sZmabsqDDESj9fqoniE/uZFNIvAfYHjN2o&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> JgvmQFmhUtUoS3xFMFwEgP3L1Wnd8hJc3laJ90Gwzko&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/32, 192.168.10.0/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aws.com:51820
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Aliyun / / Updated: 2021-02-24 07:57:45.941019829 +0000 UTC / Created: 2021-02-24 07:57:45.941019829 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> kVq2ATMTckCKEJFF4TM3QYibxzlh+b9CV4GZ4meQYAo&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.4/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.40.0/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aliyun.com:51820
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># GCP / / Updated: 2021-02-24 07:57:27.3555646 +0000 UTC / Created: 2021-02-24 07:57:27.3555646 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> qn0Xfyzs6bLKgKcfXwcSt91DUxSbtATDIfe4xwsnsGg&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.3/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.30.0/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> gcp.com:51820
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>同理，GCP 的配置如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat GCP.conf
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.3/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> oK2gIMBAob67Amj2gT+wR9pzkbqWGNtq794nOoD3i2o&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> JgvmQFmhUtUoS3xFMFwEgP3L1Wnd8hJc3laJ90Gwzko&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> T5UsVvOEYwfMJQDJudC2ryKeCpnO3RV8GFMoi76ayyI&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/32, 192.168.10.0/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aws.com:51820
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Aliyun / / Updated: 2021-02-24 07:57:45.941019829 +0000 UTC / Created: 2021-02-24 07:57:45.941019829 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> kVq2ATMTckCKEJFF4TM3QYibxzlh+b9CV4GZ4meQYAo&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.4/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.40.0/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aliyun.com:51820
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Azure / / Updated: 2021-02-24 07:57:00.751653134 +0000 UTC / Created: 2021-02-24 07:43:52.717385042 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> OzdH42suuOpVY5wxPrxM+rEAyEPFg2eL0ZI29N7eSTY&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.20.0/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> azure.com:51820
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Aliyun 的配置如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat Aliyun.conf
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.4/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> +A1ZESJjmHuskB4yKqTcqC3CB24TwBKHGSffWDHxI28&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> JgvmQFmhUtUoS3xFMFwEgP3L1Wnd8hJc3laJ90Gwzko&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> v818B5etpRlyVYHGUrv9abM5AIQK5xeoCizdWj1AqcE&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/32, 192.168.10.0/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aws.com:51820
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># GCP / / Updated: 2021-02-24 07:57:27.3555646 +0000 UTC / Created: 2021-02-24 07:57:27.3555646 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> qn0Xfyzs6bLKgKcfXwcSt91DUxSbtATDIfe4xwsnsGg&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.3/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.30.0/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> gcp.com:51820
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Azure / / Updated: 2021-02-24 07:57:00.751653134 +0000 UTC / Created: 2021-02-24 07:43:52.717385042 +0000 UTC&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> OzdH42suuOpVY5wxPrxM+rEAyEPFg2eL0ZI29N7eSTY&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.20.0/24
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> azure.com:51820
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>最后在各自的节点上通过各自的配置文件把 WireGuard 跑起来，就搞定了。&lt;/p>
-&lt;p>整个图形化界面配置过程中会出现好几个地方需要手动调整配置，这是因为 &lt;code>wg-gen-web&lt;/code> 的功能目前还不完善，需要给它一定的时间。如果你无法接受手动调整配置，可以尝试另外一个项目：wg-meshconf[3]，这个项目专门用来生成 mesh 的配置，但没有图形化管理界面。各有利弊吧，大家自行选择。&lt;/p>
-&lt;h2 id="3-总结">3. 总结&lt;/h2>
-&lt;p>我知道，很多人可能还是一头雾水，这玩意儿的应用场景有哪些？我随便举个简单的例子，假设你在云服务器上部署了 Kubernetes 集群，可以用本地的机器和云服务器的某台节点组建 WireGuard 隧道，然后在本地的 &lt;code>AllowedIPs&lt;/code> 中加上 Pod 网段和 Service 网段，就可以那啥了，你懂吧？&lt;/p>
-&lt;p>好吧，又埋了一个坑，关于如何在家中直接访问云服务器 k8s 集群的 Pod IP 和 Service IP，后面会有专门的文章给大家讲解，虽然我也不确定是多久以后。。&lt;/p>
-&lt;h3 id="参考资料">参考资料&lt;/h3>
-&lt;p>[1]&lt;/p>
-&lt;p>点对多点架构: &lt;a href="https://fuckcloudnative.io/posts/why-not-why-not-wireguard/#7-wireguard-%E7%9C%9F%E7%9A%84%E5%BE%88%E5%BF%AB%E5%90%97">&lt;em>https://fuckcloudnative.io/posts/why-not-why-not-wireguard/#7-wireguard - 真的很快吗&lt;/em>&lt;/a>&lt;/p>
-&lt;p>[2]&lt;/p>
-&lt;p>WireGuard 的优化: &lt;a href="https://fuckcloudnative.io/posts/configure-wireguard-using-wg-gen-web/#%E5%8A%A8%E6%80%81-ip">&lt;em>https://fuckcloudnative.io/posts/configure-wireguard-using-wg-gen-web/# 动态 - ip&lt;/em>&lt;/a>&lt;/p>
-&lt;p>[3]&lt;/p>
-&lt;p>wg-meshconf: &lt;a href="https://github.com/k4yt3x/wg-meshconf/blob/master/README.md">&lt;em>https://github.com/k4yt3x/wg-meshconf/blob/master/README.md&lt;/em>&lt;/a>&lt;/p></description></item><item><title>Docs: Wireguard 全互联模式（full mesh）权威指南</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/</guid><description/></item><item><title>Docs: 流量伪装</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/%E6%B5%81%E9%87%8F%E4%BC%AA%E8%A3%85/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/%E6%B5%81%E9%87%8F%E4%BC%AA%E8%A3%85/</guid><description>
+&lt;/code>&lt;/pre></description></item><item><title>Docs: Wireguard 全互联模式（full mesh）权威指南</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/</guid><description/></item><item><title>Docs: 流量伪装</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/%E6%B5%81%E9%87%8F%E4%BC%AA%E8%A3%85/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/%E6%B5%81%E9%87%8F%E4%BC%AA%E8%A3%85/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -964,25 +746,23 @@ PersistentKeepalive = 25
 &lt;h1 id="interface">[Interface]&lt;/h1>
 &lt;p>Interface 部分定义本地 VPN 配置。例如：&lt;/p>
 &lt;ul>
-&lt;li>本地节点是客户端，只路由自身的流量，只暴露一个 IP。&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>[Interface]
-# Name = phone.example-vpn.dev
-Address = 192.0.2.5/32
-PrivateKey = &amp;lt;private key for phone.example-vpn.dev&amp;gt;
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>本地节点是中继服务器，它可以将流量转发到其他对等节点（peer），并公开整个 VPN 子网的路由。&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>[Interface]
-# Name = public-server1.example-vpn.tld
-Address = 192.0.2.1/24
+&lt;li>
+&lt;p>本地节点是客户端，只路由自身的流量，只暴露一个 IP。&lt;/p>
+&lt;p>[Interface]&lt;/p>
+&lt;h1 id="name--phoneexample-vpndev">Name = phone.example-vpn.dev&lt;/h1>
+&lt;p>Address = 192.0.2.5/32
+PrivateKey = &lt;!-- raw HTML omitted -->&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>本地节点是中继服务器，它可以将流量转发到其他对等节点（peer），并公开整个 VPN 子网的路由。&lt;/p>
+&lt;p>[Interface]&lt;/p>
+&lt;h1 id="name--public-server1example-vpntld">Name = public-server1.example-vpn.tld&lt;/h1>
+&lt;p>Address = 192.0.2.1/24
 ListenPort = 51820
-PrivateKey = &amp;lt;private key for public-server1.example-vpn.tld&amp;gt;
-DNS = 1.1.1.1
-&lt;/code>&lt;/pre>
+PrivateKey = &lt;!-- raw HTML omitted -->
+DNS = 1.1.1.1&lt;/p>
+&lt;/li>
+&lt;/ul>
 &lt;h2 id="address">Address&lt;/h2>
 &lt;p>定义本地节点应该对哪个地址范围进行路由。如果是常规的客户端，则将其设置为节点本身的单个 IP（使用 CIDR 指定，例如 192.0.2.3/32）；如果是中继服务器，则将其设置为可路由的子网范围。
 例如：&lt;/p>
@@ -1022,77 +802,61 @@ DNS = 1.1.1.1
 &lt;p>启动 VPN 接口之后运行的命令。这个选项可以指定多次，按顺序执行。
 例如：&lt;/p>
 &lt;ul>
-&lt;li>从文件或某个命令的输出中读取配置值：&lt;/li>
+&lt;li>
+&lt;p>从文件或某个命令的输出中读取配置值：&lt;/p>
+&lt;p>PostUp = wg set %i private-key /etc/wireguard/wg0.key &amp;lt;(some command here)&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>添加一行日志到文件中：&lt;/p>
+&lt;p>PostUp = echo &amp;ldquo;$(date +%s) WireGuard Started&amp;rdquo; &amp;raquo; /var/log/wireguard.log&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>调用 WebHook：&lt;/p>
+&lt;p>PostUp = curl &lt;a href="https://events.example.dev/wireguard/started/?key=abcdefg">https://events.example.dev/wireguard/started/?key=abcdefg&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>添加路由：&lt;/p>
+&lt;p>PostUp = ip rule add ipproto tcp dport 22 table 1234&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>添加 iptables 规则，启用数据包转发：&lt;/p>
+&lt;p>PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>强制 WireGuard 重新解析对端域名的 IP 地址：&lt;/p>
+&lt;p>PostUp = resolvectl domain %i &amp;ldquo;~.&amp;rdquo;; resolvectl dns %i 192.0.2.1; resolvectl dnssec %i yes&lt;/p>
+&lt;/li>
 &lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>PostUp = wg set %i private-key /etc/wireguard/wg0.key &amp;lt;(some command here)
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>添加一行日志到文件中：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>PostUp = echo &amp;quot;$(date +%s) WireGuard Started&amp;quot; &amp;gt;&amp;gt; /var/log/wireguard.log
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>调用 WebHook：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>PostUp = curl https://events.example.dev/wireguard/started/?key=abcdefg
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>添加路由：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>PostUp = ip rule add ipproto tcp dport 22 table 1234
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>添加 iptables 规则，启用数据包转发：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>强制 WireGuard 重新解析对端域名的 IP 地址：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>PostUp = resolvectl domain %i &amp;quot;~.&amp;quot;; resolvectl dns %i 192.0.2.1; resolvectl dnssec %i yes
-&lt;/code>&lt;/pre>
 &lt;h2 id="predown">PreDown&lt;/h2>
 &lt;p>停止 VPN 接口之前运行的命令。这个选项可以指定多次，按顺序执行。
 例如：&lt;/p>
 &lt;ul>
-&lt;li>添加一行日志到文件中：&lt;/li>
+&lt;li>
+&lt;p>添加一行日志到文件中：&lt;/p>
+&lt;p>PreDown = echo &amp;ldquo;$(date +%s) WireGuard Going Down&amp;rdquo; &amp;raquo; /var/log/wireguard.log&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>调用 WebHook：&lt;/p>
+&lt;p>PreDown = curl &lt;a href="https://events.example.dev/wireguard/stopping/?key=abcdefg">https://events.example.dev/wireguard/stopping/?key=abcdefg&lt;/a>&lt;/p>
+&lt;/li>
 &lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>PreDown = echo &amp;quot;$(date +%s) WireGuard Going Down&amp;quot; &amp;gt;&amp;gt; /var/log/wireguard.log
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>调用 WebHook：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>PreDown = curl https://events.example.dev/wireguard/stopping/?key=abcdefg
-&lt;/code>&lt;/pre>
 &lt;h2 id="postdown">PostDown&lt;/h2>
 &lt;p>停止 VPN 接口之后运行的命令。这个选项可以指定多次，按顺序执行。
 例如：&lt;/p>
 &lt;ul>
-&lt;li>添加一行日志到文件中：&lt;/li>
+&lt;li>
+&lt;p>添加一行日志到文件中：&lt;/p>
+&lt;p>PostDown = echo &amp;ldquo;$(date +%s) WireGuard Going Down&amp;rdquo; &amp;raquo; /var/log/wireguard.log&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>调用 WebHook：&lt;/p>
+&lt;p>PostDown = curl &lt;a href="https://events.example.dev/wireguard/stopping/?key=abcdefg">https://events.example.dev/wireguard/stopping/?key=abcdefg&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>删除 iptables 规则，关闭数据包转发：&lt;/p>
+&lt;p>PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE&lt;/p>
+&lt;/li>
 &lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>PostDown = echo &amp;quot;$(date +%s) WireGuard Going Down&amp;quot; &amp;gt;&amp;gt; /var/log/wireguard.log
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>调用 WebHook：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>PostDown = curl https://events.example.dev/wireguard/stopping/?key=abcdefg
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>删除 iptables 规则，关闭数据包转发：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
-&lt;/code>&lt;/pre>
 &lt;h1 id="peer">[Peer]&lt;/h1>
 &lt;p>定义能够为一个或多个地址路由流量的 Peer 的 VPN 设置。Peer 可以是将流量转发到其他 Peer 的中继服务器，也可以是通过公网或内网直连的客户端。
 中继服务器必须将所有的客户端定义为对等节点（peer），除了中继服务器之外，其他客户端都不能将位于 NAT 后面的节点定义为对等节点（peer），因为路由不可达。对于那些只为自己路由流量的客户端，只需将中继服务器作为对等节点（peer），以及其他需要直接访问的节点。
@@ -1111,51 +875,45 @@ DNS = 1.1.1.1
 &lt;/ul>
 &lt;p>配置示例：&lt;/p>
 &lt;ul>
-&lt;li>对等节点（peer）是路由可达的客户端，只为自己路由流量&lt;/li>
+&lt;li>
+&lt;p>对等节点（peer）是路由可达的客户端，只为自己路由流量&lt;/p>
+&lt;p>[Peer]&lt;/p>
+&lt;h1 id="name--public-server2example-vpndev">Name = public-server2.example-vpn.dev&lt;/h1>
+&lt;p>Endpoint = public-server2.example-vpn.dev:51820
+PublicKey = &lt;!-- raw HTML omitted -->
+AllowedIPs = 192.0.2.2/32&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>对等节点（peer）是位于 NAT 后面的客户端，只为自己路由流量&lt;/p>
+&lt;p>[Peer]&lt;/p>
+&lt;h1 id="name--home-serverexample-vpndev">Name = home-server.example-vpn.dev&lt;/h1>
+&lt;p>Endpoint = home-server.example-vpn.dev:51820
+PublicKey = &lt;!-- raw HTML omitted -->
+AllowedIPs = 192.0.2.3/32&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>对等节点（peer）是中继服务器，用来将流量转发到其他对等节点（peer）&lt;/p>
+&lt;p>[Peer]&lt;/p>
+&lt;h1 id="name--public-server1example-vpntld-1">Name = public-server1.example-vpn.tld&lt;/h1>
+&lt;p>Endpoint = public-server1.example-vpn.tld:51820
+PublicKey = &lt;!-- raw HTML omitted -->&lt;/p>
+&lt;h1 id="路由整个-vpn-子网的流量">路由整个 VPN 子网的流量&lt;/h1>
+&lt;p>AllowedIPs = 192.0.2.1/24
+PersistentKeepalive = 25&lt;/p>
+&lt;/li>
 &lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>[Peer]
-# Name = public-server2.example-vpn.dev
-Endpoint = public-server2.example-vpn.dev:51820
-PublicKey = &amp;lt;public key for public-server2.example-vpn.dev&amp;gt;
-AllowedIPs = 192.0.2.2/32
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>对等节点（peer）是位于 NAT 后面的客户端，只为自己路由流量&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>[Peer]
-# Name = home-server.example-vpn.dev
-Endpoint = home-server.example-vpn.dev:51820
-PublicKey = &amp;lt;public key for home-server.example-vpn.dev&amp;gt;
-AllowedIPs = 192.0.2.3/32
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>对等节点（peer）是中继服务器，用来将流量转发到其他对等节点（peer）&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>[Peer]
-# Name = public-server1.example-vpn.tld
-Endpoint = public-server1.example-vpn.tld:51820
-PublicKey = &amp;lt;public key for public-server1.example-vpn.tld&amp;gt;
-# 路由整个 VPN 子网的流量
-AllowedIPs = 192.0.2.1/24
-PersistentKeepalive = 25
-&lt;/code>&lt;/pre>
 &lt;h2 id="endpoint">Endpoint&lt;/h2>
 &lt;p>指定 其他 Peer 的公网地址。如果 Peer 位于 NAT 后面或者没有稳定的公网访问地址，则忽略这个字段。通常只需要指定&lt;strong>中继服务器&lt;/strong>的 &lt;code>Endpoint&lt;/code>，当然有稳定公网 IP 的节点也可以指定。例如：&lt;/p>
 &lt;ul>
-&lt;li>通过 IP 指定：&lt;/li>
+&lt;li>
+&lt;p>通过 IP 指定：&lt;/p>
+&lt;p>Endpoint = 123.124.125.126:51820&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>通过域名指定：&lt;/p>
+&lt;p>Endpoint = public-server1.example-vpn.tld:51820&lt;/p>
+&lt;/li>
 &lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>Endpoint = 123.124.125.126:51820
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>通过域名指定：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>Endpoint = public-server1.example-vpn.tld:51820
-&lt;/code>&lt;/pre>
 &lt;p>NAT 后的任何 Peer 都会将 AllowedIPs 指定网段的数据包，发送到 Endpoint。&lt;/p>
 &lt;h2 id="allowedips">AllowedIPs&lt;/h2>
 &lt;p>当该 Peer 向本 Peer 发送数据包时，只有源地址在该字段指定的地址范围内时，才会处理这些数据包，否则直接丢弃。同时，本 Peer 会根据该字段的地址范围，在路由表中添加路由条目。比如：&lt;/p>
@@ -1171,35 +929,27 @@ PersistentKeepalive = 25
 &lt;p>当决定如何对一个数据包进行路由时，系统首先会选择最具体的路由，如果不匹配再选择更宽泛的路由。例如，对于一个发往 &lt;code>192.0.2.3&lt;/code> 的数据包，系统首先会寻找地址为 &lt;code>192.0.2.3/32&lt;/code> 的对等节点（peer），如果没有再寻找地址为 &lt;code>192.0.2.1/24&lt;/code> 的对等节点（peer），以此类推。&lt;/p>
 &lt;p>例如：&lt;/p>
 &lt;ul>
-&lt;li>对等节点（peer）是常规客户端，只路由自身的流量：&lt;/li>
+&lt;li>
+&lt;p>对等节点（peer）是常规客户端，只路由自身的流量：&lt;/p>
+&lt;p>AllowedIPs = 192.0.2.3/32&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>对等节点（peer）是中继服务器，可以将流量转发到其他对等节点（peer）：&lt;/p>
+&lt;p>AllowedIPs = 192.0.2.1/24&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>对等节点（peer）是中继服务器，可以转发所有的流量，包括外网流量和 VPN 流量，可以用来干嘛你懂得：&lt;/p>
+&lt;p>AllowedIPs = 0.0.0.0/0,::/0&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>对等节点（peer）是中继服务器，可以路由其自身和其他对等节点（peer）的流量：&lt;/p>
+&lt;p>AllowedIPs = 192.0.2.3/32,192.0.2.4/32&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>对等节点（peer）是中继服务器，可以路由其自身的流量和它所在的内网的流量：&lt;/p>
+&lt;p>AllowedIPs = 192.0.2.3/32,192.168.1.1/24&lt;/p>
+&lt;/li>
 &lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>AllowedIPs = 192.0.2.3/32
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>对等节点（peer）是中继服务器，可以将流量转发到其他对等节点（peer）：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>AllowedIPs = 192.0.2.1/24
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>对等节点（peer）是中继服务器，可以转发所有的流量，包括外网流量和 VPN 流量，可以用来干嘛你懂得：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>AllowedIPs = 0.0.0.0/0,::/0
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>对等节点（peer）是中继服务器，可以路由其自身和其他对等节点（peer）的流量：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>AllowedIPs = 192.0.2.3/32,192.0.2.4/32
-&lt;/code>&lt;/pre>
-&lt;ul>
-&lt;li>对等节点（peer）是中继服务器，可以路由其自身的流量和它所在的内网的流量：&lt;/li>
-&lt;/ul>
-&lt;!-- raw HTML omitted -->
-&lt;pre>&lt;code>AllowedIPs = 192.0.2.3/32,192.168.1.1/24
-&lt;/code>&lt;/pre>
 &lt;p>&lt;strong>本质上&lt;/strong>
 &lt;strong>Endpoint 与 AllowedIPs 两个字段将会组成路由条目，可以这么描述：&lt;/strong>&lt;code>**目的地址是 AllowedIPs 的数据包，下一跳是 Endpoint**&lt;/code>&lt;strong>。也可以不指定 Endpoint，而是仅仅将数据包送入 WireGuard 创建的网络设备中。&lt;/strong>&lt;/p>
 &lt;h2 id="publickey">PublicKey&lt;/h2>
@@ -1314,38 +1064,4 @@ PersistentKeepalive = 25
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Install&lt;span style="color:#f92672">]&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>WantedBy&lt;span style="color:#f92672">=&lt;/span>multi-user.target
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们可以通过 Unit 来配置 WireGuard 的开机自启，将 WireGuard 的维护工作交给 Systemd。&lt;/p></description></item><item><title>Docs: 应用示例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/%E5%BA%94%E7%94%A8%E7%A4%BA%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/%E5%BA%94%E7%94%A8%E7%A4%BA%E4%BE%8B/</guid><description>
-&lt;h1 id="客户端与通用配置">客户端与通用配置&lt;/h1>
-&lt;h2 id="生成客户端与中继服务器的公钥与私钥">生成客户端与中继服务器的公钥与私钥&lt;/h2>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>wg genkey | tee /etc/wireguard/gw-privatekey | wg pubkey &amp;gt; /etc/wireguard/gw-publickey
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>wg genkey | tee /etc/wireguard/key/peer-client-privatekey | wg pubkey &amp;gt; /etc/wireguard/key/peer-client-publickey
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>wg genkey | tee /etc/wireguard/key/unicom/client-unicom-privatekey | wg pubkey &amp;gt; /etc/wireguard/key/unicom/client-unicom-publickey
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>wg genkey | tee /etc/wireguard/key/datalake/client-datalake-privatekey | wg pubkey &amp;gt; /etc/wireguard/key/datalake/client-datalake-publickey
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="peer-client-配置作为客户端访问各资源池">Peer-client 配置，作为客户端访问各资源池&lt;/h2>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &amp;gt; /etc/wireguard/peer-client.conf &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[Interface]
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">PrivateKey = $(cat /etc/wireguard/key/peer-client-privatekey)
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Address = 10.1.0.253/24
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[Peer]
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">PublicKey = $(cat /etc/wireguard/key/gw-publickey)
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">AllowedIPs = 10.1.0.0/24, 172.16.0.0/16, 172.17.0.0/16, 172.20.0.0/16, 172.58.6.0/24, 192.168.0.0/17
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Endpoint = $(curl -s ip.sb):16000
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">PersistentKeepalive = 10
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="联通-中继服务器配置">联通-中继服务器配置&lt;/h2>
-&lt;p>带公网的 Peer 配置文件，该 Peer 作为中继服务器，负责连通访问客户端和所有资源池
-&lt;a href="https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/unicom-relay.sh">https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/unicom-relay.sh&lt;/a>&lt;/p>
-&lt;h2 id="数据湖-中继服务器配置">数据湖-中继服务器配置&lt;/h2>
-&lt;p>带公网的 Peer 配置文件，该 Peer 作为中继服务器，负责连通访问客户端和所有资源池
-&lt;a href="https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/datalake-relay.sh">https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/datalake-relay.sh&lt;/a>&lt;/p>
-&lt;h1 id="联通资源池">联通资源池&lt;/h1>
-&lt;h2 id="生成公钥与私钥">生成公钥与私钥&lt;/h2>
-&lt;p>&lt;a href="https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/unicom-key.sh">https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/unicom-key.sh&lt;/a>&lt;/p>
-&lt;h2 id="生成资源池配置文件">生成资源池配置文件&lt;/h2>
-&lt;p>&lt;a href="https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/unicom-peer.sh">https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/unicom-peer.sh&lt;/a>&lt;/p>
-&lt;h1 id="数据湖资源池">数据湖资源池&lt;/h1>
-&lt;h2 id="生成公钥与私钥-1">生成公钥与私钥&lt;/h2>
-&lt;p>&lt;a href="https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/datalake-key.sh">https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/datalake-key.sh&lt;/a>&lt;/p>
-&lt;h2 id="生成资源池配置文件-1">生成资源池配置文件&lt;/h2>
-&lt;p>&lt;a href="https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/datalake-peer.sh">https://github.com/DesistDaydream/eHualu/blob/master/wireguard/scripts/datalake-peer.sh&lt;/a>&lt;/p></description></item><item><title>Docs: 应用示例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/%E5%BA%94%E7%94%A8%E7%A4%BA%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/%E5%BA%94%E7%94%A8%E7%A4%BA%E4%BE%8B/</guid><description/></item></channel></rss>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们可以通过 Unit 来配置 WireGuard 的开机自启，将 WireGuard 的维护工作交给 Systemd。&lt;/p></description></item><item><title>Docs: 应用示例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/%E5%BA%94%E7%94%A8%E7%A4%BA%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/tunneling-protocol%E9%9A%A7%E9%81%93%E5%8D%8F%E8%AE%AE/wireguard/%E5%BA%94%E7%94%A8%E7%A4%BA%E4%BE%8B/</guid><description/></item></channel></rss>
