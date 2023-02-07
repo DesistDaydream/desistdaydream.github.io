@@ -313,8 +313,13 @@ ClusterConfiguration 类型应用于配置群集范围的设置，包括以下�
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">memory.available&lt;/span>: &lt;span style="color:#ae81ff">2m&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: kubeadm 实现细节详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubeadm-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/kubeadm-%E5%AE%9E%E7%8E%B0%E7%BB%86%E8%8A%82%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E7%AE%A1%E7%90%86/kubeadm-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/kubeadm-%E5%AE%9E%E7%8E%B0%E7%BB%86%E8%8A%82%E8%AF%A6%E8%A7%A3/</guid><description>
 &lt;h1 id="kubeadm-核心设计原则">kubeadm 核心设计原则&lt;/h1>
-&lt;p>参考：&lt;a href="https://kubernetes.io/docs/reference/setup-tools/kubeadm/implementation-details/">&lt;strong>官方文档&lt;/strong>&lt;/a>
-&lt;code>kubeadm init&lt;/code> 和 &lt;code>kubeadm join&lt;/code> 结合在一起提供了良好的用户体验。&lt;code>kubeadm init&lt;/code> 和 &lt;code>kubeadm join&lt;/code> 设置的集群应为：&lt;/p>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/setup-tools/kubeadm/implementation-details/">&lt;strong>官方文档&lt;/strong>&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;code>kubeadm init&lt;/code> 和 &lt;code>kubeadm join&lt;/code> 结合在一起提供了良好的用户体验。&lt;code>kubeadm init&lt;/code> 和 &lt;code>kubeadm join&lt;/code> 设置的集群应为：&lt;/p>
 &lt;ul>
 &lt;li>Secure 安全——应采用最新的最佳做法
 &lt;ul>
@@ -371,7 +376,7 @@ ClusterConfiguration 类型应用于配置群集范围的设置，包括以下�
 &lt;h1 id="kubeadm-init-工作流程内部设计">kubeadm init 工作流程内部设计&lt;/h1>
 &lt;p>kubeadm init 的&lt;a href="https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-init/#init-workflow">内部的工作流程&lt;/a>由一系列要执行工作任务组成&lt;/p>
 &lt;p>&lt;a href="https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-init-phase/">kubeadm init phase&lt;/a> 命令允许用户单独调用每个任务，并最终提供可重用和可组合的 API /工具箱，其他 Kubernetes 引导工具，任何 IT 自动化工具或高级用户都可以使用该 API /工具来创建自定义群集。&lt;/p>
-&lt;h2 id="prefight-checks事前准备核对清单">Prefight checks(事前准备核对清单)&lt;/h2>
+&lt;h2 id="preflight-checks事前准备核对清单">Preflight checks(事前准备核对清单)&lt;/h2>
 &lt;p>Kubeadm 在启动 init 之前执行一组 prefight checks(预检检查)，目的是验证先决条件并避免常见的集群启动问题。用户可以选择跳过特定的 prefight checks 或全部跳过&amp;ndash;ignore-preflight-errors。&lt;/p>
 &lt;ul>
 &lt;li>[警告]如果要使用的 Kubernetes 版本（带有&amp;ndash;kubernetes-version 标志指定）至少比 kubeadm CLI 版本高一个次要版本。&lt;/li>
@@ -412,7 +417,7 @@ ClusterConfiguration 类型应用于配置群集范围的设置，包括以下�
 &lt;li>[错误]如果 conntrack，ip，iptables，mount，nsenter 的命令不存在于该命令路径&lt;/li>
 &lt;li>[警告]如果 ebtables，ethtool，socat，tc，touch，crictl 的命令不存在于该命令路径&lt;/li>
 &lt;li>[警告]如果 API 服务器，控制器管理器，调度程序的额外 arg 标志包含一些无效选项&lt;/li>
-&lt;li>[警告]如果与 https：&lt;a href="//API.AdvertiseAddress">//API.AdvertiseAddress&lt;/a>：API.BindPort 的连接通过代理&lt;/li>
+&lt;li>[警告]如果与 https://API.AdvertiseAddress:API.BindPort 的连接通过代理&lt;/li>
 &lt;li>[警告]如果服务子网的连接通过代理进行（仅检查第一个地址）&lt;/li>
 &lt;li>[警告]如果 Pods 子网的连接通过代理进行（仅检查第一个地址）&lt;/li>
 &lt;li>如果提供了外部 etcd：
