@@ -321,119 +321,6 @@ iff: vnet2
 若不安装这两个包，当使用 virt-mangaer 工具是，可能会出现如下报错：&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>libGL error: unable to load driver: swrast_dri.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>libGL error: failed to load driver: swrast
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: KVM/QEMU 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/kvm_qemu-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/kvm_qemu-%E7%AE%A1%E7%90%86/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;h1 id="多-kvmqemu-集中管理">多 KVM/QEMU 集中管理&lt;/h1>
-&lt;p>除了 OpenStack 以外，市面上没有多少可以批量管理 KVM 主机的项目&lt;del>&lt;del>o(╯□╰)o&lt;/del>&lt;/del> 唯一能搜到的只有一个 WebVirtCloud ~~~~
-为什么要用 Python 写前端呢。。。裂开了。。。。o(╯□╰)o&lt;/p>
-&lt;h2 id="webvirtcloud">WebVirtCloud&lt;/h2>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/retspen/webvirtmgr">GitHub 项目，retspen/webvirtmgr&lt;/a>(已于 2018 年停止更新，被 webvirtcloud 代替)&lt;/li>
-&lt;li>&lt;a href="https://github.com/retspen/webvirtcloud">GitHub 项目，retspen/webvirtcloud&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>WebVirtCloud 是一个由 Python 的 Web 框架 Django 编写的前后端一体项目。
-WebVirtCloud 有多个组件&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>Nginx&lt;/strong> 监听 80 端口，入口，用来响应 &lt;code>/static/&lt;/code> 下的各种静态资源&lt;/li>
-&lt;li>&lt;strong>Webvirtcloud&lt;/strong> 监听 8000 端口，处理 &lt;code>IP:PORT/&lt;/code> 路径的访问请求，展示出的进程名为 gunicorn
-&lt;ul>
-&lt;li>Gunicorn(Green Unicorn) 是一个 UNIX 下符合 &lt;a href="https://en.wikipedia.org/wiki/Web_Server_Gateway_Interface">WSGI&lt;/a> 规范的 HTTP 服务器(说简单点就是一个类似 Nginx 程序)。
-&lt;ul>
-&lt;li>WSGI 指定了“web 服务器”和“Python web 应用/ web 框架”之间的标准接口，以提高 web 应用在一系列 web 服务器间的移植性。&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>&lt;strong>Novnc&lt;/strong> 监听 6080 端口，处理 &lt;code>IP:PORT/novncd/&lt;/code> 路径的访问请求，展示出的进程名为 novncd&lt;/li>
-&lt;/ul>
-&lt;p>WebVirtCloud 在容器中通过老式的 runsvdir 运行，runsvdir 会读取 -P 选项指定的目录，可以看到，runsv 程序后的参数，就是 /etc/service/ 目录下的目录名&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@e7d4f80811cb:~# ll /etc/service
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">22&lt;/span> Nov &lt;span style="color:#ae81ff">16&lt;/span> &lt;span style="color:#ae81ff">2017&lt;/span> /etc/service -&amp;gt; runit/runsvdir/default/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@e7d4f80811cb:~# ll /etc/runit/runsvdir/default/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#ae81ff">40&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">4096&lt;/span> Jun &lt;span style="color:#ae81ff">2&lt;/span> 15:16 ./
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">4096&lt;/span> Sep &lt;span style="color:#ae81ff">2&lt;/span> &lt;span style="color:#ae81ff">2021&lt;/span> ../
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">4096&lt;/span> Jun &lt;span style="color:#ae81ff">3&lt;/span> 06:29 cron/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">4096&lt;/span> Jun &lt;span style="color:#ae81ff">3&lt;/span> 06:29 nginx/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">4096&lt;/span> Jun &lt;span style="color:#ae81ff">3&lt;/span> 06:29 nginx-log-forwarder/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">4096&lt;/span> Jun &lt;span style="color:#ae81ff">3&lt;/span> 06:29 novnc/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">4096&lt;/span> Jun &lt;span style="color:#ae81ff">3&lt;/span> 06:29 sshd/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">4096&lt;/span> Jun &lt;span style="color:#ae81ff">3&lt;/span> 07:05 webvirtcloud/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@e7d4f80811cb:~# ps -ef f
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616850&lt;/span> &lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Sl 0:00 /usr/local/bin/containerd-shim-runc-v2 -namespace moby -id e7d4f80811cb5aaeec2cbc132a5995dac13ae4c25d21528d421d9d5c1481b36f -address /run/containerd/containerd.sock
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616872&lt;/span> &lt;span style="color:#ae81ff">1616850&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Ss 0:00 &lt;span style="color:#ae81ff">\_&lt;/span> /usr/bin/python3 -u /sbin/my_init
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616921&lt;/span> &lt;span style="color:#ae81ff">1616872&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? S 0:00 | &lt;span style="color:#ae81ff">\_&lt;/span> /usr/sbin/syslog-ng --pidfile /var/run/syslog-ng.pid -F --no-caps
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616928&lt;/span> &lt;span style="color:#ae81ff">1616872&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? S 0:00 | &lt;span style="color:#ae81ff">\_&lt;/span> /usr/bin/runsvdir -P /etc/service
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616929&lt;/span> &lt;span style="color:#ae81ff">1616928&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Ss 0:00 | &lt;span style="color:#ae81ff">\_&lt;/span> runsv cron
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616935&lt;/span> &lt;span style="color:#ae81ff">1616929&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? S 0:00 | | &lt;span style="color:#ae81ff">\_&lt;/span> /usr/sbin/cron -f
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616930&lt;/span> &lt;span style="color:#ae81ff">1616928&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Ss 0:00 | &lt;span style="color:#ae81ff">\_&lt;/span> runsv sshd
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616931&lt;/span> &lt;span style="color:#ae81ff">1616928&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Ss 0:00 | &lt;span style="color:#ae81ff">\_&lt;/span> runsv webvirtcloud
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>www-data &lt;span style="color:#ae81ff">1616938&lt;/span> &lt;span style="color:#ae81ff">1616931&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? S 0:00 | | &lt;span style="color:#ae81ff">\_&lt;/span> /srv/webvirtcloud/venv/bin/python3 /srv/webvirtcloud/venv/bin/gunicorn webvirtcloud.wsgi:application -c /srv/webvirtcloud/gunicorn.conf.py
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>www-data &lt;span style="color:#ae81ff">1616948&lt;/span> &lt;span style="color:#ae81ff">1616938&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Sl 0:00 | | &lt;span style="color:#ae81ff">\_&lt;/span> /srv/webvirtcloud/venv/bin/python3 /srv/webvirtcloud/venv/bin/gunicorn webvirtcloud.wsgi:application -c /srv/webvirtcloud/gunicorn.conf.py
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>www-data &lt;span style="color:#ae81ff">1616949&lt;/span> &lt;span style="color:#ae81ff">1616938&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Sl 0:00 | | &lt;span style="color:#ae81ff">\_&lt;/span> /srv/webvirtcloud/venv/bin/python3 /srv/webvirtcloud/venv/bin/gunicorn webvirtcloud.wsgi:application -c /srv/webvirtcloud/gunicorn.conf.py
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>www-data &lt;span style="color:#ae81ff">1616950&lt;/span> &lt;span style="color:#ae81ff">1616938&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Sl 0:00 | | &lt;span style="color:#ae81ff">\_&lt;/span> /srv/webvirtcloud/venv/bin/python3 /srv/webvirtcloud/venv/bin/gunicorn webvirtcloud.wsgi:application -c /srv/webvirtcloud/gunicorn.conf.py
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>www-data &lt;span style="color:#ae81ff">1616951&lt;/span> &lt;span style="color:#ae81ff">1616938&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Sl 0:00 | | &lt;span style="color:#ae81ff">\_&lt;/span> /srv/webvirtcloud/venv/bin/python3 /srv/webvirtcloud/venv/bin/gunicorn webvirtcloud.wsgi:application -c /srv/webvirtcloud/gunicorn.conf.py
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>www-data &lt;span style="color:#ae81ff">1616953&lt;/span> &lt;span style="color:#ae81ff">1616938&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Sl 0:00 | | &lt;span style="color:#ae81ff">\_&lt;/span> /srv/webvirtcloud/venv/bin/python3 /srv/webvirtcloud/venv/bin/gunicorn webvirtcloud.wsgi:application -c /srv/webvirtcloud/gunicorn.conf.py
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616932&lt;/span> &lt;span style="color:#ae81ff">1616928&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Ss 0:00 | &lt;span style="color:#ae81ff">\_&lt;/span> runsv novnc
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>www-data &lt;span style="color:#ae81ff">1616939&lt;/span> &lt;span style="color:#ae81ff">1616932&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Sl 0:00 | | &lt;span style="color:#ae81ff">\_&lt;/span> /srv/webvirtcloud/venv/bin/python3 /srv/webvirtcloud/console/novncd
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616933&lt;/span> &lt;span style="color:#ae81ff">1616928&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Ss 0:00 | &lt;span style="color:#ae81ff">\_&lt;/span> runsv nginx-log-forwarder
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616940&lt;/span> &lt;span style="color:#ae81ff">1616933&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? S 0:00 | | &lt;span style="color:#ae81ff">\_&lt;/span> tail -F /var/log/nginx/error.log
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616934&lt;/span> &lt;span style="color:#ae81ff">1616928&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? Ss 0:00 | &lt;span style="color:#ae81ff">\_&lt;/span> runsv nginx
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">1616943&lt;/span> &lt;span style="color:#ae81ff">1616934&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? S 0:00 | &lt;span style="color:#ae81ff">\_&lt;/span> nginx: master process /usr/sbin/nginx
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>www-data &lt;span style="color:#ae81ff">1616944&lt;/span> &lt;span style="color:#ae81ff">1616943&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? S 0:00 | &lt;span style="color:#ae81ff">\_&lt;/span> nginx: worker process
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>www-data &lt;span style="color:#ae81ff">1616945&lt;/span> &lt;span style="color:#ae81ff">1616943&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 14:29 ? S 0:00 | &lt;span style="color:#ae81ff">\_&lt;/span> nginx: worker process
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="部署">部署&lt;/h3>
-&lt;h4 id="构建镜像">构建镜像&lt;/h4>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/retspen/webvirtcloud/wiki/Docker-Installation-&amp;amp;-Update">GitHub 项目 Wiki，Docker Installation &amp;amp; Update&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>执行完第二步 Clone 代码后，需要修改一下 db.sqlite3 保存位置，以便可以将数据库挂载到容器外部，默认情况下数据库文件在根目录跟很多文件在一起，并且没法修改数据保存位置。。。。o(╯□╰)o
-代码：&lt;code>webvirtcloud/settings.py.template&lt;/code>&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-python" data-lang="python">&lt;span style="display:flex;">&lt;span>DATABASES &lt;span style="color:#f92672">=&lt;/span> {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;default&amp;#34;&lt;/span>: {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ENGINE&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;django.db.backends.sqlite3&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># &amp;#34;NAME&amp;#34;: Path.joinpath(BASE_DIR, &amp;#34;db.sqlite3&amp;#34;),&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 改为下面的代码&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;NAME&amp;#34;&lt;/span>: Path&lt;span style="color:#f92672">.&lt;/span>joinpath(BASE_DIR, &lt;span style="color:#e6db74">&amp;#34;data/db.sqlite3&amp;#34;&lt;/span>),
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>然后继续执行后续构建操作即可。&lt;/p>
-&lt;blockquote>
-&lt;p>注意：构建镜像时，将会初始化数据库，生成所需的各种表&lt;/p>
-&lt;/blockquote>
-&lt;h4 id="运行">运行&lt;/h4>
-&lt;p>准备目录&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>mkdir -p /opt/webvirtcloud/&lt;span style="color:#f92672">{&lt;/span>ssh,data&lt;span style="color:#f92672">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 将构建时初始化的数据库文件拷贝到本地&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker run --rm -d --name webvirtcloud lchdzh/webvirtcloud
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker cp webvirtcloud:/srv/webvirtcloud/data/db.sqlite3 /opt/webvirtcloud/data/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker stop webvirtcloud
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>chown -R www-data:www-data /opt/webvirtcloud/&lt;span style="color:#f92672">{&lt;/span>ssh,data&lt;span style="color:#f92672">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>运行&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>nerdctl run -d --name webvirtcloud &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --network host &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /opt/webvirtcloud/data:/srv/webvirtcloud/data &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /opt/webvirtcloud/ssh:/var/www/.ssh &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> lchdzh/webvirtcloud
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在容器中生成密钥，禁用 StrictHostKeyChecking&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &amp;gt; ~www-data/.ssh/config &lt;span style="color:#e6db74">&amp;lt;&amp;lt; EOF
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Host *
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">StrictHostKeyChecking no
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>chown www-data -R ~www-data/.ssh/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>chown www-data -R /srv/webvirtcloud/data
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>setuser www-data ssh-keygen -t rsa -P &lt;span style="color:#e6db74">&amp;#39;&amp;#39;&lt;/span> -f /var/www/.ssh/id_rsa
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>setuser www-data ssh-copy-id -i /var/www/.ssh/id_rsa.pub root@192.168.0.10
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: KVM/QEMU 镜像管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/kvm_qemu-%E9%95%9C%E5%83%8F%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/kvm_qemu-%E9%95%9C%E5%83%8F%E7%AE%A1%E7%90%86/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
@@ -450,7 +337,7 @@ WebVirtCloud 有多个组件&lt;/p>
 &lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;p>KVM/QEMU 通过 &lt;code>[qemu-img](https://www.yuque.com/desistdaydream/learning/hnav1v)&lt;/code> 命令行工具管理虚拟机镜像。&lt;/p>
+&lt;p>KVM/QEMU 通过 &lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/KVM_QEMU/KVM_QEMU%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/qemu-img.md">qemu-img&lt;/a> 命令行工具管理虚拟机镜像。&lt;/p>
 &lt;h1 id="qemu-copy-on-write">QEMU Copy On Write&lt;/h1>
 &lt;p>注意：&lt;/p>
 &lt;ul>
@@ -458,9 +345,10 @@ WebVirtCloud 有多个组件&lt;/p>
 &lt;/ul>
 &lt;p>&lt;strong>QEMU Copy On Write(QEMU 写时复制，简称 QCOW)&lt;/strong> 是 QEMU 创建的虚拟机使用的磁盘镜像文件的文件格式。&lt;/p>
 &lt;p>当使用 QCOW 时，不会对原始磁盘映像应用任何更改。所有更改都记录在其他的 QCOW 文件中。多个 QCOW 文件可以指向同一个镜像，而不会危及基本系统。QEMU/KVM 允许将 QCOW 文件的更改合并到原始图像中。&lt;/p>
-&lt;h1 id="-修改-backingfile-后导致依赖-backingfile-的虚拟机的文件系统httpswwwcnblogscomfengrenzwp3383773html">&lt;a href="https://www.cnblogs.com/fengrenzw/p/3383773.html"> 修改 backingfile 后，导致依赖 backingfile 的虚拟机的文件系统&lt;/a>&lt;/h1>
-&lt;p>&lt;a href="https://www.cnblogs.com/fengrenzw/p/3383773.html">https://www.cnblogs.com/fengrenzw/p/3383773.html&lt;/a>
-我们知道 qcow2 的磁盘格式可以带来很大的便利性，因为部署的时候可以减少大量的时间、空间，可以增量备份、快照等非常诱人的特性。
+&lt;h1 id="修改-backingfile-后导致依赖-backingfile-的虚拟机的文件系统">修改 backingfile 后，导致依赖 backingfile 的虚拟机的文件系统&lt;/h1>
+&lt;p>&lt;a href="https://www.cnblogs.com/fengrenzw/p/3383773.html">https://www.cnblogs.com/fengrenzw/p/3383773.html&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://www.cnblogs.com/fengrenzw/p/3383773.html">https://www.cnblogs.com/fengrenzw/p/3383773.html&lt;/a>&lt;/p>
+&lt;p>我们知道 qcow2 的磁盘格式可以带来很大的便利性，因为部署的时候可以减少大量的时间、空间，可以增量备份、快照等非常诱人的特性。
 因为下边可能会有点绕：
 backing_file：后端，母镜像
 qcow2：前端，子镜像
@@ -482,39 +370,12 @@ qcow2：前端，子镜像
 &lt;li>backing_ing 创建了 qcow2 中没有的内容&lt;/li>
 &lt;/ul>
 &lt;p>这种情况有点复杂，因为创建文件肯定会影响到文件系统的 inode，如果这个 inode 没有在 qcow2 做修改的话，会直接读取 backing_file,自然能够找到新添加的文件，如果 qcow2 的文件系统内的 inode 做了修改，我按照我自己的 inode 去找 backing_file 中的 block 发现对应不上，就会照成文件系统的损坏甚至崩溃；另一种情况是在 qcow2 中删除了一些文件或者将某个目录清空，然而在 backing_file 又在这个目录写了一些东西，qcow2 中的 inode 中可能去查看到这个数据，但因为 qcow2 中的这块数据已经修改，不会去查看 backing_file，就会导致有了 inode，但找不到 block。无论是有 inode 查看不到 block 还是 inode 删除，但 block 还在，不是我们所希望的。&lt;/p>
-&lt;p>所以，如果使用 qcow2 的 backing_file，请务必保证其安全和完整性。&lt;/p></description></item><item><title>Docs: KVM/QEMU 命令行工具</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/kvm_qemu-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/kvm_qemu-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://www.qemu.org/docs/master/system/qemu-manpage.html">官方文档，QEMU 用户文档&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.qemu.org/docs/master/system/invocation.html">官方文档，系统模拟-Invocation&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.qemu.org/docs/master/tools/index.html">官方文档，工具&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>KVM/QEMU 的虚拟机的生命周期是通过一系列 KVM/QEMU 工具集管理的，包括&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>qemu-img&lt;/strong> # 虚拟机镜像管理工具&lt;/li>
-&lt;li>&lt;strong>qemu-system-x86_64&lt;/strong> # 虚拟机运行时管理工具。
-&lt;ul>
-&lt;li>注意：在 CentOS 系统中，该二进制文件的名字是 qemu-kvm，并且是一个在 /usr/local/bin/qemu-kvm 指向 /usr/libexec/qemu-kvm 的软链接&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>等等&lt;/li>
-&lt;/ul>
-&lt;p>通常情况下，我们不管是通过 virt-manager 程序创建的虚拟机、还是使用 Libvirt 工具包创建的虚拟机，本质上，都是调用的 &lt;strong>qemu-img、qemu-system-x86_64&lt;/strong> 等工具。&lt;/p>
-&lt;p>如果用容器比较的话&lt;/p>
-&lt;ul>
-&lt;li>qemu-img 像各种容器镜像管理工具&lt;/li>
-&lt;li>qemu-system-x86_64 像 runc&lt;/li>
-&lt;/ul>
-&lt;h1 id="heading">&lt;/h1>
-&lt;h1 id="heading-1">&lt;/h1></description></item><item><title>Docs: KVM/QEMU 运行时管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/kvm_qemu-%E8%BF%90%E8%A1%8C%E6%97%B6%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/kvm_qemu-%E8%BF%90%E8%A1%8C%E6%97%B6%E7%AE%A1%E7%90%86/</guid><description>
+&lt;p>所以，如果使用 qcow2 的 backing_file，请务必保证其安全和完整性。&lt;/p></description></item><item><title>Docs: KVM/QEMU 运行时管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/kvm_qemu-%E8%BF%90%E8%A1%8C%E6%97%B6%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/kvm_qemu-%E8%BF%90%E8%A1%8C%E6%97%B6%E7%AE%A1%E7%90%86/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;/blockquote>
-&lt;p>KVM/QEMU 通过 &lt;code>[qemu-system-x86_64](https://www.yuque.com/desistdaydream/learning/zf85s7)&lt;/code> 命令行工具管理虚拟机运行时&lt;/p></description></item><item><title>Docs: QEMU Guest Agent</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/qemu-guest-agent/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/qemu-guest-agent/</guid><description>
+&lt;p>KVM/QEMU 通过 &lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/KVM_QEMU/KVM_QEMU%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/qemu-system-x86_64.md">qemu-system-x86_64&lt;/a> 命令行工具管理虚拟机运行时&lt;/p></description></item><item><title>Docs: QEMU Guest Agent</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/qemu-guest-agent/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/qemu-guest-agent/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -701,87 +562,7 @@ qcow2：前端，子镜像
 &lt;li>VirtIO Drivers：包含一些驱程序，VirtIO Serial、VirtIO SCS、VirtIO Network、Memory Ballooning&lt;/li>
 &lt;/ul>
 &lt;p>qemu：
-&lt;a href="https://wiki.qemu.org/Features/GuestAgent">https://wiki.qemu.org/Features/GuestAgent&lt;/a>&lt;/p></description></item><item><title>Docs: QEMU Guest Agent</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/qemu-guest-agent/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/qemu-guest-agent/</guid><description/></item><item><title>Docs: 访问虚拟机</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/%E8%AE%BF%E9%97%AE%E8%99%9A%E6%8B%9F%E6%9C%BA/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/%E8%AE%BF%E9%97%AE%E8%99%9A%E6%8B%9F%E6%9C%BA/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/configuring_and_managing_virtualization/getting-started-with-virtualization-in-rhel-8_configuring-and-managing-virtualization#assembly_connecting-to-virtual-machines_virt-getting-started">RedHat 官方文档，8-配置和管理虚拟化-2.4 章.连接到虚拟机&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>我们可以通过多种方式与虚拟机进行交互：&lt;/p>
-&lt;ul>
-&lt;li>Cockpit # 基于 Web 的控制台&lt;/li>
-&lt;li>Virt Manager 程序 # GUI 程序&lt;/li>
-&lt;li>Virt Viewer 程序 # GUI 程序&lt;/li>
-&lt;li>virsh console 子命令 # CLI 程序&lt;/li>
-&lt;li>众所周知的 ssh&lt;/li>
-&lt;/ul>
-&lt;h1 id="cockpit">Cockpit&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/cockpit-project">GitHub 项目，cockpit-project&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://cockpit-project.org/">官网&lt;/a>&lt;/li>
-&lt;li>注意：
-&lt;ul>
-&lt;li>RHEL 8 仍支持虚拟机管理器（virt-manager）应用程序，但已弃用。Web 控制台打算在后续版本中替代它。因此，建议您熟悉用于在 GUI 中管理虚拟化的 Web 控制台。详见：&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html-single/configuring_and_managing_virtualization/index#overview-of-virtual-machine-management-using-the-web-console_using-the-rhel-8-web-console-for-managing-vms">https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html-single/configuring_and_managing_virtualization/index#overview-of-virtual-machine-management-using-the-web-console_using-the-rhel-8-web-console-for-managing-vms&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>Cockpit 是一个基于 Web 的用于管理服务器的图形界面&lt;/p>
-&lt;h2 id="安装-cockpit">安装 Cockpit&lt;/h2>
-&lt;p>CentOS&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>yum install cockpit -y &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> yum install cockpit-machines -y
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>systemctl start cockpit &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> systemctl enable cockpit
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Ubuntu&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>apt update
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>apt install -y cockpit cockpit-machines
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>其中 cockpit-machines 是 cockpit 的插件，用于为 cockpit 添加虚拟机管理功能。&lt;/p>
-&lt;h2 id="使用-cockpit">使用 Cockpit&lt;/h2>
-&lt;p>Cockpit 开箱即用，安装完成后直接访问 http://IP:9090，打开 web 界面，使用系统的用户和密码登陆即可。web 页面管理虚拟机，效果如图
-&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pn75i9/1616123978493-8d5e61ed-edc9-4962-8cb1-391f17c883ff.jpeg" alt="">
-&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html-single/configuring_and_managing_virtualization/index#overview-of-virtual-machine-management-using-the-web-console_using-the-rhel-8-web-console-for-managing-vms">
-&lt;/a>&lt;/p>
-&lt;h1 id="使用虚拟机的串行控制台">使用虚拟机的串行控制台&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/configuring_and_managing_virtualization/getting-started-with-virtualization-in-rhel-8_configuring-and-managing-virtualization#proc_opening-a-virtual-machine-serial-console_assembly_connecting-to-virtual-machines">红帽官方文档，8-2.配置和管理虚拟化-2.4.4.打开虚拟机串行控制台&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>使用 virsh console 命令，可以连接到虚拟机的串行控制台。&lt;/p>
-&lt;p>有两种方法可以开启虚拟机内的串行控制台&lt;/p>
-&lt;p>方法一：修改 grub 参数
-在虚拟机上，编辑 &lt;code>/etc/default/grub&lt;/code> 文件并将 &lt;strong>console=ttyS0&lt;/strong> 添加到以 &lt;strong>GRUB_CMDLINE_LINUX&lt;/strong> 开头的行中。
-清除可能会阻止您更改生效的内核选项。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># grub2-editenv - unset kernelopts&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>重新载入 Grub 配置：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># grub2-mkconfig -o /boot/grub2/grub.cfg&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Generating grub configuration file ...
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Found linux image: /boot/vmlinuz-3.10.0-948.el7.x86_64
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Found initrd image: /boot/initramfs-3.10.0-948.el7.x86_64.img
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>...&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">done&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>重启虚拟机。&lt;/p>
-&lt;p>方法二：启动 serial-getty 服务
-在虚拟机上启动 serial-getty@.service 服务并在开启服务的时候指定一个终端。e.g.&lt;strong>systemctl enable &lt;a href="mailto:serial-getty@ttyS0.service">serial-getty@ttyS0.service&lt;/a> &amp;ndash;now&lt;/strong>&lt;/p>
-&lt;h1 id="访问远程虚拟化主机">访问远程虚拟化主机&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/configuring_and_managing_virtualization/getting-started-with-virtualization-in-rhel-8_configuring-and-managing-virtualization#setting-up-easy-access-to-remote-virtualization-hosts_assembly_connecting-to-virtual-machines">红帽官方文档，8-配置和管理虚拟化-第二章.虚拟化入门-2.4.5.设置对远程虚拟化主机的轻松访问&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>当我们想要使用 libvirt 程序管理远程主机上的 VM 时，可以使用 &lt;code>-c qemu+ssh://root@HOST/system&lt;/code> 语法管理远程宿主机上的虚拟机。效果如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># virsh -c qemu+ssh://root@172.19.42.201/system list&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@172.19.42.201&lt;span style="color:#960050;background-color:#1e0010">&amp;#39;&lt;/span>s password:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Id Name State
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>----------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">1&lt;/span> node-1.bj-net running
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/configuring_and_managing_virtualization/getting-started-with-virtualization-in-rhel-8_configuring-and-managing-virtualization#setting-up-easy-access-to-remote-virtualization-hosts_assembly_connecting-to-virtual-machines">
-&lt;/a>&lt;/p></description></item><item><title>Docs: 访问虚拟机</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/%E8%AE%BF%E9%97%AE%E8%99%9A%E6%8B%9F%E6%9C%BA/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/%E8%AE%BF%E9%97%AE%E8%99%9A%E6%8B%9F%E6%9C%BA/</guid><description/></item><item><title>Docs: 最佳实践</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>
+&lt;a href="https://wiki.qemu.org/Features/GuestAgent">https://wiki.qemu.org/Features/GuestAgent&lt;/a>&lt;/p></description></item><item><title>Docs: QEMU Guest Agent</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/qemu-guest-agent/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/qemu-guest-agent/</guid><description/></item><item><title>Docs: 访问虚拟机</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/%E8%AE%BF%E9%97%AE%E8%99%9A%E6%8B%9F%E6%9C%BA/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/%E8%AE%BF%E9%97%AE%E8%99%9A%E6%8B%9F%E6%9C%BA/</guid><description/></item><item><title>Docs: 最佳实践</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/kvm_qemu/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>

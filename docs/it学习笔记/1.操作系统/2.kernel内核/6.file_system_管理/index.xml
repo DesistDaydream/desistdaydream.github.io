@@ -1,0 +1,1246 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 6.File System 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/</link><description>Recent content in 6.File System 管理 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 10.1.零拷贝</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/10.1.%E9%9B%B6%E6%8B%B7%E8%B4%9D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/10.1.%E9%9B%B6%E6%8B%B7%E8%B4%9D/</guid><description>
+&lt;hr>
+&lt;h2 id="前言">前言&lt;/h2>
+&lt;p>磁盘可以说是计算机系统最慢的硬件之一，读写速度相差内存 10 倍以上，所以针对优化磁盘的技术非常的多，比如零拷贝、直接 I/O、异步 I/O 等等，这些优化的目的就是为了提高系统的吞吐量，另外操作系统内核中的磁盘高速缓存区，可以有效的减少磁盘的访问次数。&lt;/p>
+&lt;p>这次，我们就以「文件传输」作为切入点，来分析 I/O 工作方式，以及如何优化传输文件的性能。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581743-fe1685b9-8478-478c-bec2-c7d550e1f54a.png" alt="">&lt;/p>
+&lt;hr>
+&lt;h2 id="正文">正文&lt;/h2>
+&lt;h3 id="为什么要有-dma-技术">为什么要有 DMA 技术?&lt;/h3>
+&lt;p>在没有 DMA 技术前，I/O 的过程是这样的：&lt;/p>
+&lt;ul>
+&lt;li>CPU 发出对应的指令给磁盘控制器，然后返回；&lt;/li>
+&lt;li>磁盘控制器收到指令后，于是就开始准备数据，会把数据放入到磁盘控制器的内部缓冲区中，然后产生一个&lt;strong>中断&lt;/strong>；&lt;/li>
+&lt;li>CPU 收到中断信号后，停下手头的工作，接着把磁盘控制器的缓冲区的数据一次一个字节地读进自己的寄存器，然后再把寄存器里的数据写入到内存，而在数据传输的期间 CPU 是无法执行其他任务的。&lt;/li>
+&lt;/ul>
+&lt;p>为了方便你理解，我画了一副图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581747-833fd3d8-b587-44e5-a4d7-2118e13b1b44.png" alt="">&lt;/p>
+&lt;p>可以看到，整个数据的传输过程，都要需要 CPU 亲自参与搬运数据的过程，而且这个过程，CPU 是不能做其他事情的。&lt;/p>
+&lt;p>简单的搬运几个字符数据那没问题，但是如果我们用千兆网卡或者硬盘传输大量数据的时候，都用 CPU 来搬运的话，肯定忙不过来。&lt;/p>
+&lt;p>计算机科学家们发现了事情的严重性后，于是就发明了 DMA 技术，也就是&lt;strong>直接内存访问（***&lt;strong>Direct Memory Access&lt;/strong>*&lt;/strong>）** 技术。&lt;/p>
+&lt;p>什么是 DMA 技术？简单理解就是，&lt;strong>在进行 I/O 设备和内存的数据传输的时候，数据搬运的工作全部交给 DMA 控制器，而 CPU 不再参与任何与数据搬运相关的事情，这样 CPU 就可以去处理别的事务&lt;/strong>。&lt;/p>
+&lt;p>那使用 DMA 控制器进行数据传输的过程究竟是什么样的呢？下面我们来具体看看。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581757-ef21d29d-7f2b-4cd1-a747-98b242f710cf.png" alt="">&lt;/p>
+&lt;p>具体过程：&lt;/p>
+&lt;ul>
+&lt;li>用户进程调用 read 方法，向操作系统发出 I/O 请求，请求读取数据到自己的内存缓冲区中，进程进入阻塞状态；&lt;/li>
+&lt;li>操作系统收到请求后，进一步将 I/O 请求发送 DMA，然后让 CPU 执行其他任务；&lt;/li>
+&lt;li>DMA 进一步将 I/O 请求发送给磁盘；&lt;/li>
+&lt;li>磁盘收到 DMA 的 I/O 请求，把数据从磁盘读取到磁盘控制器的缓冲区中，当磁盘控制器的缓冲区被读满后，向 DMA 发起中断信号，告知自己缓冲区已满；&lt;/li>
+&lt;li>&lt;strong>DMA 收到磁盘的信号，将磁盘控制器缓冲区中的数据拷贝到内核缓冲区中，此时不占用 CPU，CPU 可以执行其他任务&lt;/strong>；&lt;/li>
+&lt;li>当 DMA 读取了足够多的数据，就会发送中断信号给 CPU；&lt;/li>
+&lt;li>CPU 收到 DMA 的信号，知道数据已经准备好，于是将数据从内核拷贝到用户空间，系统调用返回；&lt;/li>
+&lt;/ul>
+&lt;p>可以看到， 整个数据传输的过程，CPU 不再参与数据搬运的工作，而是全程由 DMA 完成，但是 CPU 在这个过程中也是必不可少的，因为传输什么数据，从哪里传输到哪里，都需要 CPU 来告诉 DMA 控制器。&lt;/p>
+&lt;p>早期 DMA 只存在在主板上，如今由于 I/O 设备越来越多，数据传输的需求也不尽相同，所以每个 I/O 设备里面都有自己的 DMA 控制器。&lt;/p>
+&lt;hr>
+&lt;h3 id="传统的文件传输有多糟糕">传统的文件传输有多糟糕？&lt;/h3>
+&lt;p>如果服务端要提供文件传输的功能，我们能想到的最简单的方式是：将磁盘上的文件读取出来，然后通过网络协议发送给客户端。&lt;/p>
+&lt;p>传统 I/O 的工作方式是，数据读取和写入是从用户空间到内核空间来回复制，而内核空间的数据是通过操作系统层面的 I/O 接口从磁盘读取或写入。&lt;/p>
+&lt;p>代码通常如下，一般会需要两个系统调用：&lt;/p>
+&lt;pre>&lt;code>read(file, tmp_buf, len);write(socket, tmp_buf, len);
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>代码很简单，虽然就两行代码，但是这里面发生了不少的事情。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581754-e4951f6d-41a5-4564-a890-901bf62db701.png" alt="">&lt;/p>
+&lt;p>首先，期间共&lt;strong>发生了 4 次用户态与内核态的上下文切换&lt;/strong>，因为发生了两次系统调用，一次是 &lt;code>read()&lt;/code> ，一次是 &lt;code>write()&lt;/code>，每次系统调用都得先从用户态切换到内核态，等内核完成任务后，再从内核态切换回用户态。&lt;/p>
+&lt;p>上下文切换到成本并不小，一次切换需要耗时几十纳秒到几微秒，虽然时间看上去很短，但是在高并发的场景下，这类时间容易被累积和放大，从而影响系统的性能。&lt;/p>
+&lt;p>其次，还&lt;strong>发生了 4 次数据拷贝&lt;/strong>，其中两次是 DMA 的拷贝，另外两次则是通过 CPU 拷贝的，下面说一下这个过程：&lt;/p>
+&lt;ul>
+&lt;li>&lt;em>第一次拷贝&lt;/em>，把磁盘上的数据拷贝到操作系统内核的缓冲区里，这个拷贝的过程是通过 DMA 搬运的。&lt;/li>
+&lt;li>&lt;em>第二次拷贝&lt;/em>，把内核缓冲区的数据拷贝到用户的缓冲区里，于是我们应用程序就可以使用这部分数据了，这个拷贝到过程是由 CPU 完成的。&lt;/li>
+&lt;li>&lt;em>第三次拷贝&lt;/em>，把刚才拷贝到用户的缓冲区里的数据，再拷贝到内核的 socket 的缓冲区里，这个过程依然还是由 CPU 搬运的。&lt;/li>
+&lt;li>&lt;em>第四次拷贝&lt;/em>，把内核的 socket 缓冲区里的数据，拷贝到网卡的缓冲区里，这个过程又是由 DMA 搬运的。&lt;/li>
+&lt;/ul>
+&lt;p>我们回过头看这个文件传输的过程，我们只是搬运一份数据，结果却搬运了 4 次，过多的数据拷贝无疑会消耗 CPU 资源，大大降低了系统性能。&lt;/p>
+&lt;p>这种简单又传统的文件传输方式，存在冗余的上文切换和数据拷贝，在高并发系统里是非常糟糕的，多了很多不必要的开销，会严重影响系统性能。&lt;/p>
+&lt;p>所以，&lt;strong>要想提高文件传输的性能，就需要减少「用户态与内核态的上下文切换」和「内存拷贝」的次数&lt;/strong>。&lt;/p>
+&lt;hr>
+&lt;h3 id="如何优化文件传输的性能">如何优化文件传输的性能？&lt;/h3>
+&lt;blockquote>
+&lt;p>先来看看，如何减少「用户态与内核态的上下文切换」的次数呢？&lt;/p>
+&lt;/blockquote>
+&lt;p>读取磁盘数据的时候，之所以要发生上下文切换，这是因为用户空间没有权限操作磁盘或网卡，内核的权限最高，这些操作设备的过程都需要交由操作系统内核来完成，所以一般要通过内核去完成某些任务的时候，就需要使用操作系统提供的系统调用函数。&lt;/p>
+&lt;p>而一次系统调用必然会发生 2 次上下文切换：首先从用户态切换到内核态，当内核执行完任务后，再切换回用户态交由进程代码执行。&lt;/p>
+&lt;p>所以，&lt;strong>要想减少上下文切换到次数，就要减少系统调用的次数&lt;/strong>。&lt;/p>
+&lt;blockquote>
+&lt;p>再来看看，如何减少「数据拷贝」的次数？&lt;/p>
+&lt;/blockquote>
+&lt;p>在前面我们知道了，传统的文件传输方式会历经 4 次数据拷贝，而且这里面，「从内核的读缓冲区拷贝到用户的缓冲区里，再从用户的缓冲区里拷贝到 socket 的缓冲区里」，这个过程是没有必要的。&lt;/p>
+&lt;p>因为文件传输的应用场景中，在用户空间我们并不会对数据「再加工」，所以数据实际上可以不用搬运到用户空间，因此&lt;strong>用户的缓冲区是没有必要存在的&lt;/strong>。&lt;/p>
+&lt;hr>
+&lt;h3 id="如何实现零拷贝">如何实现零拷贝？&lt;/h3>
+&lt;p>零拷贝技术实现的方式通常有 2 种：&lt;/p>
+&lt;ul>
+&lt;li>mmap + write&lt;/li>
+&lt;li>sendfile&lt;/li>
+&lt;/ul>
+&lt;p>下面就谈一谈，它们是如何减少「上下文切换」和「数据拷贝」的次数。&lt;/p>
+&lt;p>mmap + write&lt;/p>
+&lt;p>在前面我们知道，&lt;code>read()&lt;/code> 系统调用的过程中会把内核缓冲区的数据拷贝到用户的缓冲区里，于是为了减少这一步开销，我们可以用 &lt;code>mmap()&lt;/code> 替换 &lt;code>read()&lt;/code> 系统调用函数。&lt;/p>
+&lt;pre>&lt;code>buf = mmap(file, len);write(sockfd, buf, len);
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>&lt;code>mmap()&lt;/code> 系统调用函数会直接把内核缓冲区里的数据「&lt;strong>映射&lt;/strong>」到用户空间，这样，操作系统内核与用户空间就不需要再进行任何的数据拷贝操作。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581773-7d9df0ea-5e23-48c7-9e90-5575bf286553.png" alt="">&lt;/p>
+&lt;p>具体过程如下：&lt;/p>
+&lt;ul>
+&lt;li>应用进程调用了 &lt;code>mmap()&lt;/code> 后，DMA 会把磁盘的数据拷贝到内核的缓冲区里。接着，应用进程跟操作系统内核「共享」这个缓冲区；&lt;/li>
+&lt;li>应用进程再调用 &lt;code>write()&lt;/code>，操作系统直接将内核缓冲区的数据拷贝到 socket 缓冲区中，这一切都发生在内核态，由 CPU 来搬运数据；&lt;/li>
+&lt;li>最后，把内核的 socket 缓冲区里的数据，拷贝到网卡的缓冲区里，这个过程是由 DMA 搬运的。&lt;/li>
+&lt;/ul>
+&lt;p>我们可以得知，通过使用 &lt;code>mmap()&lt;/code> 来代替 &lt;code>read()&lt;/code>， 可以减少一次数据拷贝的过程。&lt;/p>
+&lt;p>但这还不是最理想的零拷贝，因为仍然需要通过 CPU 把内核缓冲区的数据拷贝到 socket 缓冲区里，而且仍然需要 4 次上下文切换，因为系统调用还是 2 次。&lt;/p>
+&lt;p>sendfile&lt;/p>
+&lt;p>在 Linux 内核版本 2.1 中，提供了一个专门发送文件的系统调用函数 &lt;code>sendfile()&lt;/code>，函数形式如下：&lt;/p>
+&lt;pre>&lt;code>#include &amp;lt;sys/socket.h&amp;gt;ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>它的前两个参数分别是目的端和源端的文件描述符，后面两个参数是源端的偏移量和复制数据的长度，返回值是实际复制数据的长度。&lt;/p>
+&lt;p>首先，它可以替代前面的 &lt;code>read()&lt;/code> 和 &lt;code>write()&lt;/code> 这两个系统调用，这样就可以减少一次系统调用，也就减少了 2 次上下文切换的开销。&lt;/p>
+&lt;p>其次，该系统调用，可以直接把内核缓冲区里的数据拷贝到 socket 缓冲区里，不再拷贝到用户态，这样就只有 2 次上下文切换，和 3 次数据拷贝。如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581761-10aa5962-487a-444d-9c3b-878f1a5f0d4d.png" alt="">&lt;/p>
+&lt;p>但是这还不是真正的零拷贝技术，如果网卡支持 SG-DMA（&lt;em>The Scatter-Gather Direct Memory Access&lt;/em>）技术（和普通的 DMA 有所不同），我们可以进一步减少通过 CPU 把内核缓冲区里的数据拷贝到 socket 缓冲区的过程。&lt;/p>
+&lt;p>你可以在你的 Linux 系统通过下面这个命令，查看网卡是否支持 scatter-gather 特性：&lt;/p>
+&lt;pre>&lt;code>$ ethtool -k eth0 | grep scatter-gatherscatter-gather: on
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>于是，从 Linux 内核 &lt;code>2.4&lt;/code> 版本开始起，对于支持网卡支持 SG-DMA 技术的情况下， &lt;code>sendfile()&lt;/code> 系统调用的过程发生了点变化，具体过程如下：&lt;/p>
+&lt;ul>
+&lt;li>第一步，通过 DMA 将磁盘上的数据拷贝到内核缓冲区里；&lt;/li>
+&lt;li>第二步，缓冲区描述符和数据长度传到 socket 缓冲区，这样网卡的 SG-DMA 控制器就可以直接将内核缓存中的数据拷贝到网卡的缓冲区里，此过程不需要将数据从操作系统内核缓冲区拷贝到 socket 缓冲区中，这样就减少了一次数据拷贝；&lt;/li>
+&lt;/ul>
+&lt;p>所以，这个过程之中，只进行了 2 次数据拷贝，如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581761-cd2da78d-0ce1-4048-ae1c-ec5d19830fc6.png" alt="">&lt;/p>
+&lt;p>这就是所谓的&lt;strong>零拷贝（***&lt;strong>Zero-copy&lt;/strong>*&lt;/strong>）技术，因为我们没有在内存层面去拷贝数据，也就是说全程没有通过 CPU 来搬运数据，所有的数据都是通过 DMA 来进行传输的。**。&lt;/p>
+&lt;p>零拷贝技术的文件传输方式相比传统文件传输的方式，减少了 2 次上下文切换和数据拷贝次数，&lt;strong>只需要 2 次上下文切换和数据拷贝次数，就可以完成文件的传输，而且 2 次的数据拷贝过程，都不需要通过 CPU，2 次都是由 DMA 来搬运。&lt;/strong>&lt;/p>
+&lt;p>所以，总体来看，&lt;strong>零拷贝技术可以把文件传输的性能提高至少一倍以上&lt;/strong>。&lt;/p>
+&lt;p>使用零拷贝技术的项目&lt;/p>
+&lt;p>事实上，Kafka 这个开源项目，就利用了「零拷贝」技术，从而大幅提升了 I/O 的吞吐率，这也是 Kafka 在处理海量数据为什么这么快的原因之一。&lt;/p>
+&lt;p>如果你追溯 Kafka 文件传输的代码，你会发现，最终它调用了 Java NIO 库里的 &lt;code>transferTo&lt;/code> 方法：&lt;/p>
+&lt;pre>&lt;code>@Overridepublic long transferFrom(FileChannel fileChannel, long position, long count) throws IOException { return fileChannel.transferTo(position, count, socketChannel);}
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>如果 Linux 系统支持 &lt;code>sendfile()&lt;/code> 系统调用，那么 &lt;code>transferTo()&lt;/code> 实际上最后就会使用到 &lt;code>sendfile()&lt;/code> 系统调用函数。曾经有大佬专门写过程序测试过，在同样的硬件条件下，传统文件传输和零拷拷贝文件传输的性能差异，你可以看到下面这张测试数据图，使用了零拷贝能够缩短 &lt;code>65%&lt;/code> 的时间，大幅度提升了机器传输数据的吞吐量。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581773-3ca39dfc-4c62-4827-a5f8-1ccd96ce7a88.png" alt="">&lt;/p>
+&lt;p>数据来源于：&lt;a href="https://developer.ibm.com/articles/j-zerocopy/">https://developer.ibm.com/articles/j-zerocopy/&lt;/a>&lt;/p>
+&lt;p>另外，Nginx 也支持零拷贝技术，一般默认是开启零拷贝技术，这样有利于提高文件传输的效率，是否开启零拷贝技术的配置如下：&lt;/p>
+&lt;pre>&lt;code>http {... sendfile on...}
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>sendfile 配置的具体意思:&lt;/p>
+&lt;ul>
+&lt;li>设置为 on 表示，使用零拷贝技术来传输文件：sendfile ，这样只需要 2 次上下文切换，和 2 次数据拷贝。&lt;/li>
+&lt;li>设置为 off 表示，使用传统的文件传输技术：read + write，这时就需要 4 次上下文切换，和 4 次数据拷贝。&lt;/li>
+&lt;/ul>
+&lt;p>当然，要使用 sendfile，Linux 内核版本必须要 2.1 以上的版本。&lt;/p>
+&lt;hr>
+&lt;h3 id="pagecache-有什么作用">PageCache 有什么作用？&lt;/h3>
+&lt;p>回顾前面说道文件传输过程，其中第一步都是先需要先把磁盘文件数据拷贝「内核缓冲区」里，这个「内核缓冲区」实际上是&lt;strong>磁盘高速缓存（***&lt;strong>PageCache&lt;/strong>*&lt;/strong>）**。&lt;/p>
+&lt;p>由于零拷贝使用了 PageCache 技术，可以使得零拷贝进一步提升了性能，我们接下来看看 PageCache 是如何做到这一点的。&lt;/p>
+&lt;p>读写磁盘相比读写内存的速度慢太多了，所以我们应该想办法把「读写磁盘」替换成「读写内存」。于是，我们会通过 DMA 把磁盘里的数据搬运到内存里，这样就可以用读内存替换读磁盘。&lt;/p>
+&lt;p>但是，内存空间远比磁盘要小，内存注定只能拷贝磁盘里的一小部分数据。&lt;/p>
+&lt;p>那问题来了，选择哪些磁盘数据拷贝到内存呢？&lt;/p>
+&lt;p>我们都知道程序运行的时候，具有「局部性」，所以通常，刚被访问的数据在短时间内再次被访问的概率很高，于是我们可以用 &lt;strong>PageCache 来缓存最近被访问的数据&lt;/strong>，当空间不足时淘汰最久未被访问的缓存。&lt;/p>
+&lt;p>所以，读磁盘数据的时候，优先在 PageCache 找，如果数据存在则可以直接返回；如果没有，则从磁盘中读取，然后缓存 PageCache 中。&lt;/p>
+&lt;p>还有一点，读取磁盘数据的时候，需要找到数据所在的位置，但是对于机械磁盘来说，就是通过磁头旋转到数据所在的扇区，再开始「顺序」读取数据，但是旋转磁头这个物理动作是非常耗时的，为了降低它的影响，&lt;strong>PageCache 使用了「预读功能」&lt;/strong>。&lt;/p>
+&lt;p>比如，假设 read 方法每次只会读 &lt;code>32 KB&lt;/code> 的字节，虽然 read 刚开始只会读 0 ～ 32 KB 的字节，但内核会把其后面的 32 ～ 64 KB 也读取到 PageCache，这样后面读取 32 ～ 64 KB 的成本就很低，如果在 32 ～ 64 KB 淘汰出 PageCache 前，进程读取到它了，收益就非常大。&lt;/p>
+&lt;p>所以，PageCache 的优点主要是两个：&lt;/p>
+&lt;ul>
+&lt;li>缓存最近被访问的数据；&lt;/li>
+&lt;li>预读功能；&lt;/li>
+&lt;/ul>
+&lt;p>这两个做法，将大大提高读写磁盘的性能。&lt;/p>
+&lt;p>&lt;strong>但是，在传输大文件（GB 级别的文件）的时候，PageCache 会不起作用，那就白白浪费 DMA 多做的一次数据拷贝，造成性能的降低，即使使用了 PageCache 的零拷贝也会损失性能&lt;/strong>&lt;/p>
+&lt;p>这是因为如果你有很多 GB 级别文件需要传输，每当用户访问这些大文件的时候，内核就会把它们载入 PageCache 中，于是 PageCache 空间很快被这些大文件占满。&lt;/p>
+&lt;p>另外，由于文件太大，可能某些部分的文件数据被再次访问的概率比较低，这样就会带来 2 个问题：&lt;/p>
+&lt;ul>
+&lt;li>PageCache 由于长时间被大文件占据，其他「热点」的小文件可能就无法充分使用到 PageCache，于是这样磁盘读写的性能就会下降了；&lt;/li>
+&lt;li>PageCache 中的大文件数据，由于没有享受到缓存带来的好处，但却耗费 DMA 多拷贝到 PageCache 一次；&lt;/li>
+&lt;/ul>
+&lt;p>所以，针对大文件的传输，不应该使用 PageCache，也就是说不应该使用零拷贝技术，因为可能由于 PageCache 被大文件占据，而导致「热点」小文件无法利用到 PageCache，这样在高并发的环境下，会带来严重的性能问题。&lt;/p>
+&lt;hr>
+&lt;h3 id="大文件传输用什么方式实现">大文件传输用什么方式实现？&lt;/h3>
+&lt;p>那针对大文件的传输，我们应该使用什么方式呢？&lt;/p>
+&lt;p>我们先来看看最初的例子，当调用 read 方法读取文件时，进程实际上会阻塞在 read 方法调用，因为要等待磁盘数据的返回，如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581758-1e058506-1c0b-4bad-ae68-9846cd0f3016.png" alt="">&lt;/p>
+&lt;p>具体过程：&lt;/p>
+&lt;ul>
+&lt;li>当调用 read 方法时，会阻塞着，此时内核会向磁盘发起 I/O 请求，磁盘收到请求后，便会寻址，当磁盘数据准备好后，就会向内核发起 I/O 中断，告知内核磁盘数据已经准备好；&lt;/li>
+&lt;li>内核收到 I/O 中断后，就将数据从磁盘控制器缓冲区拷贝到 PageCache 里；&lt;/li>
+&lt;li>最后，内核再把 PageCache 中的数据拷贝到用户缓冲区，于是 read 调用就正常返回了。&lt;/li>
+&lt;/ul>
+&lt;p>对于阻塞的问题，可以用异步 I/O 来解决，它工作方式如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581774-bf45125c-8de0-493f-892e-1b57b4b150b9.png" alt="">&lt;/p>
+&lt;p>它把读操作分为两部分：&lt;/p>
+&lt;ul>
+&lt;li>前半部分，内核向磁盘发起读请求，但是可以&lt;strong>不等待数据就位就可以返回&lt;/strong>，于是进程此时可以处理其他任务；&lt;/li>
+&lt;li>后半部分，当内核将磁盘中的数据拷贝到进程缓冲区后，进程将接收到内核的&lt;strong>通知&lt;/strong>，再去处理数据；&lt;/li>
+&lt;/ul>
+&lt;p>而且，我们可以发现，异步 I/O 并没有涉及到 PageCache，所以使用异步 I/O 就意味着要绕开 PageCache。&lt;/p>
+&lt;p>绕开 PageCache 的 I/O 叫直接 I/O，使用 PageCache 的 I/O 则叫缓存 I/O。通常，对于磁盘，异步 I/O 只支持直接 I/O。&lt;/p>
+&lt;p>前面也提到，大文件的传输不应该使用 PageCache，因为可能由于 PageCache 被大文件占据，而导致「热点」小文件无法利用到 PageCache。&lt;/p>
+&lt;p>于是，&lt;strong>在高并发的场景下，针对大文件的传输的方式，应该使用「异步 I/O + 直接 I/O」来替代零拷贝技术&lt;/strong>。&lt;/p>
+&lt;p>直接 I/O 应用场景常见的两种：&lt;/p>
+&lt;ul>
+&lt;li>应用程序已经实现了磁盘数据的缓存，那么可以不需要 PageCache 再次缓存，减少额外的性能损耗。在 MySQL 数据库中，可以通过参数设置开启直接 I/O，默认是不开启；&lt;/li>
+&lt;li>传输大文件的时候，由于大文件难以命中 PageCache 缓存，而且会占满 PageCache 导致「热点」文件无法充分利用缓存，从而增大了性能开销，因此，这时应该使用直接 I/O。&lt;/li>
+&lt;/ul>
+&lt;p>另外，由于直接 I/O 绕过了 PageCache，就无法享受内核的这两点的优化：&lt;/p>
+&lt;ul>
+&lt;li>内核的 I/O 调度算法会缓存尽可能多的 I/O 请求在 PageCache 中，最后「&lt;strong>合并&lt;/strong>」成一个更大的 I/O 请求再发给磁盘，这样做是为了减少磁盘的寻址操作；&lt;/li>
+&lt;li>内核也会「&lt;strong>预读&lt;/strong>」后续的 I/O 请求放在 PageCache 中，一样是为了减少对磁盘的操作；&lt;/li>
+&lt;/ul>
+&lt;p>于是，传输大文件的时候，使用「异步 I/O + 直接 I/O」了，就可以无阻塞地读取文件了。&lt;/p>
+&lt;p>所以，传输文件的时候，我们要根据文件的大小来使用不同的方式：&lt;/p>
+&lt;ul>
+&lt;li>传输大文件的时候，使用「异步 I/O + 直接 I/O」；&lt;/li>
+&lt;li>传输小文件的时候，则使用「零拷贝技术」；&lt;/li>
+&lt;/ul>
+&lt;p>在 nginx 中，我们可以用如下配置，来根据文件的大小来使用不同的方式：&lt;/p>
+&lt;pre>&lt;code>location /video/ { sendfile on; aio on; directio 1024m; }
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>当文件大小大于 &lt;code>directio&lt;/code> 值后，使用「异步 I/O + 直接 I/O」，否则使用「零拷贝技术」。&lt;/p>
+&lt;hr>
+&lt;h3 id="总结">总结&lt;/h3>
+&lt;p>早期 I/O 操作，内存与磁盘的数据传输的工作都是由 CPU 完成的，而此时 CPU 不能执行其他任务，会特别浪费 CPU 资源。&lt;/p>
+&lt;p>于是，为了解决这一问题，DMA 技术就出现了，每个 I/O 设备都有自己的 DMA 控制器，通过这个 DMA 控制器，CPU 只需要告诉 DMA 控制器，我们要传输什么数据，从哪里来，到哪里去，就可以放心离开了。后续的实际数据传输工作，都会由 DMA 控制器来完成，CPU 不需要参与数据传输的工作。&lt;/p>
+&lt;p>传统 IO 的工作方式，从硬盘读取数据，然后再通过网卡向外发送，我们需要进行 4 上下文切换，和 4 次数据拷贝，其中 2 次数据拷贝发生在内存里的缓冲区和对应的硬件设备之间，这个是由 DMA 完成，另外 2 次则发生在内核态和用户态之间，这个数据搬移工作是由 CPU 完成的。&lt;/p>
+&lt;p>为了提高文件传输的性能，于是就出现了零拷贝技术，它通过一次系统调用（&lt;code>sendfile&lt;/code> 方法）合并了磁盘读取与网络发送两个操作，降低了上下文切换次数。另外，拷贝数据都是发生在内核中的，天然就降低了数据拷贝的次数。&lt;/p>
+&lt;p>Kafka 和 Nginx 都有实现零拷贝技术，这将大大提高文件传输的性能。&lt;/p>
+&lt;p>零拷贝技术是基于 PageCache 的，PageCache 会缓存最近访问的数据，提升了访问缓存数据的性能，同时，为了解决机械硬盘寻址慢的问题，它还协助 I/O 调度算法实现了 IO 合并与预读，这也是顺序读比随机读性能好的原因。这些优势，进一步提升了零拷贝的性能。&lt;/p>
+&lt;p>需要注意的是，零拷贝技术是不允许进程对文件内容作进一步的加工的，比如压缩数据再发送。&lt;/p>
+&lt;p>另外，当传输大文件时，不能使用零拷贝，因为可能由于 PageCache 被大文件占据，而导致「热点」小文件无法利用到 PageCache，并且大文件的缓存命中率不高，这时就需要使用「异步 IO + 直接 IO 」的方式。&lt;/p>
+&lt;p>在 Nginx 里，可以通过配置，设定一个文件大小阈值，针对大文件使用异步 IO 和直接 IO，而对小文件使用零拷贝。&lt;/p>
+&lt;hr>
+&lt;h2 id="絮叨">絮叨&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581788-f2a0299b-a76a-4d58-b228-f6d81888f5fb.png" alt="">&lt;/p>
+&lt;p>&lt;strong>大家好，我是小林，一个专为大家图解的工具人，如果觉得文章对你有帮助，欢迎分享给你的朋友，这对小林非常重要，谢谢你们，我们下次见！&lt;/strong>&lt;/p></description></item><item><title>Docs: 6.File System 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/6.file_system_%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/6.file_system_%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/qJdoXTv_XS_4ts9YuzMNIw">小林公众号&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://time.geekbang.org/column/article/76876">Linux 性能优化实践-文件系统&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Category:Computer_file_systems">Wiki-Category,Computer file systemd&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/qJdoXTv_XS_4ts9YuzMNIw">公众号，小林 coding-一口气搞懂「文件系统」，就靠这 25 张图了&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167805545-2b948cff-7e56-4eb8-8c12-3851fd6c2e36.png" alt="">&lt;/p>
+&lt;blockquote>
+&lt;p>图片来源：&lt;a href="https://www.thomas-krenn.com/en/wiki/Linux_Storage_Stack_Diagram">https://www.thomas-krenn.com/en/wiki/Linux_Storage_Stack_Diagram&lt;/a>
+从上面的结构可以看到，文件系统的作用就是用来接收用户的操作，并将数据保存到物理硬盘的。可以想见，如果没有文件系统帮助用户操作，那么人们又怎么能将数据保存到存储设备上呢~&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>File System(文件系统，简称 FS)&lt;/strong> 是一种对存储设备上的数据，进行组织管理的机制。组织方式的不同，就会形成不同的文件系统
+如果没有文件系统，放置在存储介质中的数据将是一个庞大的数据主体，无法分辨一个数据在哪里停止以及下一个数据在哪里开始。通过将数据分成多个部分并给每个部分命名，可以轻松地隔离和识别数据。每组数据称为 &lt;strong>File(文件)&lt;/strong>。所以，用于管理这些文件及其名称的&lt;strong>结构和逻辑规则&lt;/strong>，称为 &lt;strong>File System(文件系统)&lt;/strong>。&lt;/p>
+&lt;h2 id="什么是-file文件">什么是 File(文件)&lt;/h2>
+&lt;p>详见《&lt;a href="docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File_System_%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/_index.md">文件管理&lt;/a>》章节&lt;/p>
+&lt;h1 id="文件组织结构">文件组织结构&lt;/h1>
+&lt;blockquote>
+&lt;p>文件管理详解见&lt;a href="docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File_System_%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/_index.md">单独章节&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>为了方便管理，Linux 的文件系统为每个文件都分配了两个数据结构。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>index node(索引节点，简称 inode)&lt;/strong> # 记录文件的元数据。inode 编号、文件大小、访问权限、修改日期、数据的位置等。
+&lt;ul>
+&lt;li>inode 和文件一一对应，它跟文件内容一样，都会被持久化到存储的磁盘中。所以** inode 同样占用磁盘空间**。&lt;/li>
+&lt;li>inode 包含文件的元数据，具体来说有以下内容：
+&lt;ul>
+&lt;li>文件的字节数&lt;/li>
+&lt;li>文件拥有者的 User ID&lt;/li>
+&lt;li>文件的 Group ID&lt;/li>
+&lt;li>文件的读、写、执行权限&lt;/li>
+&lt;li>文件的时间戳，共有三个：ctime 指 inode 上一次变动的时间，mtime 指文件内容上一次变动的时间，atime 指文件上一次打开的时间。&lt;/li>
+&lt;li>链接数，即有多少文件名指向这个 inode&lt;/li>
+&lt;li>文件数据 block 的位置&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>directory entry(目录项，简称 dentry)&lt;/strong> # 记录文件的名字、inode 指针、与其他目录项的关联关系。
+&lt;ul>
+&lt;li>多个关联的目录项，就构成了文件系统的目录结构(&lt;strong>一个层次化的树形结构&lt;/strong>)。不过，不同于 inode，目录项是由内核维护的一个内存数据结构，所以通常也被叫做 &lt;strong>dentries(目录项缓存)。&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>这个层次化的树形结构就像下图一样：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1617088781476-3d7a9ccc-e8df-4680-acc5-26f4f82aa8b5.png" alt="image.png">
+&lt;strong>注意：目录项缓存记录在 slab 中，当我们使用 find 命令时，slab 中的 dentry 缓存就会增大；打开文件过多，slab 中的 dentry 缓存也会增大。&lt;/strong>
+inode 是每个文件的唯一标志，而 dentry 维护的正是文件系统的树状结构。dentry 与 inode 的关系是多对一(可以简单理解为一个文件可以有多个别名)
+下面用一个形象点的白话来描述这些概念，假如现在系统中有如下目录结构&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree --inodes&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span> 2218&lt;span style="color:#f92672">]&lt;/span> dir_1 &lt;span style="color:#75715e"># 这是目录类型的文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── &lt;span style="color:#f92672">[&lt;/span> 2235&lt;span style="color:#f92672">]&lt;/span> file_1 &lt;span style="color:#75715e"># 这是普通类型的文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── &lt;span style="color:#f92672">[&lt;/span> 2236&lt;span style="color:#f92672">]&lt;/span> file_2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>269167463&lt;span style="color:#f92672">]&lt;/span> dir_2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── &lt;span style="color:#f92672">[&lt;/span>269167464&lt;span style="color:#f92672">]&lt;/span> file_3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── &lt;span style="color:#f92672">[&lt;/span>537384536&lt;span style="color:#f92672">]&lt;/span> dir_3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├── &lt;span style="color:#f92672">[&lt;/span> 2235&lt;span style="color:#f92672">]&lt;/span> fie_1_ln
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── &lt;span style="color:#f92672">[&lt;/span>537384537&lt;span style="color:#f92672">]&lt;/span> file_4
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">3&lt;/span> directories, &lt;span style="color:#ae81ff">5&lt;/span> files
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以这么描述上述看到的内容：dir_1、file_1、dir_2 这些名称都是 dentry 中的文件名，&lt;code>[]&lt;/code> 中的数字是 inode 号，每个 dentry 都会与 inode 关联。其中 file_1 和 file_1_ln 的 inode 相同，但是 dentry 不同，这就对应了 dentry 与 inode 是多对一的关系。而哪些文件在哪个目录中，则是由每个文件的 dentry 中的关联关系来决定。比如 dir_1 目录中，包含了 file_1 和 file_2 文件。&lt;/p>
+&lt;blockquote>
+&lt;p>索引节点和目录项记录了文件的元数据，以及文件间的目录关系，那么具体来说，文件数据到底是怎么存储的呢？是不是直接写到磁盘中就好了呢？
+实际上，磁盘读写的最小单位是扇区，然而扇区只有 512B 大小，如果每次都读写这么小的单位，效率一定很低。所以，文件系统又把连续的扇区组成了逻辑块，然后每次都以逻辑块为最小单元，来管理数据。常见的逻辑块大小为 4KB，也就是由连续的 8 个扇区组成。&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167805558-180916c2-cc19-40a0-b8f4-3ff805929883.png" alt="">
+注意：&lt;/p>
+&lt;ul>
+&lt;li>dentry 本身只是一个存储在内存中的缓存，而 inode 则是存储在磁盘中的数据。由于内存的 Buffer 和 Cache 原理，所以 inode 也会缓存到内存中，以便加速文件的访问。&lt;/li>
+&lt;li>磁盘在执行文件系统格式化时，会被分成三个存储区域，超级快、索引节点区、数据区块
+&lt;ul>
+&lt;li>超级块 # 存储整个文件系统的状态&lt;/li>
+&lt;li>索引节点区 # 存储 inode&lt;/li>
+&lt;li>数据区块 # 存储文件数据&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>我们不可能把超级块和索引节点区全部加载到内存，这样内存肯定撑不住，所以只有当需要使用的时候，才将其加载进内存，它们加载进内存的时机是不同的：
+&lt;ul>
+&lt;li>超级块 # 当文件系统挂载时进入内存；&lt;/li>
+&lt;li>索引节点区 # 当文件被访问时进入内存&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>dentry、inode、逻辑块以及超级块构成了 Linux 文件系统的四大基本要素。&lt;/p>
+&lt;h2 id="小结">小结&lt;/h2>
+&lt;p>通过上面的描述，文件在文件系统中，也就可以归纳为两个部分&lt;/p>
+&lt;ul>
+&lt;li>指针部分 # 指针位于文件系统的元数据中，在将数据删除后，这个指针就从元数据中清除了(元数据其实就是上文的 inode 与 dentry)。&lt;/li>
+&lt;li>数据部分 # 文件的具体内容，存储在磁盘中。&lt;/li>
+&lt;/ul>
+&lt;p>平时我们在删除数据时，其实仅仅从元数据中删除了数据对应的指针。当指针被删除时，其原本占用的空间就可以被覆盖并写入新内容。&lt;/p>
+&lt;h2 id="常见问题">常见问题&lt;/h2>
+&lt;ul>
+&lt;li>这也是为什么我们可以恢复数据的原因，只要旧数据还没被覆盖，就依然可以获取到。&lt;/li>
+&lt;li>有时候在删除文件时，会发现并没有释放空间，也是同样的道理，当某个进程持续写入内容时，如果强制删除了文件，由于进程锁定文件对应的指针部分并不会从元数据中清除，而由于指针并未删除，系统内核就默认文件并未删除，因此查询文件系统空间时，显示空间并未释放。可以通过 lsof 命令筛选 deleted 查找这些有问题的文件。&lt;/li>
+&lt;/ul>
+&lt;h1 id="virtual-file-system虚拟文件系统">Virtual File System(虚拟文件系统)&lt;/h1>
+&lt;blockquote>
+&lt;p>参考： - &lt;a href="https://en.wikipedia.org/wiki/Virtual_file_system">Wiki,Virtual file system&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/69289429">知乎&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://time.geekbang.org/column/article/76876">极客-Linux 性能优化实践&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Virtual File System(虚拟文件系统，简称 VFS)&lt;/strong>。是 Linux 为了支持多种多样的文件系统，在用户空间进程和文件系统中间，引入的一个抽象层。VFS 的目的是运行客户端应用程序以统一的方式访问不同类型的文件系统。VFS &lt;strong>定义了&lt;/strong>一组所有文件系统都支持的&lt;strong>数据结构和标准 API&lt;/strong>。这样，用户进程和内核中的其他子系统，只需要跟 VFS 提供的统一接口进行交互即可，而不需要关系底层各种文件系统的实现细节。&lt;/p>
+&lt;blockquote>
+&lt;p>比如不同文件系统的调用函数不一样，如果没有 VFS ，那么在使用的时候，就需要为特定的文件系统，编写不同的调用方式，非常繁琐复杂。
+比如 VFS 可以用来弥合 Windows，经典 Mac OS / macOS 和 Unix 文件系统中的差异，以便应用程序可以访问那些类型的本地文件系统上的文件，而不必知道它们正在访问哪种文件系统。&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167805621-09dbf293-4f9a-4892-8e30-8d33f32031c4.png" alt="">
+举个例子，Linux 用户程序可以通过&lt;code>read()&lt;/code> 来读取&lt;code>ext4&lt;/code>、&lt;code>NFS&lt;/code>、&lt;code>XFS&lt;/code>等文件系统的文件，也可以读取存储在&lt;code>SSD&lt;/code>、&lt;code>HDD&lt;/code>等不同存储介质的文件，无须考虑不同文件系统或者不同存储介质的差异。
+通过 VFS 系统，Linux 提供了通用的系统调用，可以跨越不同文件系统和介质之间执行，极大简化了用户访问不同文件系统的过程。另一方面，新的文件系统、新类型的存储介质，可以无须编译的情况下，动态加载到 Linux 中。
+&amp;ldquo;一切皆文件&amp;quot;是 Linux 的基本哲学之一，不仅是普通的文件，包括目录、字符设备、块设备、套接字等，都可以以文件的方式被对待。实现这一行为的基础，正是 Linux 的虚拟文件系统机制。
+VFS 之所以能够衔接各种各样的文件系统，是因为它抽象了一个通用的文件系统模型，定义了通用文件系统都支持的、概念上的接口。新的文件系统只要支持并实现这些接口，并注册到 Linux 内核中，即可安装和使用。
+再举个例子，比如 Linux 写一个文件：&lt;/p>
+&lt;pre>&lt;code>int ret = write(fd, buf, len);
+&lt;/code>&lt;/pre>
+&lt;p>调用了&lt;code>write()&lt;/code>系统调用，它的过程简要如下：&lt;/p>
+&lt;ul>
+&lt;li>首先，勾起 VFS 通用系统调用&lt;code>sys_write()&lt;/code>处理。&lt;/li>
+&lt;li>接着，&lt;code>sys_write()&lt;/code>根据&lt;code>fd&lt;/code>找到所在的文件系统提供的写操作函数，比如&lt;code>op_write()&lt;/code>。&lt;/li>
+&lt;li>最后，调用&lt;code>op_write()&lt;/code>实际的把数据写入到文件中。&lt;/li>
+&lt;/ul>
+&lt;p>操作示意图如下：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167805551-1b23e389-6142-4e11-8ef1-b1b1c1722cbe.jpeg" alt="">&lt;/p>
+&lt;h1 id="文件系统类型">文件系统类型&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/File_system#Types_of_file_systems">Wiki,File system-Types_of_file_systems&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>可以通过** /proc/filesystems **文件查看当前内核所支持的文件系统类型&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat /proc/filesystems&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nodev sysfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nodev proc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nodev cgroup2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nodev tmpfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nodev devtmpfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nodev configfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> xfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ext4
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>第一列说明文件系统是否需要挂载在一个块设备上
+&lt;ul>
+&lt;li>nodev 表明本行的文件系统类型不需要挂接在块设备上。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>第二列是内核支持的文件系统类型。&lt;/li>
+&lt;/ul>
+&lt;p>当系统中安装了某个文件系统的驱动，则该文件内容也会有增加，比如我安装了 nfs-utils 包，则该文件还会增加 nfs 行。&lt;/p>
+&lt;h2 id="按照存储位置的不同这些文件系统可以大体分为如下几类">按照存储位置的不同，这些文件系统可以大体分为如下几类&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>Disk file systems(磁盘文件系统)&lt;/strong>
+&lt;ul>
+&lt;li>基于磁盘的文件系统，也就是把数据直接存储 计算机本地挂载磁盘中。常见的** ext4、xfs、overlayFS** 等，都是这类文件系统&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Network File Systems(网络文件系统)&lt;/strong>
+&lt;ul>
+&lt;li>网络文件系统是充当远程文件访问协议的客户端的文件系统，提供对服务器上文件的访问。 使用本地接口的程序可以透明地创建，管理和访问远程网络连接计算机中的分层目录和文件。 网络文件系统的示例包括 NFS，AFS，SMB 协议的客户端，以及 FTP 和 WebDAV 的类似于文件系统的客户端。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Distributed File System(分布式文件系统)&lt;/strong> # 使用网络协议的分布式文件系统也属于网络文件系统的一种。&lt;/li>
+&lt;li>&lt;strong>Special-purpose File Systems(特殊目的文件系统)&lt;/strong> # 特殊的文件系统将操作系统的非文件元素显示为文件，以便可以使用文件系统 API 对其进行操作。 这种文件系统一般都是基于内存的，不需要任何磁盘为其分配存储空间，但会占用内存。
+&lt;ul>
+&lt;li>&lt;strong>device file system(设备文件系统)&lt;/strong> # 简称 devfs，设备文件系统将 I/O 设备和伪设备表示为文件，称为设备文件。 默认挂载到&lt;code>/dev&lt;/code>目录下。&lt;/li>
+&lt;li>&lt;strong>Proc File System(进程文件系统)&lt;/strong> # 简称_ _procfs，将进程以及 Linux 上的其他操作系统结构映射到文件空间。默认挂载到&lt;code>/proc&lt;/code>目录下。&lt;/li>
+&lt;li>&lt;strong>configfs&lt;/strong> 和 &lt;strong>sysfs&lt;/strong> 提供了可用于向内核查询信息并在内核中配置实体的文件。&lt;/li>
+&lt;li>等等&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="文件系统的使用">文件系统的使用&lt;/h1>
+&lt;blockquote>
+&lt;p>和 DOS 等操作系统不同，Linux 操作系统中文件系统并不是由驱动器号或驱动器名称（如 A: 或 C: 等）来标识的。Linux 操作系统将独立的文件系统组合成了一个层次化的树形结构，并且由一个单独的实体代表这一文件系统。&lt;/p>
+&lt;/blockquote>
+&lt;p>Linux 将新的文件系统通过一个称为 **Mount(挂载) **的操作将其挂载到某个目录上，从而让不同的文件系统结合成为一个整体。
+这些文件系统，要先挂载到 VFS 目录树中的某个子目录（称为挂载点），然后才能访问其中的文件。拿第一类，也就是基于磁盘的文件系统为例，在安装系统时，要先挂载一个根目录&lt;code>/&lt;/code>，在根目录下再把其他文件系统（比如其他的磁盘分区、/proc 文件系统、/sys 文件系统、NFS 等）挂载进来。&lt;/p>
+&lt;h2 id="文件系统-io">文件系统 I/O&lt;/h2>
+&lt;p>把文件系统挂载到挂载点后，就可以通过挂载点访问它管理的文件了。 VFS 提供了一组标准的文件访问接口。这些接口以系统调用的方式，提供给应用程序使用。
+就比如 cat 命令，首先调用 &lt;code>openat()&lt;/code> 打开一个文件，然后调用 &lt;code>read()&lt;/code> 读取文件内容，最后调用 &lt;code>write()&lt;/code> 将内容输出到控制台的标准输出中&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># strace -e openat,read,write cat /root/test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openat&lt;span style="color:#f92672">(&lt;/span>AT_FDCWD, &lt;span style="color:#e6db74">&amp;#34;/root/test&amp;#34;&lt;/span>, O_RDONLY&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">3&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>read&lt;span style="color:#f92672">(&lt;/span>3, &lt;span style="color:#e6db74">&amp;#34;Test I/O for File System&amp;#34;&lt;/span>, 131072&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">24&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>write&lt;span style="color:#f92672">(&lt;/span>1, &lt;span style="color:#e6db74">&amp;#34;Test I/O for File System&amp;#34;&lt;/span>, 24Test I/O &lt;span style="color:#66d9ef">for&lt;/span> File System&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">24&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 代码中的方法如下：open() 与 openat() 这两个调用效果一样。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>int open&lt;span style="color:#f92672">(&lt;/span>const char *pathname, int flags, mode_t mode&lt;span style="color:#f92672">)&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ssize_t read&lt;span style="color:#f92672">(&lt;/span>int fd, void *buf, size_t count&lt;span style="color:#f92672">)&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ssize_t write&lt;span style="color:#f92672">(&lt;/span>int fd, const void *buf, size_t count&lt;span style="color:#f92672">)&lt;/span>;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>文件读写方式的各种差异，导致 I/O 的分类多种多样。最常见的有，缓冲与非缓冲 I/O、直接与非直接 I/O、阻塞与非阻塞 I/O、同步与异步 I/O 等。&lt;/p>
+&lt;h3 id="缓冲与非缓冲-io">缓冲与非缓冲 I/O&lt;/h3>
+&lt;p>根据是否利用标准库缓存&lt;/p>
+&lt;ol>
+&lt;li>缓冲 I/O # 利用标准库缓存来加速文件的访问，而标准库内部再通过系统调用访问文件&lt;/li>
+&lt;li>非缓冲 I/O # 直接通过系统调用来访问文件，不再经过标准库缓存。&lt;/li>
+&lt;/ol>
+&lt;p>注意，这里所说的“缓冲”，是指标准库内部实现的缓存。比方说，你可能见到过，很多程序遇到换行时才真正输出，而换行前的内容，其实就是被标准库暂时缓存了起来。
+无论缓冲 I/O 还是非缓冲 I/O，它们最终还是要经过系统调用来访问文件。而根据上一节内容，我们知道，系统调用后，还会通过页缓存，来减少磁盘的 I/O 操作。&lt;/p>
+&lt;h3 id="直接与非直接-io">直接与非直接 I/O&lt;/h3>
+&lt;p>根据是否利用操作系统的页缓存&lt;/p>
+&lt;ol>
+&lt;li>直接 I/O，是指跳过操作系统的页缓存，直接跟文件系统交互来访问文件。&lt;/li>
+&lt;li>非直接 I/O 正好相反，文件读写时，先要经过系统的页缓存，然后再由内核或额外的系统调用，真正写入磁盘。&lt;/li>
+&lt;/ol>
+&lt;p>想要实现直接 I/O，需要你在系统调用中，指定 O_DIRECT 标志。如果没有设置过，默认的是非直接 I/O。
+不过要注意，直接 I/O、非直接 I/O，本质上还是和文件系统交互。如果是在数据库等场景中，你还会看到，跳过文件系统读写磁盘的情况，也就是我们通常所说的裸 I/O。&lt;/p>
+&lt;h3 id="阻塞与非阻塞-io">阻塞与非阻塞 I/O&lt;/h3>
+&lt;p>根据应用程序是否阻塞自身运行&lt;/p>
+&lt;ol>
+&lt;li>所谓阻塞 I/O，是指应用程序执行 I/O 操作后，如果没有获得响应，就会阻塞当前线程，自然就不能执行其他任务。&lt;/li>
+&lt;li>所谓非阻塞 I/O，是指应用程序执行 I/O 操作后，不会阻塞当前的线程，可以继续执行其他的任务，随后再通过轮询或者事件通知的形式，获取调用的结果。&lt;/li>
+&lt;/ol>
+&lt;p>比方说，访问管道或者网络套接字时，设置 O_NONBLOCK 标志，就表示用非阻塞方式访问；而如果不做任何设置，默认的就是阻塞访问。&lt;/p>
+&lt;h3 id="同步与异步-io">同步与异步 I/O&lt;/h3>
+&lt;p>根据是否等待响应结果&lt;/p>
+&lt;ol>
+&lt;li>所谓同步 I/O，是指应用程序执行 I/O 操作后，要一直等到整个 I/O 完成后，才能获得 I/O 响应。&lt;/li>
+&lt;li>所谓异步 I/O，是指应用程序执行 I/O 操作后，不用等待完成和完成后的响应，而是继续执行就可以。等到这次 I/O 完成后，响应会用事件通知的方式，告诉应用程序。&lt;/li>
+&lt;/ol>
+&lt;p>举个例子，在操作文件时，如果你设置了 O_SYNC 或者 O_DSYNC 标志，就代表同步 I/O。如果设置了 O_DSYNC，就要等文件数据写入磁盘后，才能返回；而 O_SYNC，则是在 O_DSYNC 基础上，要求文件元数据也要写入磁盘后，才能返回。
+再比如，在访问管道或者网络套接字时，设置了 O_ASYNC 选项后，相应的 I/O 就是异步 I/O。这样，内核会再通过 SIGIO 或者 SIGPOLL，来通知进程文件是否可读写。
+你可能发现了，这里的好多概念也经常出现在网络编程中。比如非阻塞 I/O，通常会跟 select/poll 配合，用在网络套接字的 I/O 中。
+你也应该可以理解，“Linux 一切皆文件”的深刻含义。无论是普通文件和块设备、还是网络套接字和管道等，它们都通过统一的 VFS 接口来访问。&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677139-656d34bf-0195-4576-919f-2eedc4f4ba5a.png" alt="">
+在前面我们知道了，I/O 是分为两个过程的：&lt;/p>
+&lt;ol>
+&lt;li>数据准备的过程&lt;/li>
+&lt;li>数据从内核空间拷贝到用户进程缓冲区的过程&lt;/li>
+&lt;/ol>
+&lt;p>阻塞 I/O 会阻塞在「过程 1 」和「过程 2」，而非阻塞 I/O 和基于非阻塞 I/O 的多路复用只会阻塞在「过程 2」，所以这三个都可以认为是同步 I/O。
+异步 I/O 则不同，「过程 1 」和「过程 2 」都不会阻塞。&lt;/p>
+&lt;h2 id="用故事去理解这几种-io-模型">用故事去理解这几种 I/O 模型&lt;/h2>
+&lt;p>举个你去饭堂吃饭的例子，你好比用户程序，饭堂好比操作系统。
+阻塞 I/O 好比，你去饭堂吃饭，但是饭堂的菜还没做好，然后你就一直在那里等啊等，等了好长一段时间终于等到饭堂阿姨把菜端了出来（数据准备的过程），但是你还得继续等阿姨把菜（内核空间）打到你的饭盒里（用户空间），经历完这两个过程，你才可以离开。
+非阻塞 I/O 好比，你去了饭堂，问阿姨菜做好了没有，阿姨告诉你没，你就离开了，过几十分钟，你又来饭堂问阿姨，阿姨说做好了，于是阿姨帮你把菜打到你的饭盒里，这个过程你是得等待的。
+基于非阻塞的 I/O 多路复用好比，你去饭堂吃饭，发现有一排窗口，饭堂阿姨告诉你这些窗口都还没做好菜，等做好了再通知你，于是等啊等（&lt;code>select&lt;/code> 调用中），过了一会阿姨通知你菜做好了，但是不知道哪个窗口的菜做好了，你自己看吧。于是你只能一个一个窗口去确认，后面发现 5 号窗口菜做好了，于是你让 5 号窗口的阿姨帮你打菜到饭盒里，这个打菜的过程你是要等待的，虽然时间不长。打完菜后，你自然就可以离开了。
+异步 I/O 好比，你让饭堂阿姨将菜做好并把菜打到饭盒里后，把饭盒送到你面前，整个过程你都不需要任何等待。&lt;/p>
+&lt;h1 id="文件的存储">文件的存储&lt;/h1>
+&lt;p>文件的数据是要存储在硬盘上面的，数据在磁盘上的存放方式，就像程序在内存中存放的方式那样，有以下两种：&lt;/p>
+&lt;ul>
+&lt;li>连续空间存放方式&lt;/li>
+&lt;li>非连续空间存放方式&lt;/li>
+&lt;/ul>
+&lt;p>其中，非连续空间存放方式又可以分为「链表方式」和「索引方式」。
+不同的存储方式，有各自的特点，重点是要分析它们的存储效率和读写性能，接下来分别对每种存储方式说一下。&lt;/p>
+&lt;h2 id="连续空间存放方式">连续空间存放方式&lt;/h2>
+&lt;blockquote>
+&lt;p>注意：这里只针对机械硬盘，固态硬盘并没有磁道等概念&lt;/p>
+&lt;/blockquote>
+&lt;p>连续空间存放方式顾名思义，&lt;strong>文件存放在磁盘「连续的」物理空间中&lt;/strong>。这种模式下，文件的数据都是紧密相连，&lt;strong>读写效率很高&lt;/strong>，因为一次磁盘寻道就可以读出整个文件。
+使用连续存放的方式有一个前提，必须先知道一个文件的大小，这样文件系统才会根据文件的大小在磁盘上找到一块连续的空间分配给文件。
+所以，&lt;strong>文件头里需要指定「起始块的位置」和「长度」&lt;/strong>，有了这两个信息就可以很好的表示文件存放方式是一块连续的磁盘空间。
+注意，此处说的文件头，就类似于 Linux 的 inode。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677049-26c7ae42-9e37-426a-99f9-6e59df62e691.png" alt="">
+连续空间存放的方式虽然读写效率高，&lt;strong>但是有「磁盘空间碎片」和「文件长度不易扩展」的缺陷。&lt;/strong>
+如下图，如果文件 B 被删除，磁盘上就留下一块空缺，这时，如果新来的文件小于其中的一个空缺，我们就可以将其放在相应空缺里。但如果该文件的大小大于所有的空缺，但却小于空缺大小之和，则虽然磁盘上有足够的空缺，但该文件还是不能存放。当然了，我们可以通过将现有文件进行挪动来腾出空间以容纳新的文件，但是这个在磁盘挪动文件是非常耗时，所以这种方式不太现实。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677046-4fd1191e-4e74-4653-8ef4-24ba781c4f57.png" alt="">
+另外一个缺陷是文件长度扩展不方便，例如上图中的文件 A 要想扩大一下，需要更多的磁盘空间，唯一的办法就只能是挪动的方式，前面也说了，这种方式效率是非常低的。
+那么有没有更好的方式来解决上面的问题呢？答案当然有，既然连续空间存放的方式不太行，那么我们就改变存放的方式，使用非连续空间存放方式来解决这些缺陷。&lt;/p>
+&lt;h2 id="非连续空间存放方式">非连续空间存放方式&lt;/h2>
+&lt;p>非连续空间存放方式分为「链表方式」和「索引方式」。&lt;/p>
+&lt;blockquote>
+&lt;p>我们先来看看链表的方式。&lt;/p>
+&lt;/blockquote>
+&lt;p>链表的方式存放是&lt;strong>离散的，不用连续的&lt;/strong>，于是就可以&lt;strong>消除磁盘碎片&lt;/strong>，可大大提高磁盘空间的利用率，同时&lt;strong>文件的长度可以动态扩展&lt;/strong>。根据实现的方式的不同，链表可分为「&lt;strong>隐式链表&lt;/strong>」和「&lt;strong>显式链接&lt;/strong>」两种形式。
+文件要以「&lt;strong>隐式链表&lt;/strong>」的方式存放的话，&lt;strong>实现的方式是文件头要包含「第一块」和「最后一块」的位置，并且每个数据块里面留出一个指针空间，用来存放下一个数据块的位置&lt;/strong>，这样一个数据块连着一个数据块，从链头开是就可以顺着指针找到所有的数据块，所以存放的方式可以是不连续的。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677039-c71df217-651d-42ac-8cf6-444dedae8c1c.png" alt="">
+隐式链表的存放方式的&lt;strong>缺点在于无法直接访问数据块，只能通过指针顺序访问文件，以及数据块指针消耗了一定的存储空间&lt;/strong>。隐式链接分配的&lt;strong>稳定性较差&lt;/strong>，系统在运行过程中由于软件或者硬件错误&lt;strong>导致链表中的指针丢失或损坏，会导致文件数据的丢失。&lt;/strong>
+如果取出每个磁盘块的指针，把它放在内存的一个表中，就可以解决上述隐式链表的两个不足。那么，这种实现方式是「&lt;strong>显式链接&lt;/strong>」，它指&lt;strong>把用于链接文件各数据块的指针，显式地存放在内存的一张链接表中&lt;/strong>，该表在整个磁盘仅设置一张，&lt;strong>每个表项中存放链接指针，指向下一个数据块号&lt;/strong>。
+对于显式链接的工作方式，我们举个例子，文件 A 依次使用了磁盘块 4、7、2、10 和 12 ，文件 B 依次使用了磁盘块 6、3、11 和 14 。利用下图中的表，可以从第 4 块开始，顺着链走到最后，找到文件 A 的全部磁盘块。同样，从第 6 块开始，顺着链走到最后，也能够找出文件 B 的全部磁盘块。最后，这两个链都以一个不属于有效磁盘编号的特殊标记（如 -1 ）结束。内存中的这样一个表格称为&lt;strong>文件分配表（***&lt;strong>File Allocation Table，FAT&lt;/strong>*&lt;/strong>）&lt;strong>。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677063-b7bb2a32-dde6-4c17-9119-096413902ae8.png" alt="">
+由于查找记录的过程是在内存中进行的，因而不仅显著地&lt;/strong>提高了检索速度**，而且&lt;strong>大大减少了访问磁盘的次数&lt;/strong>。但也正是整个表都存放在内存中的关系，它的主要的缺点是**不适用于大磁盘**。
+比如，对于 200GB 的磁盘和 1KB 大小的块，这张表需要有 2 亿项，每一项对应于这 2 亿个磁盘块中的一个块，每项如果需要 4 个字节，那这张表要占用 800MB 内存，很显然 FAT 方案对于大磁盘而言不太合适。&lt;/p>
+&lt;blockquote>
+&lt;p>接下来，我们来看看索引的方式。&lt;/p>
+&lt;/blockquote>
+&lt;p>链表的方式解决了连续分配的磁盘碎片和文件动态扩展的问题，但是不能有效支持直接访问（FAT 除外），索引的方式可以解决这个问题。
+索引的实现是为每个文件创建一个「&lt;strong>索引数据块&lt;/strong>」，里面存放的是&lt;strong>指向文件数据块的指针列表&lt;/strong>，说白了就像书的目录一样，要找哪个章节的内容，看目录查就可以。
+另外，&lt;strong>文件头需要包含指向「索引数据块」的指针&lt;/strong>，这样就可以通过文件头知道索引数据块的位置，再通过索引数据块里的索引信息找到对应的数据块。
+创建文件时，索引块的所有指针都设为空。当首次写入第 i 块时，先从空闲空间中取得一个块，再将其地址写到索引块的第 i 个条目。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677054-825db739-3c6c-4fec-bb21-1dd52effb539.png" alt="">
+索引的方式优点在于：&lt;/p>
+&lt;ul>
+&lt;li>文件的创建、增大、缩小很方便；&lt;/li>
+&lt;li>不会有碎片的问题；&lt;/li>
+&lt;li>支持顺序读写和随机读写；&lt;/li>
+&lt;/ul>
+&lt;p>由于索引数据也是存放在磁盘块的，如果文件很小，明明只需一块就可以存放的下，但还是需要额外分配一块来存放索引数据，所以缺陷之一就是存储索引带来的开销。&lt;/p>
+&lt;p>如果文件很大，大到一个索引数据块放不下索引信息，这时又要如何处理大文件的存放呢？我们可以通过组合的方式，来处理大文件的存。&lt;/p>
+&lt;p>先来看看链表 + 索引的组合，这种组合称为「&lt;strong>链式索引块&lt;/strong>」，它的实现方式是&lt;strong>在索引数据块留出一个存放下一个索引数据块的指针&lt;/strong>，于是当一个索引数据块的索引信息用完了，就可以通过指针的方式，找到下一个索引数据块的信息。那这种方式也会出现前面提到的链表方式的问题，万一某个指针损坏了，后面的数据也就会无法读取了。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677072-417dcaa4-348d-4a45-b9b0-aa170d0f3bd7.png" alt="">
+还有另外一种组合方式是索引 + 索引的方式，这种组合称为「&lt;strong>多级索引块&lt;/strong>」，实现方式是&lt;strong>通过一个索引块来存放多个索引数据块&lt;/strong>，一层套一层索引，像极了俄罗斯套娃是吧。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677056-ecb3b996-c14c-455d-82aa-7ca16aeb7feb.png" alt="">&lt;/p>
+&lt;h2 id="unix-文件的实现方式">Unix 文件的实现方式&lt;/h2>
+&lt;p>我们先把前面提到的文件实现方式，做个比较：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1671074085764-374b9218-86e8-412d-85c7-9d051b9340b2.png" alt="image.png">
+那早期 Unix 文件系统是组合了前面的文件存放方式的优点，如下图：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677095-e05fe455-c302-43bb-a9d8-dd43cd4551e1.png" alt="">
+它是根据文件的大小，存放的方式会有所变化：&lt;/p>
+&lt;ul>
+&lt;li>如果存放文件所需的数据块小于 10 块，则采用直接查找的方式；&lt;/li>
+&lt;li>如果存放文件所需的数据块超过 10 块，则采用一级间接索引方式；&lt;/li>
+&lt;li>如果前面两种方式都不够存放大文件，则采用二级间接索引方式；&lt;/li>
+&lt;li>如果二级间接索引也不够存放大文件，这采用三级间接索引方式；&lt;/li>
+&lt;/ul>
+&lt;p>那么，文件头（&lt;em>Inode&lt;/em>）就需要包含 13 个指针：&lt;/p>
+&lt;ul>
+&lt;li>10 个指向数据块的指针；&lt;/li>
+&lt;li>第 11 个指向索引块的指针；&lt;/li>
+&lt;li>第 12 个指向二级索引块的指针；&lt;/li>
+&lt;li>第 13 个指向三级索引块的指针；&lt;/li>
+&lt;/ul>
+&lt;p>所以，这种方式能很灵活地支持小文件和大文件的存放：&lt;/p>
+&lt;ul>
+&lt;li>对于小文件使用直接查找的方式可减少索引数据块的开销；&lt;/li>
+&lt;li>对于大文件则以多级索引的方式来支持，所以大文件在访问数据块时需要大量查询；&lt;/li>
+&lt;/ul>
+&lt;p>这个方案就用在了 Linux Ext 2/3 文件系统里，虽然解决大文件的存储，但是对于大文件的访问，需要大量的查询，效率比较低。&lt;/p>
+&lt;p>为了解决这个问题，Ext 4 做了一定的改变，具体怎么解决的，本文就不展开了。&lt;/p>
+&lt;h1 id="空闲空间管理">空闲空间管理&lt;/h1>
+&lt;p>前面说到的文件的存储是针对已经被占用的数据块组织和管理，接下来的问题是，如果我要保存一个数据块，我应该放在硬盘上的哪个位置呢？难道需要将所有的块扫描一遍，找个空的地方随便放吗？
+那这种方式效率就太低了，所以针对磁盘的空闲空间也是要引入管理的机制，接下来介绍几种常见的方法：&lt;/p>
+&lt;ul>
+&lt;li>空闲表法&lt;/li>
+&lt;li>空闲链表法&lt;/li>
+&lt;li>位图法&lt;/li>
+&lt;/ul>
+&lt;h2 id="空闲表法">空闲表法&lt;/h2>
+&lt;p>空闲表法就是为所有空闲空间建立一张表，表内容包括空闲区的第一个块号和该空闲区的块个数，注意，这个方式是连续分配的。如下图：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677079-9e2989d6-2cda-4460-80ca-f3c0f28783f1.png" alt="">
+当请求分配磁盘空间时，系统依次扫描空闲表里的内容，直到找到一个合适的空闲区域为止。当用户撤销一个文件时，系统回收文件空间。这时，也需顺序扫描空闲表，寻找一个空闲表条目并将释放空间的第一个物理块号及它占用的块数填到这个条目中。
+这种方法仅当有少量的空闲区时才有较好的效果。因为，如果存储空间中有着大量的小的空闲区，则空闲表变得很大，这样查询效率会很低。另外，这种分配技术适用于建立连续文件。&lt;/p>
+&lt;h2 id="空闲链表法">空闲链表法&lt;/h2>
+&lt;p>我们也可以使用「链表」的方式来管理空闲空间，每一个空闲块里有一个指针指向下一个空闲块，这样也能很方便的找到空闲块并管理起来。如下图：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677070-be98384a-ad4f-4a20-b5da-1d969816b938.png" alt="">
+当创建文件需要一块或几块时，就从链头上依次取下一块或几块。反之，当回收空间时，把这些空闲块依次接到链头上。&lt;/p>
+&lt;p>这种技术只要在主存中保存一个指针，令它指向第一个空闲块。其特点是简单，但不能随机访问，工作效率低，因为每当在链上增加或移动空闲块时需要做很多 I/O 操作，同时数据块的指针消耗了一定的存储空间。&lt;/p>
+&lt;p>空闲表法和空闲链表法都不适合用于大型文件系统，因为这会使空闲表或空闲链表太大。&lt;/p>
+&lt;h2 id="位图法">位图法&lt;/h2>
+&lt;p>位图是利用二进制的一位来表示磁盘中一个盘块的使用情况，磁盘上所有的盘块都有一个二进制位与之对应。&lt;/p>
+&lt;p>当值为 0 时，表示对应的盘块空闲，值为 1 时，表示对应的盘块已分配。它形式如下：&lt;/p>
+&lt;pre>&lt;code>1111110011111110001110110111111100111 ...
+&lt;/code>&lt;/pre>
+&lt;p>在 Linux 文件系统就采用了位图的方式来管理空闲空间，不仅用于数据空闲块的管理，还用于 inode 空闲块的管理，因为 inode 也是存储在磁盘的，自然也要有对其管理。&lt;/p>
+&lt;h1 id="文件系统的结构">文件系统的结构&lt;/h1>
+&lt;p>前面提到 Linux 是用位图的方式管理空闲空间，用户在创建一个新文件时，Linux 内核会通过 inode 的位图找到空闲可用的 inode，并进行分配。要存储数据时，会通过块的位图找到空闲的块，并分配，但仔细计算一下还是有问题的。&lt;/p>
+&lt;p>数据块的位图是放在磁盘块里的，假设是放在一个块里，一个块 4K，每位表示一个数据块，共可以表示 &lt;code>4 * 1024 * 8 = 2^15&lt;/code> 个空闲块，由于 1 个数据块是 4K 大小，那么最大可以表示的空间为 &lt;code>2^15 * 4 * 1024 = 2^27&lt;/code> 个 byte，也就是 128M。&lt;/p>
+&lt;p>也就是说按照上面的结构，如果采用「一个块的位图 + 一系列的块」，外加「一个块的 inode 的位图 + 一系列的 inode 的结构」能表示的最大空间也就 128M，这太少了，现在很多文件都比这个大。&lt;/p>
+&lt;p>在 Linux 文件系统，把这个结构称为一个&lt;strong>块组&lt;/strong>，那么有 N 多的块组，就能够表示 N 大的文件。&lt;/p>
+&lt;p>下图给出了 Linux Ext2 整个文件系统的结构和块组的内容，文件系统都由大量块组组成，在硬盘上相继排布：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167677099-7ffa20c4-57d9-4c49-9e02-24afef066cfb.png" alt="">
+最前面的第一个块是引导块，在系统启动时用于启用引导，接着后面就是一个一个连续的块组了，块组的内容如下：&lt;/p>
+&lt;ul>
+&lt;li>&lt;em>超级块&lt;/em>，包含的是文件系统的重要信息，比如 inode 总个数、块总个数、每个块组的 inode 个数、每个块组的块个数等等。&lt;/li>
+&lt;li>&lt;em>块组描述符&lt;/em>，包含文件系统中各个块组的状态，比如块组中空闲块和 inode 的数目等，每个块组都包含了文件系统中「所有块组的组描述符信息」。&lt;/li>
+&lt;li>&lt;em>数据位图和 inode 位图&lt;/em>， 用于表示对应的数据块或 inode 是空闲的，还是被使用中。&lt;/li>
+&lt;li>&lt;em>inode 列表&lt;/em>，包含了块组中所有的 inode，inode 用于保存文件系统中与各个文件和目录相关的所有元数据。&lt;/li>
+&lt;li>&lt;em>数据块&lt;/em>，包含文件的有用数据。&lt;/li>
+&lt;/ul>
+&lt;p>你可以会发现每个块组里有很多重复的信息，比如&lt;strong>超级块和块组描述符表，这两个都是全局信息，而且非常的重要&lt;/strong>，这么做是有两个原因：&lt;/p>
+&lt;ul>
+&lt;li>如果系统崩溃破坏了超级块或块组描述符，有关文件系统结构和内容的所有信息都会丢失。如果有冗余的副本，该信息是可能恢复的。&lt;/li>
+&lt;li>通过使文件和管理数据尽可能接近，减少了磁头寻道和旋转，这可以提高文件系统的性能。&lt;/li>
+&lt;/ul>
+&lt;p>不过，Ext2 的后续版本采用了稀疏技术。该做法是，超级块和块组描述符表不再存储到文件系统的每个块组中，而是只写入到块组 0、块组 1 和其他 ID 可以表示为 3、 5、7 的幂的块组中。&lt;/p></description></item><item><title>Docs: FHS(文件系统层次标准)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/fhs%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E5%B1%82%E6%AC%A1%E6%A0%87%E5%87%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/fhs%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E5%B1%82%E6%AC%A1%E6%A0%87%E5%87%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://refspecs.linuxfoundation.org/fhs.shtml">Linux 基金会参考标准,文件系统层次标准&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Filesystem_Hierarchy_Standard">Wiki,FHS&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Filesystem Hierarchy Standard(文件系统层次标准，简称 FHS)&lt;/strong> 为文件系统的每个区域指定指导原则，指定所需的最少文件和目录&lt;/p>
+&lt;p>该标准使：&lt;/p>
+&lt;ul>
+&lt;li>用于预测已安装文件和目录位置的软件，以及&lt;/li>
+&lt;li>用户预测已安装文件和目录的位置。&lt;/li>
+&lt;/ul>
+&lt;p>我们这样做：&lt;/p>
+&lt;ul>
+&lt;li>为文件系统的每个区域指定指导原则，&lt;/li>
+&lt;li>指定所需的最少文件和目录，&lt;/li>
+&lt;li>列举原则的例外情况，以及&lt;/li>
+&lt;li>列举发生历史冲突的具体案例。&lt;/li>
+&lt;/ul>
+&lt;p>FHS 文件用于：&lt;/p>
+&lt;ul>
+&lt;li>独立软件供应商创建符合 FHS 的应用程序，并与符合 FHS 的发行版合作，&lt;/li>
+&lt;li>操作系统创建者提供符合 FHS 的系统，以及&lt;/li>
+&lt;li>用户了解并维护系统的 FHS 合规性。&lt;/li>
+&lt;/ul>
+&lt;p>FHS 文件的范围有限：&lt;/p>
+&lt;ul>
+&lt;li>本地文件的本地放置是本地问题，因此 FHS 不会试图篡夺系统管理员。&lt;/li>
+&lt;li>FHS 解决了需要在多方（例如本地站点、发行版、应用程序、文档等）之间协调文件放置的问题。&lt;/li>
+&lt;/ul>
+&lt;h2 id="unix-目录结构的来历">Unix 目录结构的来历&lt;/h2>
+&lt;p>Unix（包含 Linux）的初学者，常常会很困惑，不明白目录结构的含义何在。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cbem3o/1616167692312-d409e171-1b36-486c-8ab8-369fb7496328.jpeg" alt="">
+举例来说，根目录下面有一个子目录 /bin，用于存放二进制程序。但是，/usr 子目录下面还有 /usr/bin，以及 /usr/local/bin，也用于存放二进制程序；某些系统甚至还有 /opt/bin。它们有何区别？&lt;/p>
+&lt;p>长久以来，我也感到很费解，不明白为什么这样设计。像大多数人一样，我只是根据《Unix 文件系统结构标准》（Filesystem Hierarchy Standard），死记硬背不同目录的区别。&lt;/p>
+&lt;p>昨天，我读到了 Rob Landley 的，这才恍然大悟，原来 Unix 目录结构是历史造成的。&lt;/p>
+&lt;p>话说 1969 年，Ken Thompson 和 Dennis Ritchie 在小型机 PDP-7 上发明了 Unix。1971 年，他们将主机升级到了 PDP-11。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cbem3o/1616167692315-3e0daae3-bc42-43c2-bdcc-daaf010e60a0.jpeg" alt="">
+当时，他们使用一种叫做 RK05 的储存盘，一盘的容量大约是 1.5MB。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cbem3o/1616167692330-7be3ddfe-c384-4e49-a7a7-6607e438f03d.jpeg" alt="">
+没过多久，操作系统（根目录）变得越来越大，一块盘已经装不下了。于是，他们加上了第二盘 RK05，并且规定第一块盘专门放系统程序，第二块盘专门放用户自己的程序，因此挂载的目录点取名为/usr。也就是说，根目录&amp;quot;/&amp;ldquo;挂载在第一块盘，&amp;quot;/usr&amp;quot;目录挂载在第二块盘。除此之外，两块盘的目录结构完全相同，第一块盘的目录（/bin, /sbin, /lib, /tmp&amp;hellip;）都在/usr 目录下重新出现一次。&lt;/p>
+&lt;p>后来，第二块盘也满了，他们只好又加了第三盘 RK05，挂载的目录点取名为/home，并且规定/usr 用于存放用户的程序，/home 用于存放用户的数据。&lt;/p>
+&lt;p>从此，这种目录结构就延续了下来。随着硬盘容量越来越大，各个目录的含义进一步得到明确。&lt;/p>
+&lt;h1 id="目录结构概览">目录结构概览&lt;/h1>
+&lt;h2 id="--第一层次结构的根整个文件系统层次结构的根目录">/ # 第一层次结构的根、整个文件系统层次结构的根目录。&lt;/h2>
+&lt;p>通常情况下，根文件系统所占空间一般应该比较小，因为其中的绝大部分文件都不需要经常改动，而且包括严格的文件和一个小的 不经常改变的文件系统不容易损坏。除了可能的一个叫/vmlinuz 标准的系统引导映像之外，根目录一般不含任何文 件。所有其他文件在根文件系统的子目录中。&lt;/p>
+&lt;h2 id="boot--内核-及-引导文件的目录">/boot # 内核 及 引导文件的目录&lt;/h2>
+&lt;p>包括内核和其它系统启动期间使用的文件。是启动 linux 时使用的核心文件。Linux kernel 常用的档名为：vmlinuz ，如果使用的是 grub 这个开机管理程式，则还会存在/boot/grub/这个目录。&lt;/p>
+&lt;p>/boot 目录存放引导加载器(bootstrap loader)使用的文件，如 lilo，核心映像也经常放在这里，而不是放在根目录中。但是如果有许多核心映像，这个目录就可能变得很大，这时使用单独的 文件系统会更好一些。还有一点要注意的是，要确保核心映像必须在 ide 硬盘的前 1024 柱面内&lt;/p>
+&lt;h2 id="dev--存放设备文件的目录">/dev # 存放设备文件的目录。&lt;/h2>
+&lt;p>这些包括终端设备、USB 或连接到系统的任何设备。例如：/dev/tty1、/dev/usbmon0&lt;/p>
+&lt;p>/dev 目录存放了设备文件，即设备驱动程序，用户通过这些文件访问外部设备。比如，用户可 以通过访问/dev/mouse 来访问鼠标的输入，就像访问其他文件一样。&lt;/p>
+&lt;ul>
+&lt;li>/dev/console：系统控制台，也就是直接和系统连接的监视器。&lt;/li>
+&lt;li>/dev/hd：ide 硬盘驱动程序接口。如：/dev/hda 指的是第一个硬 盘，had1 则是指/dev/hda 的第一个分区。如系统中有其他的硬盘，则依次为/dev/hdb、/dev/hdc、. . . . . .；如有多个分区则依次为 hda1、hda2 . . . . . .&lt;/li>
+&lt;li>/dev/sd：scsi 磁盘驱动程序接口。如系统有 scsi 硬盘，就不会访问/dev/had， 而会访问/dev/sda。&lt;/li>
+&lt;li>/dev/fd：软驱设备驱动程序。如：/dev/fd0 指 系统的第一个软盘，也就是通常所说的 a 盘，/dev/fd1 指第二个软盘，. . . . . .而/dev/fd1 h1440 则表示访问驱动器 1 中的 4.5 高密盘。&lt;/li>
+&lt;li>/dev/st：scsi 磁带驱动器驱动程序。&lt;/li>
+&lt;li>/dev/tty：提供虚拟控制台支持。如：/dev/tty1 指 的是系统的第一个虚拟控制台，/dev/tty2 则是系统的第二个虚拟控制台。&lt;/li>
+&lt;li>/dev/pty：提供远程登陆伪终端支持。在进行 telnet 登录时就要用到/dev/pty 设 备。&lt;/li>
+&lt;li>/dev/ttys：计算机串行接口，对于 dos 来说就是“com1”口。&lt;/li>
+&lt;li>/dev/cua：计算机串行接口，与调制解调器一起使用的设备。&lt;/li>
+&lt;li>/dev/null：“黑洞”，所有写入该设备的信息都将消失。例如：当想要将屏幕 上的输出信息隐藏起来时，只要将输出信息输入到/dev/null 中即可。&lt;/li>
+&lt;li>/dev/randow 与/dev/unrandom # 随机数生成器。random 仅从熵池返回随机数，随机数用尽，阻塞。urandom 从熵池返回随机数，随机数用尽会利用软件生成伪随机数，非阻塞。&lt;/li>
+&lt;/ul>
+&lt;h2 id="etc-存放配置文件">/etc 存放配置文件。&lt;/h2>
+&lt;p>包含所有程序所需的配置文件。也包含了用于启动/停止单个程序的启动和关闭 shell 脚本。&lt;/p>
+&lt;p>/etc 目录存放着各种系统配置文件，其中包括了用户信息文件 /etc/passwd， 系统初始化文件 /etc/rc 等。linux 正是靠这些文件才得以正常地运行。&lt;/p>
+&lt;ul>
+&lt;li>/etc/rc 或 /etc/rc.d 或 /etc/rc?.d # 启动、或改变运行级时运 行的脚本或脚本的目录。&lt;/li>
+&lt;li>/etc/passwd：用户数据库，其中的域给出了用户名、真实姓名、用户起始目 录、加密口令和用户的其他信息。&lt;/li>
+&lt;li>/etc/fstab：指定启动时需要自动安装的文件系统列表。也包括用 swapon -a 启用的 swap 区的信息。&lt;/li>
+&lt;li>/etc/group：类似/etc/passwd ，但说明的不是用户信息而是组的信息。包括组的各种数据。&lt;/li>
+&lt;li>/etc/issue：包括用户在登录提示符前的输出信息。通常包括系统的一段短说明 或欢迎信息。具体内容由系统管理员确定。&lt;/li>
+&lt;li>/etc/magic：“file”的配置文件。包含不同文件格式的说 明，“file”基于它猜测文件类型。&lt;/li>
+&lt;li>/etc/motd：motd 是 message of the day 的缩写，用户成功登录后自动输出。内容由系统管理员确定。常用于通告信息，如计划关机时间的警告等。&lt;/li>
+&lt;li>/etc/mtab：当前安装的文件系统列表。由脚本(scritp)初始化，并由 mount 命令自动更新。当需要一个当前安装的文件系统的列表时使用(例如 df 命令)。&lt;/li>
+&lt;li>/etc/login.defs：login 命令的配置文件。&lt;/li>
+&lt;li>/etc/printcap：类似/etc/termcap ，但针对打印机。语法不同。&lt;/li>
+&lt;li>/etc/profile 、/etc/csh.login、/etc/csh.cshrc：登 录或启动时 bourne 或 cshells 执行的文件。这允许系统管理员为所有用户建立全局缺省环境。&lt;/li>
+&lt;li>/etc/services # 该文件为 daemon 与端口号，所用协议的对应关系&lt;/li>
+&lt;li>/etc/securetty：确认安全终端，即哪个终端允许超级用户(root) 登录。一般只列出虚拟控制台，这样就不可能(至少很困难)通过调制解调器(modem)或网络闯入系统并得到超级用户特权。&lt;/li>
+&lt;li>/etc/shadow：在安装了影子(shadow)口令软件的系统上的影子口令 文件。影子口令文件将/etc/passwd 文件中的加密口令移动到/etc/shadow 中，而后者只对超级用户(root)可读。这使破译口令更困 难，以此增加系统的安全性。&lt;/li>
+&lt;li>/etc/shells：列出可以使用的 shell。chsh 命令允许用户在本文件指定范围内改变登录的 shell。提供一台机器 ftp 服务的服务进程 ftpd 检查用户 shell 是否列在 /etc/shells 文件 中，如果不是，将不允许该用户登录。&lt;/li>
+&lt;/ul>
+&lt;h2 id="home--系统预设的用户家目录">/home # 系统预设的用户家目录&lt;/h2>
+&lt;p>当新建用户没有指定家目录时默认家目录在“/home/用户名”下。例如：/home/john。&lt;/p>
+&lt;h2 id="media--可移动媒体设备用于挂载可移动设备的临时目录">/media # 可移动媒体设备。用于挂载可移动设备的临时目录&lt;/h2>
+&lt;h2 id="mnt--临时挂载目录">/mnt # 临时挂载目录。&lt;/h2>
+&lt;p>/mnt 目录是系统管理员临时安装(mount)文件系统的安装点。程序并不自动支持安装到 /mnt 。/mnt 下面可以分为许多子目录，例如 /mnt/dosa 可能是使用 msdos 文件系统的软驱，而 /mnt/exta 可能是使用 ext2 文件系统的软驱，/mnt/cdrom 光 驱等等。&lt;/p>
+&lt;h2 id="opt--给第三方软件安装存放的目录如-oraclehacs-通常安装在此目录下">/opt # 给第三方软件安装存放的目录，如 Oracle、Hacs 通常安装在此目录下。&lt;/h2>
+&lt;p>/opt 目录开始默认是空的。&lt;/p>
+&lt;h2 id="proc--包含系统进程的相关信息">/proc # 包含系统进程的相关信息。&lt;/h2>
+&lt;p>&lt;strong>process information pseudo-filesystem(进程信息伪文件系统，简称 proc)&lt;/strong>， 提供了内核数据结构的接口。默认被挂载到 /proc 目录上。一般情况是由操作系统自动挂载的，也可以通过&lt;code>mount -t proc proc /proc&lt;/code>命令手动挂载。proc 文件系统中的大多数文件都是只读的，但是有些文件是可写的，用于改变内核参数。&lt;/p>
+&lt;p>详见：&lt;a href="https://www.yuque.com/go/doc/33222789">proc 文件系统详解&lt;/a>&lt;/p>
+&lt;h2 id="root--系统管理员的家目录">/root # 系统管理员的家目录。&lt;/h2>
+&lt;h2 id="run--存放目录">/run # 存放目录&lt;/h2>
+&lt;p>&lt;strong>Run-time Variable Data(运行时变量数据，简称 Run)&lt;/strong>。/run 目录是一个 &lt;strong>tmpfs(临时文件系统)&lt;/strong>。该目录下的文件，在系统启动时会被清除，之后用来存放自系统启动以来正在运行的系统信息，例如 当前登录的用户 和 正在运行的程序 pid 等等。 详见 &lt;a href="https://www.yuque.com/go/doc/33222775">tmpfs 详解&lt;/a>&lt;/p>
+&lt;pre tabindex="0">&lt;code>[root@lichenhao ~]# df -h
+Filesystem Size Used Avail Use% Mounted on
+devtmpfs 1.9G 0 1.9G 0% /dev
+tmpfs 1.9G 0 1.9G 0% /dev/shm
+tmpfs 1.9G 8.5M 1.9G 1% /run
+tmpfs 1.9G 0 1.9G 0% /sys/fs/cgroup
+/dev/mapper/vg1-root 500G 5.3G 494G 2% /
+/dev/vda2 477M 198M 250M 45% /boot
+tmpfs 378M 0 378M 0% /run/user/0
+&lt;/code>&lt;/pre>&lt;h2 id="srv--存放服务数据的目录srv-代表服务包含服务器特定服务相关的数据">/srv # 存放服务数据的目录。srv 代表服务。包含服务器特定服务相关的数据。&lt;/h2>
+&lt;h2 id="sys--在该目录下查看内核空间中一些驱动和设备">/sys # 在该目录下查看内核空间中一些驱动和设备&lt;/h2>
+&lt;p>/sys/class/dmi # 物理设备信息，包括品牌、型号、序列号。&lt;/p>
+&lt;h2 id="tmp--创建临时文件的目录">/tmp # 创建临时文件的目录。&lt;/h2>
+&lt;p>/tmp 目录存放程序在运行时产生的信息和数据。但在引导启动后，运行的程序最好使用/var/tmp 来 代替/tmp，因为前者可能拥有一个更大的磁盘空间。&lt;/p>
+&lt;h2 id="usr--存放程序包含二进制文件库文件文档和二级程序的源代码">/usr # 存放程序。包含二进制文件、库文件、文档和二级程序的源代码。&lt;/h2>
+&lt;p>最庞大的目录，要用到的应用程序和文件几乎都在这个目录&lt;/p>
+&lt;p>usr 是哪个的缩写一般无法准确，就现在来看，unix share resource 这个解释更合理一点，在 linux 很早之前，确实把 usr 目录当作用户的家目录来看，只不过后来把把用户家目录移动到/home 下罢了，现在的 usr 目录是个很重要的目录，通常这一文件系统很大，因为所有程序安装在这里。/usr 里的所有文件一般来自 linux 发行版；本地安装的程序和其他东西在/usr/local 下，因为这样可以在升级新版系 统或新发行版时无须重新安装全部程序。/usr 目录下的许多内容是可选的，但这些功能会使用户使用系统更加有效。/usr 可容纳许多大型的软件包和它们的 配置文件&lt;/p>
+&lt;p>除了/usr/share 目录的内容外，/usr 文件系统中的文件和目录可由具有相同硬件体系结构的所有机器共享&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>/usr/bin&lt;/strong> 与 &lt;strong>/usr/sbin&lt;/strong> # 中包含用户程序的应用程序(二进制文件)。如果你在/bin 中找不到用户二进制文件，到/usr/bin 目录看看。例如：at、awk、cc、less、scp。集中了几乎所有用户命令，是系统的软件库。另有些命令在/bin 或/usr/local/bin 中。sbin 中包含系统管理员的管理程序(二进制文件)。如果你在/sbin 中找不到系统二进制文件，到/usr/sbin 目录看看。例如：atd、cron、sshd、useradd、userdel。包括了根文件系统不必要的系统管理命令，例如多数服务程序。&lt;/li>
+&lt;li>/usr/include # 包含了 c 语言的头文件，这些文件多以.h 结尾，用来描述 c 语言程序中用到的数据结构、子过程和常量。为了保持一致性，这实际上应该放在/usr/lib 下，但习惯上一直沿用了这 个名字。&lt;/li>
+&lt;li>**/usr/lib **与 &lt;strong>/usr/lib64&lt;/strong> # 常用的动态链接库和软件包的配置文件。包含了程序或子系统的不变的数据文件，包括一些 site – wide 配置文件。名字 lib 来源于库(library); 编程的原始库也存在/usr/lib 里。当编译程序时，程序便会和其中的库进行连接。也有许多程序把配置文件存入其中。包含支持位于/bin 和/sbin 下的二进制文件的库文件，库文件名为 ld&lt;em>或 lib&lt;/em>.so.*。
+&lt;ul>
+&lt;li>&lt;strong>/lib/modules&lt;/strong> 目录包含系统核心可加载各种模块，尤其是那些在恢复损坏的系统时重 新引导系统所需的模块(例如网络和文件系统驱动)。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>/usr/local&lt;/strong> # 本地安装的软件和其他文件放在这里。这与/usr 很相似。用户 可能会在这发现一些比较大的软件包，如 tex、emacs 等。
+&lt;ul>
+&lt;li>&lt;strong>/usr/local/bin&lt;/strong>：本地增加的命令。&lt;/li>
+&lt;li>&lt;strong>/usr/local/lib&lt;/strong>：本地增加的库根文件系统。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>/usr/share&lt;/strong> # 包含于体系结构无关的可共享的文本文件。无论硬件体系结(x86、小型机等)构如何，此目录的内容都可由所有机器共享。
+&lt;ul>
+&lt;li>&lt;strong>./man、./info、./doc&lt;/strong> # 这些目录包含所有 man 命令手册页、 gnu 信息文档和各种其他文档文件。每个联机手册的“节”都有两个子目录。例如：./man/man1 中包含联机手册第一节的源码(没有格式化的原 始文件)，./man/cat1 包含第一节已格式化的内容。联机手册分为以下九节：内部命令、系统调用、库函数、设备、文件格式、游戏、宏软件包、 系统管理和核心程序。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>/usr/src&lt;/strong>：源代码，linux 内核的源代码就放在/usr/src/linux 里。&lt;/li>
+&lt;li>&lt;strong>/usr/x11r6&lt;/strong>：存放 x window 的目录。包含 x window 系统的所有可执行程序、配置文件和支持文件。为简化 x 的开发和安装，x 的文件没有集成到系统中。x window 系统是一个功能强大的图形环境，提供了大量的图形工具程序。用户如果对 microsoft windows 比较熟悉的话，就不会对 x window 系统感到束手无策了&lt;/li>
+&lt;li>&lt;strong>/usr/x386&lt;/strong>：类似/usr/x11r6 ，但是是专门给 x 11 release 5 的。&lt;/li>
+&lt;/ul>
+&lt;h2 id="var-存放变量文件的目录这个目录下的文件是可能增长的">/var 存放变量文件的目录。这个目录下的文件是可能增长的。&lt;/h2>
+&lt;p>包括系统日志文件（/var/log）、包和数据库文件（/var/lib）、电子邮件（/var/mail）、打印队列（/var/spool）等等。&lt;/p>
+&lt;p>/var 包含系统一般运行时要改变的数据。通常这些数据所在的目录的大小是要经常变化或扩充 的。原来/var 目录中有些内容是在/usr 中的，但为了保持/usr 目录的相对稳定，就把那些需要经常改变的目录放到/var 中了。每个系统是特定的， 即不通过网络与其他计算机共享。下面列出一些重要的目录(一些不太重要的目录省略了)。&lt;/p>
+&lt;ul>
+&lt;li>/var/catman：包括了格式化过的帮助(man)页。帮助页的源文件一般存在 /usr/man/catman 中；有些 man 页可能有预格式化的版本，存在/usr/man/cat 中。而其他的 man 页在第一次看时都需要格式化，格 式化完的版本存在/var/man 中，这样其他人再看相同的页时就无须等待格式化了。(/var/catman 经常被 清除，就像清除临时目录一样。)&lt;/li>
+&lt;li>/var/lib：存放系统正常运行时要改变的文件。&lt;/li>
+&lt;li>/var/local：存放/usr/local 中 安装的程序的可变数据(即系统管理员安装的程序)。注意，如果必要，即使本地安装的程序也会使用其他/var 目录，例如/var/lock 。&lt;/li>
+&lt;li>/var/lock：锁定文件。许多程序遵循在/var/lock 中 产生一个锁定文件的约定，以用来支持他们正在使用某个特定的设备或文件。其他程序注意到这个锁定文件时，就不会再使用这个设备或文件。&lt;/li>
+&lt;li>&lt;strong>/var/log/&lt;/strong> # 各种程序的日志(log)文件，尤其是 login (/var/log/wtmplog 纪 录所有到系统的登录和注销) 和 syslog (/var/log/messages 纪录存储所有核心和系统程序信息)。/var/log 里的文件经常不确定地增长，应该定期清除。&lt;/li>
+&lt;li>**/var/run/ **# 是 /run 目录的软链接&lt;/li>
+&lt;li>/var/spool：放置“假脱机(spool)”程序的目录，如 mail、 news、打印队列和其他队列工作的目录。每个不同的 spool 在/var/spool 下有自己的子目录，例如，用户的邮箱就存放在/var/spool/mail 中。&lt;/li>
+&lt;li>/var/tmp：比/tmp 允许更大的或需要存在较长时间的临时文件。注意系统管理 员可能不允许/var/tmp 有很旧的文件。&lt;/li>
+&lt;/ul></description></item><item><title>Docs: I_O Multiplexing(输入_输出多路复用)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/i_o-multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/i_o-multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</guid><description/></item><item><title>Docs: I/O Multiplexing(输入/输出多路复用)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/i_o-multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/i_o-multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/tXEfsLqdePjcPS6FKa-qzg">原文链接&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.zhihu.com/question/28594409">知乎问答&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>这是高性能、高并发系列的第三篇，承接上文&lt;a href="https://mp.weixin.qq.com/s/maTzszO4Y2dyxgm7g2YdXw">《读取文件时程序经历了什么》&lt;/a>&lt;/p>
+&lt;h1 id="背景">背景&lt;/h1>
+&lt;h2 id="文件描述符太多了怎么办">文件描述符太多了怎么办&lt;/h2>
+&lt;p>经过了这么多的铺垫，终于到高性能、高并发这一主题了。&lt;/p>
+&lt;p>从前几节我们知道，所有 I/O 操作都可以通过文件样的概念来进行，这当然包括网络通信。&lt;/p>
+&lt;p>如果你是一个 web 服务器，当三次握手成功以后，我们通过调用 accept 同样会得到一个文件描述符，只不过这个文件描述符是用来进行网络通信的，通过读写该文件描述符你就可以同客户端通信。在这里为了概念上好理解，我们称之为链接描述符，通过这个描述符我们就可以读写客户端的数据了。&lt;/p>
+&lt;pre>&lt;code>int conn_fd = accept(...);
+&lt;/code>&lt;/pre>
+&lt;p>server 的处理逻辑通常是读取客户端请求数据，然后执行某些特定逻辑：&lt;/p>
+&lt;pre>&lt;code>if(read(conn_fd, request_buff) &amp;gt; 0) {
+do_something(request_buff);
+}
+&lt;/code>&lt;/pre>
+&lt;p>是不是非常简单，然而世界终归是复杂的，也不是这么简单的。&lt;/p>
+&lt;p>接下来就是比较复杂的了。&lt;/p>
+&lt;p>既然我们的主题是高并发，那么 server 端就不可能只和一个客户端通信，而是成千上万个客户端。这时你需要处理不再是一个描述符这么简单，而是有可能要处理成千上万个描述符。&lt;/p>
+&lt;p>为了不让问题一上来就过于复杂，我们先简单化，假设只同时处理两个客户端的请求。&lt;/p>
+&lt;p>有的同学可能会说，这还不简单，这样写不就行了：&lt;/p>
+&lt;pre>&lt;code>if(read(socket_fd1, buff) &amp;gt; 0) { // 处理第一个
+do_something();
+}
+if(read(socket_fd2, buff) &amp;gt; 0) {
+do_something();
+&lt;/code>&lt;/pre>
+&lt;p>在本篇第二节中我们讨论过这是非常典型的阻塞式 I/O，如果读取第一个请求进程被阻塞而暂停运行，那么这时我们就无法处理第二个请求了，即使第二个请求的数据已经就位，这也就意味着所有其它客户端必须等待，而且通常情况下也不会只有两个客户端而是成千上万个，上万个连接也要这样串行处理吗。&lt;/p>
+&lt;p>聪明的你一定会想到使用多线程，为每个请求开启一个线程，这样一个线程被阻塞不会影响到其它线程了，注意，既然是高并发，那么我们要为成千上万个请求开启成千上万个线程吗，大量创建销毁线程会严重影响系统性能。&lt;/p>
+&lt;p>那么这个问题该怎么解决呢？&lt;/p>
+&lt;p>&lt;strong>这里的关键点在于在进行 I/O 时，我们并不知道该文件描述对应的 I/O 设备是否是可读的、是否是可写的&lt;/strong>，在外设的不可读或不可写的状态下进行 I/O 只会导致进程阻塞被暂停运行。&lt;/p>
+&lt;p>因此要优雅的解决这个问题，就要从其它角度来思考这个问题了。&lt;/p>
+&lt;h3 id="不要打电话给我有需要我会打给你">不要打电话给我，有需要我会打给你&lt;/h3>
+&lt;p>大家生活中肯定会接到过推销电话，而且不止一个，一天下来接上十个八个推销电话你的身体会被掏空的。&lt;/p>
+&lt;p>这个场景的关键点在于打电话的人并不知道你是不是要买东西，只能来一遍遍问你，因此一种更好的策略是不要让他们打电话给你，记下他们的电话，有需要的话打给他们。&lt;/p>
+&lt;p>也就是&lt;strong>不要打电话给我，有需要我会打给你&lt;/strong>。&lt;/p>
+&lt;p>在这个例子中，你，就好比内核，推销者就好比应用程序，电话号码就好比文件描述符，和你用电话沟通就好比 I/O。&lt;/p>
+&lt;p>现在你应该明白了吧，处理多个文件描述符的更好方法其实就存在于推销电话中。&lt;/p>
+&lt;p>因此相比上一节中我们主动通过 I/O 接口&lt;strong>主动&lt;/strong>问内核这些文件描述符对应的外设是不是已经就绪了，一种更好的方法是，我们把这些内核一股脑扔给内核，并霸气的告诉内核：“&lt;strong>我这里有 1 万个文件描述符，你替我监视着它们，有可以读写的文件描述符时你就告诉我，我好处理&lt;/strong>”。而不是弱弱的问内核：“第一个文件描述可以读写了吗？第二个文件描述符可以读写吗？第三个文件描述符可以读写了吗？”&lt;/p>
+&lt;p>这样应用程序就从“繁忙”的&lt;strong>主动&lt;/strong>变为清闲的&lt;strong>被动&lt;/strong>了，反正哪些设备 ok 了内核会通知我， 能偷懒我才不要那么勤奋。&lt;/p>
+&lt;p>这是一种不同的处理 I/O 的机制，同样需要起一个名字，再次祭出“弄不懂原则”，就叫 I/O 多路复用吧，这就是 I/O multiplexing。&lt;/p>
+&lt;h1 id="io-多路复用io-multiplexing">I/O 多路复用，I/O multiplexing&lt;/h1>
+&lt;p>multiplexing 一词其实多用于通信领域，为了充分利用通信线路，希望在一个信道中传输多路信号，要想在一个信道中传输多路信号就需要把这多路信号结合为一路，将多路信号组合成一个信号的设备被称为 multiplexer，显然接收方接收到这一路组合后的信号后要恢复原先的多路信号，这个设备被称为 demultiplexer，如图所示：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/blqckm/1616167656134-de0aac96-7af9-404c-9aab-534046313177.jpeg" alt="">&lt;/p>
+&lt;p>回到我们的主题。&lt;/p>
+&lt;p>所谓 I/O 多路复用指的是这样一个过程：&lt;/p>
+&lt;ol>
+&lt;li>我们拿到了一堆文件描述符(不管是网络相关的、还是磁盘文件相关等等，任何文件描述符都可以)&lt;/li>
+&lt;li>通过调用&lt;strong>某个函数&lt;/strong>告诉内核：“&lt;strong>这个函数你先不要返回，你替我监视着这些描述符，当这堆文件描述符中有可以进行 I/O 读写操作的时候你再返回&lt;/strong>”&lt;/li>
+&lt;li>当调用的这个函数返回后我们就能知道哪些文件描述符可以进行 I/O 操作了。&lt;/li>
+&lt;/ol>
+&lt;p>那么有哪些函数可以用来进行 I/O 多路复用呢？&lt;/p>
+&lt;p>在 Linux 世界中有这样三种机制可以用来进行 I/O 多路复用：&lt;/p>
+&lt;ul>
+&lt;li>select&lt;/li>
+&lt;li>poll&lt;/li>
+&lt;li>epoll&lt;/li>
+&lt;/ul>
+&lt;p>接下来我们就简单介绍一下牛掰的 I/O 多路复用 三剑客。本质上 select、poll、epoll 都是阻塞式 I/O，也就是我们常说的同步 I/O。&lt;/p>
+&lt;h2 id="select初出茅庐">select：初出茅庐&lt;/h2>
+&lt;p>在 select 这种 I/O 多路复用机制下，我们需要把想监控的文件描述集合通过函数参数的形式告诉 select，然后 select 会将这些文件描述符集合&lt;strong>拷贝&lt;/strong>到内核中，我们知道数据拷贝是有性能损耗的，因此为了减少这种数据拷贝带来的性能损耗，Linux 内核对集合的大小做了限制，并规定用户监控的文件描述集合不能超过 1024 个，同时当 select 返回后我们仅仅能知道有些文件描述符可以读写了，但是我们不知道是哪一个，因此程序员必须再遍历一边找到具体是哪个文件描述符可以读写了。&lt;/p>
+&lt;p>因此，总结下来 select 有这样几个特点：&lt;/p>
+&lt;ul>
+&lt;li>我能照看的文件描述符数量有限，不能超过 1024 个&lt;/li>
+&lt;li>用户给我的文件描述符需要拷贝的内核中&lt;/li>
+&lt;li>我只能告诉你有文件描述符满足要求了，但是我不知道是哪个，你自己一个一个去找吧(遍历)&lt;/li>
+&lt;/ul>
+&lt;p>因此我们可以看到，select 机制的特性在高性能网络服务器动辄几万几十万并发链接的场景下无疑是低效的。&lt;/p>
+&lt;h2 id="poll小有所成">poll：小有所成&lt;/h2>
+&lt;p>poll 和 select 是非常相似的，poll 相对于 select 的优化仅仅在于解决了文件描述符不能超过 1024 个的限制，select 和 poll 都会随着监控的文件描述增加而出现性能下降，因此不适合高并发场景。&lt;/p>
+&lt;h2 id="epoll独步天下">epoll：独步天下&lt;/h2>
+&lt;p>在 select 面临的三个问题中，文件描述数量限制已经在 poll 中解决了，剩下的两个问题呢？&lt;/p>
+&lt;p>针对第一个 epoll 使用的策略是&lt;strong>各个击破&lt;/strong>与&lt;strong>共享内存&lt;/strong>。&lt;/p>
+&lt;p>实际上文件描述符集合变化的频率比较低，select 和 poll 频繁的拷贝整个集合，内核都快要烦死了，epoll 通过引入 epoll_ctl 很体贴的做到了只操作那些有变化的文件描述符，同时 epoll 和内核还成为了好朋友，共享了同一块内存，这块内存中保存的就是那些已经可读或者可写的的文件描述符集合，这样就减少了内核和程序的内存拷贝开销。&lt;/p>
+&lt;p>针对第二点，epoll 使用的策略是“当小弟”。&lt;/p>
+&lt;p>在 select 和 poll 机制下，进程要亲自下场去各个文件描述符上等待，任何一个文件描述可读或者可写就唤醒进程，但是进程被唤醒后也是一脸懵逼并不知道到底是哪个文件描述符可读或可写，还要再从头到尾检查一遍。&lt;/p>
+&lt;p>但 epoll 就懂事多了，主动找到进程要当小弟替大哥出头。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/blqckm/1616167656131-12fb40de-2e45-48ff-8ff4-fa29ffe99d1e.jpeg" alt="">&lt;/p>
+&lt;p>在这种机制下，进程不需要亲自下场了，进程只要等待在 epoll 上，epoll 代替进程去各个文件描述符上等待，当哪个文件描述符可读或者可写的时候就告诉 epoll，epoll 用小本本认真记录下来然后唤醒大哥：“进程大哥，快醒醒，你要处理的文件描述符我都记下来了”，这样进程被唤醒后就无需自己从头到尾检查一遍，因为 epoll 都已经记下来了。&lt;/p>
+&lt;p>因此我们可以看到，在这种机制下，实际上利用的就是“不要打电话给我，有需要我会打给你”，这就不需要一遍一遍像孙子一样问各个文件描述符了，而是翻身做主人当大爷了，“你们那个文件描述符可读或者可写了主动报上来”，这中机制实际上就是大名鼎鼎的事件驱动，event-driven，这也是我们下一篇的主题。&lt;/p>
+&lt;p>实际上在 Linux 平台，&lt;strong>epoll 基本上就是高并发的代名词&lt;/strong>。&lt;/p>
+&lt;p>限于篇幅，关于 epoll 的详细使用方法就不在这里讲解了。&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>基于一切皆文件的设计哲学，I/O 也可以通过文件的形式实现，显然高并发要与多个文件交互，这就离不开高效的 I/O 多路复用技术，本文我们详细讲解了什么是 I/O 多路复用以及使用方法，这其中以 epoll 为代表的 I/O 多路复用(基于事件驱动)技术使用非常广泛，实际上你会发现但凡涉及到高并发、高性能都能见到事件驱动的编程方法，这也是下一篇的主题。&lt;/p></description></item><item><title>Docs: Mount(挂载)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/mount%E6%8C%82%E8%BD%BD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/mount%E6%8C%82%E8%BD%BD/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考： - &lt;a href="https://man7.org/linux/man-pages/man5/fstab.5.html">Manual(手册),fstab(5)&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/mount.8.html">Manual(手册),mount(8)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>注意：
+mount 命令无法列出 bind 类型的挂载(比如 Docker 和 Containerd 的 bind 类型挂载，不知道如何列出)。&lt;/p>
+&lt;p>不过 findmnt 命令可以列出使用 &lt;code>mount --bind XX XX&lt;/code> 挂载的目录，效果如下&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># findmnt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>TARGET SOURCE FSTYPE OPTIONS
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/ /dev/vda3 ext4 rw,relatime
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└─/mnt/cdrom /dev/vda3&lt;span style="color:#f92672">[&lt;/span>/root/downloads/webvirtcloud&lt;span style="color:#f92672">]&lt;/span> ext4 rw,relatime
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="挂载配置">挂载配置&lt;/h1>
+&lt;p>/etc/fstab # 包含各种 file systems 的描述性信息。系统启动时，根据该文件配置挂载分区到指定路径。
+/etc/mtab # 是一个软连接，连接到 /proc/self/mounts
+XXX.mount # 以 .mount 为后缀的 unit 文件，是由 systemd 管理的文件系统描述信息。systemd 将根据这些 unit 文件，将指定的文件系统挂载到系统中。&lt;/p>
+&lt;h2 id="fstab-文件详解">fstab 文件详解&lt;/h2>
+&lt;p>**File System Table(文件系统表，简称 fstab)**是一个关于文件系统的静态信息文件。默认路径为 &lt;strong>/etc/fstab&lt;/strong>&lt;/p>
+&lt;p>fstab 包含操作系统中可以挂载的文件系统的描述性信息。每个描述信息占用单独一行，每行的各个字段由制表符或空格分隔。fsck、mount、umount 命令在执行某些操作时将会顺序读取该文件的每一行。&lt;/p>
+&lt;p>下面是一个 fstab 文件中关于文件系统描述的典型示例(一共具有 6 各字段)：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>LABEL&lt;span style="color:#f92672">=&lt;/span>t-home2 /home ext4 defaults,auto_da_alloc &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">2&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>下面各字段的名称中 fs 就是 file system 的简称。&lt;/p>
+&lt;h3 id="第一字段fs_spec--要挂载的分区或存储设备">第一字段(fs_spec) # 要挂载的分区或存储设备&lt;/h3>
+&lt;p>该字段用于指定该文件系统所用存储设备是什么，可以是块设备、远程文件系统、文件系统镜像、交换分区 等等。&lt;/p>
+&lt;p>对于普通的挂载，它将为要挂载的设备保存（链接到）块专用设备节点（由 mknod（2）创建），例如“ /dev/cdrom”或“ /dev/sdb7”。 对于 NFS 挂载，此字段为：，例如`knuth.aeb.nl:/&amp;rsquo;。 对于没有存储空间的文件系统，可以使用任何字符串，例如，这些字符串将显示在 df（1）输出中。 procfs 的典型用法是“ proc”； tmpfs 的“ mem”，“ none”或“ tmpfs”。 其他特殊文件系统（例如 udev 和 sysfs）通常不在 fstab 中列出。&lt;/p>
+&lt;p>可以给出 LABEL = &amp;lt;标签&amp;gt;或 UUID = 代替设备名称。这是推荐的方法，因为设备名称通常是硬件检测顺序的重合，并且在添加或删除其他磁盘时可能会更改。例如，“ LABEL = Boot”或“ UUID = 3e6be9de-8139-11d1-9106-a43f08d823a6”。 （使用特定于文件系统的工具，例如 e2label（8），xfs_admin（8）或 fatlabel（8）在文件系统上设置 LABEL）。&lt;/p>
+&lt;h3 id="第二字段fs_file--挂载的位置">第二字段(fs_file) # 挂载的位置&lt;/h3>
+&lt;p>该字段描述文件系统的挂载点（目标）。 使用 绝对路径 来描述一个挂载点.&lt;/p>
+&lt;h3 id="第三字段fs_vfstype--文件系统的类型">第三字段(fs_vfstype) # 文件系统的类型&lt;/h3>
+&lt;p>要挂载设备或是分区的文件系统类型，支持许多种不同的文件系统：ext2, ext3, ext4, reiserfs, xfs, jfs, smbfs, iso9660, vfat, ntfs, swap 及 auto。 设置成 auto 类型，mount 命令会猜测使用的文件系统类型，对 CDROM 和 DVD 等移动设备是非常有用的。&lt;/p>
+&lt;h3 id="第四字段fs_mntopts--与文件系统关联的挂载选项">第四字段(fs_mntopts) # 与文件系统关联的挂载选项&lt;/h3>
+&lt;p>详见下文 mount 命令中关于挂载选项的详解 &lt;a href="#PfMRm">https://www.yuque.com/desistdaydream/learning/hla4gc#PfMRm&lt;/a>&lt;/p>
+&lt;h3 id="第五字段fs_freq--确定需要转储哪些文件系统">第五字段(fs_freq) # 确定需要转储哪些文件系统&lt;/h3>
+&lt;p>dump 工具通过该字段的值决定何时作备份。 允许的数字是 0 和 1 。&lt;/p>
+&lt;ul>
+&lt;li>0 #(默认值)表示忽略&lt;/li>
+&lt;li>1 #表示进行备份。&lt;/li>
+&lt;/ul>
+&lt;p>大部分的用户是没有安装 dump 的 ，对这些用户而言该字段值应设为 0。&lt;/p>
+&lt;h3 id="第六字段fs_passno--确定引导时执行文件系统检查的顺序">第六字段：fs_passno # 确定引导时执行文件系统检查的顺序。&lt;/h3>
+&lt;p>fsck 工具读取该字段的值来决定需要检查的文件系统的检查顺序。允许的数字是 0, 1, 和 2。&lt;/p>
+&lt;ul>
+&lt;li>0 # 表示设备不会被 fsck 所检查&lt;/li>
+&lt;li>1 # 根目录应当获得最高的优先权 1,&lt;/li>
+&lt;li>2 # 其它所有需要被检查的设备设置为 2.&lt;/li>
+&lt;/ul>
+&lt;h1 id="mountumount--文件系统挂载卸载工具">mount/umount # 文件系统挂载/卸载工具&lt;/h1>
+&lt;blockquote>
+&lt;p>参考： - &lt;a href="https://man7.org/linux/man-pages/man8/mount.8.html">Manual(手册)，mount(8)&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="syntax语法">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>mount [-l] [-t fstype]&lt;/strong>
+&lt;strong>mount -a [-fFnrsvw] [-t fstype] [-O optlist]&lt;/strong>
+&lt;strong>mount [-fnrsvw] [-o options] &amp;lt;DEVICE | MountPoint&amp;gt;&lt;/strong> # 从 /etc/fstab 文件读取 Device 或 MountPoint 的信息后执行对应的挂载操作
+**mount [-fnrsvw] [-t fstype] [-o options] DEVICE MountPoint **# 将 DEVICE 设备挂载到 MountPoint 上&lt;/p>
+&lt;ul>
+&lt;li>MountPoint 通常是一个绝对路径，/PATH/DIR，即将 DEVICE 设备挂载在 PATH 路径下的 DIR 目录上&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>mount &amp;ndash;bind|&amp;ndash;rbind|&amp;ndash;move &lt;!-- raw HTML omitted --> &lt;!-- raw HTML omitted -->&lt;/strong> # 执行 bind 挂载，将 OldDIR 目录挂载到 NewDIR 目录上
+&lt;strong>mount &amp;ndash;make-[shared|slave|private|unbindable|rshared|rslave|rprivate|runbindable] MountPoint&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-o, &amp;ndash;options &lt;!-- raw HTML omitted -->&lt;/strong> # 使用指定选项挂载，OPTS 是一个逗号分割的列表，可以从下面的 &lt;a href="#PTV0x">Mount OPTIONS&lt;/a> 中查看所有可用的选项。&lt;/li>
+&lt;li>**-r, &amp;ndash;read-only **# 以只读方式挂载。可以被 &lt;code>-o ro&lt;/code> 选项替代&lt;/li>
+&lt;li>&lt;strong>-t &lt;!-- raw HTML omitted -->&lt;/strong> # 指明文件系统的类型。当前内核支持的文件系统类型可以从 /proc/filesystems 或 /lib/modules/$(uname -r)/kernel/fs 文件中获取&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;bind|&amp;ndash;rbind|&amp;ndash;move&lt;/strong> # 进行 bind 模式挂载&lt;/li>
+&lt;/ul>
+&lt;h3 id="mount-options挂载选项">Mount OPTIONS(挂载选项)&lt;/h3>
+&lt;p>挂载选项分为两类：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/mount.8.html#FILESYSTEM-INDEPENDENT_MOUNT_OPTIONS">FileSystem-Independent Mount Options(适用于所有文件系统的选项)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/mount.8.html#FILESYSTEM-SPECIFIC_MOUNT_OPTIONS">FileSystem-Specific Mount Options(只适用于特定文件系统的选项)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>async # I/O 异步进行。
+auto # 在启动时或键入了 mount -a 命令时自动挂载。
+defaults # 使用文件系统的默认挂载参数，例如 ext4 的默认参数为:rw, suid, dev, exec, auto, nouser, async.
+dev - 解析文件系统上的块特殊设备。
+exec #允许执行此分区的二进制文件。
+flush - vfat 的选项，更频繁的刷新数据，复制对话框或进度条在全部数据都写入后才消失。
+&lt;strong>noatime&lt;/strong> # 不更新文件系统上 inode 访问记录。&lt;strong>可以提升性能&lt;/strong>。
+noauto #只在你的命令下被挂载。
+nodev - 不解析文件系统上的块特殊设备。
+nodiratime - 不更新文件系统上的目录 inode 访问记录，可以提升性能(参见 atime 参数)。
+noexec # 不允许执行此文件系统上的二进制文件。
+nosuid - 禁止 suid 操作和设定 sgid 位。
+nouser - 只能被 root 挂载。
+owner - 允许设备所有者挂载.
+&lt;strong>relatime&lt;/strong> # 实时更新 inode access 记录。只有在记录中的访问时间早于当前访问才会被更新。（与 - noatime 相似，但不会打断如 mutt 或其它程序探测文件在上次访问后是否被修改的进程。），可以提升性能(参见 atime 参数)。
+&lt;strong>ro&lt;/strong> # 以只读模式挂载文件系统
+&lt;strong>rw&lt;/strong> # 以读写模式挂载文件系统
+suid - 允许 suid 操作和设定 sgid 位。这一参数通常用于一些特殊任务，使一般用户运行程序时临时提升权限。
+&lt;strong>sync&lt;/strong> # I/O 同步进行。
+user - 允许任意用户挂载此文件系统，若无显示定义，隐含启用 noexec, nosuid, nodev 参数。
+users - 允许所有 users 组中的用户挂载文件系统.&lt;/p>
+&lt;h2 id="example">EXAMPLE&lt;/h2>
+&lt;ul>
+&lt;li>mount -a #会将 /etc/fstab 中定义的所有挂载点都挂上(一般是在系统启动时的脚本中调用，自己最好别用！)。&lt;/li>
+&lt;li>mount /dev/sdb1 /mnt #/把/dev/sdb1 分区挂载到/mnt 目录&lt;/li>
+&lt;li>mount &amp;ndash;bind /root/tmp_one /root/tmp_two # 将 /root/tmp_one 目录挂载到 /root/tmp_two 目录下。&lt;/li>
+&lt;/ul>
+&lt;p>mount [-t ] #查看当前系统下的挂载信息[查看指定的类型]
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/hla4gc/1616167790128-b08b713d-147f-4c61-8289-47133e8124cf.jpeg" alt="">
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/hla4gc/1616167790134-5f30f99c-3a70-44b7-b9c4-6c1cc3f9429f.jpeg" alt="">
+各段落含义与 fstab 文件相同&lt;/p>
+&lt;h1 id="systemd-管理-mount">systemd 管理 mount&lt;/h1>
+&lt;p>详见 [mount Unit](/docs/IT学习笔记/1.操作系统/3.Systemd%20 系统守护程序/Unit%20File/mount%20Unit.md 系统守护程序/Unit File/mount Unit.md)
+&lt;a href="https://wiki.archlinux.org/index.php/Fstab_(%25E7%25AE%2580%25E4%25BD%2593%25E4%25B8%25AD%25E6%2596%2587)">
+&lt;/a>&lt;/p></description></item><item><title>Docs: 读取文件时，程序经历了什么？</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E8%AF%BB%E5%8F%96%E6%96%87%E4%BB%B6%E6%97%B6%E7%A8%8B%E5%BA%8F%E7%BB%8F%E5%8E%86%E4%BA%86%E4%BB%80%E4%B9%88/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E8%AF%BB%E5%8F%96%E6%96%87%E4%BB%B6%E6%97%B6%E7%A8%8B%E5%BA%8F%E7%BB%8F%E5%8E%86%E4%BA%86%E4%BB%80%E4%B9%88/</guid><description>
+&lt;p>&lt;a href="https://mp.weixin.qq.com/s?__biz=Mzg4OTYzODM4Mw==&amp;amp;mid=2247485706&amp;amp;idx=1&amp;amp;sn=bc5d6e4bf9ee5dccef520e5b2051d943&amp;amp;source=41#wechat_redirect">https://mp.weixin.qq.com/s?__biz=Mzg4OTYzODM4Mw==&amp;amp;mid=2247485706&amp;amp;idx=1&amp;amp;sn=bc5d6e4bf9ee5dccef520e5b2051d943&amp;amp;source=41#wechat_redirect&lt;/a>&lt;/p>
+&lt;p>承接上文《看完这篇还不懂高并发中的线程与线程池你来打我》，这是高性能、高并发系列的第二篇文章，在这里我们来到了 I/O 这一话题。&lt;/p>
+&lt;p>码农的荒岛求生：图解 | 看完这篇还不懂高并发中的线程与线程池你来打我 zhuanlan.zhihu.com&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/funqnh/1616167569949-61c844f7-bb43-4068-899f-7ca8a0631e14.jpeg" alt="">&lt;/p>
+&lt;p>你有没有想过当我们执行 I/O 操作时计算机底层都发生了些什么？&lt;/p>
+&lt;p>在回答这个问题之前，我们先来看下为什么对于计算机来说 I/O 是极其重要的。&lt;/p>
+&lt;h2 id="不能执行-io-的计算机是什么">&lt;strong>不能执行 I/O 的计算机是什么？&lt;/strong>&lt;/h2>
+&lt;p>相信对于程序员来说 I/O 操作是最为熟悉不过的了：&lt;/p>
+&lt;p>当我们使用 C 语言中的 printf、C++中的&amp;quot;&amp;laquo;&amp;quot;，Python 中的 print，Java 中的 System.out.println 等时，这是 I/O；当我们使用各种语言读写文件时，这也是 I/O；当我们通过 TCP/IP 进行网络通信时，这同样是 I/O;当我们使用鼠标龙飞凤舞时，当我们扛起键盘在评论区里指点江山亦或是埋头苦干努力制造 bug 时、当我们能看到屏幕上的漂亮的图形界面时等等，这一切都是 I/O。&lt;/p>
+&lt;p>想一想，如果没有 I/O 计算机该是一种多么枯燥的设备，不能看电影、不能玩游戏，也不能上网，这样的计算机最多就是一个大号的计算器。&lt;/p>
+&lt;p>既然 I/O 这么重要，那么到底什么才是 I/O 呢？&lt;/p>
+&lt;h2 id="什么是-io">&lt;strong>什么是 I/O&lt;/strong>&lt;/h2>
+&lt;p>I/O 就是简单的&lt;strong>数据 Copy&lt;/strong>，仅此而已。&lt;/p>
+&lt;p>这一点很重要，为了加深大家的印象，来，Everybody，Follow me，那边树上的朋友，还有那边墙上的朋友们，举起你们的双手，跟我唱，苍茫的天涯是。。。Sorry，I/O 仅仅就是数据 copy、I/O 仅仅就是数据 copy。&lt;/p>
+&lt;p>让我们先把演唱会的事情放在一边，既然是 copy 数据，又是从哪里 copy 到哪里呢？&lt;/p>
+&lt;p>如果数据是从外部设备 copy 到内存中，这就是 Input。&lt;/p>
+&lt;p>如果数据是从内存 copy 到外部设备，这就是 Output。&lt;/p>
+&lt;p>&lt;strong>内存与外部设备之间不嫌麻烦的来回 copy 数据就是 Input and Output，简称 I/O&lt;/strong>（Input/Output），仅此而已。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/funqnh/1616167569957-0700ad3d-4f0a-4f25-a308-bf8fa3bc9259.jpeg" alt="">&lt;/p>
+&lt;h2 id="io-与-cpu">&lt;strong>I/O 与 CPU&lt;/strong>&lt;/h2>
+&lt;p>现在我们知道了什么是 I/O，接下来就是重点部分了，大家注意，坐稳了。&lt;/p>
+&lt;p>我们知道现在的 CPU 其主频都是数 GHz 起步，这是什么意思呢？简单说就是 CPU 执行机器指令的速度是纳秒级别的，而通常的 I/O 比如磁盘操作，一次磁盘 seek 大概在毫秒级别，&lt;strong>因此如果我们把 CPU 的速度比作战斗机的话，那么 I/O 操作的速度就是肯德鸡&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/funqnh/1616167569966-3f124af4-18e4-4c8a-98c1-793d3e2c3a9e.jpeg" alt="">&lt;/p>
+&lt;p>也就是说当我们的程序跑起来时(CPU 执行机器指令)，其速度是要远远快于 I/O 速度的，那么接下来的问题就是二者速度相差这么大，那么我们该如何设计、该如何更加合理的高效利用系统资源呢？&lt;/p>
+&lt;p>既然有速度差异，而且进程在执行完 I/O 操作前不能继续向前推进，那么显然只有一个办法，那就是&lt;strong>等待，wait&lt;/strong>。&lt;/p>
+&lt;p>同样是等待，有聪明的等待，也有傻傻的等待，简称傻等，那么是选择聪明的等待呢还是选择傻等呢？&lt;/p>
+&lt;p>假设你是一个急性子(CPU)，需要等待一个重要的文件，不巧的是这个文件只能快递过来(I/O)，那么这时你是选择什么事情都不干了，深情的注视着门口就像盼望着你的哈尼一样专心等待这个快递呢？还是暂时先不要管快递了，玩个游戏看个电影刷会儿短视频等快递来了再说呢？&lt;/p>
+&lt;p>很显然，更好的方法就是先去干其它事情，快递来了再说。&lt;/p>
+&lt;p>&lt;strong>因此这里的关键点就是快递没到前手头上的事情可以先暂停，切换到其它任务，等快递过来了再切换回来&lt;/strong>。&lt;/p>
+&lt;p>理解了这一点你就能明白执行 I/O 操作时底层都发生了什么。&lt;/p>
+&lt;p>接下来让我们以读取磁盘文件为例来讲解这一过程。&lt;/p>
+&lt;h2 id="执行-io-时底层都发生了什么">&lt;strong>执行 I/O 时底层都发生了什么&lt;/strong>&lt;/h2>
+&lt;p>在上一篇《一文彻底理解高并发高性能中的线程与线程池》中，我们引入了进程和线程的概念，在支持线程的操作系统中，实际上被调度的是线程而不是进程，为了更加清晰的理解 I/O 过程，我们暂时假设操作系统只有进程这样的概念，先不去考虑线程，这并不会影响我们的讨论。&lt;/p>
+&lt;p>现在内存中有两个进程，进程 A 和进程 B，当前进程 A 正在运行，如图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/funqnh/1616167569940-d2d3bdbc-c805-4f6e-bdbc-2b7a04cdecb6.jpeg" alt="">&lt;/p>
+&lt;p>进程 A 中有一段读取文件的代码，不管在什么语言中通常我们定义一个用来装数据的 buff，然后调用 read 之类的函数，像这样：&lt;/p>
+&lt;pre>&lt;code>read(buff);
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>这就是一种典型的 I/O 操作，当 CPU 执行到这段代码的时候会向磁盘发送读取请求，注意与 CPU 执行指令的速度相比，I/O 操作操作是非常慢的，因此操作系统是不可能把宝贵的 CPU 计算资源浪费在无谓的等待上的，这时重点来了，注意接下来是重点哦。&lt;/p>
+&lt;p>由于外部设备执行 I/O 操作是相当慢的，因此在 I/O 操作完成之前进程是无法继续向前推进的，这就是所谓的&lt;strong>阻塞&lt;/strong>，即通常所说的 block。操作系统检测到进程向 I/O 设备发起请求后就暂停进程的运行，怎么暂停运行呢？很简单，只需要记录下当前进程的运行状态并把 CPU 的 PC 寄存器指向其它进程的指令就可以了。&lt;/p>
+&lt;p>进程有暂停就会有继续执行，因此操作系统必须保存被暂停的进程以备后续继续执行，显然我们可以用队列来保存被暂停执行的进程，如图所示，进程 A 被暂停执行并被放到阻塞队列中(注意，不同的操作系统会有不同的实现，可能每个 I/O 设备都有一个对应的阻塞队列，但这种实现细节上的差异不影响我们的讨论)。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/funqnh/1616167569940-4c41239e-bb6f-42a4-9111-8ca9b2ed634d.jpeg" alt="">&lt;/p>
+&lt;p>这时操作系统已经向磁盘发送了 I/O 请求，因此磁盘 driver 开始将磁盘中的数据 copy 到进程 A 的 buff 中，虽然这时进程 A 已经被暂停执行了，但这并不妨碍磁盘向内存中 copy 数据。注意，现代磁盘向内存 copy 数据时无需借助 CPU 的帮助，这就是所谓的 DMA(Direct Memory Access)，这个过程如图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/funqnh/1616167569921-5b8dc049-61a5-498e-ae21-4adb68bd49e5.jpeg" alt="">&lt;/p>
+&lt;p>让磁盘先 copy 着数据，我们接着聊。&lt;/p>
+&lt;p>实际上操作系统中除了有阻塞队列之外也有&lt;strong>就绪&lt;/strong>队列，所谓就绪队列是指队列里的进程准备就绪可以被 CPU 执行了，你可能会问为什么不直接执行非要有个就绪队列呢？答案很简单，那就是&lt;strong>僧多粥少&lt;/strong>，在即使只有 1 个核的机器上也可以创建出成千上万个进程，CPU 不可能同时执行这么多的进程，因此必然存在这样的进程，&lt;strong>即使其一切准备就绪也不能被分配到计算资源&lt;/strong>，这样的进程就被放到了就绪队列。&lt;/p>
+&lt;p>现在进程 B 就位于就绪队列，万事俱备只欠 CPU，如图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/funqnh/1616167569959-d7bf4862-5f3a-402f-94f3-ec2d8e31e121.jpeg" alt="">&lt;/p>
+&lt;p>当进程 A 被暂停执行后 CPU 是不可以闲下来的，因为就绪队列中还有嗷嗷待哺的进程 B，这时操作系统开始在就绪队列中找下一个可以执行的进程，也就是这里的进程 B。&lt;/p>
+&lt;p>此时操作系统将进程 B 从就绪队列中取出，找出进程 B 被暂停时执行到的机器指令的位置，然后将 CPU 的 PC 寄存器指向该位置，这样进程 B 就开始运行啦，如图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/funqnh/1616167569941-4a2d092b-f747-43b4-abbc-6a8e238b4cbe.jpeg" alt="">&lt;/p>
+&lt;p>注意，注意，接下来的这段是重点中的重点。&lt;/p>
+&lt;p>注意观察上图，此时进程 B 在被 CPU 执行，磁盘在向进程 A 的内存空间中 copy 数据，看出来了吗，&lt;strong>大家都在忙，谁都没有闲着，数据 copy 和指令执行在同时进行&lt;/strong>，在操作系统的调度下，CPU、磁盘都得到了&lt;strong>充分&lt;/strong>的利用，这就是程序员的智慧所在。&lt;/p>
+&lt;p>&lt;strong>现在你应该理解为什么操作系统这么重要了吧。&lt;/strong>&lt;/p>
+&lt;p>此后磁盘终于将全部数据都 copy 到了进程 A 的内存中，这时磁盘通知操作系统任务完成啦，你可能会问怎么通知呢？这就是中断。&lt;/p>
+&lt;p>操作系统接收到磁盘中断后发现数据 copy 完毕，进程 A 重新获得继续运行的资格，这时操作系统小心翼翼的把进程 A 从阻塞队列放到了就绪队列当中，如图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/funqnh/1616167569942-ce92b9c9-06b3-4c3e-99e7-bc5d7777795b.jpeg" alt="">&lt;/p>
+&lt;p>注意，从前面关于就绪状态的讨论中我们知道，操作系统是不会直接运行进程 A 的，进程 A 必须被放到就绪队列中等待，这样对大家都公平。&lt;/p>
+&lt;p>此后进程 B 继续执行，进程 A 继续等待，进程 B 执行了一会儿后操作系统认为进程 B 执行的时间够长了，因此把进程 B 放到就绪队列，把进程 A 取出并继续执行。&lt;/p>
+&lt;p>注意操作系统把进程 B 放到的是就绪队列，因此进程 B 被暂停运行仅仅是因为时间片到了而不是因为发起 I/O 请求被阻塞，如图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/funqnh/1616167569968-658743aa-149f-402d-a608-676638aa4868.jpeg" alt="">&lt;/p>
+&lt;p>进程 A 继续执行，&lt;strong>此时 buff 中已经装满了想要的数据，进程 A 就这样愉快的运行下去了，就好像从来没有被暂停过一样，进程对于自己被暂停一事一无所知，这就是操作系统的魔法&lt;/strong>。&lt;/p>
+&lt;p>现在你应该明白了 I/O 是一个怎样的过程了吧。&lt;/p>
+&lt;p>这种进程执行 I/O 操作被阻塞暂停执行的方式被称为阻塞式 I/O，blocking I/O，这也是最常见最容易理解的 I/O 方式，有阻塞式 I/O 就有非阻塞式 I/O，在这里我们暂时先不考虑这种方式。&lt;/p>
+&lt;p>在本节开头我们说过暂时只考虑进程而不考虑线程，现在我们放宽这个条件，实际上也非常简单，只需要把前图中调度的进程改为线程就可以了，这里的讨论对于线程一样成立。&lt;/p>
+&lt;h2 id="零拷贝zero-copy">&lt;strong>零拷贝，Zero-copy&lt;/strong>&lt;/h2>
+&lt;p>最后需要注意的一点就是上面的讲解中我们直接把磁盘数据 copy 到了进程空间中，&lt;strong>但实际上一般情况下 I/O 数据是要首先 copy 到操作系统内部，然后操作系统再 copy 到进程空间中&lt;/strong>。因此我们可以看到这里其实还有一层经过操作系统的 copy，对于性能要求很高的场景其实也是可以绕过操作系统直接进行数据 copy 的，这也是本文描述的场景，这种绕过操作系统直接进行数据 copy 的技术被称为&lt;strong>Zero-copy&lt;/strong>，也就零拷贝，高并发、高性能场景下常用的一种技术，原理上很简单吧。&lt;/p>
+&lt;h2 id="总结">&lt;strong>总结&lt;/strong>&lt;/h2>
+&lt;p>本文讲解的是程序员常用的 I/O，一般来说作为程序员我们无需关心，但是理解 I/O 背后的底层原理对于设计高性能、高并发系统是极为有益的，希望这篇能对大家加深对 I/O 的认识有所帮助。&lt;/p></description></item><item><title>Docs: 各种文件系统详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E5%90%84%E7%A7%8D%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E5%90%84%E7%A7%8D%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E8%AF%A6%E8%A7%A3/</guid><description/></item><item><title>Docs: 文件管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Computer_file">Wiki,Computer file&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Category:Computer_files">Wiki-Category,Computer files&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/End-of-file">Wiki,End of file&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/qJdoXTv_XS_4ts9YuzMNIw">公众号，小林 coding-一口气搞懂「文件系统」，就靠这 25 张图了&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/tXEfsLqdePjcPS6FKa-qzg">另一个公众号&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>从[文件系统](&amp;lt;/docs/IT学习笔记/1.操作系统/2.Kernel(内核)/6.File%20System%20 管理/6.File%20System%20 管理.md&amp;raquo;)文章可以看出来，File(文件) 是一个组织存储在计算机中数据的逻辑概念，以便让人们可以清楚得知道每一段数据的起始位置、结束位置，甚至可以通过为文件命名来立刻反应过来这段数据的作用。&lt;/p>
+&lt;p>所谓的查看文件，其实是指找到一段数据的开头和结尾，并查看这段数据。对于程序员来说文件是一个很简单的概念，我们只需要将其理解为一个 N byte 的序列就可以了：**b1, b2, b3, b4, &amp;hellip;&amp;hellip;. bN。**程序员使用 I/O 最终都逃不过文件。&lt;/p>
+&lt;p>所有的 I/O 设备都被抽象为了文件这个概念，&lt;strong>Everything is File(一切皆文件)&lt;/strong>，磁盘、网络数据、终端，甚至进程间通信工具管道等都被当做文件对待。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167656114-9b5d8779-6322-4740-aa6c-47ef53a1aef6.jpeg" alt="">
+所有的 I/O 操作也都是通过文件读写来实现的，&lt;strong>这一非常优雅的抽象可以让程序员使用一套接口就能实现所有 I/O 操作&lt;/strong>。
+常用的 I/O 操作接口一般有以下几类：&lt;/p>
+&lt;ul>
+&lt;li>打开文件，open&lt;/li>
+&lt;li>改变读写位置，seek&lt;/li>
+&lt;li>文件读写，read、write&lt;/li>
+&lt;li>关闭文件，close&lt;/li>
+&lt;/ul>
+&lt;p>程序员通过这几个接口几乎可以实现所有 I/O 操作，这就是文件这个概念的强大之处。
+在 Linux 中一切皆文件，目录也是文件的一种类型，就连块设备、套接字、终端、管道等等，都被当做 File(文件)来对待。
+下面是一个在 Linux 中最常见的列出文件的命令 &lt;code>[ls -l](https://www.yuque.com/desistdaydream/learning/ynhtw7#bmqgU)&lt;/code> 所能查看的文件基本信息&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls -lh&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total 20K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx. &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">7&lt;/span> May &lt;span style="color:#ae81ff">24&lt;/span> &lt;span style="color:#ae81ff">2019&lt;/span> bin -&amp;gt; usr/bin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dr-xr-xr-x. &lt;span style="color:#ae81ff">5&lt;/span> root root 4.0K May &lt;span style="color:#ae81ff">24&lt;/span> &lt;span style="color:#ae81ff">2019&lt;/span> boot
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">20&lt;/span> root root 3.1K May &lt;span style="color:#ae81ff">14&lt;/span> 09:38 dev
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x. &lt;span style="color:#ae81ff">82&lt;/span> root root 8.0K Jun &lt;span style="color:#ae81ff">21&lt;/span> 19:42 etc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>类型与权限&lt;/th>
+&lt;th>硬连接数&lt;/th>
+&lt;th>所属主&lt;/th>
+&lt;th>所属组&lt;/th>
+&lt;th>大小&lt;/th>
+&lt;th>时间&lt;/th>
+&lt;th>文件名&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>lrwxrwxrwx.&lt;/td>
+&lt;td>1&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>7&lt;/td>
+&lt;td>May 24 2019&lt;/td>
+&lt;td>bin -&amp;gt; usr/bin&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>dr-xr-xr-x.&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>4.0K&lt;/td>
+&lt;td>May 24 2019&lt;/td>
+&lt;td>boot&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>drwxr-xr-x&lt;/td>
+&lt;td>20&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>3.1K&lt;/td>
+&lt;td>May 14 09:38&lt;/td>
+&lt;td>dev&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>&lt;code>类型与权限&lt;/code>这一列一共 11 个字符，共分为 3 个部分：&lt;/p>
+&lt;ul>
+&lt;li>第一部分 # 第 1 个字符为 &lt;a href="#%E6%96%87%E4%BB%B6%E7%9A%84%E7%B1%BB%E5%9E%8B">文件的类型&lt;/a>，具体类型含义见下文&lt;/li>
+&lt;li>第二部分 # 中间 9 个字符。用来表示文件的基本权限，详见&lt;a href="#%E6%96%87%E4%BB%B6%E7%9A%84%E6%9D%83%E9%99%90">文件的权限&lt;/a>部分。
+&lt;ul>
+&lt;li>第一组为文件拥有者的权限&lt;/li>
+&lt;li>第二组是文件所属组的权限&lt;/li>
+&lt;li>第三组是其他的权限。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>第三部分 # 最后 1 个字符。用来表示该文件是否有其他权限特殊权限管理该文件的访问。
+&lt;ul>
+&lt;li>&lt;code>+&lt;/code> # 具有 &lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95%20Linux%20%E4%B8%8E%20%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Access%20Control(%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6)/ACL.md">ACL&lt;/a> 的文件。&lt;/li>
+&lt;li>&lt;code>.&lt;/code> # 具有 &lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95%20Linux%20%E4%B8%8E%20%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/SELinux/SELinux.md">SELinux&lt;/a> 安全上下文的文件。若没有 &lt;code>.&lt;/code>，则该文件不受 SELinux 控制。&lt;/li>
+&lt;li>注意：
+&lt;ul>
+&lt;li>当添加了 ACL 权限后，只显示 &lt;code>+&lt;/code>，&lt;code>.&lt;/code> 看不到了。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>简单示例：
+&lt;ul>
+&lt;li>比如上面例子中 boot 文件第一列属性为 &lt;code>dr-xr-xr-x.&lt;/code> 表示该文件是一个目录，文件的拥有者、属组、其他，都具有 r 和 x 权限(i.e.读和执行权限)，由 SELinux 管理。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;code>时间&lt;/code> 这一列中包含如下几种：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>atime&lt;/strong> # 访问时间。读取文件或者执行文件时，该时间会变化&lt;/li>
+&lt;li>&lt;strong>ctime&lt;/strong> # 在写入文件、更改所有者、权限或链接设置时随 Inode 的内容更改而更改的时间&lt;/li>
+&lt;li>&lt;strong>mtime&lt;/strong> # 在写入文件时随文件内容的更改而更改的时间。&lt;code>默认限制这个时间&lt;/code>。&lt;/li>
+&lt;/ul>
+&lt;h2 id="文件的类型">文件的类型&lt;/h2>
+&lt;p>Linux 中的文件有下面几种类型(左侧是该类型文件的标识符)：&lt;/p>
+&lt;ul>
+&lt;li>**- **# 普通文件&lt;/li>
+&lt;li>&lt;strong>b&lt;/strong> # 块设备&lt;/li>
+&lt;li>&lt;strong>c&lt;/strong> # 字符设备&lt;/li>
+&lt;li>&lt;strong>d&lt;/strong> # 目录&lt;/li>
+&lt;li>&lt;strong>D&lt;/strong> # door(Solaris) 这是啥？~&lt;/li>
+&lt;li>&lt;strong>l&lt;/strong> # 符号链接&lt;/li>
+&lt;li>&lt;strong>M&lt;/strong> # off-line(migrated) 文件（Cray DMF） 这是啥？~&lt;/li>
+&lt;li>&lt;strong>n&lt;/strong> # 网络专用文件&lt;/li>
+&lt;li>&lt;strong>p&lt;/strong> # FIFO(管道)&lt;/li>
+&lt;li>&lt;strong>P&lt;/strong> # 端口&lt;/li>
+&lt;li>**s **# 套接字&lt;/li>
+&lt;li>&lt;strong>?&lt;/strong> # 其他文件类型&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>Note：占用存储空间的类型：文件、目录、符号链接(符号链接记录的是路径路径不长时存在 innode 里面)。其他四种：套接字、块设备、字符设备、管道是伪文件，不占用磁盘空间。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="文件的权限">文件的权限&lt;/h2>
+&lt;p>文件最基本的权限详见 《&lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95%20Linux%20%E4%B8%8E%20%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Access%20Control(%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6)/Access%20Control(%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6).md">Access Control(访问控制)&lt;/a>》章节，Linux 中的所有文件都可以被三个拥有者拥有，每个拥有者又可以具有 3 个权限
+除了上述基于角色的权限以外，文件还可以具有高级权限，比如 ACL、SUID、SGID、SBIT、chattr 命令添加的权限、SELinux 控制的权限，等等等。&lt;/p>
+&lt;h1 id="文件的使用">文件的使用&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Hard_link">Wiki,Hard link&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Symbolic_link">WIki,Symbolic link&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>从&lt;a href="docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File_System_%E7%AE%A1%E7%90%86/_index.md#%E6%96%87%E4%BB%B6%E7%BB%84%E7%BB%87%E7%BB%93%E6%9E%84">文件系统章节中的文件组织结构&lt;/a>可知，我们使用 &lt;a href="docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File_System_%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/Inode.md">Inode(索引节点)&lt;/a> 定位一个文件。而打开文件后，我们可以获取到文件的 [FileDesc(文件描述符)](/docs/IT学习笔记/1.操作系统/2.Kernel(内核)/6.File%20System%20管理/文件管理/File%20Descriptor(文件描述符).md Descriptor(文件描述符).md)，所有对文件的读写操作，都是基于文件描述符进行的。&lt;/p>
+&lt;p>&lt;strong>我们平时看到的人类可读的文件名，实际上是一个指向 Inode 的硬连接&lt;/strong>。&lt;/p>
+&lt;h2 id="symbolic-link符合链接-与-hard-link硬链接">Symbolic link(符合链接) 与 Hard link(硬链接)&lt;/h2>
+&lt;p>在计算机中 **Symbolic link(符号链接，也称为 软连接) **与 &lt;strong>Hard link(硬连接)&lt;/strong> 都是用以指向一个目标的文件或路径。&lt;/p>
+&lt;ul>
+&lt;li>Hard link 是将名称与文件相关联的 directory entry(目录项)，目录项概念详见《&lt;a href="docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File_System_%E7%AE%A1%E7%90%86/_index.md">文件系统管理&lt;/a>》章节&lt;/li>
+&lt;li>Symbolic link 是一个文件，通过指定路径指向一个目标(文件或目录)&lt;/li>
+&lt;/ul>
+&lt;p>在文件系统中，人类看到的每个文件都是一个 inode 的硬连接。为文件创建额外的硬链接使得该文件的内容可以通过额外的路径访问（即通过不同的名称或在不同的目录中）。但是并不一定需要软链接，软链接与目标文件本质上是两个完全不通的文件。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~/tmp&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls -il&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">917508&lt;/span> -rw-r--r-- &lt;span style="color:#ae81ff">2&lt;/span> root root &lt;span style="color:#ae81ff">0&lt;/span> Dec &lt;span style="color:#ae81ff">15&lt;/span> 13:15 hard
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">917509&lt;/span> lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">4&lt;/span> Dec &lt;span style="color:#ae81ff">15&lt;/span> 13:15 hardln -&amp;gt; hard
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">917508&lt;/span> -rw-r--r-- &lt;span style="color:#ae81ff">2&lt;/span> root root &lt;span style="color:#ae81ff">0&lt;/span> Dec &lt;span style="color:#ae81ff">15&lt;/span> 13:15 hardln2
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在这里 hard 是原始文件，inode 为 917508&lt;/p>
+&lt;ul>
+&lt;li>hardln 是一个软链接，inode 为 917509，hardln 指向的 hard 文件的 inode 则是 917508&lt;/li>
+&lt;li>hardln2 与 hard 本质上都是 inode 为 917508 的文件
+&lt;ul>
+&lt;li>可以这么说， hard 与 hardln2 都是一个指向 inode 为 917508 的硬连接。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>硬链接是&lt;strong>多个目录项中的 inode(索引节点)指向一个文件&lt;/strong>，也就是指向同一个 inode，但是 inode 是不可能跨越文件系统的，每个文件系统都有各自的 inode 数据结构和列表，所以&lt;strong>硬链接是不可用于跨文件系统的&lt;/strong>。由于多个目录项都是指向一个 inode，那么&lt;strong>只有删除文件的所有硬链接以及源文件时，系统才会彻底删除该文件。&lt;/strong>
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167677117-992b018e-1ff6-4d7e-88f2-5783e0d0dadc.png" alt="">
+如何查看硬链接的文件都在哪：&lt;/p>
+&lt;ul>
+&lt;li>使用 &lt;code>ls -i&lt;/code>，查看该硬链接的索引节点号。&lt;/li>
+&lt;li>使用 &lt;code>find / -inum XXXX&lt;/code>，查看具有该索引节点号的所有文件所在位置。&lt;/li>
+&lt;/ul>
+&lt;p>注：&lt;code>rm ${find ./ -inum 2310630}&lt;/code> 搜索节点 2310630 的文件，并删除。&lt;/p>
+&lt;p>软链接相当于重新创建一个文件，这个文件有&lt;strong>独立的 inode&lt;/strong>，但是这个&lt;strong>文件的内容是另外一个文件的路径&lt;/strong>，所以访问软链接的时候，实际上相当于访问到了另外一个文件，所以&lt;strong>软链接是可以跨文件系统的&lt;/strong>，甚至&lt;strong>目标文件被删除了，链接文件还是在的，只不过指向的文件找不到了而已。&lt;/strong>
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167677115-040a0c08-44ba-46b8-900a-db111dc7c93c.png" alt="">
+软链接目标文件只能是一个文件，通过该文件指向源文件或者文件夹，类似于 windows 的快捷方式，软连接会创建一个单独的 inode。&lt;/p>
+&lt;p>如何查看软连接的文件都在哪：&lt;/p>
+&lt;ul>
+&lt;li>find -type l # 查看当前目录下的所有软连接文件&lt;/li>
+&lt;li>ls -l ${find -type l} # 通过反引号先执行查找命令，然后查找到的结果用 ls -l 显示详细信息&lt;/li>
+&lt;li>find /etc -type l -exec ls -l {} ; | grep ifcfg-eth1 # 查找/etc 下的软链接文件，并且显示详细信息，然后筛选这些信息中包含 ifcfg-eth1 的条目&lt;/li>
+&lt;/ul>
+&lt;h2 id="文件的读写过程">文件的读写过程&lt;/h2>
+&lt;p>我们从用户角度来看文件的话，就是我们要怎么使用文件？首先，我们得通过系统调用来打开一个文件。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167677045-043724c9-8f38-483d-b322-1e474f0568d1.png" alt="">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>fd &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">open&lt;/span>(name, flag); &lt;span style="color:#960050;background-color:#1e0010">#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">打开文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...&lt;span style="color:#a6e22e">write&lt;/span>(fd,...); &lt;span style="color:#960050;background-color:#1e0010">#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">写数据&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...&lt;span style="color:#a6e22e">close&lt;/span>(fd); &lt;span style="color:#960050;background-color:#1e0010">#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">关闭文件&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面简单的代码是读取一个文件的过程：&lt;/p>
+&lt;ul>
+&lt;li>首先用 &lt;code>open&lt;/code> 系统调用打开文件，&lt;code>open&lt;/code> 的参数中包含文件的路径名和文件名。&lt;/li>
+&lt;li>使用 &lt;code>write&lt;/code> 写数据，其中 &lt;code>write&lt;/code> 使用 &lt;code>open&lt;/code> 所返回的&lt;strong>文件描述符&lt;/strong>，并不使用文件名作为参数。&lt;/li>
+&lt;li>使用完文件后，要用 &lt;code>close&lt;/code> 系统调用关闭文件，避免资源的泄露。&lt;/li>
+&lt;/ul>
+&lt;p>我们打开了一个文件后，操作系统会跟踪进程打开的所有文件，所谓的跟踪呢，就是操作系统为每个进程维护一个打开文件表，文件表里的每一项代表「&lt;strong>文件描述符&lt;/strong>」，所以说文件描述符是打开文件的标识。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167677065-7a31a536-72df-48b0-adcf-06883b40ed19.png" alt="">
+操作系统在打开文件表中维护着打开文件的状态和信息：&lt;/p>
+&lt;ul>
+&lt;li>文件指针：系统跟踪上次读写位置作为当前文件位置指针，这种指针对打开文件的某个进程来说是唯一的；&lt;/li>
+&lt;li>文件打开计数器：文件关闭时，操作系统必须重用其打开文件表条目，否则表内空间不够用。因为多个进程可能打开同一个文件，所以系统在删除打开文件条目之前，必须等待最后一个进程关闭文件，该计数器跟踪打开和关闭的数量，当该计数为 0 时，系统关闭文件，删除该条目；&lt;/li>
+&lt;li>文件磁盘位置：绝大多数文件操作都要求系统修改文件数据，该信息保存在内存中，以免每个操作都从磁盘中读取；&lt;/li>
+&lt;li>访问权限：每个进程打开文件都需要有一个访问模式（创建、只读、读写、添加等），该信息保存在进程的打开文件表中，以便操作系统能允许或拒绝之后的 I/O 请求；&lt;/li>
+&lt;/ul>
+&lt;p>在用户视角里，文件就是一个持久化的数据结构，但操作系统并不会关心你想存在磁盘上的任何的数据结构，操作系统的视角是如何把文件数据和磁盘块对应起来。&lt;/p>
+&lt;p>所以，用户和操作系统对文件的读写操作是有差异的，用户习惯以字节的方式读写文件，而操作系统则是以数据块来读写文件，那屏蔽掉这种差异的工作就是文件系统了。&lt;/p>
+&lt;p>我们来分别看一下，读文件和写文件的过程：&lt;/p>
+&lt;ul>
+&lt;li>当用户进程从文件读取 1 个字节大小的数据时，文件系统则需要获取字节所在的数据块，再返回数据块对应的用户进程所需的数据部分。&lt;/li>
+&lt;li>当用户进程把 1 个字节大小的数据写进文件时，文件系统则找到需要写入数据的数据块的位置，然后修改数据块中对应的部分，最后再把数据块写回磁盘。&lt;/li>
+&lt;/ul>
+&lt;p>所以说，&lt;strong>文件系统的基本操作单位是数据块&lt;/strong>。&lt;/p>
+&lt;h1 id="目录的存储">目录的存储&lt;/h1>
+&lt;p>基于 Linux 一切皆文件的设计思想，目录其实也是个文件，你甚至可以通过 &lt;code>vim&lt;/code> 打开它，它也有 inode，inode 里面也是指向一些块。&lt;/p>
+&lt;p>和普通文件不同的是，&lt;strong>普通文件的块里面保存的是文件数据，而目录文件的块里面保存的是目录里面一项一项的文件信息。&lt;/strong>&lt;/p>
+&lt;p>在目录文件的块中，最简单的保存格式就是&lt;strong>列表&lt;/strong>，就是一项一项地将目录下的文件信息（如文件名、文件 inode、文件类型等）列在表里。&lt;/p>
+&lt;p>列表中每一项就代表该目录下的文件的文件名和对应的 inode，通过这个 inode，就可以找到真正的文件。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167677111-6682b310-2f92-4f63-b22a-9821ba99345c.png" alt="">
+目录格式哈希表通常，第一项是「&lt;code>.&lt;/code>」，表示当前目录，第二项是「&lt;code>..&lt;/code>」，表示上一级目录，接下来就是一项一项的文件名和 inode。&lt;/p>
+&lt;p>如果一个目录有超级多的文件，我们要想在这个目录下找文件，按照列表一项一项的找，效率就不高了。&lt;/p>
+&lt;p>于是，保存目录的格式改成&lt;strong>哈希表&lt;/strong>，对文件名进行哈希计算，把哈希值保存起来，如果我们要查找一个目录下面的文件名，可以通过名称取哈希。如果哈希能够匹配上，就说明这个文件的信息在相应的块里面。&lt;/p>
+&lt;p>Linux 系统的 ext 文件系统就是采用了哈希表，来保存目录的内容，这种方法的优点是查找非常迅速，插入和删除也较简单，不过需要一些预备措施来避免哈希冲突。&lt;/p>
+&lt;p>目录查询是通过在磁盘上反复搜索完成，需要不断地进行 I/O 操作，开销较大。所以，为了减少 I/O 操作，把当前使用的文件目录缓存在内存，以后要使用该文件时只要在内存中操作，从而降低了磁盘操作次数，提高了文件系统的访问速度。&lt;/p></description></item></channel></rss>
