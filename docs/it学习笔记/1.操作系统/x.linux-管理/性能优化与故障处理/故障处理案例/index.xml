@@ -1,0 +1,1276 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 故障处理案例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</link><description>Recent content in 故障处理案例 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: /boot目录被清空下物理机无法开机的一次救援 · zhangguanzhang's Blog</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/boot%E7%9B%AE%E5%BD%95%E8%A2%AB%E6%B8%85%E7%A9%BA%E4%B8%8B%E7%89%A9%E7%90%86%E6%9C%BA%E6%97%A0%E6%B3%95%E5%BC%80%E6%9C%BA%E7%9A%84%E4%B8%80%E6%AC%A1%E6%95%91%E6%8F%B4-zhangguanzhangs-blog/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/boot%E7%9B%AE%E5%BD%95%E8%A2%AB%E6%B8%85%E7%A9%BA%E4%B8%8B%E7%89%A9%E7%90%86%E6%9C%BA%E6%97%A0%E6%B3%95%E5%BC%80%E6%9C%BA%E7%9A%84%E4%B8%80%E6%AC%A1%E6%95%91%E6%8F%B4-zhangguanzhangs-blog/</guid><description>
+&lt;p>今天下午到公司被通知苏州一个节点的客户的裸金属无法开机，14:00 上去到 16:50 终于给整好了，这里记录下笔记分享下&lt;/p>
+&lt;h2 id="故障现象">故障现象&lt;/h2>
+&lt;p>物理机裸金属，连上跳板机通过带外连上去 (等同于现场接了一个显示屏 + 键盘一样) 错误为&lt;/p>
+&lt;pre>&lt;code>errorL file `/grub2/i386-pc/normal.mod' not found.
+Entering rescue mode...
+grub rescue&amp;gt;
+&lt;/code>&lt;/pre>
+&lt;p>这个物理机是 grub2，这个错误和类似的&lt;code>/grub/i386-pc/normal.mod&lt;/code>本质上都是文件丢失，但是也分情况，网上的一些恢复步骤都是在丢失部分文件的情况下恢复的
+查看分区&lt;/p>
+&lt;pre>&lt;code>grub rescue&amp;gt;ls
+(hd0) (hd0,msdos2) (hd0,msdos1)
+grub rescue&amp;gt;ls (hd0,msdos1)/
+./ ../
+grub rescue&amp;gt;ls (hd0,msdos2)/
+error: unknown filesystem
+&lt;/code>&lt;/pre>
+&lt;p>这里是等同于你实际的分区，我们这基本是一个 / boot 和一个根，看到&lt;code>(hd0,msdos1)&lt;/code>是 / boot 分区，文件是完全丢失的，&lt;code>(hd0,msdos2)/&lt;/code>报错未知文件系统是因为这个是 lvm，正常乐观下来讲只是丢失部分文件的话，可以参考下面步骤去恢复&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.youtube.com/watch?v=RqRm1bEXO9M">https://www.youtube.com/watch?v=RqRm1bEXO9M&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://blog.csdn.net/qq_20545159/article/details/50810089">https://blog.csdn.net/qq_20545159/article/details/50810089&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h2 id="救援">救援&lt;/h2>
+&lt;h3 id="livecd-进入-rescue-救援">livecd 进入 rescue 救援&lt;/h3>
+&lt;p>这里我是完全丢失，我利用带外远程挂载了一个 centos7.6 的 iso(最好和目标系统版本一样)，重启物理机进入 cdrom，选择&lt;code>Troubleshooting&lt;/code> –&amp;gt; &lt;code>Rescue a CentOS Linux system&lt;/code>&lt;/p>
+&lt;p>下面我引用下别人的图，如果图被拦截了请看文字吧
+&lt;a href="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd979e87-2201-4df4-890e-d122c4681296/troubleshooting-option-boot-RHEL-CentOS-7-into-rescue-mode.png">
+&lt;/a>
+&lt;a href="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd979e87-2201-4df4-890e-d122c4681296/rescue-CentOS-RHEL-7-system.png">
+&lt;/a>
+&lt;a href="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd979e87-2201-4df4-890e-d122c4681296/find-linux-installation-for-rescue-mode-RHEL-7-reinstall-GRUB2.png">
+&lt;/a>
+选择 1 后然后回车会得到一个交互式 shell，查看下分区信息&lt;/p>
+&lt;pre>&lt;code>sh-4.2# lsblk
+NAME MAJ:MIN RM SIZE RO TYPE MOUNTPOINT
+sda 8:0 1 558G 0 disk
+├─sda1 8:1 1 1G 0 part /mnt/sysimage/boot
+└─sda2 8:2 1 557G 0 part
+├─centos-root 253:0 0 550G 0 lvm /mnt/sysimage
+└─centos-swap 253:1 0 4G 0 lvm [SWAP]
+sr0 11:0 1 4.3G 0 rom /run/install/repo
+sr1 11:1 1 107.2M 0 rom
+loop0 7:1 0 432.4M 1 loop
+loop1 7:1 0 2G 1 loop
+├─live-rw 253:0 0 2G 0 dm /
+└─live-base 253:1 0 2G 1 dm
+loop2 7:2 0 512M 1 loop
+└─live-rw 253:0 0 2G 0 dm /
+&lt;/code>&lt;/pre>
+&lt;p>根被挂载到&lt;code>/mnt/sysimage&lt;/code>,boot 被挂载到&lt;code>/mnt/sysimage/boot&lt;/code>，iso 被挂载到&lt;code>/run/install/repo&lt;/code>
+最开始我是 chroot /mnt/sysimage 后 grub2-install /dev/sda，然后重启后进入&lt;/p>
+&lt;pre>&lt;code> Minimal BASH_like line editing is supported. For the first word,
+...
+..
+grub&amp;gt;
+&lt;/code>&lt;/pre>
+&lt;p>出现这个一般是缺少&lt;code>grub.cfg&lt;/code>，然后再进去光盘的 rescue 里去 chroot 进去&lt;code>grub2-mkconfig -o /boot/grub2/grub.cfg&lt;/code>还是不行。因为实际上 / boot 都被清空了，grub2-install 和 mkconfig 只是生成了&lt;code>/boot/grub2&lt;/code>下面一些文件，因为开机需要的 vmlinuz 和 kernel 都没有.&lt;/p>
+&lt;h3 id="复制同样机器同样系统的--boot">复制同样机器同样系统的 / boot&lt;/h3>
+&lt;p>正确姿势来整的话，考虑到 / boot 下面的相关文件被清理了，叫同事找同样物理机和系统的裸金属上去看看&lt;code>/boot/&lt;/code>目录，然后叫他把 / boot 打包成 iso，我在带外挂载上去。
+         中间他直接复制到 windows 的，权限信息丢失了。我叫他直接 Linux 上 tar 打包了后再在 win 上打包 iso。
+可以先在 rescue 模式里看&lt;code>/mnt/sysimage/etc/redhat-release&lt;/code>查看系统信息，然后正常物理机的同样系统上的 / boot 信息为&lt;/p>
+&lt;pre>&lt;code>$ ll
+total 110920
+-rw-r--r--. 1 root root 151918 Nov 9 2018 config-3.10.0-957.el7.x86_64
+drwxr-xr-x. 3 root root 17 Feb 26 2019 efi
+drwxr-xr-x. 2 root root 27 Feb 26 2019 grub
+drwx------. 5 root root 97 Feb 26 2019 grub2
+-rw-------. 1 root root 59891363 Feb 26 2019 initramfs-0-rescue-cd270b115cc741328f7812c0be97041d.img
+-rw-------. 1 root root 22834950 Feb 26 2019 initramfs-3.10.0-957.el7.x86_64.img
+-rw-------. 1 root root 13548147 Oct 11 16:32 initramfs-3.10.0-957.el7.x86_64kdump.img
+-rw-r--r--. 1 root root 314036 Nov 9 2018 symvers-3.10.0-957.el7.x86_64.gz
+-rw-------. 1 root root 3543471 Nov 9 2018 System.map-3.10.0-957.el7.x86_64
+-rwxr-xr-x. 1 root root 6639904 Feb 26 2019 vmlinuz-0-rescue-cd270b115cc741328f7812c0be97041d
+-rwxr-xr-x. 1 root root 6639904 Nov 9 2018 vmlinuz-3.10.0-957.el7.x86_64
+&lt;/code>&lt;/pre>
+&lt;p>现在步骤开始是实际有效的步骤，前提是挂载了 centos 的 iso 和 boot 文件的 iso
+下面我第一个光驱是 iso，第二个是 boot，所以是&lt;code>/dev/sr1&lt;/code>&lt;/p>
+&lt;pre>&lt;code>sh-4.2# chroot /mnt/sysimage
+bash-4.2# alias ll='ls -l'
+bash-4.2# mkdir -p /media/tmp
+bash-4.2# mount /dev/sr1 /media/tmp/
+mount: /dev/sr1 is write-protected, mounting read-only
+bash-4.2# cd /media
+bash-4.2# tar zxf /media/tmp/boot.tar.gz
+bash-4.2# cp -a boot/* /boot/
+&lt;/code>&lt;/pre>
+&lt;p>这里有一个点不确定，但是为了保险起见我是操作了，有条件的人可以自己去测下看看下面步骤不执行有影响不, 删除 uuid 文件 (我对比了下实际上 MD5 是一样的，有条件可以测下下面这几个步骤不执行看看正常不)&lt;/p>
+&lt;pre>&lt;code>bash-4.2# cd /boot
+bash-4.2# ll /media/boot/*cd270b11*
+-rw-------. 1 root root 59891363 Feb 26 2019 /media/boot/initramfs-0-rescue-cd270b115cc741328f7812c0be97041d.img
+-rwxr-xr-x. 1 root root 6639904 Feb 26 2019 /media/boot/vmlinuz-0-rescue-cd270b115cc741328f7812c0be97041d
+bash-4.2# rm -f *cd270b11*
+bash-4.2# /etc/kernel/postinst.d/51-dracut-rescue-postinst.sh $(uname -r) /boot/vmlinuz-$(uname -r)
+&lt;/code>&lt;/pre>
+&lt;p>grub 配置文件里有硬盘分区的 uuid，这里需要重新生成&lt;code>grub.cfg&lt;/code>&lt;/p>
+&lt;pre>&lt;code>bash-4.2# mv /boot/grub2/grub.cfg{,.bak}
+bash-4.2# grub2-mkconfig -o /boot/grub2/grub.cfg
+&lt;/code>&lt;/pre>
+&lt;p>如果报错&lt;code>grub-probe: error: cannot find a device for / (is /dev mounted?)&lt;/code>
+则在 chroot 之前用 bind mount 相关目录&lt;/p>
+&lt;pre>&lt;code>mount -o bind /dev /mnt/sysimage/dev
+mount -o bind /proc /mnt/sysimage/proc
+mount -o bind /run /mnt/sysimage/run
+mount -o bind /sys /mnt/sysimage/sys
+&lt;/code>&lt;/pre>
+&lt;h3 id="重启">重启&lt;/h3>
+&lt;p>重启测试&lt;/p>
+&lt;pre>&lt;code>bash-4.2# exit
+sh-4.2# init 6
+&lt;/code>&lt;/pre>
+&lt;p>结果是进入了&lt;code>emergency mode&lt;/code>
+&lt;a href="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd979e87-2201-4df4-890e-d122c4681296/emergencyMode.png">
+&lt;/a>
+这个模式进来了大多数原因是有个非系统的分区无法挂载，输入 root 密码进去后，先查看下&lt;code>systemctl failed&lt;/code>发现&lt;code>/home&lt;/code>无法被挂载&lt;/p>
+&lt;pre>&lt;code>[root@cn19 ~]# systemctl --failed
+UNIT LOAD ACTIVE SUB DESCRIPTION
+● home.mount loaded failed failed /home
+● auditd.service loaded failed failed Security Auditing Service
+LOAD = Reflects whether the unit definition was properly loaded.
+ACTIVE = The high-level unit activation state, i.e. generalization of SUB.
+SUB = The low-level unit activation state, values depend on unit type.
+2 loaded units listed. Pass --all to see loaded but inactive units, too.
+To show all installed unit files use 'systemctl list-unit-files'.
+[root@cn19 ~]# grep -Pv '^#|^$' /etc/fstab
+/dev/mapper/centos-root / xfs defaults 0 0
+UUID=71b43bbc-819c-4420-9ba8-9c85110999dd /boot xfs defaults 0 0
+/dev/mapper/centos-swap swap swap defaults 0 0
+[root@cn19 ~]# lvs
+LV VG Attr LSize Pool Origin Data% Meta% Move Log Cpy%Sync Convert
+home centos -wi-a----- 2.00g
+root centos -wi-ao---- 550.00g
+swap centos -wi-ao---- 4.00g
+&lt;/code>&lt;/pre>
+&lt;p>尝试修复无果&lt;/p>
+&lt;pre>&lt;code>[root@cn19 ~]# xfs_repair /dev/mapper/centos-home
+Phase 1 - find and verify superblock...
+bad primary superblock - bad magic number !!!
+attempting to find secondary superblock...
+......................Sorry, could not find valid secondary superblock
+Exiting now.
+&lt;/code>&lt;/pre>
+&lt;p>询问了用户&lt;code>/home&lt;/code>目录不重要，直接取消 fstab 取消 / home 的挂载然后 reboot 恢复正常
+&lt;a href="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd979e87-2201-4df4-890e-d122c4681296/right.png">
+&lt;/a>&lt;/p>
+&lt;h2 id="参考">参考：&lt;/h2>
+&lt;p>&lt;a href="https://www.tecmint.com/recover-or-rescue-corrupted-grub-boot-loader-in-centos-7/">https://www.tecmint.com/recover-or-rescue-corrupted-grub-boot-loader-in-centos-7/&lt;/a>
+rescue mode 安装 kernel: &lt;a href="https://www.thegeekdiary.com/centos-rhel-7-how-to-install-kernel-from-rescue-mode/">https://www.thegeekdiary.com/centos-rhel-7-how-to-install-kernel-from-rescue-mode/&lt;/a>
+rescue mode 生成 vmlinuz 和 initramfs: &lt;a href="https://www.thegeekdiary.com/how-to-re-generate-initramfs-and-vmlinuz-for-rescue-kernel-with-current-kernel-in-centos-rhel-7/">https://www.thegeekdiary.com/how-to-re-generate-initramfs-and-vmlinuz-for-rescue-kernel-with-current-kernel-in-centos-rhel-7/&lt;/a>
+&lt;a href="https://zhangguanzhang.github.io/2019/10/12/boot-grub-rescue/">https://zhangguanzhang.github.io/2019/10/12/boot-grub-rescue/&lt;/a>&lt;/p></description></item><item><title>Docs: ecs 中毒的一次处理过程</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/ecs-%E4%B8%AD%E6%AF%92%E7%9A%84%E4%B8%80%E6%AC%A1%E5%A4%84%E7%90%86%E8%BF%87%E7%A8%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/ecs-%E4%B8%AD%E6%AF%92%E7%9A%84%E4%B8%80%E6%AC%A1%E5%A4%84%E7%90%86%E8%BF%87%E7%A8%8B/</guid><description>
+&lt;p>原文：&lt;a href="https://zhangguanzhang.github.io/2022/04/21/ecs-xmrig/">张馆长博客，ecs 中毒的一次处理过程&lt;/a>
+一次客户 ecs 中毒的处理过程，可以给读者参考下中毒的处理过程。&lt;/p>
+&lt;h2 id="由来">由来&lt;/h2>
+&lt;p>客户机器中毒了，pm 找我来让处理下，记录下，给其他人做个处理过程的参考。&lt;/p>
+&lt;h2 id="处理过程">处理过程&lt;/h2>
+&lt;p>机器是 centos ，先利用 &lt;code>rpm -V &amp;lt;pkg_name&amp;gt;&lt;/code> 确认基础的排查命令没被修改过：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ rpm -qf &lt;span style="color:#e6db74">`&lt;/span>which ps&lt;span style="color:#e6db74">`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>procps-ng-3.3.10-23.el7.x86_64
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ rpm -V procps-ng
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ rpm -qf &lt;span style="color:#e6db74">`&lt;/span>which top&lt;span style="color:#e6db74">`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>procps-ng-3.3.10-23.el7.x86_64
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>top 看到异常 cpu 的进程占用 cpu 很高：&lt;/p>
+&lt;pre>&lt;code>$ top
+top - 19:44:29 up 34 days, 5:08, 4 users, load average: 612.03, 617.15, 482.75
+Tasks: 2014 total, 66 running, 1946 sleeping, 0 stopped, 2 zombie
+%Cpu(s): 96.6 us, 3.1 sy, 0.0 ni, 0.0 id, 0.0 wa, 0.0 hi, 0.3 si, 0.0 st
+KiB Mem : 13186040+total, 2722452 free, 48820448 used, 80317504 buff/cache
+KiB Swap: 0 total, 0 free, 0 used. 78946784 avail Mem
+PID USER PR NI VIRT RES SHR S %CPU %MEM TIME+ COMMAND
+1206 root 20 0 5251748 2.3g 3584 S 2956 1.8 465:37.77 ld-linux-x86-64
+&lt;/code>&lt;/pre>
+&lt;p>给它 &lt;code>STOP&lt;/code> 信号不让 cpu 切换到它，而不是直接 kill 掉它：&lt;/p>
+&lt;pre>&lt;code>$ kill -STOP 1206
+&lt;/code>&lt;/pre>
+&lt;p>查看来源和清理：&lt;/p>
+&lt;pre>&lt;code>$ ll /proc/1206/exe
+lrwxrwxrwx 1 root root 0 Apr 21 19:44 /proc/1206/exe -&amp;gt; /dev/shm/.x/stak/ld-linux-x86-64.so.2
+&lt;/code>&lt;/pre>
+&lt;h3 id="清理定时任务">清理定时任务&lt;/h3>
+&lt;p>排查定时任务，发现有内容，清理掉， crond 的子目录也看下，文件内容和多了的子文件也处理下&lt;/p>
+&lt;pre>&lt;code>$ crontab -l
+* * * * * /dev/shm/.x/upd &amp;gt;/dev/null 2&amp;gt;&amp;amp;1
+@reboot /dev/shm/.x/upd &amp;gt;/dev/null 2&amp;gt;&amp;amp;1
+[root@p-96b7-dndl etc]# find /etc/cron.* -type f
+/etc/cron.d/0hourly
+/etc/cron.d/sysstat
+/etc/cron.daily/logrotate
+/etc/cron.daily/man-db.cron
+/etc/cron.deny
+/etc/cron.hourly/0anacron
+&lt;/code>&lt;/pre>
+&lt;p>查看下进程树，是否有父进程拉起 &lt;code>1206&lt;/code>:&lt;/p>
+&lt;pre>&lt;code>$ pstree -sp 1206
+systemd(1)───ld-linux-x86-64(1206)─┬─{ld-linux-x86-64}(1209)
+├─{ld-linux-x86-64}(1211)
+├─{ld-linux-x86-64}(1216)
+├─{ld-linux-x86-64}(1217)
+├─{ld-linux-x86-64}(1218)
+├─{ld-linux-x86-64}(6436)
+├─{ld-linux-x86-64}(6437)
+├─{ld-linux-x86-64}(6439)
+├─{ld-linux-x86-64}(6440)
+├─{ld-linux-x86-64}(6441)
+├─{ld-linux-x86-64}(6443)
+├─{ld-linux-x86-64}(6471)
+├─{ld-linux-x86-64}(6472)
+├─{ld-linux-x86-64}(6476)
+├─{ld-linux-x86-64}(6484)
+├─{ld-linux-x86-64}(6489)
+├─{ld-linux-x86-64}(6495)
+├─{ld-linux-x86-64}(6501)
+├─{ld-linux-x86-64}(6504)
+├─{ld-linux-x86-64}(6505)
+├─{ld-linux-x86-64}(6508)
+├─{ld-linux-x86-64}(6509)
+├─{ld-linux-x86-64}(6511)
+├─{ld-linux-x86-64}(6523)
+├─{ld-linux-x86-64}(6527)
+├─{ld-linux-x86-64}(6529)
+├─{ld-linux-x86-64}(6531)
+├─{ld-linux-x86-64}(6535)
+├─{ld-linux-x86-64}(6547)
+├─{ld-linux-x86-64}(6554)
+├─{ld-linux-x86-64}(6563)
+├─{ld-linux-x86-64}(6567)
+├─{ld-linux-x86-64}(6568)
+├─{ld-linux-x86-64}(6569)
+├─{ld-linux-x86-64}(6572)
+├─{ld-linux-x86-64}(6579)
+└─{ld-linux-x86-64}(6580)
+&lt;/code>&lt;/pre>
+&lt;p>发现并没有，查看下进程的 &lt;code>cmdline&lt;/code>:&lt;/p>
+&lt;pre>&lt;code>$ xargs -0 &amp;lt; /proc/1206/cmdline
+xmrig
+--library-path stak stak/xmrig -o 185.82.200.52:443 -k
+&lt;/code>&lt;/pre>
+&lt;h3 id="检查系统的-so-和开机启动项">检查系统的 so 和开机启动项&lt;/h3>
+&lt;p>搜了下这个 ip 是外国的，查看下 ld 的 so 导入配置文件，看看是否有被加入额外的 so 导入：&lt;/p>
+&lt;pre>&lt;code>$ rpm -qf /etc/ld.so.conf
+glibc-2.17-260.el7.x86_64
+# glibc 也提供了很多基础的 so，这部同时也可以看出来
+# 基础的 so 有被替换不
+$ rpm -V glibc
+&lt;/code>&lt;/pre>
+&lt;p>同理查看下 systemd 的&lt;/p>
+&lt;pre>&lt;code>$ rpm -V systemd
+.M....... c /etc/machine-id
+SM5....T. c /etc/rc.d/rc.local # 这个文件也记得查下
+S.5....T. c /etc/systemd/system.conf
+.M....... g /etc/udev/hwdb.bin
+.M....... g /var/lib/systemd/random-seed
+.M....G.. g /var/log/journal
+.M....G.. g /var/log/wtmp
+.M....G.. g /var/run/utmp
+# 查看下有没有被添加 systemd 的开机启动任务
+$ systemctl list-units
+&lt;/code>&lt;/pre>
+&lt;h3 id="清理进程相关">清理进程相关&lt;/h3>
+&lt;p>我们环境是 k8s 和 docker 的，etcd 没证书，kubelet 的 http 可写，docker 开网络端口不 tls，redis 无密码这种现象是不存在的。看了下我们配置的部署配置文件，初步怀疑是一个有 sudo 的弱密码用户被爆破导致的中毒，查看了具有 sudo 权限和 root 的 &lt;code>~/.ssh/authorized_keys&lt;/code> 也没被添加别人的公钥（有的话记得清理下），开始删除挖矿进程的目录：&lt;/p>
+&lt;pre>&lt;code>rm -rf /dev/shm/.x/
+kill -9 1206
+&lt;/code>&lt;/pre>
+&lt;h3 id="排查网络">排查网络&lt;/h3>
+&lt;p>看看是否还有其他后台进程上报或者下载的，看了下 udp 的正常，所以提取所有活跃的 tcp 连接 ip 看看有异常的 IP 没：&lt;/p>
+&lt;pre>&lt;code>$ netstat -ant |&amp;amp; grep -Po '(\d{1,3}\.){3}\d{1,3}' | sort | grep -v 10.187.0 | uniq -c
+49 0.0.0.0
+2 119.82.135.65
+111 127.0.0.1
+4 169.254.169.254
+2271 192.168.0.235
+13 2xx.1xx.15.161
+1 3x.1xx.2x.7
+27 4x.x.1xx.x3
+1 xx.1xx.6x.x54
+$ netstat -ant | grep 119.82.135.65
+tcp 0 1281 192.168.0.235:22 119.82.135.65:38525 LAST_ACK
+tcp 0 1 192.168.0.235:22 119.82.135.65:54598 LAST_ACK
+$ lsof -nPi :38525
+$ lsof -nPi :54598
+$
+&lt;/code>&lt;/pre>
+&lt;p>看了下只有不断被外国 IP 暴力 ssh 的 IP，其余几个 IP 是我和客户那边的人员 IP。让客户改密码后再观察下。&lt;/p></description></item><item><title>Docs: inode 已满解决方法</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/inode-%E5%B7%B2%E6%BB%A1%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/inode-%E5%B7%B2%E6%BB%A1%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95/</guid><description>
+&lt;h2 id="问题描述">问题描述&lt;/h2>
+&lt;p>在 Linux 系统的云服务器 ECS 实例内创建文件时，出现类似如下空间不足的提示。&lt;/p>
+&lt;pre>&lt;code>No space left on device …
+&lt;/code>&lt;/pre>
+&lt;h2 id="问题原因">问题原因&lt;/h2>
+&lt;p>导致该问题的可能原因如下所示：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>磁盘分区空间使用率达到百分之百。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>磁盘分区 inode 使用率达到百分之百。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>存在僵尸文件。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>挂载点覆盖。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="解决方案">解决方案&lt;/h2>
+&lt;blockquote>
+&lt;p>阿里云提醒您：&lt;/p>
+&lt;/blockquote>
+&lt;p>要解决该问题，请根据不同的问题原因，通过以下方式进行处理：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>分区容量满&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>inode 容量满&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>修改 inode 数量&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>僵尸文件分析删除&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>挂载点覆盖&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="分区容量满的处理">分区容量满的处理&lt;/h3>
+&lt;ul>
+&lt;li>
+&lt;p>登录服务器，使用&lt;code>df -h&lt;/code>命令查看磁盘使用率，其中的&lt;strong>Mounted on&lt;/strong>指挂载的目录。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>进入根目录，执行 &lt;code>du -sh *&lt;/code> 指令，逐级查看哪个目录占用磁盘空间较大，进入相应的目录，直到找到最精确的文件或目录。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>最后，结合业务情况等判断对相关文件或目录进行删除，或者购买更大的数据盘分担处理。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="inode-容量满的处理">inode 容量满的处理&lt;/h3>
+&lt;p>通过如下操作，解决 inode 容量满的问题。&lt;/p>
+&lt;p>&lt;strong>查询 inode 使用情况&lt;/strong>&lt;/p>
+&lt;p>Linux 的 inode 节点中，记录了文件的类型、大小、权限、所有者、文件连接的数目、创建时间与更新时间等重要的信息，还有一个比较重要的内容就是指向数据块的指针。一般情况不需要特殊配置，如果存放文件很多，则需要配置。有时磁盘空间有剩余但是不能存放文件，可能是由于 inode 耗尽所致。&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>执行&lt;code>df -i&lt;/code>命令，可以查询 inode 的使用情况。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>如果 inode 使用率达到或者接近 100%，可以通过以下两种方式进行处理：&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>清除 inode 占用高的文件或者目录。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>修改 inode 数量。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>清除 inode 占用高的文件或者目录&lt;/strong>&lt;/p>
+&lt;p>如果不方便格式化磁盘以增加 inode 数量，可以参考以下步骤，清理 inode 占用量高的文件或者目录。&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>登录服务器，执行以下命令，分析根目录下的每个二级目录下有多少个文件。&lt;code>for i in /*; do echo $i; find $i | wc -l; done&lt;/code>。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>然后，逐层进入 inode 占用最高的目录，继续执行上述指令，逐步定位占用过高空间的文件或目录，最后进行相应清理。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>修改 inode 数量&lt;/strong>&lt;/p>
+&lt;p>如果不允许清理磁盘中的文件，或者清理后 inode 使用率仍然较高，则需要通过以下步骤，增加 inode 节点数量。&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;strong>说明&lt;/strong>：inode 的调整需要重新格式化磁盘，请确保数据已经得到有效备份后，再进行以下操作。&lt;/p>
+&lt;/blockquote>
+&lt;ol>
+&lt;li>
+&lt;p>执行以下命令，卸载系统文件。&lt;code>umount /home&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>执行以下命令，重新建立文件系统，指定 inode 节点数。&lt;code>mkfs.ext3 /dev/xvdb -N 1638400&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>执行以下命令，修改 fstab 文件。&lt;code>vim /etc/fstab&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>执行以下命令，查看修改后的 inode 节点数。&lt;code>dumpe2fs -h /dev/xvdb | grep node&lt;/code>。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h3 id="僵尸文件分析与删除">僵尸文件分析与删除&lt;/h3>
+&lt;p>如果磁盘和 inode 都没有问题，则需要查看是否存在未被清除句柄的僵尸文件。这些文件实际上已经被删除，但是有服务程序在使用这些文件，导致这些文件一直被占用，无法释放磁盘空间。如果这些文件过多，会占用很大的磁盘空间。参考以下步骤查看并删除僵尸文件。&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>远程登录服务器。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>执行以下命令，安装 lsof。&lt;code>yum install lsof -y&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>执行以下命令，查看僵尸文件占用情况。&lt;code>lsof |grep delete | more&lt;/code>系统显示类似如下。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>如果僵尸文件过多，会占用很大的磁盘空间。可以通过以下方法释放句柄，以清除僵尸文件。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>重启服务器，验证效果。重启服务器，系统会退出现有的进程，开机后重新加载。该过程会释放调用的 deleted 文件的句柄。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>根据&lt;code>lsof&lt;/code>命令列出的 pid 进程号，使用&lt;code>kill&lt;/code>命令正常停止或结束占用这些文件的服务进程。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h3 id="挂载点覆盖">挂载点覆盖&lt;/h3>
+&lt;p>先取消磁盘挂载，再检查原挂载目录下的空间占用情况。&lt;/p>
+&lt;h2 id="适用于">适用于&lt;/h2>
+&lt;ul>
+&lt;li>云服务器 ECS&lt;/li>
+&lt;/ul>
+&lt;p>find / -xdev -printf &amp;lsquo;%h\n&amp;rsquo; | sort | uniq -c | sort -k 1 -n&lt;/p>
+&lt;p>今天 login server 的一个网站，发现 login 后没有生成 session。根据以往经验，一般是空间已满导致 session 文件生成失败。&lt;/p>
+&lt;pre>&lt;code>df -h
+Filesystem Size Used Avail Use% Mounted on
+/dev/mapper/dev01-root 75G 58G 14G 82% /
+udev 2.0G 4.0K 2.0G 1% /dev
+tmpfs 396M 292K 396M 1% /run
+none 5.0M 0 5.0M 0% /run/lock
+none 2.0G 4.0K 2.0G 1% /run/shm
+/dev/sda1 228M 149M 68M 69% /boot
+&lt;/code>&lt;/pre>
+&lt;p>空间剩余 14G，可以排除空间已满的情况。导致文件生成失败还有另一个原因，就是文件索引节点 inode 已满。&lt;/p>
+&lt;pre>&lt;code>df -i
+Filesystem Inodes IUsed IFree IUse% Mounted on
+/dev/mapper/dev01-root 4964352 4964352 0 100% /
+udev 503779 440 503339 1% /dev
+tmpfs 506183 353 505830 1% /run
+none 506183 5 506178 1% /run/lock
+none 506183 2 506181 1% /run/shm
+/dev/sda1 124496 255 124241 1% /boot
+&lt;/code>&lt;/pre>
+&lt;p>inodes 占用 100%，果然是这个问题。&lt;/p>
+&lt;p>解决方法：删除无用的临时文件，释放 inode。&lt;/p>
+&lt;p>查找发现 /tmp 目录下有很多 sess_xxxxx 的 session 临时文件。&lt;/p>
+&lt;p>ls -lt /tmp | wc -l4011517&lt;/p>
+&lt;p>进入/tmp 目录，执行 find -exec 命令&lt;/p>
+&lt;p>sudo find /tmp -type f -exec rm {} ;&lt;/p>
+&lt;p>如果使用 rm *，有可能因为文件数量太多而出现 Argument list too long 错误，关于 Argument list too long 错误可以参考《linux Argument list too long 错误解决方法》&lt;/p>
+&lt;p>除了/tmp 的临时文件外，0 字节的文件也会占用 inode，应该也释放。&lt;/p>
+&lt;p>遍历寻找 0 字节的文件，并删除。&lt;/p>
+&lt;p>sudo find /home -type f -size 0 -exec rm {} ;&lt;/p>
+&lt;p>删除后，inode 的使用量减少为 19%，可以正常使用了。&lt;/p>
+&lt;pre>&lt;code>df -i
+Filesystem Inodes IUsed IFree IUse% Mounted on
+/dev/mapper/dev01-root 4964352 940835 4023517 19% /
+udev 503779 440 503339 1% /dev
+tmpfs 506183 353 505830 1% /run
+none 506183 5 506178 1% /run/lock
+none 506183 2 506181 1% /run/shm
+/dev/sda1 124496 255 124241 1% /boot
+&lt;/code>&lt;/pre></description></item><item><title>Docs: opensuse的一次救援</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/opensuse%E7%9A%84%E4%B8%80%E6%AC%A1%E6%95%91%E6%8F%B4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/opensuse%E7%9A%84%E4%B8%80%E6%AC%A1%E6%95%91%E6%8F%B4/</guid><description>
+&lt;p>昨晚吃完晚饭回到办公室，右边同事在控制台看着一个 suse 起不来一直启动的时候卡在 suse 的蜥蜴 logo 背景图那。见我来了叫我看下，他们已经尝试过恢复快照，但是还不行，应该是很久之前损坏的，只不过因为没重启没发现，我叫他重启下看看卡在哪，重启后进入内核后显示背景图那按下 esc 然后看卡在 / sysroot 挂载那。目测分区损坏了，经历了 ubuntu 的安装 iso 的 rescue mode 就是渣渣后，我还是信任 centos 的 iso。&lt;/p>
+&lt;h2 id="处理">处理&lt;/h2>
+&lt;h3 id="先备份和准备工作">先备份和准备工作&lt;/h3>
+&lt;p>关闭虚机，后台拷贝下系统盘的卷先备份下。然后给虚机的 IDE 光驱挂载了个 centos 7.5 DVD 的 iso，修改虚机启动顺序到 ISO，进&lt;code>Troubleshooting&lt;/code> –&amp;gt; &lt;code>Rescue a CentOS Linux system&lt;/code>
+一般损坏的都不建议选 1，因为挂载不上，所以是选 3 手动处理&lt;/p>
+&lt;h3 id="device-or-resource-busy">Device or resource busy&lt;/h3>
+&lt;pre>&lt;code>1) Continue
+2) Read-only mount
+3) Skip to shell
+4) Quit (Reboot)
+Please make a selection from the above: 3
+&lt;/code>&lt;/pre>
+&lt;p>最开始我 lsblk 和看了下硬盘的分区表，最后&lt;code>vgchange -a y&lt;/code>激活 lvm 后&lt;code>xfs_repair /dev/mapper/suse-lv_root&lt;/code>的时候提示该设备繁忙，遂查看了下&lt;/p>
+&lt;pre>&lt;code>sh-4.2# lsof /dev/mapper/suse-lv_root
+sh-4.2# ps aux | less
+&lt;/code>&lt;/pre>
+&lt;p>lsof 和 fuser 都是返回空的，最后就&lt;code>ps aux&lt;/code>一个个看，发现了个 mount 进程一直 hung 在那&lt;/p>
+&lt;pre>&lt;code>sh-4.2# ps aux | grep moun[t]
+root 6126 0.0 0.0 19940 840 pts/0 D+ 11:56 0:00 /usr/bin/mount -t xfs -o defaults,ro /dev/mapper/suse-lv_root /mnt/sysimage
+&lt;/code>&lt;/pre>
+&lt;p>这个进程尝试过了，死活杀不掉，进 rescue mode 的时候选的&lt;code>Skip to shell&lt;/code>，以为是 iso 的版本 bug，换了一个 7.6 minimal 的 iso 进入 rescue mode 后不选择直接&lt;code>ctrl+alt+F2&lt;/code>进到 tty 还是一样会自动挂载，于是想下从父进程的角度上看看能不能处理&lt;/p>
+&lt;pre>&lt;code>[anaconda root@localhost /]# ps aux | grep moun[t]
+root 6113 0.0 0.0 19940 840 pts/0 D+ 12:02 0:00 /usr/bin/mount -t xfs -o defaults,ro /dev/mapper/suse-lv_root /mnt/sysimage
+[anaconda root@localhost /]# ps -Al | grep mount
+4 D 0 6113 5862 0 80 0 - 4985 xfs_bu pts/0 00:00:00 mount
+[anaconda root@localhost /]# ps aux | grep 586[2]
+root 5862 0.0 0.0 19940 840 pts/0 D+ 12:02 0:00 python anaconda
+&lt;/code>&lt;/pre>
+&lt;p>找到了该 mount 的父进程是 anaconda，也就是我们进入 rescue mode 的第一个 tty 提供交互，直接杀掉它，mount 终止&lt;/p>
+&lt;pre>&lt;code>[anaconda root@localhost /]# kill -9 5862;kill 6113
+bash: kill: (6113) - No such process
+&lt;/code>&lt;/pre>
+&lt;p>但是还是 busy，发现该 mount 又 tm 的起来了，最终想了个骚套路，进入 rescue mode，然后 4 个选项不选择，直接&lt;code>ctrl+alt+F2&lt;/code>进到 tty 后杀掉 mount 的进程后把 mount 命名改名，执行下面&lt;/p>
+&lt;pre>&lt;code>[anaconda root@localhost /]# mv /usr/bin/mount{,.bak} #先改名，再杀进程
+[anaconda root@localhost /]# ps aux | grep moun[t]
+root 6128 0.3 0.0 19940 844 pts/0 D+ 12:06 0:00 /usr/bin/mount -t xfs -o defaults,ro /dev/mapper/suse-lv_root /mnt/sysimage
+[anaconda root@localhost /]# ps -Al | grep mount
+4 D 0 6128 5877 0 80 0 - 4985 xfs_bu pts/0 00:00:00 mount
+[anaconda root@localhost /]# kill -9 5877;kill 6128
+bash: kill: (6128) - No such process
+[anaconda root@localhost /]# ps aux | grep moun[t] #然后再也没mount进程
+&lt;/code>&lt;/pre>
+&lt;h3 id="修复">修复&lt;/h3>
+&lt;p>接着前面的，激活 lvm，这里不详细说，可以自己去&lt;code>lsblk&lt;/code>和&lt;code>fdisk -l /dev/vdx&lt;/code>去看相关分区信息&lt;/p>
+&lt;pre>&lt;code>[anaconda root@localhost /]# vgchange -a y
+1 logical volume(s) in volume group &amp;quot;suse&amp;quot; now active
+4 logical volume(s) in volume group &amp;quot;vgsap&amp;quot; now active
+[anaconda root@localhost /]# xfs_repair /dev/mapper/suse-lv_root
+ERROR: The filesystem has valuable metadata changes in a log which needs to
+be replayed. Mount the filesystem to replay the log, and unmount it before
+re-running xfs_repair. If you are unable to mount the filesystem, then use
+the -L option to destroy the log and attempt a repair.
+Note that destroying the log may cause corruption -- please attempt a mount
+of the filesystem before doing this.
+&lt;/code>&lt;/pre>
+&lt;p>该报错大致意思是: 文件系统的 log 需要在 repair 之前先 mount 它来触发回放 log，如果无法挂载，使用&lt;code>xfs_repair&lt;/code>带上&lt;code>-L&lt;/code>选项摧毁 log 强制修复
+正确姿势是先使用&lt;code>xfs_metadump&lt;/code>导出 metadata，见文章 &lt;a href="https://serverfault.com/questions/777299/proper-way-to-deal-with-corrupt-xfs-filesystems">https://serverfault.com/questions/777299/proper-way-to-deal-with-corrupt-xfs-filesystems&lt;/a>
+这里因为已经损坏了，没必要测试 mount 了，并且我未导出 metadata，直接 - L 修复的，下次遇到了相似场景可以试下&lt;code>xfs_metadump&lt;/code>&lt;/p>
+&lt;pre>&lt;code>[anaconda root@localhost /]# xfs_repair -L /dev/mapper/suse-lv_root
+&lt;/code>&lt;/pre>
+&lt;p>漫长的等待修复，然后卡在了一个 inode 那，等待了 20 分钟直接&lt;code>ctrl c&lt;/code>取消再来，然当这次不需要带&lt;code>-L&lt;/code>选项&lt;/p>
+&lt;pre>&lt;code>[anaconda root@localhost /]# xfs_repair /dev/mapper/suse-lv_root
+...
+...
+resetting inode 15847758 nlinks from 0 to 2
+resetting inode 16180728 nlinks from 0 to 2
+resetting inode 16500950 nlinks from 0 to 2
+resetting inode 17347042 nlinks from 0 to 2
+resetting inode 19414733 nlinks from 0 to 2
+Metadata corruption detected at xfs_dir3_block block 0x2a09ba8/0x1000
+libxfs_writebufr: write verufer failed on xfs_dur3_block bno 0x2a09ba8/0x1000
+Metadata corruption detected at xfs_dir3_block block 0x145ce28/0x1000
+libxfs_writebufr: write verufer failed on xfs_dur3_block bno 0x145ce28/0x1000
+...
+...
+Maximum metadata LSN (1919513701:1600352110) is ahead of log (1:2).
+Format log to cycle 1919513704.
+releasing dirty buffer (bulk) to free list!releasing dirty buffer (bulk) to free list!releasing dirty buffer (bulk) to free list!releasing dirty buffer (bulk) to free list!releasing dirty buffer (bulk) to free list!releasing dirty buffer (bulk) to free list!releasing dirty buffer (bulk) to free list!releasing dirty buffer (bulk) to free list!releasing dirty buffer (bulk) to free list!releasing dirty buffer (bulk) to free list!done
+&lt;/code>&lt;/pre>
+&lt;p>然后再次修复&lt;/p>
+&lt;pre>&lt;code>[anaconda root@localhost /]# xfs_repair /dev/mapper/suse-lv_root
+Phase 1 - find and verify superblock...
+Phase 2 - using internal log
+- zero log...
+- scan filesystem freespace and inode maps...
+- found root inode chunk
+Phase 3 - for each AG...
+- scan and clear agi unlinked lists...
+- process known inodes and perfrom inode discovery...
+- agno = 0
+...
+- setting up duplicate extent list...
+- check for inodes claiming duplicate blocks...
+- agno = 1
+- agno = 0
+- agno = 2
+- agno = 3
+Phase 5 - rebuild AG headers and trees...
+- reset superblock...
+Phase 6 - check inode connectivity...
+- resetting contents of realtime bitmap and summary inodes
+- traversing filesystem ...
+- traversal finished ...
+- moveing disconnected inodes to lost_found ...
+Phase 7 - verify and correct link counts...
+resetting inode 64 nlinks from 25 to 24
+done
+&lt;/code>&lt;/pre>
+&lt;p>然后挂载试试&lt;/p>
+&lt;pre>&lt;code>[anaconda root@localhost /]# mount /dev/mapper/suse-lv_root /mnt/sysimage
+bash： mount: command not found
+[anaconda root@localhost /]# mount.bak /dev/mapper/suse-lv_root /mnt/sysimage #漫长等待，大概30多秒
+[anaconda root@localhost /]# ls -l /mnt/sysimage
+total 40296
+drwxr-xr-x 2 root root 4096 Aug 6 2018 bin
+drwxr-xr-x 3 root root 6 Aug 6 2018 boot
+drwxr-xr-x 22 root root 6 Aug 6 22:19 dev
+drwxr-xr-x 131 root root 8192 Nov 30 04:05 etc
+drwxr-xr-x 5 root root 46 Oct 18 2018 home
+drwxr-xr-x 12 root root 8192 Nov 30 04:04 lib
+drwxr-xr-x 7 root root 8192 Aug 6 2018 lib64
+drwxr-xr-x 2270 root root 27242496 Dec 4 20:47 lost+found
+drwxr-xr-x 2 root root 6 Jun 27 2017 mnt
+drwxr-xr-x 2 root root 6 Jun 27 2017 opt
+dr-xr-xr-x 190 root root 6 Aug 6 2018 proc
+drwx------ 21 root root 4096 Nov 30 04:39 root
+drwxr-xr-x 31 root root 6 Aug 6 2018 run
+drwxr-xr-x 4 root sapsys 6 Oct 11 2018 sapmnt
+drwxr-xr-x 2 root root 8192 Oct 11 2018 sbin
+drwxr-xr-x 2 root root 6 Jun 27 2017 selinux
+drwxr-xr-x 9 root root 4096 Oct 11 2018 software
+drwxr-xr-x 4 root root 28 Aug 6 2018 srv
+dr-xr-xr-x 13 root root 0 Dec 4 22:16 sys
+drwxrwxrwt 31 root root 4096 Dec 3 22:18 tmp
+drwxr-xr-x 14 root root 182 Nov 30 04:37 usr
+drwxr-xr-x 13 root root 201 Nov 30 04:37 var
+&lt;/code>&lt;/pre>
+&lt;p>然后取消光驱挂载，修改启动顺序重启，能进到登陆，直接&lt;code>ctrl+alt+F2&lt;/code>进到 tty 登陆，发现没有网络，查看了下失败的启动，控制台观察的，输出不能被复制，下面命令输出大致的写下&lt;/p>
+&lt;pre>&lt;code>$ systemctl --failed
+UNIT LOAD ACTIVE SUB DESCRIPTION
+● cryptctl-auto-unlock@sys-devices-pci0000:00-0000:00:08.0-virtio3-block-vda.service
+● cryptctl-auto-unlock@aD7Wov-Krfg-KPbq-Dnf6-1dAj-e9dM-N7dUir.service
+● cryptctl-auto-unlock@abd69e01-d874-4658-b738-1107d33cd84c.service
+● cryptctl-auto-unlock@abd69e01-d874-4658-b738-1107d33cd84c.service
+● cryptctl-auto-unlock@0zSmA1-nPGR-FuVE-ZIvq-vxhl-2WdX-eh58e2.service
+● postfix.service loaded failed failed Postfix Mail Transport Agent
+● wicked.service loaded failed failed wicked managed network interfaces
+● wickedd-auto4.service loaded failed failed wicked AutoIPv4 supplicant service
+● wickedd-dhcp4.service loaded failed failed wicked DHCPv4 supplicant service
+● wickedd-dhcp6.service loaded failed failed wicked DHCPv6 supplicant service
+● wickedd.service loaded failed failed wicked network management service daemon
+LOAD = Reflects whether the unit definition was properly loaded.
+ACTIVE = The high-level unit activation state, i.e. generalization of SUB.
+SUB = The low-level unit activation state, values depend on unit type.
+&lt;/code>&lt;/pre>
+&lt;p>查看了下系统日志&lt;/p>
+&lt;pre>&lt;code>vi /var/log/messages
+2019-12-04T21:42:56.401177+08:00 bpcprdascs1 cryptctl[1506]: open /etc/sysconfig/cryptctl-client: no such file or directory
+2019-12-04T21:42:56.403110+08:00 bpcprdascs1 cryptctl[1515]: open /etc/sysconfig/cryptctl-client: no such file or directory
+2019-12-04T21:42:56.408475+08:00 bpcprdascs1 cryptctl[1495]: open /etc/sysconfig/cryptctl-client: no such file or directory
+2019-12-04T21:42:56.408634+08:00 bpcprdascs1 cryptctl[1529]: open /etc/sysconfig/cryptctl-client: no such file or directory
+2019-12-04T21:42:56.408807+08:00 bpcprdascs1 cryptctl[1508]: open /etc/sysconfig/cryptctl-client: no such file or directory
+2019-12-04T21:42:56.414068+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@sys-devices-pci0000:00-0000:00:08.0-virtio3-block-vda.service: Main process exited, code=exited, status=1/FAILURE
+2019-12-04T21:42:56.414237+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@sys-devices-pci0000:00-0000:00:08.0-virtio3-block-vda.service: Unit entered failed state.
+2019-12-04T21:42:56.414319+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@sys-devices-pci0000:00-0000:00:08.0-virtio3-block-vda.service: Failed with result 'exit-code'.
+2019-12-04T21:42:56.414403+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@aD7Wov-Krfg-KPbq-Dnf6-1dAj-e9dM-N7dUir.service: Main process exited, code=exited, status=1/FAILURE
+2019-12-04T21:42:56.414467+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@aD7Wov-Krfg-KPbq-Dnf6-1dAj-e9dM-N7dUir.service: Unit entered failed state.
+2019-12-04T21:42:56.414528+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@aD7Wov-Krfg-KPbq-Dnf6-1dAj-e9dM-N7dUir.service: Failed with result 'exit-code'.
+2019-12-04T21:42:56.414596+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@abd69e01-d874-4658-b738-1107d33cd84c.service: Main process exited, code=exited, status=1/FAILURE
+2019-12-04T21:42:56.414657+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@abd69e01-d874-4658-b738-1107d33cd84c.service: Unit entered failed state.
+2019-12-04T21:42:56.414735+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@abd69e01-d874-4658-b738-1107d33cd84c.service: Failed with result 'exit-code'.
+2019-12-04T21:42:56.414794+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@0zSmA1-nPGR-FuVE-ZIvq-vxhl-2WdX-eh58e2.service: Main process exited, code=exited, status=1/FAILURE
+2019-12-04T21:42:56.414851+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@0zSmA1-nPGR-FuVE-ZIvq-vxhl-2WdX-eh58e2.service: Unit entered failed state.
+2019-12-04T21:42:56.414907+08:00 bpcprdascs1 systemd[1]: cryptctl-auto-unlock@0zSmA1-nPGR-FuVE-ZIvq-vxhl-2WdX-eh58e2.service: Failed with result 'exit-code'.
+&lt;/code>&lt;/pre>
+&lt;p>发现该文件丢失，同样系统的机器上去把内容手动创建，然后重启只剩下这些&lt;/p>
+&lt;pre>&lt;code>● wicked.service loaded failed failed wicked managed network interfaces
+● wickedd-auto4.service loaded failed failed wicked AutoIPv4 supplicant service
+● wickedd-dhcp4.service loaded failed failed wicked DHCPv4 supplicant service
+● wickedd-dhcp6.service loaded failed failed wicked DHCPv6 supplicant service
+● wickedd.service loaded failed failed wicked network management service daemon
+&lt;/code>&lt;/pre>
+&lt;p>找到相关日志，或者手动启动 wicked 或者网卡也报错下面类似&lt;/p>
+&lt;pre>&lt;code>2019-12-04T21:54:50.170654+08:00 bpcprdascs1 wickedd[1399]: Failed to register dbus bus name &amp;quot;org.opensuse.Network&amp;quot; (Connection &amp;quot;:1.2&amp;quot; is not allowed to own the service &amp;quot;org.opensuse.Network&amp;quot; due to security policies in the configuration file)
+2019-12-04T21:54:50.170657+08:00 bpcprdascs1 wickedd[1399]: unable to initialize dbus service
+2019-12-04T21:54:50.170659+08:00 bpcprdascs1 systemd[1]: wickedd.service: Main process exited, code=exited, status=1/FAILURE
+2019-12-04T21:54:50.170661+08:00 bpcprdascs1 systemd[1]: Failed to start wicked network management service daemon.
+...
+2019-12-04T22:02:05.868058+08:00 bpcprdascs1 wicked: /org/opensuse/Network/Interface.getManagedObjects failed. Server responds:
+2019-12-04T22:02:05.868883+08:00 bpcprdascs1 wicked: org.freedesktop.DBus.Error.ServiceUnknown: The name org.opensuse.Network was not provided by any .service files
+&lt;/code>&lt;/pre>
+&lt;p>这个错误找了一圈都没正确的解决办法，还是自己突发奇想在&lt;code>/etc/dbus-1/&lt;/code>对比了下发现文件丢失
+正常机器上&lt;/p>
+&lt;pre>&lt;code>bpcprdascs2:/etc/dbus-1/system.d # find /etc/dbus-1/ -type f
+/etc/dbus-1/system.d/org.opensuse.Snapper.conf
+/etc/dbus-1/system.d/org.freedesktop.hostname1.conf
+/etc/dbus-1/system.d/org.freedesktop.import1.conf
+/etc/dbus-1/system.d/org.freedesktop.locale1.conf
+/etc/dbus-1/system.d/org.freedesktop.login1.conf
+/etc/dbus-1/system.d/org.freedesktop.machine1.conf
+/etc/dbus-1/system.d/org.freedesktop.systemd1.conf
+/etc/dbus-1/system.d/org.freedesktop.timedate1.conf
+/etc/dbus-1/system.d/com.redhat.PrinterDriversInstaller.conf
+/etc/dbus-1/system.d/org.freedesktop.UPower.conf
+/etc/dbus-1/system.d/org.freedesktop.GeoClue2.Agent.conf
+/etc/dbus-1/system.d/org.freedesktop.GeoClue2.conf
+/etc/dbus-1/system.d/bluetooth.conf
+/etc/dbus-1/system.d/com.redhat.tuned.conf
+/etc/dbus-1/system.d/org.freedesktop.PolicyKit1.conf
+/etc/dbus-1/system.d/org.freedesktop.UDisks2.conf
+/etc/dbus-1/system.d/org.freedesktop.RealtimeKit1.conf
+/etc/dbus-1/system.d/org.freedesktop.Accounts.conf
+/etc/dbus-1/system.d/org.opensuse.Network.AUTO4.conf
+/etc/dbus-1/system.d/org.opensuse.Network.DHCP4.conf
+/etc/dbus-1/system.d/org.opensuse.Network.DHCP6.conf
+/etc/dbus-1/system.d/org.opensuse.Network.Nanny.conf
+/etc/dbus-1/system.d/org.opensuse.Network.conf
+/etc/dbus-1/system.d/pulseaudio-system.conf
+/etc/dbus-1/system.d/org.freedesktop.PackageKit.conf
+/etc/dbus-1/system.d/cups.conf
+/etc/dbus-1/system.d/org.opensuse.CupsPkHelper.Mechanism.conf
+/etc/dbus-1/system.d/gdm.conf
+/etc/dbus-1/session.conf
+/etc/dbus-1/system.conf
+&lt;/code>&lt;/pre>
+&lt;p>该故障机器上&lt;/p>
+&lt;pre>&lt;code>bpcprdascs1:/var/log # find /etc/dbus-1/ -type f
+/etc/dbus-1/system.d/org.opensuse.Snapper.conf
+/etc/dbus-1/system.d/org.freedesktop.hostname1.conf
+/etc/dbus-1/system.d/org.freedesktop.import1.conf
+/etc/dbus-1/system.d/org.freedesktop.locale1.conf
+/etc/dbus-1/system.d/org.freedesktop.login1.conf
+/etc/dbus-1/system.d/org.freedesktop.machine1.conf
+/etc/dbus-1/system.d/org.freedesktop.systemd1.conf
+/etc/dbus-1/system.d/org.freedesktop.timedate1.conf
+/etc/dbus-1/system.d/com.redhat.PrinterDriversInstaller.conf
+/etc/dbus-1/system.d/org.freedesktop.UPower.conf
+/etc/dbus-1/system.d/org.freedesktop.GeoClue2.Agent.conf
+/etc/dbus-1/system.d/org.freedesktop.GeoClue2.conf
+/etc/dbus-1/system.d/bluetooth.conf
+/etc/dbus-1/system.d/com.redhat.tuned.conf
+/etc/dbus-1/system.d/org.freedesktop.PolicyKit1.conf
+/etc/dbus-1/system.d/org.freedesktop.RealtimeKit1.conf
+/etc/dbus-1/session.conf
+/etc/dbus-1/system.conf
+&lt;/code>&lt;/pre>
+&lt;p>因为故障机器的网络无法启动，即使手动&lt;code>ip addr add&lt;/code>也报错 dbus，所以无法通过网络 scp。于是在后台正常机器给添加了一个数据盘，把该目录的文件拷贝到数据盘上，再把数据盘挂载到故障机器上。然后 cp 拷贝完重启，然后网络起来了
+只剩下故障&lt;/p>
+&lt;pre>&lt;code>$ systemctl --failed
+UNIT LOAD ACTIVE SUB DESCRIPTION
+● wickedd-auto4.service loaded failed failed wicked AutoIPv4 supplicant service
+● wickedd-dhcp4.service loaded failed failed wicked DHCPv4 supplicant service
+● wickedd-dhcp6.service loaded failed failed wicked DHCPv6 supplicant service
+&lt;/code>&lt;/pre>
+&lt;p>上面三个通过系统日志可以找到是文件丢失，其他机器上去拷贝就行了，当然也不是只有这三个服务的文件丢失，其他服务的文件也丢失了，自行看下系统日志处理下&lt;/p>
+&lt;pre>&lt;code>2019-12-04T21:54:50.170648+08:00 bpcprdascs1 display-manager[1429]: /usr/lib/X11/display-manager: line 17: /etc/sysconfig/displaymanager: No such file or directory
+2019-12-04T22:18:03.689878+08:00 bpcprdascs1 systemd[1395]: wickedd-dhcp6.service: Failed at step EXEC spawning /usr/lib/wicked/bin/wickedd-dhcp6: No such file or directory
+...
+2019-12-04T22:18:03.689884+08:00 bpcprdascs1 systemd[1396]: wickedd-dhcp4.service: Failed at step EXEC spawning /usr/lib/wicked/bin/wickedd-dhcp4: No such file or directory
+...
+2019-12-04T22:18:03.689897+08:00 bpcprdascs1 systemd[1403]: wickedd-auto4.service: Failed at step EXEC spawning /usr/lib/wicked/bin/wickedd-auto4: No such file or directory
+&lt;/code>&lt;/pre>
+&lt;p>&lt;a href="https://zhangguanzhang.github.io/2019/12/05/suse-fix-data-but-device-busy/">https://zhangguanzhang.github.io/2019/12/05/suse-fix-data-but-device-busy/&lt;/a>&lt;/p></description></item><item><title>Docs: 查找隐藏进程(设备中病毒)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/%E6%9F%A5%E6%89%BE%E9%9A%90%E8%97%8F%E8%BF%9B%E7%A8%8B%E8%AE%BE%E5%A4%87%E4%B8%AD%E7%97%85%E6%AF%92/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/%E6%9F%A5%E6%89%BE%E9%9A%90%E8%97%8F%E8%BF%9B%E7%A8%8B%E8%AE%BE%E5%A4%87%E4%B8%AD%E7%97%85%E6%AF%92/</guid><description>
+&lt;p>上个星期，群里出现一个神秘的案例，他的服务器 CPU 使用率飙的老高，但是无论使用 top 命令，还是 pidstate 等其他命令都查不出是哪个进程占用的，感觉这个进程「神秘消失」了一样。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597185-71e0e52f-f819-445d-ac57-a94bfa0b5766.png" alt="">&lt;/p>
+&lt;p>奈何，小林功力不够，我对自己认知也很明确，我承认案例我破不了。不过没关系，好在我朋友多，立马@出了轩辕，轩辕（公众号：编程技术宇宙）是专门搞网络安全的，果然他一进场，就在偷笑，因为我给他送素材来了。。。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597242-bf593eeb-29e2-4355-92c3-47ecbe7542be.png" alt="">&lt;/p>
+&lt;p>来，接下来我们就把这个「病毒式」的进程给扒出来。&lt;/p>
+&lt;h2 id="cpu-起飞了">CPU 起飞了&lt;/h2>
+&lt;p>服务器的 CPU 一直处于高占用状态，但用&lt;strong>top&lt;/strong>、&lt;strong>ps&lt;/strong>等命令却一直找不到是哪个进程在占用，怀疑中了&lt;strong>挖矿病毒&lt;/strong>，急的团团转。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597225-7306da34-d058-4160-aa08-6d10b17ffdf9.png" alt="">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597246-8cdf8e8e-7847-4c87-8050-e9cf186cd161.png" alt="">&lt;/p>
+&lt;p>根据经验，我赶紧让他看一下当前服务器的网络连接，看看有没有可疑连接，果然发现了有点东西：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597218-f97dc721-34cf-4d54-8762-ddf5b5f0fc08.png" alt="">&lt;/p>
+&lt;p>上&lt;strong>Shodan&lt;/strong>查一下这 IP 地址：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597216-0962587b-857b-4a02-955c-8336e0fde240.png" alt="">&lt;/p>
+&lt;p>反向查找，发现有诸多域名曾经解析到这个 IP 地址：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597213-745a83f9-c1ae-4f58-9068-a1383c600ef7.png" alt="">&lt;/p>
+&lt;p>这是一个位于德国的 IP 地址，开放了&lt;code>4444&lt;/code>,&lt;code>5555&lt;/code>,&lt;code>7777&lt;/code>等数个特殊的服务端口：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597248-8b9130ae-b651-4934-bb70-74d7cc653752.png" alt="">&lt;/p>
+&lt;p>其中这位朋友服务器上发现的连接到的是 7777 端口，&lt;strong>钟馗之眼&lt;/strong>显示，这是一个 HTTP 服务的端口，直接访问返回的信息如下：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597250-e8e87634-d11b-48aa-9c2b-d07215143d70.png" alt="">&lt;/p>
+&lt;p>&lt;strong>mining pool!&lt;/strong>，服务器正在挖矿实锤了！&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597252-8148c8a8-5e71-4604-a5b9-54fc017534b2.png" alt="">&lt;/p>
+&lt;p>但神奇的是，这个进程像是隐身了一般，找不到存在的任何痕迹。&lt;/p>
+&lt;h2 id="进程如何隐藏">进程如何隐藏&lt;/h2>
+&lt;p>现在说回到本文的正题：&lt;strong>Linux 操作系统上，进程要隐藏起来，有哪些招数？&lt;/strong>&lt;/p>
+&lt;p>要回答这个问题，先来知道 ps、top 等命令枚举系统的进程列表的原理。&lt;/p>
+&lt;p>Linux 的设计哲学是：&lt;strong>一切皆文件！&lt;/strong>&lt;/p>
+&lt;p>进程也不例外， Linux 系统中有一个特殊的目录：&lt;strong>/proc/&lt;/strong>，这个目录下的内容，不是硬盘上的文件系统，而是操作系统内核暴露出的内核中进程、线程相关的数据接口，也就是&lt;strong>procfs&lt;/strong>，里面记录了系统上正在运行的进程和线程信息，来查看一下：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597211-bf179f21-6022-4336-8fb9-78f31e4adf3e.png" alt="">&lt;/p>
+&lt;p>这些以数字命名的目录，就是一个进程的 PID，里面记录了该进程的详细信息。&lt;/p>
+&lt;p>而 ps、top 等命令的工作原理，实质上就是遍历这个目录。&lt;/p>
+&lt;p>知道了原理，想实现隐藏就有以下几个思路：&lt;/p>
+&lt;h3 id="命令替换">命令替换&lt;/h3>
+&lt;p>直接替换系统中的 ps、top 命令工具。可以从 GitHub 上下载它们的源码，加入对应的过滤逻辑，在遍历进程的时候，剔除挖矿进程，实现隐藏的目的。&lt;/p>
+&lt;h3 id="模块注入">模块注入&lt;/h3>
+&lt;p>编写一个动态链接库 so 文件，在 so 中，HOOK 遍历相关的函数（&lt;strong>readdir/readdir64&lt;/strong>），遍历的时候，过滤挖矿进程。&lt;/p>
+&lt;p>通过修改&lt;strong>LD_PRELOAD&lt;/strong>环境变量或/etc/ld.so.preload 文件，配置动态链接库，实现将其注入到目标进程中。&lt;/p>
+&lt;h3 id="内核级隐藏">内核级隐藏&lt;/h3>
+&lt;p>模块注入的方式是在应用层执行函数 HOOK，隐藏挖矿进程，更进一步，可以通过加载驱动程序的方式在内核空间 HOOK 相应的系统调用来实现隐藏。不过这对攻击者的技术要求也更高，遇到这样的病毒清理起来挑战也更大了。&lt;/p>
+&lt;h2 id="揪出挖矿进程">揪出挖矿进程&lt;/h2>
+&lt;p>通过上面的进程隐藏原理看得住来，都是想尽办法隐藏/proc 目录下的内容，类似于“&lt;strong>障眼法&lt;/strong>”，所以包含&lt;strong>ps&lt;/strong>、&lt;strong>top&lt;/strong>、&lt;strong>ls&lt;/strong>等等在内的命令，都没办法看到挖矿进程的存在。&lt;/p>
+&lt;p>但蒙上眼不代表不存在，有一个叫&lt;strong>unhide&lt;/strong>的工具，就能用来查看隐藏进程。&lt;/p>
+&lt;p>我让这位朋友安装这个工具来查找隐藏的进程，但奇怪的是，一执行&lt;strong>yum install&lt;/strong>安装，远程连接的 SSH 会话就立刻断开。&lt;/p>
+&lt;p>于是退而求其次，选择通过源码安装，又是一直各种报错···&lt;/p>
+&lt;p>因为我没办法亲自操作这台服务器，沟通起来比较麻烦，于是我决定研究下这个 unhide 工具的源码，然后编一个 python 脚本发给他执行。&lt;/p>
+&lt;p>源码地址：&lt;code>[https://github.com/YJesus/Unhide-NG/blob/master/unhide-linux.c](https://github.com/YJesus/Unhide-NG/blob/master/unhide-linux.c)&lt;/code>&lt;/p>
+&lt;p>在查找隐藏进程模块，其大致使用了如下的方法：&lt;/p>
+&lt;blockquote>
+&lt;p>挨个访问 &lt;strong>/proc/pid/&lt;/strong> 目录，其中，pid 从 1 到到 max_pid 累加&lt;/p>
+&lt;/blockquote>
+&lt;p>按照这个思路，我编写了一个 Python 脚本发给这位朋友，执行后果然发现了隐藏的进程：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597246-82bb8dc2-4035-4a0a-a64d-251fab13569b.png" alt="">&lt;/p>
+&lt;p>别着急，不是真的有这么多进程，这里是把所有的线程 ID 列举出来了。随便挑选了一个看一下：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597267-29a75787-b79d-42c1-83a5-8b3824e0d7c6.png" alt="">&lt;/p>
+&lt;p>还记得前面通过&lt;strong>netstat&lt;/strong>命令看到挖矿进程建立了一个网络连接吗？Linux 一切皆文件，在 &lt;strong>/proc/pid/fd&lt;/strong> 目录下有进程打开的文件信息：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597243-0091d703-c10b-4488-b40c-3ae9a68940ab.png" alt="">&lt;/p>
+&lt;p>这里发现这个进程打开了一个 socket，后面的 10212 是 inode id，再通过下面的命令看一下这个 socket 到底是什么：&lt;/p>
+&lt;blockquote>
+&lt;p>cat /proc/net/tcp | grep 10212&lt;/p>
+&lt;/blockquote>
+&lt;p>输出了四元组信息：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597249-9e849534-2a5b-408e-91c4-dd1da988e690.png" alt="">&lt;/p>
+&lt;p>左边是源 IP 地址：源端口，右边是目的 IP 地址：目的端口&lt;/p>
+&lt;p>目的端口 1E61 就是 7777！！！&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597261-08886ce2-1ddd-4e2a-a503-2015cf32193b.png" alt="">&lt;/p>
+&lt;p>找到了，就是这货！&lt;/p>
+&lt;p>再次查看 &lt;strong>cat /proc/pid/environ&lt;/strong>，定位到进程的可执行文件：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597263-98ef64c5-cc8f-4940-a909-1690cd013159.png" alt="">&lt;/p>
+&lt;p>总算把这家伙找到了：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597473-5e136820-5826-4222-8178-5a724d5af5ee.png" alt="">&lt;/p>
+&lt;p>网上一搜这家伙，看来是惯犯了：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597254-b0ffd9fa-1fdf-4cbd-9f3b-5f4eeae1153e.png" alt="">&lt;/p>
+&lt;h2 id="挖矿病毒分析">挖矿病毒分析&lt;/h2>
+&lt;p>把这个挖矿木马下载下来，反汇编引擎中查看，发现加壳了。&lt;/p>
+&lt;p>脱壳后，在 IDA 中现出了原形，不禁倒吸了一口凉气，居然悄悄修改&lt;code>/root/.ssh/authorized_keys&lt;/code>文件，添加了 RSA 密钥登录方式，留下这么一个后门，随时都能远程登录进来。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597305-9a193ece-fb1f-434f-9e18-43fc58c3c03a.png" alt="">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597264-24e07371-1063-4da7-87ae-c2b06ade13df.png" alt="">&lt;/p>
+&lt;p>除此之外，还发现了病毒尝试连接的大量域名：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597275-bc176443-39af-412f-8a02-622cb5b1c038.png" alt="">&lt;/p>
+&lt;p>看到这里简直可怕！自己的服务器被病毒按在地上摩擦啊！&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qet9pm/1616164597257-0bbd413b-d334-49da-b629-e16cd254d15c.png" alt="">&lt;/p>
+&lt;h2 id="清除建议">清除建议&lt;/h2>
+&lt;blockquote>
+&lt;p>开启 SELinux
+杀掉挖矿进程
+删除病毒程序（注意 rm 命令是否被替换）
+删除病毒驱动程序（注意 rm 命令是否被替换）
+删除病毒添加的登录凭据
+防火墙封禁 IP、端口&lt;/p>
+&lt;/blockquote></description></item><item><title>Docs: 从PTTYPE="dos"到TYPE="LVM2_member"的救援 · zhangguanzhang's Blog</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/%E4%BB%8Epttype_dos_%E5%88%B0type_lvm2_member_%E7%9A%84%E6%95%91%E6%8F%B4-zhangguanzhangs-blog/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/%E4%BB%8Epttype_dos_%E5%88%B0type_lvm2_member_%E7%9A%84%E6%95%91%E6%8F%B4-zhangguanzhangs-blog/</guid><description>
+&lt;p>同事叫我救援一台云主机，虽说是虚拟机，但是类比到硬件服务器还是一样的操作，这里记录下给后来者查阅&lt;/p>
+&lt;h2 id="故障信息">故障信息&lt;/h2>
+&lt;p>控制台进去看到 centos7 的背景虚化的数字 7 + 转圈，重启下看下完整的错误，重启选了内核然后进到图形界面的时候按下 ecs 取消，观察终端&lt;/p>
+&lt;pre>&lt;code>[ OK ] Started Show Plymouth Boot Screen.
+[ OK ] Reached target Paths.
+[ OK ] Reached target Basic System.
+[ 124.522110] dracut-initqueue[240]: Warning: dracut-initqueue timeout - starting timeout scripts
+[ 125.034736] dracut-initqueue[240]: Warning: dracut-initqueue timeout - starting timeout scripts
+[ 125.542788] dracut-initqueue[240]: Warning: dracut-initqueue timeout - starting timeout scripts
+[ 126.522110] dracut-initqueue[240]: Warning: dracut-initqueue timeout - starting timeout scripts
+[ 127.068643] dracut-initqueue[240]: Warning: dracut-initqueue timeout - starting timeout scripts
+[ 127.576830] dracut-initqueue[240]: Warning: dracut-initqueue timeout - starting timeout scripts
+...
+[ 185.082387] dracut-initqueue[240]: Warning: Could not boot.
+[ 185.118736] dracut-initqueue[240]: Warning: /dev/centos/root does not exist
+[ 185.119239] dracut-initqueue[240]: Warning: /dev/mapper/centos-root does not exist
+Starting Dracut Emergency Shell...
+Warning: /dev/centos/root does not exist
+Warning: /dev/mapper/centos-root does not exist
+Generating &amp;quot;/run/initramfs/rdsosreport.txt&amp;quot;
+Entering emergency mode. Exit the shell to continue.
+Type &amp;quot;journalctl&amp;quot; to view system logs.
+You might want to save &amp;quot;/run/initramfs/rdsosreport.txt&amp;quot; to a USB stack or /boot
+after mounting them and attach it to a bug report.
+dracut:/#
+&lt;/code>&lt;/pre>
+&lt;h2 id="处理">处理&lt;/h2>
+&lt;h3 id="挂载-iso-进救援模式">挂载 iso 进救援模式&lt;/h3>
+&lt;p>找不到根分区，关闭虚机，后台拷贝下系统盘的卷先备份下。然后给虚机的 IDE 光驱挂载了个 centos 的 iso，修改虚机启动顺序到 ISO，进&lt;code>Troubleshooting&lt;/code> –&amp;gt; &lt;code>Rescue a CentOS Linux system&lt;/code>&lt;/p>
+&lt;pre>&lt;code>1) Continue
+2) Read-only mount
+3) Skip to shell
+3) Quit (Reboot)
+Please make a selection from the above: 1
+&lt;/code>&lt;/pre>
+&lt;p>选择了 1 后提示没有任何 Linux 分区&lt;/p>
+&lt;pre>&lt;code>=====================================================================================
+=====================================================================================
+Rescue Mount
+You don't have any Linux partitions. The system will reboot automatically when you exit from the shell.
+Please press &amp;lt;return&amp;gt; to get a shell.
+&lt;/code>&lt;/pre>
+&lt;p>按下回车进入交互式 shell&lt;/p>
+&lt;pre>&lt;code>sh-4.2# lsblk
+NAME MAJ:MIN RM SIZE RO TYPE MOUNTPOINT
+vda 252:0 0 40G 0 disk
+├─vda1 252:1 0 2M 0 part
+├─vda2 252:2 0 200M 0 part
+└─vda3 252:3 0 39.8G 0 part
+vdb 252:16 0 400G 0 disk
+loop0 7:1 0 420.3M 1 loop
+loop1 7:1 0 2G 1 loop
+├─live-rw 253:0 0 2G 0 dm /
+└─live-base 253:1 0 2G 1 dm
+loop2 7:2 0 512M 1 loop
+└─live-rw 253:0 0 2G 0 dm /
+sh-4.2# fdisk -l /dev/vda
+Disk /dev/vda: 42.9 GB, 42949672960 bytes, 83886080 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disk label type: dos
+Disk identifier: 0x000ad4f2
+Device Boot Start End Blocks Id System
+/dev/vda1 2048 6143 2048 83 Linux
+/dev/vda2 * 6144 415743 204800 83 Linux
+/dev/vda3 415744 83886079 41735168 8e Linux LVM
+sh-4.2# blkid
+/run/install/repo/LiveOS/squashfs.img: TYPE=&amp;quot;squashfs&amp;quot;
+/dev/sr0: UUID=&amp;quot;2018-05-03-20-55-23-00&amp;quot; LABEL=&amp;quot;Centos 7 x86_64&amp;quot; TYPE=&amp;quot;iso9660&amp;quot; PTTYPE=&amp;quot;dos&amp;quot;
+/dev/sr1: UUID=&amp;quot;2019-11-01-16-33-37-00&amp;quot; LABEL=&amp;quot;config-2&amp;quot; TYPE=&amp;quot;iso9660&amp;quot;
+/dev/vda1: UUID=&amp;quot;e438c18a-c97d-432c-ae66-a538cd1fbb4d&amp;quot; TYPE=&amp;quot;xfs&amp;quot;
+/dev/vda3: PTTYPE=&amp;quot;dos&amp;quot;
+/dev/loop0: TYPE=&amp;quot;squashfs&amp;quot;
+...
+&lt;/code>&lt;/pre>
+&lt;p>查看下块，vda2 是 boot，vda3 是 lvm 也就是根所在，问题是&lt;code>/dev/vda3: PTTYPE=&amp;quot;dos&amp;quot;&lt;/code>不知道为何变成了 dos 类型，正常应该是&lt;code>TYPE=&amp;quot;LVM2_member&amp;quot;&lt;/code>&lt;/p>
+&lt;pre>&lt;code>/dev/vda3: UUID=&amp;quot;xxxxxxxxxxxxxx&amp;quot; TYPE=&amp;quot;LVM2_member&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>看看 lvm 的状态&lt;/p>
+&lt;pre>&lt;code>mkdir /mnt/sysimage
+vgchange -a y
+mount /dev/centos/root /mnt/sysimage
+ls -l /mnt/sysimage
+&lt;/code>&lt;/pre>
+&lt;p>发现根分区的文件还在&lt;/p>
+&lt;h3 id="重做-lvm-为了去掉-pttypedos">重做 lvm 为了去掉 PTTYPE=”dos”&lt;/h3>
+&lt;p>尝试着重做 pv 试试&lt;/p>
+&lt;pre>&lt;code>sh-4.2# vgremove centos
+Do you really wanto ro remove volume group &amp;quot;centos&amp;quot; containing 1 logical volumes? [y/n]: y
+Logical volume &amp;quot;root&amp;quot; successfully removed
+Volume group &amp;quot;centos&amp;quot; successfully removed
+sh-4.2# pvremove /dev/vda3
+Labels on physical volume &amp;quot;/dev/vda3&amp;quot; successfully wiped.
+sh-4.2# pvcreate /dev/vda3
+WARNING: dos signature detected on /dev/vda3 at offset 510. Wipe it? [y/n]: y
+Wiping dos signature on /dev/vda3.
+Physical volume &amp;quot;/dev/vda3&amp;quot; successfully created.
+sh-4.2# vgcreate centos /dev/vda3
+Volume group &amp;quot;centos&amp;quot; successfully created
+sh-4.2# lvcreate -n root -l 100%FREE centos
+Logical volume &amp;quot;root&amp;quot; created
+sh-4.2# mkdir /mnt/root
+sh-4.2# mount /dev/centos/root /mnt/root
+&lt;/code>&lt;/pre>
+&lt;p>被后面的&lt;code>xfs_repair&lt;/code>输出滚动冲没了，大致就是 lvcreate 的时候提示有 xfs 标签，选择不擦除，最终得到了个残缺的的&lt;code>/dev/centos/root&lt;/code>，然后&lt;code>xfs_repair&lt;/code>它后重启也无法正常开机。再次进救援模式挂载了后，在 chroot 到故障的根进不去报错&lt;code>/bin/bash no such file&lt;/code>，才意识到损坏了文件，很多 so 文件都丢了&lt;/p>
+&lt;p>最开始留有备份，打算在文件层面恢复&lt;/p>
+&lt;h3 id="最后也应该是最开应该做的正确操作">最后也应该是最开应该做的正确操作&lt;/h3>
+&lt;p>下发了台不是 lvm 的 centos7.6 机器，然后给该机器挂载了数据盘为 vdb(50G，其实大于等于故障机器根的真实占用大小即可)，备份的卷挂载为 vdc。利用数据盘中转下原有的根的文件&lt;/p>
+&lt;p>打算把 lvm 的文件系统文件拷贝到数据盘 vdb 的文件系统上，然后在故障机器的救援模式下挂载这个数据盘，把数据盘的根文件拷贝到残缺的系统盘的根下&lt;/p>
+&lt;h4 id="格式化-vdb">格式化 vdb&lt;/h4>
+&lt;pre>&lt;code>[root@fix-data ~]# lsblk
+NAME MAJ:MIN RM SIZE RO TYPE MOUNTPOINT
+sr0 11:0 1 1024M 0 rom
+sr1 11:1 1 464K 0 rom
+vda 253:0 0 40G 0 disk
+└─vda1 253:1 0 40G 0 part /
+vdb 253:16 0 50G 0 disk
+[root@fix-data ~]# parted /dev/vdb
+GNU Parted 3.1
+Using /dev/vdb
+Welcome to GNU Parted! Type 'help' to view a list of commands.
+(parted) mklabel gpt
+(parted) mkpart
+Partition name? []? 1
+File system type? [ext2]? xfs
+Start? 1
+End? 100%
+(parted) p
+Model: Virtio Block Device (virtblk)
+Disk /dev/vdb: 53.7GB
+Sector size (logical/physical): 512B/512B
+Partition Table: gpt
+Disk Flags:
+Number Start End Size File system Name Flags
+1 1049kB 53.7GB 53.7GB 1
+(parted) q
+Information: You may need to update /etc/fstab.
+[root@fix-data ~]# mkfs.xfs /dev/vdb1
+meta-data=/dev/vdb1 isize=512 agcount=4, agsize=3276672 blks
+= sectsz=512 attr=2, projid32bit=1
+= crc=1 finobt=0, sparse=0
+data = bsize=4096 blocks=13106688, imaxpct=25
+= sunit=0 swidth=0 blks
+naming =version 2 bsize=4096 ascii-ci=0 ftype=1
+log =internal log bsize=4096 blocks=6399, version=2
+= sectsz=512 sunit=0 blks, lazy-count=1
+realtime =none extsz=4096 blocks=0, rtextents=0
+[root@fix-data ~]# mkdir -p /mnt/{root,data}
+&lt;/code>&lt;/pre>
+&lt;h4 id="挂载需要修复的系统盘的克隆卷">挂载需要修复的系统盘的克隆卷&lt;/h4>
+&lt;p>后台挂载好后&lt;/p>
+&lt;pre>&lt;code># lsblk
+NAME MAJ:MIN RM SIZE RO TYPE MOUNTPOINT
+sr0 11:0 1 1024M 0 rom
+sr1 11:1 1 464K 0 rom
+vda 253:0 0 40G 0 disk
+└─vda1 253:1 0 40G 0 part /
+vdb 253:16 0 50G 0 disk
+└─vdb1 253:17 0 50G 0 part
+vdc 253:32 0 40G 0 disk
+├─vdc1 253:33 0 2M 0 part
+├─vdc2 253:34 0 200M 0 part
+└─vdc3 253:35 0 39.8G 0 part
+&lt;/code>&lt;/pre>
+&lt;p>安装 lvm2 工具 (新机器因为不是 lvm 的根分区所以系统没有安装这个)&lt;/p>
+&lt;pre>&lt;code>yum install -y lvm2
+&lt;/code>&lt;/pre>
+&lt;p>激活 lvm 状态&lt;/p>
+&lt;pre>&lt;code>$ vgchange -a y
+1 logical volume(s) in volume group &amp;quot;centos&amp;quot; now active
+&lt;/code>&lt;/pre>
+&lt;p>根 –&amp;gt; /mnt/root/&lt;/p>
+&lt;p>/boot –&amp;gt; /mnt/root/boot&lt;/p>
+&lt;p>数据盘 –&amp;gt; /mnt/data/&lt;/p>
+&lt;pre>&lt;code>mount /dev/centos/root /mnt/root/
+mount /dev/vdc2 /mnt/root/boot
+mount /dev/vdb1 /mnt/data
+&lt;/code>&lt;/pre>
+&lt;p>然后拷贝&lt;/p>
+&lt;pre>&lt;code>cp -a /mnt/root/* /mnt/data/
+&lt;/code>&lt;/pre>
+&lt;p>拷贝完后取消挂载并关机&lt;/p>
+&lt;pre>&lt;code>umount /mnt/data/
+umount /mnt/root/boot/
+umount /mnt/root/
+poweroff
+&lt;/code>&lt;/pre>
+&lt;h4 id="拷贝">拷贝&lt;/h4>
+&lt;p>后台把该数据盘挂载到故障机器上，故障机器在救援模式里操作&lt;/p>
+&lt;pre>&lt;code>sh-4.2# lsblk
+NAME MAJ:MIN RM SIZE RO TYPE MOUNTPOINT
+sr0 11:0 1 4.2G 0 rom /run/install/repo
+sr1 11:1 1 464K 0 rom
+vda 252:0 0 40G 0 disk
+├─vda1 252:1 0 2M 0 part
+├─vda2 252:2 0 200M 0 part /mnt/sysimage/boot
+└─vda3 252:3 0 39.8G 0 part
+└─centos-root 253:2 0 39.8G 0 lvm /mnt/sysimage
+vdb 252:16 0 400G 0 disk
+vdc 252:32 0 50G 0 disk
+└─vdc1 252:33 0 50G 0 part
+loop0 7:1 0 420.3M 1 loop
+loop1 7:1 0 2G 1 loop
+├─live-rw 253:0 0 2G 0 dm /
+└─live-base 253:1 0 2G 1 dm
+loop2 7:2 0 512M 1 loop
+└─live-rw 253:0 0 2G 0 dm /
+&lt;/code>&lt;/pre>
+&lt;p>可以看到数据盘为 vdc，挂载 vdc1 到&lt;code>/mnt/data&lt;/code>，然后拷贝到&lt;code>/mnt/sysimage&lt;/code>&lt;/p>
+&lt;pre>&lt;code>sh-4.2# mkdir /mnt/data
+sh-4.2# mount /dev/vdc1 /mnt/data
+sh-4.2# ls -l /mnt/data
+total 16
+lrwxrwxrwx 1 root root 7 Jul 24 2018 bin -&amp;gt; usr/bin
+dr-xr-xr-x. 5 root root 4096 Jul 24 2018 boot
+drwxr-xr-x. 2 root root 18 Dec 3 04:24 dev
+drwxr-xr-x. 143 root root 8192 Dec 3 03:54 etc
+drwxr-xr-x. 3 root root 20 Jul 25 2018 home
+lrwxrwxrwx 1 root root 7 Jul 24 2018 lib -&amp;gt; usr/lib
+lrwxrwxrwx 1 root root 9 Jul 24 2018 lib64 -&amp;gt; usr/lib64
+drwxr-xr-x. 2 root root 6 Apr 11 2018 media
+drwxr-xr-x. 2 root root 6 Apr 11 2018 mnt
+drwxr-xr-x. 4 root root 34 Nov 1 17:19 opt
+drwxr-xr-x. 2 root root 6 Jul 24 2018 proc
+dr-xr-x---. 9 root root 258 Nov 5 16:14 root
+drwxr-xr-x. 2 root root 6 Jul 24 2018 run
+lrwxrwxrwx 1 root root 8 Jul 24 2018 sbin -&amp;gt; usr/sbin
+drwxr-xr-x. 2 root root 6 Apr 11 2018 srv
+drwxr-xr-x. 2 root root 6 Jul 24 2018 sys
+drwxrwxrwt. 7 root root 114 Dec 3 04:55 tmp
+drwx------ 7 root root 66 Jul 24 2018 usr
+drwxr-xr-x. 21 root root 4096 Jul 24 2018 var
+drwxr-xr-x. 2 root root 6 Nov 4 02:09 version
+sh-4.2# cd /mnt/sysimage
+sh-4.2# cp -a /mnt/data/* .
+&lt;/code>&lt;/pre>
+&lt;p>重做 grub.cfg，该系统不是 grub2，如果是 grub2 则 / boot 下有 grub2 目录&lt;/p>
+&lt;pre>&lt;code>mount -o bind /dev /mnt/sysimage/dev
+mount -o bind /proc /mnt/sysimage/proc
+mount -o bind /run /mnt/sysimage/run
+mount -o bind /sys /mnt/sysimage/sys
+mv boot/grub/grub.cfg{,.bak}
+&lt;/code>&lt;/pre>
+&lt;p>然后 chroot 进来生成&lt;code>grub.cfg&lt;/code>&lt;/p>
+&lt;pre>&lt;code>chroot .
+grub-mkconfig -o /boot/grub2/grub.cfg
+&lt;/code>&lt;/pre>
+&lt;p>开机正常&lt;/p>
+&lt;p>&lt;a href="https://zhangguanzhang.github.io/2019/12/03/dos-to-gpt/">https://zhangguanzhang.github.io/2019/12/03/dos-to-gpt/&lt;/a>&lt;/p></description></item><item><title>Docs: 故障处理案例</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</guid><description>
+&lt;p>&lt;a href="https://mp.weixin.qq.com/s/GqKHhAd93iQorDeGyHBMnA">公众号,0.2 秒复制了 100G 的文件？&lt;/a>
+主要描述了文件系统与磁盘空间管理问题，导致一个文件占据了跳跃性的空间，让文件变成虚假的无限大。&lt;/p>
+&lt;h1 id="welcome-to-emergency">Welcome to emergency&lt;/h1>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/mc9wc0/1668696069604-b1244e71-53be-4df1-891f-774e27037654.png" alt="image.png">
+系统可以启动，直接进入 emergency 模式，输入密码后按 Ctrl+D 可以进入系统，多半是挂载问题，除了检查 /etc/fstab 的挂载外，还需要看如下几个目录有没有关于文件系统的模块参数：&lt;/p>
+&lt;ul>
+&lt;li>/etc/modprobe.d/*.conf&lt;/li>
+&lt;li>/run/modprobe.d/*.conf&lt;/li>
+&lt;li>/usr/lib/modprobe.d/*.conf&lt;/li>
+&lt;/ul></description></item><item><title>Docs: 系统 UDP 丢包问题分析思路</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/%E7%B3%BB%E7%BB%9F-udp-%E4%B8%A2%E5%8C%85%E9%97%AE%E9%A2%98%E5%88%86%E6%9E%90%E6%80%9D%E8%B7%AF/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/%E7%B3%BB%E7%BB%9F-udp-%E4%B8%A2%E5%8C%85%E9%97%AE%E9%A2%98%E5%88%86%E6%9E%90%E6%80%9D%E8%B7%AF/</guid><description>
+&lt;p>最近工作中遇到某个服务器应用程序 UDP 丢包，在排查过程中查阅了很多资料，总结出来这篇文章，供更多人参考。&lt;/p>
+&lt;p>在开始之前，我们先用一张图解释 linux 系统接收网络报文的过程。&lt;/p>
+&lt;ol>
+&lt;li>首先网络报文通过物理网线发送到网卡&lt;/li>
+&lt;li>网络驱动程序会把网络中的报文读出来放到 ring buffer 中，这个过程使用 DMA（Direct Memory Access），不需要 CPU 参与&lt;/li>
+&lt;li>内核从 ring buffer 中读取报文进行处理，执行 IP 和 TCP/UDP 层的逻辑，最后把报文放到应用程序的 socket buffer 中&lt;/li>
+&lt;li>应用程序从 socket buffer 中读取报文进行处理&lt;/li>
+&lt;/ol>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tkoi9e/1616164584190-5fea662f-6ee7-4152-90f6-5b30f7350b1d.jpeg" alt="">
+在接收 UDP 报文的过程中，图中任何一个过程都可能会主动或者被动地把报文丢弃，因此丢包可能发生在网卡和驱动，也可能发生在系统和应用。&lt;/p>
+&lt;p>之所以没有分析发送数据流程，一是因为发送流程和接收类似，只是方向相反；另外发送流程报文丢失的概率比接收小，只有在应用程序发送的报文速率大于内核和网卡处理速率时才会发生。&lt;/p>
+&lt;p>本篇文章假定机器只有一个名字为 &lt;code>eth0&lt;/code> 的 interface，如果有多个 interface 或者 interface 的名字不是 eth0，请按照实际情况进行分析。NOTE：文中出现的 &lt;code>RX&lt;/code>（receive） 表示接收报文，&lt;code>TX&lt;/code>（transmit） 表示发送报文。&lt;/p>
+&lt;h2 id="确认有-udp-丢包发生">确认有 UDP 丢包发生&lt;/h2>
+&lt;p>要查看网卡是否有丢包，可以使用 &lt;code>ethtool -S eth0&lt;/code> 查看，在输出中查找 &lt;code>bad&lt;/code> 或者 &lt;code>drop&lt;/code> 对应的字段是否有数据，在正常情况下，这些字段对应的数字应该都是 0。如果看到对应的数字在不断增长，就说明网卡有丢包。另外一个查看网卡丢包数据的命令是 &lt;code>ifconfig&lt;/code>，它的输出中会有 &lt;code>RX&lt;/code>(receive 接收报文)和 &lt;code>TX&lt;/code>（transmit 发送报文）的统计数据：&lt;/p>
+&lt;pre>&lt;code>~# ifconfig eth0
+...
+RX packets 3553389376 bytes 2599862532475 (2.3 TiB)
+RX errors 0 dropped 1353 overruns 0 frame 0
+TX packets 3479495131 bytes 3205366800850 (2.9 TiB)
+TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0
+...
+&lt;/code>&lt;/pre>
+&lt;p>此外，linux 系统也提供了各个网络协议的丢包信息，可以使用 &lt;code>netstat -s&lt;/code> 命令查看，加上 &lt;code>--udp&lt;/code> 可以只看 UDP 相关的报文数据：&lt;/p>
+&lt;pre>&lt;code>[root@holodesk02 GOD]# netstat -s -u
+IcmpMsg:
+InType0: 3
+InType3: 1719356
+InType8: 13
+InType11: 59
+OutType0: 13
+OutType3: 1737641
+OutType8: 10
+OutType11: 263
+Udp:
+517488890 packets received
+2487375 packets to unknown port received.
+47533568 packet receive errors
+147264581 packets sent
+12851135 receive buffer errors
+0 send buffer errors
+UdpLite:
+IpExt:
+OutMcastPkts: 696
+InBcastPkts: 2373968
+InOctets: 4954097451540
+OutOctets: 5538322535160
+OutMcastOctets: 79632
+InBcastOctets: 934783053
+InNoECTPkts: 5584838675
+&lt;/code>&lt;/pre>
+&lt;p>对于上面的输出，关注下面的信息来查看 UDP 丢包的情况：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>packet receive errors&lt;/code> 不为空，并且在一直增长说明系统有 UDP 丢包&lt;/li>
+&lt;li>&lt;code>packets to unknown port received&lt;/code> 表示系统接收到的 UDP 报文所在的目标端口没有应用在监听，一般是服务没有启动导致的，并不会造成严重的问题&lt;/li>
+&lt;li>&lt;code>receive buffer errors&lt;/code> 表示因为 UDP 的接收缓存太小导致丢包的数量&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>NOTE&lt;/strong>： 并不是丢包数量不为零就有问题，对于 UDP 来说，如果有少量的丢包很可能是预期的行为，比如丢包率（丢包数量/接收报文数量）在万分之一甚至更低。&lt;/p>
+&lt;h2 id="网卡或者驱动丢包">网卡或者驱动丢包&lt;/h2>
+&lt;p>之前讲过，如果 &lt;code>ethtool -S eth0&lt;/code> 中有 &lt;code>rx_***_errors&lt;/code> 那么很可能是网卡有问题，导致系统丢包，需要联系服务器或者网卡供应商进行处理。&lt;/p>
+&lt;pre>&lt;code># ethtool -S eth0 | grep rx_ | grep errors
+rx_crc_errors: 0
+rx_missed_errors: 0
+rx_long_length_errors: 0
+rx_short_length_errors: 0
+rx_align_errors: 0
+rx_errors: 0
+rx_length_errors: 0
+rx_over_errors: 0
+rx_frame_errors: 0
+rx_fifo_errors: 0
+&lt;/code>&lt;/pre>
+&lt;p>&lt;code>netstat -i&lt;/code> 也会提供每个网卡的接发报文以及丢包的情况，正常情况下输出中 error 或者 drop 应该为 0。如果硬件或者驱动没有问题，一般网卡丢包是因为设置的缓存区（ring buffer）太小，可以使用 &lt;code>ethtool&lt;/code> 命令查看和设置网卡的 ring buffer。&lt;code>ethtool -g&lt;/code> 可以查看某个网卡的 ring buffer，比如下面的例子&lt;/p>
+&lt;pre>&lt;code># ethtool -g eth0
+Ring parameters for eth0:
+Pre-set maximums:
+RX: 4096
+RX Mini: 0
+RX Jumbo: 0
+TX: 4096
+Current hardware settings:
+RX: 256
+RX Mini: 0
+RX Jumbo: 0
+TX: 256
+&lt;/code>&lt;/pre>
+&lt;p>Pre-set 表示网卡最大的 ring buffer 值，可以使用 &lt;code>ethtool -G eth0 rx 8192&lt;/code> 设置它的值。&lt;/p>
+&lt;h2 id="linux-系统丢包">Linux 系统丢包&lt;/h2>
+&lt;p>linux 系统丢包的原因很多，常见的有：UDP 报文错误、防火墙、UDP buffer size 不足、系统负载过高等，这里对这些丢包原因进行分析。&lt;/p>
+&lt;h3 id="udp-报文错误">UDP 报文错误&lt;/h3>
+&lt;p>如果在传输过程中 UDP 报文被修改，会导致 checksum 错误，或者长度错误，linux 在接收到 UDP 报文时会对此进行校验，一旦发明错误会把报文丢弃。&lt;/p>
+&lt;p>如果希望 UDP 报文 checksum 及时有错也要发送给应用程序，可以在通过 socket 参数禁用 UDP checksum 检查：&lt;/p>
+&lt;pre>&lt;code>int disable = 1;
+setsockopt(sock_fd, SOL_SOCKET, SO_NO_CHECK, (void*)&amp;amp;disable, sizeof(disable)
+&lt;/code>&lt;/pre>
+&lt;h3 id="防火墙">防火墙&lt;/h3>
+&lt;p>如果系统防火墙丢包，表现的行为一般是所有的 UDP 报文都无法正常接收，当然不排除防火墙只 drop 一部分报文的可能性。&lt;/p>
+&lt;p>如果遇到丢包比率非常大的情况，请先检查防火墙规则，保证防火墙没有主动 drop UDP 报文。&lt;/p>
+&lt;h3 id="udp-buffer-size-不足">UDP buffer size 不足&lt;/h3>
+&lt;p>linux 系统在接收报文之后，会把报文保存到缓存区中。因为缓存区的大小是有限的，如果出现 UDP 报文过大（超过缓存区大小或者 MTU 大小）、接收到报文的速率太快，都可能导致 linux 因为缓存满而直接丢包的情况。&lt;/p>
+&lt;p>在系统层面，linux 设置了 receive buffer 可以配置的最大值，可以在下面的文件中查看，一般是 linux 在启动的时候会根据内存大小设置一个初始值。&lt;/p>
+&lt;ul>
+&lt;li>/proc/sys/net/core/rmem_max：允许设置的 receive buffer 最大值&lt;/li>
+&lt;li>/proc/sys/net/core/rmem_default：默认使用的 receive buffer 值&lt;/li>
+&lt;li>/proc/sys/net/core/wmem_max：允许设置的 send buffer 最大值&lt;/li>
+&lt;li>/proc/sys/net/core/wmem_dafault：默认使用的 send buffer 最大值&lt;/li>
+&lt;/ul>
+&lt;p>但是这些初始值并不是为了应对大流量的 UDP 报文，如果应用程序接收和发送 UDP 报文非常多，需要讲这个值调大。可以使用 &lt;code>sysctl&lt;/code> 命令让它立即生效：&lt;/p>
+&lt;pre>&lt;code>sysctl -w net.core.rmem_max=26214400 # 设置为 25M
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+Plain Text&lt;/p>
+&lt;p>也可以修改 &lt;code>/etc/sysctl.conf&lt;/code> 中对应的参数在下次启动时让参数保持生效。&lt;/p>
+&lt;p>如果报文报文过大，可以在发送方对数据进行分割，保证每个报文的大小在 MTU 内。&lt;/p>
+&lt;p>另外一个可以配置的参数是 &lt;code>netdev_max_backlog&lt;/code>，它表示 linux 内核从网卡驱动中读取报文后可以缓存的报文数量，默认是 1000，可以调大这个值，比如设置成 2000：&lt;/p>
+&lt;pre>&lt;code>sudo sysctl -w net.core.netdev_max_backlog=2000
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+Plain Text&lt;/p>
+&lt;h3 id="系统负载过高">系统负载过高&lt;/h3>
+&lt;p>系统 CPU、memory、IO 负载过高都有可能导致网络丢包，比如 CPU 如果负载过高，系统没有时间进行报文的 checksum 计算、复制内存等操作，从而导致网卡或者 socket buffer 出丢包；memory 负载过高，会应用程序处理过慢，无法及时处理报文；IO 负载过高，CPU 都用来响应 IO wait，没有时间处理缓存中的 UDP 报文。&lt;/p>
+&lt;p>linux 系统本身就是相互关联的系统，任何一个组件出现问题都有可能影响到其他组件的正常运行。对于系统负载过高，要么是应用程序有问题，要么是系统不足。对于前者需要及时发现，debug 和修复；对于后者，也要及时发现并扩容。&lt;/p>
+&lt;h2 id="应用丢包">应用丢包&lt;/h2>
+&lt;p>上面提到系统的 UDP buffer size，调节的 sysctl 参数只是系统允许的最大值，每个应用程序在创建 socket 时需要设置自己 socket buffer size 的值。&lt;/p>
+&lt;p>linux 系统会把接受到的报文放到 socket 的 buffer 中，应用程序从 buffer 中不断地读取报文。所以这里有两个和应用有关的因素会影响是否会丢包：socket buffer size 大小以及应用程序读取报文的速度。&lt;/p>
+&lt;p>对于第一个问题，可以在应用程序初始化 socket 的时候设置 socket receive buffer 的大小，比如下面的代码把 socket buffer 设置为 20MB：&lt;/p>
+&lt;pre>&lt;code>uint64_t receive_buf_size = 20*1024*1024; //20 MB
+setsockopt(socket_fd, SOL_SOCKET, SO_RCVBUF, &amp;amp;receive_buf_size, sizeof(receive_buf_size));
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+Plain Text&lt;/p>
+&lt;p>如果不是自己编写和维护的程序，修改应用代码是件不好甚至不太可能的事情。很多应用程序会提供配置参数来调节这个值，请参考对应的官方文档；如果没有可用的配置参数，只能给程序的开发者提 issue 了。&lt;/p>
+&lt;p>很明显，增加应用的 receive buffer 会减少丢包的可能性，但同时会导致应用使用更多的内存，所以需要谨慎使用。&lt;/p>
+&lt;p>另外一个因素是应用读取 buffer 中报文的速度，对于应用程序来说，处理报文应该采取异步的方式&lt;/p>
+&lt;h2 id="包丢在什么地方">包丢在什么地方&lt;/h2>
+&lt;p>想要详细了解 linux 系统在执行哪个函数时丢包的话，可以使用 &lt;code>dropwatch&lt;/code> 工具，它监听系统丢包信息，并打印出丢包发生的函数地址：&lt;/p>
+&lt;pre>&lt;code># dropwatch -l kas
+Initalizing kallsyms db
+dropwatch&amp;gt; start
+Enabling monitoring...
+Kernel monitoring activated.
+Issue Ctrl-C to stop monitoring
+1 drops at tcp_v4_do_rcv+cd (0xffffffff81799bad)
+10 drops at tcp_v4_rcv+80 (0xffffffff8179a620)
+1 drops at sk_stream_kill_queues+57 (0xffffffff81729ca7)
+4 drops at unix_release_sock+20e (0xffffffff817dc94e)
+1 drops at igmp_rcv+e1 (0xffffffff817b4c41)
+1 drops at igmp_rcv+e1 (0xffffffff817b4c41)
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+Plain Text&lt;/p>
+&lt;p>通过这些信息，找到对应的内核代码处，就能知道内核在哪个步骤中把报文丢弃，以及大致的丢包原因。&lt;/p>
+&lt;p>此外，还可以使用 linux perf 工具监听 &lt;code>kfree_skb&lt;/code>（把网络报文丢弃时会调用该函数） 事件的发生：&lt;/p>
+&lt;pre>&lt;code>sudo perf record -g -a -e skb:kfree_skb
+sudo perf script
+&lt;/code>&lt;/pre>
+&lt;p>1
+2
+3
+Plain Text&lt;/p>
+&lt;p>关于 perf 命令的使用和解读，网上有很多文章可以参考。&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;ul>
+&lt;li>UDP 本身就是无连接不可靠的协议，适用于报文偶尔丢失也不影响程序状态的场景，比如视频、音频、游戏、监控等。对报文可靠性要求比较高的应用不要使用 UDP，推荐直接使用 TCP。当然，也可以在应用层做重试、去重保证可靠性&lt;/li>
+&lt;li>如果发现服务器丢包，首先通过监控查看系统负载是否过高，先想办法把负载降低再看丢包问题是否消失&lt;/li>
+&lt;li>如果系统负载过高，UDP 丢包是没有有效解决方案的。如果是应用异常导致 CPU、memory、IO 过高，请及时定位异常应用并修复；如果是资源不够，监控应该能及时发现并快速扩容&lt;/li>
+&lt;li>对于系统大量接收或者发送 UDP 报文的，可以通过调节系统和程序的 socket buffer size 来降低丢包的概率&lt;/li>
+&lt;li>应用程序在处理 UDP 报文时，要采用异步方式，在两次接收报文之间不要有太多的处理逻辑&lt;/li>
+&lt;/ul>
+&lt;h2 id="参考资料">参考资料&lt;/h2>
+&lt;ul>
+&lt;li>Pivotal: Network troubleshooting guide&lt;/li>
+&lt;li>What are udp “packet receive errors” and “packets to unknown port received”&lt;/li>
+&lt;li>Lost multicast packets troubleshooting guide&lt;/li>
+&lt;li>splunk Answers: UDP Drops on Linux&lt;/li>
+&lt;/ul></description></item><item><title>Docs: 找到被删除但是还被占用的文件</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/%E6%89%BE%E5%88%B0%E8%A2%AB%E5%88%A0%E9%99%A4%E4%BD%86%E6%98%AF%E8%BF%98%E8%A2%AB%E5%8D%A0%E7%94%A8%E7%9A%84%E6%96%87%E4%BB%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/x.linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/%E6%89%BE%E5%88%B0%E8%A2%AB%E5%88%A0%E9%99%A4%E4%BD%86%E6%98%AF%E8%BF%98%E8%A2%AB%E5%8D%A0%E7%94%A8%E7%9A%84%E6%96%87%E4%BB%B6/</guid><description>
+&lt;p>日常运维过程中，我们经常需要处理磁盘空间问题，当接到告警后，第一时间会去找那些大文件，一般比如 Centos，可能大文件就是 &lt;code>/var/log/messages&lt;/code>。但有的时候，会出现怎么也查不到大文件的情况，通过 &lt;code>du&lt;/code> 查找的时候，统计出来的大小，跟 &lt;code>df&lt;/code> 显示的占用空间对应不上。如果通过 &lt;code>df -i&lt;/code> 查看 inode 没有满的话，那么极有可能，是有大文件被直接 rm 了，但是仍然有进程打开了这个文件。&lt;/p>
+&lt;p>这种情况，由于进程没有退出，因此文件占用的空间并不会释放；直到进程退出，磁盘空间才会真正释放。&lt;/p>
+&lt;h2 id="如何找到是哪个进程打开了该文件">如何找到是哪个进程打开了该文件&lt;/h2>
+&lt;p>Linux 上，由于进程仍然存活，因此可以通过查看所有进程打开的 fd，如果该文件已经被删除，则查看时，会显示&lt;code>(deleted)&lt;/code>。&lt;/p>
+&lt;p>示例如下：&lt;/p>
+&lt;pre>&lt;code>$ sudo find /proc/*/fd -ls | grep '(deleted)'
+388609 0 lrwx------ 1 zerotier-one zerotier-one 64 Aug 21 00:19 /proc/29400/fd/4 -&amp;gt; /tmp/ibpX85Vd\ (deleted)
+388610 0 lrwx------ 1 zerotier-one zerotier-one 64 Aug 21 00:19 /proc/29400/fd/5 -&amp;gt; /tmp/ibCwAgAj\ (deleted)
+388611 0 lrwx------ 1 zerotier-one zerotier-one 64 Aug 21 00:19 /proc/29400/fd/6 -&amp;gt; /tmp/ibRZ5rep\ (deleted)
+388612 0 lrwx------ 1 zerotier-one zerotier-one 64 Aug 21 00:19 /proc/29400/fd/7 -&amp;gt; /tmp/ibBuNEzA\ (deleted)
+388616 0 lrwx------ 1 zerotier-one zerotier-one 64 Aug 21 00:19 /proc/29400/fd/11 -&amp;gt; /tmp/ibG68kpG\ (deleted)
+&lt;/code>&lt;/pre>
+&lt;p>如何避免这种情况&lt;/p>
+&lt;p>不要直接删除该文件，而是通过将文件 truncate 的方式，释放磁盘空间。&lt;/p>
+&lt;p>一种方式是：&lt;/p>
+&lt;pre>&lt;code>cat /dev/null &amp;gt; ${filename}
+&lt;/code>&lt;/pre>
+&lt;p>或者（新 get！）&lt;/p>
+&lt;pre>&lt;code>: &amp;gt; ${filename}
+&lt;/code>&lt;/pre>
+&lt;p>如此，可以快速释放空间。&lt;/p></description></item></channel></rss>
