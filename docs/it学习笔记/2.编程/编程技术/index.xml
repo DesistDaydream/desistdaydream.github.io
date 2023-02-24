@@ -246,9 +246,72 @@ are the four basic operations of &lt;a href="https://en.wikipedia.org/wiki/Persi
 &lt;ul>
 &lt;li>&lt;a href="https://en.wikipedia.org/wiki/Object%E2%80%93relational_mapping">Wiki,Object–relational mapping&lt;/a>&lt;/li>
 &lt;li>&lt;a href="http://c.biancheng.net/hibernate/orm.html">C 语言中文网，ORM 是什么&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.bilibili.com/read/cv21943763">B 站-哔哩哔哩技术，如何用 go 实现一个 ORM（为什么需要 ORM）&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>&lt;strong>Object Relational Mapping(对象关系映射，简称 ORM)&lt;/strong> 是一种用于在关系数据库和面向对象变成语言之间转换数据的编程技术。解决了代码和关系型数据库之间的数据交互问题。这实际上创建了一个可以在编程语言中使用的虚拟对象数据库。&lt;/p>
+&lt;h2 id="为什么需要-orm">为什么需要 ORM&lt;/h2>
+&lt;p>&lt;strong>直接使用 database/sql 的痛点：&lt;/strong>&lt;/p>
+&lt;p>首先看看用 database/sql 如何查询数据库。&lt;/p>
+&lt;p>我们用 user 表来做例子，一般的工作流程是先做技术方案，其中排在比较前面的是数据库表的设计，大部分公司应该有严格的数据库权限控制，不会给线上程序使用比较危险的操作权限，比如创建删除数据库，表，删除数据等。
+表结构如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-sql" data-lang="sql">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">CREATE&lt;/span> &lt;span style="color:#66d9ef">TABLE&lt;/span> &lt;span style="color:#f92672">`&lt;/span>&lt;span style="color:#66d9ef">user&lt;/span>&lt;span style="color:#f92672">`&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">`&lt;/span>id&lt;span style="color:#f92672">`&lt;/span> int(&lt;span style="color:#ae81ff">10&lt;/span>) unsigned &lt;span style="color:#66d9ef">NOT&lt;/span> &lt;span style="color:#66d9ef">NULL&lt;/span> AUTO_INCREMENT &lt;span style="color:#66d9ef">COMMENT&lt;/span> &lt;span style="color:#e6db74">&amp;#39;id&amp;#39;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">`&lt;/span>name&lt;span style="color:#f92672">`&lt;/span> varchar(&lt;span style="color:#ae81ff">100&lt;/span>) &lt;span style="color:#66d9ef">NOT&lt;/span> &lt;span style="color:#66d9ef">NULL&lt;/span> &lt;span style="color:#66d9ef">COMMENT&lt;/span> &lt;span style="color:#e6db74">&amp;#39;名称&amp;#39;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">`&lt;/span>age&lt;span style="color:#f92672">`&lt;/span> int(&lt;span style="color:#ae81ff">11&lt;/span>) &lt;span style="color:#66d9ef">NOT&lt;/span> &lt;span style="color:#66d9ef">NULL&lt;/span> &lt;span style="color:#66d9ef">DEFAULT&lt;/span> &lt;span style="color:#e6db74">&amp;#39;0&amp;#39;&lt;/span> &lt;span style="color:#66d9ef">COMMENT&lt;/span> &lt;span style="color:#e6db74">&amp;#39;年龄&amp;#39;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">`&lt;/span>ctime&lt;span style="color:#f92672">`&lt;/span> datetime &lt;span style="color:#66d9ef">NOT&lt;/span> &lt;span style="color:#66d9ef">NULL&lt;/span> &lt;span style="color:#66d9ef">DEFAULT&lt;/span> &lt;span style="color:#66d9ef">CURRENT_TIMESTAMP&lt;/span> &lt;span style="color:#66d9ef">COMMENT&lt;/span> &lt;span style="color:#e6db74">&amp;#39;创建时间&amp;#39;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">`&lt;/span>mtime&lt;span style="color:#f92672">`&lt;/span> datetime &lt;span style="color:#66d9ef">NOT&lt;/span> &lt;span style="color:#66d9ef">NULL&lt;/span> &lt;span style="color:#66d9ef">DEFAULT&lt;/span> &lt;span style="color:#66d9ef">CURRENT_TIMESTAMP&lt;/span> &lt;span style="color:#66d9ef">COMMENT&lt;/span> &lt;span style="color:#e6db74">&amp;#39;更新时间&amp;#39;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">PRIMARY&lt;/span> &lt;span style="color:#66d9ef">KEY&lt;/span> (&lt;span style="color:#f92672">`&lt;/span>id&lt;span style="color:#f92672">`&lt;/span>),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>) ENGINE&lt;span style="color:#f92672">=&lt;/span>InnoDB &lt;span style="color:#66d9ef">DEFAULT&lt;/span> CHARSET&lt;span style="color:#f92672">=&lt;/span>utf8mb4
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>首先我们要写出和表结构对应的结构体 User，如果你足够勤奋和努力，相应的 json tag 和注释都可以写上，这个过程无聊且重复，因为在设计表结构的时候你已经写过一遍了。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">User&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Id&lt;/span> &lt;span style="color:#66d9ef">int64&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;id&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Name&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;name&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Age&lt;/span> &lt;span style="color:#66d9ef">int64&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Ctime&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Mtime&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>定义好结构体，我们写一个查询年龄在 20 以下且按照 id 字段顺序排序的前 20 名用户的 go 代码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">FindUsers&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>) ([]&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">User&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">rows&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">db&lt;/span>.&lt;span style="color:#a6e22e">QueryContext&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;SELECT `id`,`name`,`age`,`ctime`,`mtime` FROM user WHERE `age`&amp;lt;? ORDER BY `id` LIMIT 20 &amp;#34;&lt;/span>, &lt;span style="color:#ae81ff">20&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">defer&lt;/span> &lt;span style="color:#a6e22e">rows&lt;/span>.&lt;span style="color:#a6e22e">Close&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">result&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> []&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">User&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">rows&lt;/span>.&lt;span style="color:#a6e22e">Next&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">a&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">User&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">rows&lt;/span>.&lt;span style="color:#a6e22e">Scan&lt;/span>(&lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">Id&lt;/span>, &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span>, &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">Age&lt;/span>, &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">Ctime&lt;/span>, &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">a&lt;/span>.&lt;span style="color:#a6e22e">Mtime&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">result&lt;/span> = append(&lt;span style="color:#a6e22e">result&lt;/span>, &lt;span style="color:#a6e22e">a&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">rows&lt;/span>.&lt;span style="color:#a6e22e">Err&lt;/span>() &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#a6e22e">rows&lt;/span>.&lt;span style="color:#a6e22e">Err&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">result&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>当我们写少量这样的代码的时候我们可能还觉得轻松，但是当你业务工期排的很紧，并且要写大量的定制化查询的时候，这样的重复代码会越来越多。
+上面的的代码我们发现有这么几个问题：&lt;/p>
+&lt;ol>
+&lt;li>SQL 语句是硬编码在程序里面的，当我需要增加查询条件的时候我需要另外再写一个方法，整个方法需要拷贝一份，很不灵活。&lt;/li>
+&lt;li>在查询表所有字段的情况下，第 2 行下面的代码都是一样重复的，不管 sql 语句后面的条件是怎么样的。&lt;/li>
+&lt;li>我们发现第 1 行 SQL 语句编写和 rows.Scan()那行，写的枯燥层度是和表字段的数量成正比的，如果一个表有 50 个字段或者 100 个字段，手写是非常乏味的。&lt;/li>
+&lt;li>在开发过程中 rows.Close()  和 rows.Err()忘记写是常见的错误。&lt;/li>
+&lt;/ol>
+&lt;p>我们总结出来用 database/sql 标准库开发的痛点：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>开发效率很低&lt;/strong>
+&lt;ul>
+&lt;li>很显然写上面的那种代码是很耗费时间的，因为手误容易写错，无可避免要增加自测的时间。如果上面的结构体 User、 查询方法 FindUsers()  代码能够自动生成，那么那将会极大的提高开发效率并且减少 human error 的发生从而提高开发质量。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>心智负担很重&lt;/strong>
+&lt;ul>
+&lt;li>如果一个开发人员把大量的时间花在这些代码上，那么他其实是在浪费自己的时间，不管在工作中还是在个人项目中，应该把重点花在架构设计，业务逻辑设计，困难点攻坚上面，去探索和开拓自己没有经验的领域，这块 Dao 层的代码最好在 10 分钟内完成。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
 &lt;h1 id="orm-实例教程">ORM 实例教程&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -273,11 +336,11 @@ are the four basic operations of &lt;a href="https://en.wikipedia.org/wiki/Persi
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">FROM&lt;/span> persons
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">WHERE&lt;/span> id &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">10&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>程序直接运行 SQL，操作数据库的写法如下。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-javascript" data-lang="javascript">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">res&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">db&lt;/span>.&lt;span style="color:#a6e22e">execSql&lt;/span>(&lt;span style="color:#a6e22e">sql&lt;/span>);
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">name&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">res&lt;/span>[&lt;span style="color:#ae81ff">0&lt;/span>][&lt;span style="color:#e6db74">&amp;#34;FIRST_NAME&amp;#34;&lt;/span>];
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-javascript" data-lang="javascript">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">res&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">db&lt;/span>.&lt;span style="color:#a6e22e">execSql&lt;/span>(&lt;span style="color:#a6e22e">sql&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">name&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">res&lt;/span>[&lt;span style="color:#ae81ff">0&lt;/span>][&lt;span style="color:#e6db74">&amp;#34;FIRST_NAME&amp;#34;&lt;/span>]
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>改成 ORM 的写法如下。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-javascript" data-lang="javascript">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">p&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">Person&lt;/span>.&lt;span style="color:#a6e22e">get&lt;/span>(&lt;span style="color:#ae81ff">10&lt;/span>);
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">name&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">p&lt;/span>.&lt;span style="color:#a6e22e">first_name&lt;/span>;
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-javascript" data-lang="javascript">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">p&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">Person&lt;/span>.&lt;span style="color:#a6e22e">get&lt;/span>(&lt;span style="color:#ae81ff">10&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">name&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">p&lt;/span>.&lt;span style="color:#a6e22e">first_name&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>一比较就可以发现，ORM 使用对象，封装了数据库操作，因此可以不碰 SQL 语言。开发者只使用面向对象编程，与数据对象直接交互，不用关心底层数据库。&lt;/p>
 &lt;p>总结起来，ORM 有下面这些优点。&lt;/p>
 &lt;ul>
@@ -302,97 +365,89 @@ are the four basic operations of &lt;a href="https://en.wikipedia.org/wiki/Persi
 &lt;h2 id="三示例库">三、示例库&lt;/h2>
 &lt;p>下面使用 &lt;a href="https://github.com/PhilWaldmann/openrecord">OpenRecord&lt;/a> 这个库，演示如何使用 ORM。&lt;/p>
 &lt;p>OpenRecord 是仿 Active Record 的，将其移植到了 JavaScript，而且实现得很轻量级，学习成本较低。我写了一个&lt;a href="https://github.com/ruanyf/openrecord-demos">示例库&lt;/a>，请将它克隆到本地。&lt;/p>
-&lt;pre>&lt;code> $ git clone https://github.com/ruanyf/openrecord-demos.git
-&lt;/code>&lt;/pre>
+&lt;p>git clone &lt;a href="https://github.com/ruanyf/openrecord-demos.git">https://github.com/ruanyf/openrecord-demos.git&lt;/a>&lt;/p>
 &lt;p>然后，安装依赖。&lt;/p>
-&lt;pre>&lt;code> $ cd openrecord-demos
-$ npm install
-&lt;/code>&lt;/pre>
+&lt;p>cd openrecord-demos
+npm install&lt;/p>
 &lt;p>示例库里面的数据库，是从&lt;a href="http://www.sqlitetutorial.net/sqlite-sample-database/">网上拷贝&lt;/a>的 Sqlite 数据库。它的 Schema 图如下（&lt;a href="http://www.sqlitetutorial.net/wp-content/uploads/2018/03/sqlite-sample-database-diagram-color.pdf">PDF&lt;/a> 大图下载）。&lt;/p>
 &lt;p>&lt;a href="https://notes-learning.oss-cn-beijing.aliyuncs.com/d1eab7a7-0bbc-41e6-bde2-aa8c6027347f/bg2019021804.jpg">
 &lt;/a>&lt;/p>
 &lt;h2 id="四连接数据库">四、连接数据库&lt;/h2>
 &lt;p>使用 ORM 的第一步，就是你必须告诉它，怎么连接数据库（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo01.js">完整代码&lt;/a>看这里）。&lt;/p>
-&lt;pre>&lt;code>const Store = require('openrecord/store/sqlite3');
-const store = new Store({
-type: 'sqlite3',
-file: './db/sample.db',
-autoLoad: true,
-});
-await store.connect();
-&lt;/code>&lt;/pre>
-&lt;p>连接成功以后，就可以操作数据库了。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// demo01.js
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">Store&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">require&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;openrecord/store/sqlite3&amp;#39;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">store&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">new&lt;/span> &lt;span style="color:#a6e22e">Store&lt;/span>({
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">type&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;sqlite3&amp;#39;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">file&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;./db/sample.db&amp;#39;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">autoLoad&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#66d9ef">true&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>});
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">store&lt;/span>.&lt;span style="color:#a6e22e">connect&lt;/span>();
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>连接成功以后，就可以操作数据库了。&lt;/p>
 &lt;h2 id="五model">五、Model&lt;/h2>
 &lt;h3 id="51-创建-model">5.1 创建 Model&lt;/h3>
 &lt;p>连接数据库以后，下一步就要把数据库的表，转成一个类，叫做数据模型（Model）。下面就是一个最简单的 Model（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo02.js">完整代码&lt;/a>看这里）。&lt;/p>
-&lt;pre>&lt;code>class Customer extends Store.BaseModel {
-}
-store.Model(Customer);
-&lt;/code>&lt;/pre>
-&lt;p>上面代码新建了一个&lt;code>Customer&lt;/code>类，ORM（OpenRecord）会自动将它映射到&lt;code>customers&lt;/code>表。使用这个类就很简单。&lt;/p>
-&lt;pre>&lt;code>const customer = await Customer.find(1);
-console.log(customer.FirstName, customer.LastName);
-&lt;/code>&lt;/pre>
-&lt;p>上面代码中，查询数据使用的是 ORM 提供的&lt;code>find()&lt;/code>方法，而不是直接操作 SQL。&lt;code>Customer.find(1)&lt;/code>表示返回&lt;code>id&lt;/code>为&lt;code>1&lt;/code>的记录，该记录会自动转成对象，&lt;code>customer.FirstName&lt;/code>属性就对应&lt;code>FirstName&lt;/code>字段。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// demo02.js
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">class&lt;/span> &lt;span style="color:#a6e22e">Customer&lt;/span> &lt;span style="color:#66d9ef">extends&lt;/span> &lt;span style="color:#a6e22e">Store&lt;/span>.&lt;span style="color:#a6e22e">BaseModel&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">store&lt;/span>.&lt;span style="color:#a6e22e">Model&lt;/span>(&lt;span style="color:#a6e22e">Customer&lt;/span>);
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面代码新建了一个&lt;code>Customer&lt;/code>类，ORM（OpenRecord）会自动将它映射到&lt;code>customers&lt;/code>表。使用这个类就很简单。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// demo02.js
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">customer&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">Customer&lt;/span>.&lt;span style="color:#a6e22e">find&lt;/span>(&lt;span style="color:#ae81ff">1&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">console&lt;/span>.&lt;span style="color:#a6e22e">log&lt;/span>(&lt;span style="color:#a6e22e">customer&lt;/span>.&lt;span style="color:#a6e22e">FirstName&lt;/span>, &lt;span style="color:#a6e22e">customer&lt;/span>.&lt;span style="color:#a6e22e">LastName&lt;/span>);
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面代码中，查询数据使用的是 ORM 提供的&lt;code>find()&lt;/code>方法，而不是直接操作 SQL。&lt;code>Customer.find(1)&lt;/code>表示返回&lt;code>id&lt;/code>为&lt;code>1&lt;/code>的记录，该记录会自动转成对象，&lt;code>customer.FirstName&lt;/code>属性就对应&lt;code>FirstName&lt;/code>字段。&lt;/p>
 &lt;h3 id="52-model-的描述">5.2 Model 的描述&lt;/h3>
 &lt;p>Model 里面可以详细描述数据库表的定义，并且定义自己的方法（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo03.js">完整代码&lt;/a>看这里）。&lt;/p>
-&lt;pre>&lt;code>class Customer extends Store.BaseModel {
-static definition(){
-this.attribute('CustomerId', 'integer', { primary: true });
-this.attribute('FirstName', 'string');
-this.attribute('LastName', 'string');
-this.validatesPresenceOf('FirstName', 'LastName');
-}
-getFullName(){
-return this.FirstName + ' ' + this.LastName;
-}
-}
-&lt;/code>&lt;/pre>
-&lt;p>上面代码告诉 Model，&lt;code>CustomerId&lt;/code>是主键，&lt;code>FirstName&lt;/code>和&lt;code>LastName&lt;/code>是字符串，并且不得为&lt;code>null&lt;/code>，还定义了一个&lt;code>getFullName()&lt;/code>方法。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">class&lt;/span> &lt;span style="color:#a6e22e">Customer&lt;/span> &lt;span style="color:#66d9ef">extends&lt;/span> &lt;span style="color:#a6e22e">Store&lt;/span>.&lt;span style="color:#a6e22e">BaseModel&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">static&lt;/span> &lt;span style="color:#a6e22e">definition&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">attribute&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;CustomerId&amp;#39;&lt;/span>, &lt;span style="color:#e6db74">&amp;#39;integer&amp;#39;&lt;/span>, { &lt;span style="color:#a6e22e">primary&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#66d9ef">true&lt;/span> });
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">attribute&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;FirstName&amp;#39;&lt;/span>, &lt;span style="color:#e6db74">&amp;#39;string&amp;#39;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">attribute&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;LastName&amp;#39;&lt;/span>, &lt;span style="color:#e6db74">&amp;#39;string&amp;#39;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">validatesPresenceOf&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;FirstName&amp;#39;&lt;/span>, &lt;span style="color:#e6db74">&amp;#39;LastName&amp;#39;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">getFullName&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">FirstName&lt;/span> &lt;span style="color:#f92672">+&lt;/span> &lt;span style="color:#e6db74">&amp;#39; &amp;#39;&lt;/span> &lt;span style="color:#f92672">+&lt;/span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">LastName&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面代码告诉 Model，&lt;code>CustomerId&lt;/code>是主键，&lt;code>FirstName&lt;/code>和&lt;code>LastName&lt;/code>是字符串，并且不得为&lt;code>null&lt;/code>，还定义了一个&lt;code>getFullName()&lt;/code>方法。&lt;/p>
 &lt;p>实例对象可以直接调用&lt;code>getFullName()&lt;/code>方法。&lt;/p>
-&lt;pre>&lt;code>const customer = await Customer.find(1);
-console.log(customer.getFullName());
-&lt;/code>&lt;/pre>
-&lt;h2 id="六crud-操作">六、CRUD 操作&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">customer&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">Customer&lt;/span>.&lt;span style="color:#a6e22e">find&lt;/span>(&lt;span style="color:#ae81ff">1&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">console&lt;/span>.&lt;span style="color:#a6e22e">log&lt;/span>(&lt;span style="color:#a6e22e">customer&lt;/span>.&lt;span style="color:#a6e22e">getFullName&lt;/span>());
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="六crud-操作">六、CRUD 操作&lt;/h2>
 &lt;p>数据库的基本操作有四种：&lt;code>create&lt;/code>（新建）、&lt;code>read&lt;/code>（读取）、&lt;code>update&lt;/code>（更新）和&lt;code>delete&lt;/code>（删除），简称 CRUD。&lt;/p>
 &lt;p>ORM 将这四类操作，都变成了对象的方法。&lt;/p>
 &lt;h3 id="61-查询">6.1 查询&lt;/h3>
 &lt;p>前面已经说过，&lt;code>find()&lt;/code>方法用于根据主键，获取单条记录（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo02.js">完整代码&lt;/a>看这里）或多条记录（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo04.js">完整代码&lt;/a>看这里）。&lt;/p>
-&lt;pre>&lt;code>Customer.find(1)
-Customer.find([1, 2, 3])
-&lt;/code>&lt;/pre>
-&lt;p>&lt;code>where()&lt;/code>方法用于指定查询条件（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo04.js">完整代码&lt;/a>看这里）。&lt;/p>
-&lt;pre>&lt;code>Customer.where({Company: 'Apple Inc.'}).first()
-&lt;/code>&lt;/pre>
-&lt;p>如果直接读取类，将返回所有记录。&lt;/p>
-&lt;pre>&lt;code>const customers = await Customer;
-&lt;/code>&lt;/pre>
-&lt;p>但是，通常不需要返回所有记录，而是使用&lt;code>limit(limit[, offset])&lt;/code>方法指定返回记录的位置和数量（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo06.js">完整代码&lt;/a>看这里）。&lt;/p>
-&lt;pre>&lt;code>const customers = await Customer.limit(5, 10);)
-&lt;/code>&lt;/pre>
-&lt;p>上面的代码制定从第 10 条记录开始，返回 5 条记录。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">Customer&lt;/span>.&lt;span style="color:#a6e22e">find&lt;/span>(&lt;span style="color:#ae81ff">1&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">Customer&lt;/span>.&lt;span style="color:#a6e22e">find&lt;/span>([&lt;span style="color:#ae81ff">1&lt;/span>, &lt;span style="color:#ae81ff">2&lt;/span>, &lt;span style="color:#ae81ff">3&lt;/span>])
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>where()&lt;/code>方法用于指定查询条件（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo04.js">完整代码&lt;/a>看这里）。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">Customer&lt;/span>.&lt;span style="color:#a6e22e">where&lt;/span>({&lt;span style="color:#a6e22e">Company&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Apple Inc.&amp;#39;&lt;/span>}).&lt;span style="color:#a6e22e">first&lt;/span>()
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果直接读取类，将返回所有记录。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">customers&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">Customer&lt;/span>;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>但是，通常不需要返回所有记录，而是使用&lt;code>limit(limit[, offset])&lt;/code>方法指定返回记录的位置和数量（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo06.js">完整代码&lt;/a>看这里）。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">customers&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">Customer&lt;/span>.&lt;span style="color:#a6e22e">limit&lt;/span>(&lt;span style="color:#ae81ff">5&lt;/span>, &lt;span style="color:#ae81ff">10&lt;/span>);)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面的代码制定从第10条记录开始，返回5条记录。&lt;/p>
 &lt;h3 id="62-新建记录">6.2 新建记录&lt;/h3>
 &lt;p>&lt;code>create()&lt;/code>方法用于新建记录（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo12.js">完整代码&lt;/a>看这里）。&lt;/p>
-&lt;pre>&lt;code>Customer.create({
-Email: '[president@whitehouse.gov](mailto:president@whitehouse.gov)',
-FirstName: 'Donald',
-LastName: 'Trump',
-Address: 'Whitehouse, Washington'
-})
-&lt;/code>&lt;/pre>
-&lt;h3 id="63-更新记录">6.3 更新记录&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">Customer&lt;/span>.&lt;span style="color:#a6e22e">create&lt;/span>({
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Email&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;[president@whitehouse.gov](mailto:president@whitehouse.gov)&amp;#39;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">FirstName&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Donald&amp;#39;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">LastName&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Trump&amp;#39;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Address&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Whitehouse, Washington&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>})
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="63-更新记录">6.3 更新记录&lt;/h3>
 &lt;p>&lt;code>update()&lt;/code>方法用于更新记录（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo13.js">完整代码&lt;/a>看这里）。&lt;/p>
-&lt;pre>&lt;code>const customer = await Customer.find(60);
-await customer.update({
-Address: 'Whitehouse'
-});
-&lt;/code>&lt;/pre>
-&lt;h3 id="64-删除记录">6.4 删除记录&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">customer&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">Customer&lt;/span>.&lt;span style="color:#a6e22e">find&lt;/span>(&lt;span style="color:#ae81ff">60&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">customer&lt;/span>.&lt;span style="color:#a6e22e">update&lt;/span>({
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Address&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Whitehouse&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>});
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="64-删除记录">6.4 删除记录&lt;/h3>
 &lt;p>&lt;code>destroy()&lt;/code>方法用于删除记录（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo14.js">完整代码&lt;/a>看这里）。&lt;/p>
-&lt;pre>&lt;code>const customer = await Customer.find(60);
-await customer.destroy();
-&lt;/code>&lt;/pre>
-&lt;h2 id="七关系">七、关系&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">customer&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">Customer&lt;/span>.&lt;span style="color:#a6e22e">find&lt;/span>(&lt;span style="color:#ae81ff">60&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">customer&lt;/span>.&lt;span style="color:#a6e22e">destroy&lt;/span>();
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="七关系">七、关系&lt;/h2>
 &lt;h3 id="71-关系类型">7.1 关系类型&lt;/h3>
 &lt;p>表与表之间的关系（relation），分成三种。&lt;/p>
 &lt;blockquote>
@@ -405,13 +460,12 @@ await customer.destroy();
 &lt;h3 id="72-一对一关系">7.2 一对一关系&lt;/h3>
 &lt;p>设置&amp;quot;一对一关系&amp;quot;，需要设置两个 Model。举例来说，假定顾客（&lt;code>Customer&lt;/code>）和发票（&lt;code>Invoice&lt;/code>）是一对一关系，一个顾客对应一张发票，那么需要设置&lt;code>Customer&lt;/code>和&lt;code>Invoice&lt;/code>这两个 Model。&lt;/p>
 &lt;p>&lt;code>Customer&lt;/code>内部使用&lt;code>this.hasOne()&lt;/code>方法，指定每个实例对应另一个 Model 的一个实例。&lt;/p>
-&lt;pre>&lt;code> class Customer extends Store.BaseModel {
-static definition(){
-this.hasOne('invoices', {model: 'Invoice', from: 'CustomerId', to: 'CustomerId'});
-}
-}
-&lt;/code>&lt;/pre>
-&lt;p>上面代码中，&lt;code>this.hasOne(name, option)&lt;/code>的第一个参数是该关系的名称，可以随便起，只要引用的时候保持一致就可以了。第二个参数是关系的配置，这里只用了三个属性。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">class&lt;/span> &lt;span style="color:#a6e22e">Customer&lt;/span> &lt;span style="color:#66d9ef">extends&lt;/span> &lt;span style="color:#a6e22e">Store&lt;/span>.&lt;span style="color:#a6e22e">BaseModel&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">static&lt;/span> &lt;span style="color:#a6e22e">definition&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">hasOne&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;invoices&amp;#39;&lt;/span>, {&lt;span style="color:#a6e22e">model&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Invoice&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">from&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;CustomerId&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">to&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;CustomerId&amp;#39;&lt;/span>});
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面代码中，&lt;code>this.hasOne(name, option)&lt;/code>的第一个参数是该关系的名称，可以随便起，只要引用的时候保持一致就可以了。第二个参数是关系的配置，这里只用了三个属性。&lt;/p>
 &lt;blockquote>
 &lt;ul>
 &lt;li>model：对方的 Model 名&lt;/li>
@@ -420,63 +474,58 @@ this.hasOne('invoices', {model: 'Invoice', from: 'CustomerId', to: 'CustomerId'}
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>然后，&lt;code>Invoice&lt;/code>内部使用&lt;code>this.belongsTo()&lt;/code>方法，回应&lt;code>Customer.hasOne()&lt;/code>方法。&lt;/p>
-&lt;pre>&lt;code> class Invoice extends Store.BaseModel {
-static definition(){
-this.belongsTo('customer', {model: 'Customer', from: 'CustomerId', to: 'CustomerId'});
-}
-}
-&lt;/code>&lt;/pre>
-&lt;p>接下来，查询的时候，要用&lt;code>include(name)&lt;/code>方法，将对应的 Model 包括进来。&lt;/p>
-&lt;pre>&lt;code> const invoice = await Invoice.find(1).include('customer');
-const customer = await invoice.customer;
-console.log(customer.getFullName());
-&lt;/code>&lt;/pre>
-&lt;p>上面代码中，&lt;code>Invoice.find(1).include('customer')&lt;/code>表示&lt;code>Invoice&lt;/code>的第一条记录要用&lt;code>customer&lt;/code>关系，将&lt;code>Customer&lt;/code>这个 Model 包括进来。也就是说，可以从&lt;code>invoice.customer&lt;/code>属性上，读到对应的那一条 Customer 的记录。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">class&lt;/span> &lt;span style="color:#a6e22e">Invoice&lt;/span> &lt;span style="color:#66d9ef">extends&lt;/span> &lt;span style="color:#a6e22e">Store&lt;/span>.&lt;span style="color:#a6e22e">BaseModel&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">static&lt;/span> &lt;span style="color:#a6e22e">definition&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">belongsTo&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;customer&amp;#39;&lt;/span>, {&lt;span style="color:#a6e22e">model&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Customer&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">from&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;CustomerId&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">to&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;CustomerId&amp;#39;&lt;/span>});
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>接下来，查询的时候，要用&lt;code>include(name)&lt;/code>方法，将对应的 Model 包括进来。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">invoice&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">Invoice&lt;/span>.&lt;span style="color:#a6e22e">find&lt;/span>(&lt;span style="color:#ae81ff">1&lt;/span>).&lt;span style="color:#a6e22e">include&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;customer&amp;#39;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">customer&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">invoice&lt;/span>.&lt;span style="color:#a6e22e">customer&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">console&lt;/span>.&lt;span style="color:#a6e22e">log&lt;/span>(&lt;span style="color:#a6e22e">customer&lt;/span>.&lt;span style="color:#a6e22e">getFullName&lt;/span>());
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面代码中，&lt;code>Invoice.find(1).include('customer')&lt;/code>表示&lt;code>Invoice&lt;/code>的第一条记录要用&lt;code>customer&lt;/code>关系，将&lt;code>Customer&lt;/code>这个 Model 包括进来。也就是说，可以从&lt;code>invoice.customer&lt;/code>属性上，读到对应的那一条 Customer 的记录。&lt;/p>
 &lt;h3 id="73-一对多关系">7.3 一对多关系&lt;/h3>
 &lt;p>上一小节假定 Customer 和 Invoice 是一对一关系，但是实际上，它们是一对多关系，因为一个顾客可以有多张发票。&lt;/p>
 &lt;p>一对多关系的处理，跟一对一关系很像，唯一的区别就是把&lt;code>this.hasOne()&lt;/code>换成&lt;code>this.hasMany()&lt;/code>方法。从名字上就能看出，这个方法指定了 Customer 的一条记录，对应多个 Invoice（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo08.js">完整代码&lt;/a>看这里）。&lt;/p>
-&lt;pre>&lt;code>class Customer extends Store.BaseModel {
-static definition(){
-this.hasMany('invoices', {model: 'Invoice', from: 'CustomerId', to: 'CustomerId'});
-}
-}
-class Invoice extends Store.BaseModel {
-static definition(){
-this.belongsTo('customer', {model: 'Customer', from: 'CustomerId', to: 'CustomerId'});
-}
-}
-&lt;/code>&lt;/pre>
-&lt;p>上面代码中，除了&lt;code>this.hasMany()&lt;/code>那一行，其他都跟上一小节完全一样。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">class&lt;/span> &lt;span style="color:#a6e22e">Customer&lt;/span> &lt;span style="color:#66d9ef">extends&lt;/span> &lt;span style="color:#a6e22e">Store&lt;/span>.&lt;span style="color:#a6e22e">BaseModel&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">static&lt;/span> &lt;span style="color:#a6e22e">definition&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">hasMany&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;invoices&amp;#39;&lt;/span>, {&lt;span style="color:#a6e22e">model&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Invoice&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">from&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;CustomerId&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">to&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;CustomerId&amp;#39;&lt;/span>});
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">class&lt;/span> &lt;span style="color:#a6e22e">Invoice&lt;/span> &lt;span style="color:#66d9ef">extends&lt;/span> &lt;span style="color:#a6e22e">Store&lt;/span>.&lt;span style="color:#a6e22e">BaseModel&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">static&lt;/span> &lt;span style="color:#a6e22e">definition&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">belongsTo&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;customer&amp;#39;&lt;/span>, {&lt;span style="color:#a6e22e">model&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Customer&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">from&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;CustomerId&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">to&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;CustomerId&amp;#39;&lt;/span>});
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面代码中，除了&lt;code>this.hasMany()&lt;/code>那一行，其他都跟上一小节完全一样。&lt;/p>
 &lt;h3 id="74-多对多关系">7.4 多对多关系&lt;/h3>
 &lt;p>通常来说，&amp;ldquo;多对多关系&amp;quot;需要有一张中间表，记录另外两张表之间的对应关系。比如，单曲&lt;code>Track&lt;/code>和歌单&lt;code>Playlist&lt;/code>之间，就是多对多关系：一首单曲可以包括在多个歌单，一个歌单可以包括多首单曲。数据库实现的时候，就需要一张&lt;code>playlist_track&lt;/code>表来记录单曲和歌单的对应关系。&lt;/p>
 &lt;p>因此，定义 Model 就需要定义三个 Model（&lt;a href="https://github.com/ruanyf/openrecord-demos/blob/master/demos/demo10.js">完整代码&lt;/a>看这里）。&lt;/p>
-&lt;pre>&lt;code>class Track extends Store.BaseModel{
-static definition() {
-this.hasMany('track_playlists', { model: 'PlaylistTrack', from: 'TrackId', to: 'TrackId'});
-this.hasMany('playlists', { model: 'Playlist', through: 'track_playlists' });
-}
-}
-class Playlist extends Store.BaseModel{
-static definition(){
-this.hasMany('playlist_tracks', { model: 'PlaylistTrack', from: 'PlaylistId', to: 'PlaylistId' });
-this.hasMany('tracks', { model : 'Track', through: 'playlist_tracks' });
-}
-}
-class PlaylistTrack extends Store.BaseModel{
-static definition(){
-this.tableName = 'playlist_track';
-this.belongsTo('playlists', { model: 'Playlist', from: 'PlaylistId', to: 'PlaylistId'});
-this.belongsTo('tracks', { model: 'Track', from: 'TrackId', to: 'TrackId'});
-}
-}
-&lt;/code>&lt;/pre>
-&lt;p>上面代码中，&lt;code>Track&lt;/code>这个 Model 里面，通过&lt;code>this.hasMany('playlists')&lt;/code>指定对应多个歌单。但不是直接关联，而是通过&lt;code>through&lt;/code>属性，指定中间关系&lt;code>track_playlists&lt;/code>进行关联。所以，Track 也要通过&lt;code>this.hasMany('track_playlists')&lt;/code>，指定跟中间表的一对多关系。相应地，&lt;code>PlaylistTrack&lt;/code>这个 Model 里面，要用两个&lt;code>this.belongsTo()&lt;/code>方法，分别跟另外两个 Model 进行连接。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">class&lt;/span> &lt;span style="color:#a6e22e">Track&lt;/span> &lt;span style="color:#66d9ef">extends&lt;/span> &lt;span style="color:#a6e22e">Store&lt;/span>.&lt;span style="color:#a6e22e">BaseModel&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">static&lt;/span> &lt;span style="color:#a6e22e">definition&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">hasMany&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;track_playlists&amp;#39;&lt;/span>, { &lt;span style="color:#a6e22e">model&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;PlaylistTrack&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">from&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;TrackId&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">to&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;TrackId&amp;#39;&lt;/span>});
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">hasMany&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;playlists&amp;#39;&lt;/span>, { &lt;span style="color:#a6e22e">model&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Playlist&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">through&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;track_playlists&amp;#39;&lt;/span> });
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">class&lt;/span> &lt;span style="color:#a6e22e">Playlist&lt;/span> &lt;span style="color:#66d9ef">extends&lt;/span> &lt;span style="color:#a6e22e">Store&lt;/span>.&lt;span style="color:#a6e22e">BaseModel&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">static&lt;/span> &lt;span style="color:#a6e22e">definition&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">hasMany&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;playlist_tracks&amp;#39;&lt;/span>, { &lt;span style="color:#a6e22e">model&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;PlaylistTrack&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">from&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;PlaylistId&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">to&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;PlaylistId&amp;#39;&lt;/span> });
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">hasMany&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;tracks&amp;#39;&lt;/span>, { &lt;span style="color:#a6e22e">model&lt;/span> &lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Track&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">through&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;playlist_tracks&amp;#39;&lt;/span> });
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">class&lt;/span> &lt;span style="color:#a6e22e">PlaylistTrack&lt;/span> &lt;span style="color:#66d9ef">extends&lt;/span> &lt;span style="color:#a6e22e">Store&lt;/span>.&lt;span style="color:#a6e22e">BaseModel&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">static&lt;/span> &lt;span style="color:#a6e22e">definition&lt;/span>(){
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">tableName&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">&amp;#39;playlist_track&amp;#39;&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">belongsTo&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;playlists&amp;#39;&lt;/span>, { &lt;span style="color:#a6e22e">model&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Playlist&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">from&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;PlaylistId&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">to&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;PlaylistId&amp;#39;&lt;/span>});
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">this&lt;/span>.&lt;span style="color:#a6e22e">belongsTo&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;tracks&amp;#39;&lt;/span>, { &lt;span style="color:#a6e22e">model&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;Track&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">from&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;TrackId&amp;#39;&lt;/span>, &lt;span style="color:#a6e22e">to&lt;/span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#39;TrackId&amp;#39;&lt;/span>});
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面代码中，&lt;code>Track&lt;/code>这个 Model 里面，通过&lt;code>this.hasMany('playlists')&lt;/code>指定对应多个歌单。但不是直接关联，而是通过&lt;code>through&lt;/code>属性，指定中间关系&lt;code>track_playlists&lt;/code>进行关联。所以，Track 也要通过&lt;code>this.hasMany('track_playlists')&lt;/code>，指定跟中间表的一对多关系。相应地，&lt;code>PlaylistTrack&lt;/code>这个 Model 里面，要用两个&lt;code>this.belongsTo()&lt;/code>方法，分别跟另外两个 Model 进行连接。&lt;/p>
 &lt;p>查询的时候，不用考虑中间关系，就好像中间表不存在一样。&lt;/p>
-&lt;pre>&lt;code>const track = await Track.find(1).include('playlists');
-const playlists = await track.playlists;
-playlists.forEach(l =&amp;gt; console.log(l.PlaylistId));
-&lt;/code>&lt;/pre>
-&lt;p>上面代码中，一首单曲对应多张歌单，所以&lt;code>track.playlists&lt;/code>返回的是一个数组。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-js" data-lang="js">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">track&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">Track&lt;/span>.&lt;span style="color:#a6e22e">find&lt;/span>(&lt;span style="color:#ae81ff">1&lt;/span>).&lt;span style="color:#a6e22e">include&lt;/span>(&lt;span style="color:#e6db74">&amp;#39;playlists&amp;#39;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#a6e22e">playlists&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">await&lt;/span> &lt;span style="color:#a6e22e">track&lt;/span>.&lt;span style="color:#a6e22e">playlists&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">playlists&lt;/span>.&lt;span style="color:#a6e22e">forEach&lt;/span>(&lt;span style="color:#a6e22e">l&lt;/span> =&amp;gt; &lt;span style="color:#a6e22e">console&lt;/span>.&lt;span style="color:#a6e22e">log&lt;/span>(&lt;span style="color:#a6e22e">l&lt;/span>.&lt;span style="color:#a6e22e">PlaylistId&lt;/span>));
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面代码中，一首单曲对应多张歌单，所以&lt;code>track.playlists&lt;/code>返回的是一个数组。&lt;/p>
 &lt;p>（完）&lt;/p></description></item><item><title>Docs: SDK 开发</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E7%BC%96%E7%A8%8B%E6%8A%80%E6%9C%AF/sdk-%E5%BC%80%E5%8F%91/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E7%BC%96%E7%A8%8B%E6%8A%80%E6%9C%AF/sdk-%E5%BC%80%E5%8F%91/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
