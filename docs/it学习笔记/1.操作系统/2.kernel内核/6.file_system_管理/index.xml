@@ -1,229 +1,4 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 6.File System 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/</link><description>Recent content in 6.File System 管理 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 文件管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/</guid><description/></item><item><title>Docs: 10.1.零拷贝</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/10.1.%E9%9B%B6%E6%8B%B7%E8%B4%9D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/10.1.%E9%9B%B6%E6%8B%B7%E8%B4%9D/</guid><description>
-&lt;hr>
-&lt;h2 id="前言">前言&lt;/h2>
-&lt;p>磁盘可以说是计算机系统最慢的硬件之一，读写速度相差内存 10 倍以上，所以针对优化磁盘的技术非常的多，比如零拷贝、直接 I/O、异步 I/O 等等，这些优化的目的就是为了提高系统的吞吐量，另外操作系统内核中的磁盘高速缓存区，可以有效的减少磁盘的访问次数。&lt;/p>
-&lt;p>这次，我们就以「文件传输」作为切入点，来分析 I/O 工作方式，以及如何优化传输文件的性能。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581743-fe1685b9-8478-478c-bec2-c7d550e1f54a.png" alt="">&lt;/p>
-&lt;hr>
-&lt;h2 id="正文">正文&lt;/h2>
-&lt;h3 id="为什么要有-dma-技术">为什么要有 DMA 技术?&lt;/h3>
-&lt;p>在没有 DMA 技术前，I/O 的过程是这样的：&lt;/p>
-&lt;ul>
-&lt;li>CPU 发出对应的指令给磁盘控制器，然后返回；&lt;/li>
-&lt;li>磁盘控制器收到指令后，于是就开始准备数据，会把数据放入到磁盘控制器的内部缓冲区中，然后产生一个&lt;strong>中断&lt;/strong>；&lt;/li>
-&lt;li>CPU 收到中断信号后，停下手头的工作，接着把磁盘控制器的缓冲区的数据一次一个字节地读进自己的寄存器，然后再把寄存器里的数据写入到内存，而在数据传输的期间 CPU 是无法执行其他任务的。&lt;/li>
-&lt;/ul>
-&lt;p>为了方便你理解，我画了一副图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581747-833fd3d8-b587-44e5-a4d7-2118e13b1b44.png" alt="">&lt;/p>
-&lt;p>可以看到，整个数据的传输过程，都要需要 CPU 亲自参与搬运数据的过程，而且这个过程，CPU 是不能做其他事情的。&lt;/p>
-&lt;p>简单的搬运几个字符数据那没问题，但是如果我们用千兆网卡或者硬盘传输大量数据的时候，都用 CPU 来搬运的话，肯定忙不过来。&lt;/p>
-&lt;p>计算机科学家们发现了事情的严重性后，于是就发明了 DMA 技术，也就是&lt;strong>直接内存访问（***&lt;strong>Direct Memory Access&lt;/strong>*&lt;/strong>）** 技术。&lt;/p>
-&lt;p>什么是 DMA 技术？简单理解就是，&lt;strong>在进行 I/O 设备和内存的数据传输的时候，数据搬运的工作全部交给 DMA 控制器，而 CPU 不再参与任何与数据搬运相关的事情，这样 CPU 就可以去处理别的事务&lt;/strong>。&lt;/p>
-&lt;p>那使用 DMA 控制器进行数据传输的过程究竟是什么样的呢？下面我们来具体看看。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581757-ef21d29d-7f2b-4cd1-a747-98b242f710cf.png" alt="">&lt;/p>
-&lt;p>具体过程：&lt;/p>
-&lt;ul>
-&lt;li>用户进程调用 read 方法，向操作系统发出 I/O 请求，请求读取数据到自己的内存缓冲区中，进程进入阻塞状态；&lt;/li>
-&lt;li>操作系统收到请求后，进一步将 I/O 请求发送 DMA，然后让 CPU 执行其他任务；&lt;/li>
-&lt;li>DMA 进一步将 I/O 请求发送给磁盘；&lt;/li>
-&lt;li>磁盘收到 DMA 的 I/O 请求，把数据从磁盘读取到磁盘控制器的缓冲区中，当磁盘控制器的缓冲区被读满后，向 DMA 发起中断信号，告知自己缓冲区已满；&lt;/li>
-&lt;li>&lt;strong>DMA 收到磁盘的信号，将磁盘控制器缓冲区中的数据拷贝到内核缓冲区中，此时不占用 CPU，CPU 可以执行其他任务&lt;/strong>；&lt;/li>
-&lt;li>当 DMA 读取了足够多的数据，就会发送中断信号给 CPU；&lt;/li>
-&lt;li>CPU 收到 DMA 的信号，知道数据已经准备好，于是将数据从内核拷贝到用户空间，系统调用返回；&lt;/li>
-&lt;/ul>
-&lt;p>可以看到， 整个数据传输的过程，CPU 不再参与数据搬运的工作，而是全程由 DMA 完成，但是 CPU 在这个过程中也是必不可少的，因为传输什么数据，从哪里传输到哪里，都需要 CPU 来告诉 DMA 控制器。&lt;/p>
-&lt;p>早期 DMA 只存在在主板上，如今由于 I/O 设备越来越多，数据传输的需求也不尽相同，所以每个 I/O 设备里面都有自己的 DMA 控制器。&lt;/p>
-&lt;hr>
-&lt;h3 id="传统的文件传输有多糟糕">传统的文件传输有多糟糕？&lt;/h3>
-&lt;p>如果服务端要提供文件传输的功能，我们能想到的最简单的方式是：将磁盘上的文件读取出来，然后通过网络协议发送给客户端。&lt;/p>
-&lt;p>传统 I/O 的工作方式是，数据读取和写入是从用户空间到内核空间来回复制，而内核空间的数据是通过操作系统层面的 I/O 接口从磁盘读取或写入。&lt;/p>
-&lt;p>代码通常如下，一般会需要两个系统调用：&lt;/p>
-&lt;pre>&lt;code>read(file, tmp_buf, len);write(socket, tmp_buf, len);
-&lt;/code>&lt;/pre>
-&lt;p>1
-Plain Text&lt;/p>
-&lt;p>代码很简单，虽然就两行代码，但是这里面发生了不少的事情。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581754-e4951f6d-41a5-4564-a890-901bf62db701.png" alt="">&lt;/p>
-&lt;p>首先，期间共&lt;strong>发生了 4 次用户态与内核态的上下文切换&lt;/strong>，因为发生了两次系统调用，一次是 &lt;code>read()&lt;/code> ，一次是 &lt;code>write()&lt;/code>，每次系统调用都得先从用户态切换到内核态，等内核完成任务后，再从内核态切换回用户态。&lt;/p>
-&lt;p>上下文切换到成本并不小，一次切换需要耗时几十纳秒到几微秒，虽然时间看上去很短，但是在高并发的场景下，这类时间容易被累积和放大，从而影响系统的性能。&lt;/p>
-&lt;p>其次，还&lt;strong>发生了 4 次数据拷贝&lt;/strong>，其中两次是 DMA 的拷贝，另外两次则是通过 CPU 拷贝的，下面说一下这个过程：&lt;/p>
-&lt;ul>
-&lt;li>&lt;em>第一次拷贝&lt;/em>，把磁盘上的数据拷贝到操作系统内核的缓冲区里，这个拷贝的过程是通过 DMA 搬运的。&lt;/li>
-&lt;li>&lt;em>第二次拷贝&lt;/em>，把内核缓冲区的数据拷贝到用户的缓冲区里，于是我们应用程序就可以使用这部分数据了，这个拷贝到过程是由 CPU 完成的。&lt;/li>
-&lt;li>&lt;em>第三次拷贝&lt;/em>，把刚才拷贝到用户的缓冲区里的数据，再拷贝到内核的 socket 的缓冲区里，这个过程依然还是由 CPU 搬运的。&lt;/li>
-&lt;li>&lt;em>第四次拷贝&lt;/em>，把内核的 socket 缓冲区里的数据，拷贝到网卡的缓冲区里，这个过程又是由 DMA 搬运的。&lt;/li>
-&lt;/ul>
-&lt;p>我们回过头看这个文件传输的过程，我们只是搬运一份数据，结果却搬运了 4 次，过多的数据拷贝无疑会消耗 CPU 资源，大大降低了系统性能。&lt;/p>
-&lt;p>这种简单又传统的文件传输方式，存在冗余的上文切换和数据拷贝，在高并发系统里是非常糟糕的，多了很多不必要的开销，会严重影响系统性能。&lt;/p>
-&lt;p>所以，&lt;strong>要想提高文件传输的性能，就需要减少「用户态与内核态的上下文切换」和「内存拷贝」的次数&lt;/strong>。&lt;/p>
-&lt;hr>
-&lt;h3 id="如何优化文件传输的性能">如何优化文件传输的性能？&lt;/h3>
-&lt;blockquote>
-&lt;p>先来看看，如何减少「用户态与内核态的上下文切换」的次数呢？&lt;/p>
-&lt;/blockquote>
-&lt;p>读取磁盘数据的时候，之所以要发生上下文切换，这是因为用户空间没有权限操作磁盘或网卡，内核的权限最高，这些操作设备的过程都需要交由操作系统内核来完成，所以一般要通过内核去完成某些任务的时候，就需要使用操作系统提供的系统调用函数。&lt;/p>
-&lt;p>而一次系统调用必然会发生 2 次上下文切换：首先从用户态切换到内核态，当内核执行完任务后，再切换回用户态交由进程代码执行。&lt;/p>
-&lt;p>所以，&lt;strong>要想减少上下文切换到次数，就要减少系统调用的次数&lt;/strong>。&lt;/p>
-&lt;blockquote>
-&lt;p>再来看看，如何减少「数据拷贝」的次数？&lt;/p>
-&lt;/blockquote>
-&lt;p>在前面我们知道了，传统的文件传输方式会历经 4 次数据拷贝，而且这里面，「从内核的读缓冲区拷贝到用户的缓冲区里，再从用户的缓冲区里拷贝到 socket 的缓冲区里」，这个过程是没有必要的。&lt;/p>
-&lt;p>因为文件传输的应用场景中，在用户空间我们并不会对数据「再加工」，所以数据实际上可以不用搬运到用户空间，因此&lt;strong>用户的缓冲区是没有必要存在的&lt;/strong>。&lt;/p>
-&lt;hr>
-&lt;h3 id="如何实现零拷贝">如何实现零拷贝？&lt;/h3>
-&lt;p>零拷贝技术实现的方式通常有 2 种：&lt;/p>
-&lt;ul>
-&lt;li>mmap + write&lt;/li>
-&lt;li>sendfile&lt;/li>
-&lt;/ul>
-&lt;p>下面就谈一谈，它们是如何减少「上下文切换」和「数据拷贝」的次数。&lt;/p>
-&lt;p>mmap + write&lt;/p>
-&lt;p>在前面我们知道，&lt;code>read()&lt;/code> 系统调用的过程中会把内核缓冲区的数据拷贝到用户的缓冲区里，于是为了减少这一步开销，我们可以用 &lt;code>mmap()&lt;/code> 替换 &lt;code>read()&lt;/code> 系统调用函数。&lt;/p>
-&lt;pre>&lt;code>buf = mmap(file, len);write(sockfd, buf, len);
-&lt;/code>&lt;/pre>
-&lt;p>1
-Plain Text&lt;/p>
-&lt;p>&lt;code>mmap()&lt;/code> 系统调用函数会直接把内核缓冲区里的数据「&lt;strong>映射&lt;/strong>」到用户空间，这样，操作系统内核与用户空间就不需要再进行任何的数据拷贝操作。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581773-7d9df0ea-5e23-48c7-9e90-5575bf286553.png" alt="">&lt;/p>
-&lt;p>具体过程如下：&lt;/p>
-&lt;ul>
-&lt;li>应用进程调用了 &lt;code>mmap()&lt;/code> 后，DMA 会把磁盘的数据拷贝到内核的缓冲区里。接着，应用进程跟操作系统内核「共享」这个缓冲区；&lt;/li>
-&lt;li>应用进程再调用 &lt;code>write()&lt;/code>，操作系统直接将内核缓冲区的数据拷贝到 socket 缓冲区中，这一切都发生在内核态，由 CPU 来搬运数据；&lt;/li>
-&lt;li>最后，把内核的 socket 缓冲区里的数据，拷贝到网卡的缓冲区里，这个过程是由 DMA 搬运的。&lt;/li>
-&lt;/ul>
-&lt;p>我们可以得知，通过使用 &lt;code>mmap()&lt;/code> 来代替 &lt;code>read()&lt;/code>， 可以减少一次数据拷贝的过程。&lt;/p>
-&lt;p>但这还不是最理想的零拷贝，因为仍然需要通过 CPU 把内核缓冲区的数据拷贝到 socket 缓冲区里，而且仍然需要 4 次上下文切换，因为系统调用还是 2 次。&lt;/p>
-&lt;p>sendfile&lt;/p>
-&lt;p>在 Linux 内核版本 2.1 中，提供了一个专门发送文件的系统调用函数 &lt;code>sendfile()&lt;/code>，函数形式如下：&lt;/p>
-&lt;pre>&lt;code>#include &amp;lt;sys/socket.h&amp;gt;ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
-&lt;/code>&lt;/pre>
-&lt;p>1
-Plain Text&lt;/p>
-&lt;p>它的前两个参数分别是目的端和源端的文件描述符，后面两个参数是源端的偏移量和复制数据的长度，返回值是实际复制数据的长度。&lt;/p>
-&lt;p>首先，它可以替代前面的 &lt;code>read()&lt;/code> 和 &lt;code>write()&lt;/code> 这两个系统调用，这样就可以减少一次系统调用，也就减少了 2 次上下文切换的开销。&lt;/p>
-&lt;p>其次，该系统调用，可以直接把内核缓冲区里的数据拷贝到 socket 缓冲区里，不再拷贝到用户态，这样就只有 2 次上下文切换，和 3 次数据拷贝。如下图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581761-10aa5962-487a-444d-9c3b-878f1a5f0d4d.png" alt="">&lt;/p>
-&lt;p>但是这还不是真正的零拷贝技术，如果网卡支持 SG-DMA（&lt;em>The Scatter-Gather Direct Memory Access&lt;/em>）技术（和普通的 DMA 有所不同），我们可以进一步减少通过 CPU 把内核缓冲区里的数据拷贝到 socket 缓冲区的过程。&lt;/p>
-&lt;p>你可以在你的 Linux 系统通过下面这个命令，查看网卡是否支持 scatter-gather 特性：&lt;/p>
-&lt;pre>&lt;code>$ ethtool -k eth0 | grep scatter-gatherscatter-gather: on
-&lt;/code>&lt;/pre>
-&lt;p>1
-Plain Text&lt;/p>
-&lt;p>于是，从 Linux 内核 &lt;code>2.4&lt;/code> 版本开始起，对于支持网卡支持 SG-DMA 技术的情况下， &lt;code>sendfile()&lt;/code> 系统调用的过程发生了点变化，具体过程如下：&lt;/p>
-&lt;ul>
-&lt;li>第一步，通过 DMA 将磁盘上的数据拷贝到内核缓冲区里；&lt;/li>
-&lt;li>第二步，缓冲区描述符和数据长度传到 socket 缓冲区，这样网卡的 SG-DMA 控制器就可以直接将内核缓存中的数据拷贝到网卡的缓冲区里，此过程不需要将数据从操作系统内核缓冲区拷贝到 socket 缓冲区中，这样就减少了一次数据拷贝；&lt;/li>
-&lt;/ul>
-&lt;p>所以，这个过程之中，只进行了 2 次数据拷贝，如下图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581761-cd2da78d-0ce1-4048-ae1c-ec5d19830fc6.png" alt="">&lt;/p>
-&lt;p>这就是所谓的&lt;strong>零拷贝（***&lt;strong>Zero-copy&lt;/strong>*&lt;/strong>）技术，因为我们没有在内存层面去拷贝数据，也就是说全程没有通过 CPU 来搬运数据，所有的数据都是通过 DMA 来进行传输的。**。&lt;/p>
-&lt;p>零拷贝技术的文件传输方式相比传统文件传输的方式，减少了 2 次上下文切换和数据拷贝次数，&lt;strong>只需要 2 次上下文切换和数据拷贝次数，就可以完成文件的传输，而且 2 次的数据拷贝过程，都不需要通过 CPU，2 次都是由 DMA 来搬运。&lt;/strong>&lt;/p>
-&lt;p>所以，总体来看，&lt;strong>零拷贝技术可以把文件传输的性能提高至少一倍以上&lt;/strong>。&lt;/p>
-&lt;p>使用零拷贝技术的项目&lt;/p>
-&lt;p>事实上，Kafka 这个开源项目，就利用了「零拷贝」技术，从而大幅提升了 I/O 的吞吐率，这也是 Kafka 在处理海量数据为什么这么快的原因之一。&lt;/p>
-&lt;p>如果你追溯 Kafka 文件传输的代码，你会发现，最终它调用了 Java NIO 库里的 &lt;code>transferTo&lt;/code> 方法：&lt;/p>
-&lt;pre>&lt;code>@Overridepublic long transferFrom(FileChannel fileChannel, long position, long count) throws IOException { return fileChannel.transferTo(position, count, socketChannel);}
-&lt;/code>&lt;/pre>
-&lt;p>1
-Plain Text&lt;/p>
-&lt;p>如果 Linux 系统支持 &lt;code>sendfile()&lt;/code> 系统调用，那么 &lt;code>transferTo()&lt;/code> 实际上最后就会使用到 &lt;code>sendfile()&lt;/code> 系统调用函数。曾经有大佬专门写过程序测试过，在同样的硬件条件下，传统文件传输和零拷拷贝文件传输的性能差异，你可以看到下面这张测试数据图，使用了零拷贝能够缩短 &lt;code>65%&lt;/code> 的时间，大幅度提升了机器传输数据的吞吐量。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581773-3ca39dfc-4c62-4827-a5f8-1ccd96ce7a88.png" alt="">&lt;/p>
-&lt;p>数据来源于：&lt;a href="https://developer.ibm.com/articles/j-zerocopy/">https://developer.ibm.com/articles/j-zerocopy/&lt;/a>&lt;/p>
-&lt;p>另外，Nginx 也支持零拷贝技术，一般默认是开启零拷贝技术，这样有利于提高文件传输的效率，是否开启零拷贝技术的配置如下：&lt;/p>
-&lt;pre>&lt;code>http {... sendfile on...}
-&lt;/code>&lt;/pre>
-&lt;p>1
-Plain Text&lt;/p>
-&lt;p>sendfile 配置的具体意思:&lt;/p>
-&lt;ul>
-&lt;li>设置为 on 表示，使用零拷贝技术来传输文件：sendfile ，这样只需要 2 次上下文切换，和 2 次数据拷贝。&lt;/li>
-&lt;li>设置为 off 表示，使用传统的文件传输技术：read + write，这时就需要 4 次上下文切换，和 4 次数据拷贝。&lt;/li>
-&lt;/ul>
-&lt;p>当然，要使用 sendfile，Linux 内核版本必须要 2.1 以上的版本。&lt;/p>
-&lt;hr>
-&lt;h3 id="pagecache-有什么作用">PageCache 有什么作用？&lt;/h3>
-&lt;p>回顾前面说道文件传输过程，其中第一步都是先需要先把磁盘文件数据拷贝「内核缓冲区」里，这个「内核缓冲区」实际上是&lt;strong>磁盘高速缓存（***&lt;strong>PageCache&lt;/strong>*&lt;/strong>）**。&lt;/p>
-&lt;p>由于零拷贝使用了 PageCache 技术，可以使得零拷贝进一步提升了性能，我们接下来看看 PageCache 是如何做到这一点的。&lt;/p>
-&lt;p>读写磁盘相比读写内存的速度慢太多了，所以我们应该想办法把「读写磁盘」替换成「读写内存」。于是，我们会通过 DMA 把磁盘里的数据搬运到内存里，这样就可以用读内存替换读磁盘。&lt;/p>
-&lt;p>但是，内存空间远比磁盘要小，内存注定只能拷贝磁盘里的一小部分数据。&lt;/p>
-&lt;p>那问题来了，选择哪些磁盘数据拷贝到内存呢？&lt;/p>
-&lt;p>我们都知道程序运行的时候，具有「局部性」，所以通常，刚被访问的数据在短时间内再次被访问的概率很高，于是我们可以用 &lt;strong>PageCache 来缓存最近被访问的数据&lt;/strong>，当空间不足时淘汰最久未被访问的缓存。&lt;/p>
-&lt;p>所以，读磁盘数据的时候，优先在 PageCache 找，如果数据存在则可以直接返回；如果没有，则从磁盘中读取，然后缓存 PageCache 中。&lt;/p>
-&lt;p>还有一点，读取磁盘数据的时候，需要找到数据所在的位置，但是对于机械磁盘来说，就是通过磁头旋转到数据所在的扇区，再开始「顺序」读取数据，但是旋转磁头这个物理动作是非常耗时的，为了降低它的影响，&lt;strong>PageCache 使用了「预读功能」&lt;/strong>。&lt;/p>
-&lt;p>比如，假设 read 方法每次只会读 &lt;code>32 KB&lt;/code> 的字节，虽然 read 刚开始只会读 0 ～ 32 KB 的字节，但内核会把其后面的 32 ～ 64 KB 也读取到 PageCache，这样后面读取 32 ～ 64 KB 的成本就很低，如果在 32 ～ 64 KB 淘汰出 PageCache 前，进程读取到它了，收益就非常大。&lt;/p>
-&lt;p>所以，PageCache 的优点主要是两个：&lt;/p>
-&lt;ul>
-&lt;li>缓存最近被访问的数据；&lt;/li>
-&lt;li>预读功能；&lt;/li>
-&lt;/ul>
-&lt;p>这两个做法，将大大提高读写磁盘的性能。&lt;/p>
-&lt;p>&lt;strong>但是，在传输大文件（GB 级别的文件）的时候，PageCache 会不起作用，那就白白浪费 DMA 多做的一次数据拷贝，造成性能的降低，即使使用了 PageCache 的零拷贝也会损失性能&lt;/strong>&lt;/p>
-&lt;p>这是因为如果你有很多 GB 级别文件需要传输，每当用户访问这些大文件的时候，内核就会把它们载入 PageCache 中，于是 PageCache 空间很快被这些大文件占满。&lt;/p>
-&lt;p>另外，由于文件太大，可能某些部分的文件数据被再次访问的概率比较低，这样就会带来 2 个问题：&lt;/p>
-&lt;ul>
-&lt;li>PageCache 由于长时间被大文件占据，其他「热点」的小文件可能就无法充分使用到 PageCache，于是这样磁盘读写的性能就会下降了；&lt;/li>
-&lt;li>PageCache 中的大文件数据，由于没有享受到缓存带来的好处，但却耗费 DMA 多拷贝到 PageCache 一次；&lt;/li>
-&lt;/ul>
-&lt;p>所以，针对大文件的传输，不应该使用 PageCache，也就是说不应该使用零拷贝技术，因为可能由于 PageCache 被大文件占据，而导致「热点」小文件无法利用到 PageCache，这样在高并发的环境下，会带来严重的性能问题。&lt;/p>
-&lt;hr>
-&lt;h3 id="大文件传输用什么方式实现">大文件传输用什么方式实现？&lt;/h3>
-&lt;p>那针对大文件的传输，我们应该使用什么方式呢？&lt;/p>
-&lt;p>我们先来看看最初的例子，当调用 read 方法读取文件时，进程实际上会阻塞在 read 方法调用，因为要等待磁盘数据的返回，如下图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581758-1e058506-1c0b-4bad-ae68-9846cd0f3016.png" alt="">&lt;/p>
-&lt;p>具体过程：&lt;/p>
-&lt;ul>
-&lt;li>当调用 read 方法时，会阻塞着，此时内核会向磁盘发起 I/O 请求，磁盘收到请求后，便会寻址，当磁盘数据准备好后，就会向内核发起 I/O 中断，告知内核磁盘数据已经准备好；&lt;/li>
-&lt;li>内核收到 I/O 中断后，就将数据从磁盘控制器缓冲区拷贝到 PageCache 里；&lt;/li>
-&lt;li>最后，内核再把 PageCache 中的数据拷贝到用户缓冲区，于是 read 调用就正常返回了。&lt;/li>
-&lt;/ul>
-&lt;p>对于阻塞的问题，可以用异步 I/O 来解决，它工作方式如下图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581774-bf45125c-8de0-493f-892e-1b57b4b150b9.png" alt="">&lt;/p>
-&lt;p>它把读操作分为两部分：&lt;/p>
-&lt;ul>
-&lt;li>前半部分，内核向磁盘发起读请求，但是可以&lt;strong>不等待数据就位就可以返回&lt;/strong>，于是进程此时可以处理其他任务；&lt;/li>
-&lt;li>后半部分，当内核将磁盘中的数据拷贝到进程缓冲区后，进程将接收到内核的&lt;strong>通知&lt;/strong>，再去处理数据；&lt;/li>
-&lt;/ul>
-&lt;p>而且，我们可以发现，异步 I/O 并没有涉及到 PageCache，所以使用异步 I/O 就意味着要绕开 PageCache。&lt;/p>
-&lt;p>绕开 PageCache 的 I/O 叫直接 I/O，使用 PageCache 的 I/O 则叫缓存 I/O。通常，对于磁盘，异步 I/O 只支持直接 I/O。&lt;/p>
-&lt;p>前面也提到，大文件的传输不应该使用 PageCache，因为可能由于 PageCache 被大文件占据，而导致「热点」小文件无法利用到 PageCache。&lt;/p>
-&lt;p>于是，&lt;strong>在高并发的场景下，针对大文件的传输的方式，应该使用「异步 I/O + 直接 I/O」来替代零拷贝技术&lt;/strong>。&lt;/p>
-&lt;p>直接 I/O 应用场景常见的两种：&lt;/p>
-&lt;ul>
-&lt;li>应用程序已经实现了磁盘数据的缓存，那么可以不需要 PageCache 再次缓存，减少额外的性能损耗。在 MySQL 数据库中，可以通过参数设置开启直接 I/O，默认是不开启；&lt;/li>
-&lt;li>传输大文件的时候，由于大文件难以命中 PageCache 缓存，而且会占满 PageCache 导致「热点」文件无法充分利用缓存，从而增大了性能开销，因此，这时应该使用直接 I/O。&lt;/li>
-&lt;/ul>
-&lt;p>另外，由于直接 I/O 绕过了 PageCache，就无法享受内核的这两点的优化：&lt;/p>
-&lt;ul>
-&lt;li>内核的 I/O 调度算法会缓存尽可能多的 I/O 请求在 PageCache 中，最后「&lt;strong>合并&lt;/strong>」成一个更大的 I/O 请求再发给磁盘，这样做是为了减少磁盘的寻址操作；&lt;/li>
-&lt;li>内核也会「&lt;strong>预读&lt;/strong>」后续的 I/O 请求放在 PageCache 中，一样是为了减少对磁盘的操作；&lt;/li>
-&lt;/ul>
-&lt;p>于是，传输大文件的时候，使用「异步 I/O + 直接 I/O」了，就可以无阻塞地读取文件了。&lt;/p>
-&lt;p>所以，传输文件的时候，我们要根据文件的大小来使用不同的方式：&lt;/p>
-&lt;ul>
-&lt;li>传输大文件的时候，使用「异步 I/O + 直接 I/O」；&lt;/li>
-&lt;li>传输小文件的时候，则使用「零拷贝技术」；&lt;/li>
-&lt;/ul>
-&lt;p>在 nginx 中，我们可以用如下配置，来根据文件的大小来使用不同的方式：&lt;/p>
-&lt;pre>&lt;code>location /video/ { sendfile on; aio on; directio 1024m; }
-&lt;/code>&lt;/pre>
-&lt;p>1
-Plain Text&lt;/p>
-&lt;p>当文件大小大于 &lt;code>directio&lt;/code> 值后，使用「异步 I/O + 直接 I/O」，否则使用「零拷贝技术」。&lt;/p>
-&lt;hr>
-&lt;h3 id="总结">总结&lt;/h3>
-&lt;p>早期 I/O 操作，内存与磁盘的数据传输的工作都是由 CPU 完成的，而此时 CPU 不能执行其他任务，会特别浪费 CPU 资源。&lt;/p>
-&lt;p>于是，为了解决这一问题，DMA 技术就出现了，每个 I/O 设备都有自己的 DMA 控制器，通过这个 DMA 控制器，CPU 只需要告诉 DMA 控制器，我们要传输什么数据，从哪里来，到哪里去，就可以放心离开了。后续的实际数据传输工作，都会由 DMA 控制器来完成，CPU 不需要参与数据传输的工作。&lt;/p>
-&lt;p>传统 IO 的工作方式，从硬盘读取数据，然后再通过网卡向外发送，我们需要进行 4 上下文切换，和 4 次数据拷贝，其中 2 次数据拷贝发生在内存里的缓冲区和对应的硬件设备之间，这个是由 DMA 完成，另外 2 次则发生在内核态和用户态之间，这个数据搬移工作是由 CPU 完成的。&lt;/p>
-&lt;p>为了提高文件传输的性能，于是就出现了零拷贝技术，它通过一次系统调用（&lt;code>sendfile&lt;/code> 方法）合并了磁盘读取与网络发送两个操作，降低了上下文切换次数。另外，拷贝数据都是发生在内核中的，天然就降低了数据拷贝的次数。&lt;/p>
-&lt;p>Kafka 和 Nginx 都有实现零拷贝技术，这将大大提高文件传输的性能。&lt;/p>
-&lt;p>零拷贝技术是基于 PageCache 的，PageCache 会缓存最近访问的数据，提升了访问缓存数据的性能，同时，为了解决机械硬盘寻址慢的问题，它还协助 I/O 调度算法实现了 IO 合并与预读，这也是顺序读比随机读性能好的原因。这些优势，进一步提升了零拷贝的性能。&lt;/p>
-&lt;p>需要注意的是，零拷贝技术是不允许进程对文件内容作进一步的加工的，比如压缩数据再发送。&lt;/p>
-&lt;p>另外，当传输大文件时，不能使用零拷贝，因为可能由于 PageCache 被大文件占据，而导致「热点」小文件无法利用到 PageCache，并且大文件的缓存命中率不高，这时就需要使用「异步 IO + 直接 IO 」的方式。&lt;/p>
-&lt;p>在 Nginx 里，可以通过配置，设定一个文件大小阈值，针对大文件使用异步 IO 和直接 IO，而对小文件使用零拷贝。&lt;/p>
-&lt;hr>
-&lt;h2 id="絮叨">絮叨&lt;/h2>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581788-f2a0299b-a76a-4d58-b228-f6d81888f5fb.png" alt="">&lt;/p>
-&lt;p>&lt;strong>大家好，我是小林，一个专为大家图解的工具人，如果觉得文章对你有帮助，欢迎分享给你的朋友，这对小林非常重要，谢谢你们，我们下次见！&lt;/strong>&lt;/p></description></item><item><title>Docs: 6.File System 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/6.file_system_%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/6.file_system_%E7%AE%A1%E7%90%86/</guid><description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 6.File System 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/</link><description>Recent content in 6.File System 管理 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 文件管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/</guid><description/></item><item><title>Docs: 6.File System 管理</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/6.file_system_%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/6.file_system_%E7%AE%A1%E7%90%86/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -325,8 +100,9 @@ inode 是每个文件的唯一标志，而 dentry 维护的正是文件系统的
 &lt;/ul>
 &lt;h1 id="virtual-file-system虚拟文件系统">Virtual File System(虚拟文件系统)&lt;/h1>
 &lt;blockquote>
-&lt;p>参考： - &lt;a href="https://en.wikipedia.org/wiki/Virtual_file_system">Wiki,Virtual file system&lt;/a>&lt;/p>
+&lt;p>参考：&lt;/p>
 &lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Virtual_file_system">Wiki,Virtual file system&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/69289429">知乎&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://time.geekbang.org/column/article/76876">极客-Linux 性能优化实践&lt;/a>&lt;/li>
 &lt;/ul>
@@ -337,11 +113,11 @@ inode 是每个文件的唯一标志，而 dentry 维护的正是文件系统的
 比如 VFS 可以用来弥合 Windows，经典 Mac OS / macOS 和 Unix 文件系统中的差异，以便应用程序可以访问那些类型的本地文件系统上的文件，而不必知道它们正在访问哪种文件系统。&lt;/p>
 &lt;/blockquote>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/op2fw9/1616167805621-09dbf293-4f9a-4892-8e30-8d33f32031c4.png" alt="">
-举个例子，Linux 用户程序可以通过&lt;code>read()&lt;/code> 来读取&lt;code>ext4&lt;/code>、&lt;code>NFS&lt;/code>、&lt;code>XFS&lt;/code>等文件系统的文件，也可以读取存储在&lt;code>SSD&lt;/code>、&lt;code>HDD&lt;/code>等不同存储介质的文件，无须考虑不同文件系统或者不同存储介质的差异。
-通过 VFS 系统，Linux 提供了通用的系统调用，可以跨越不同文件系统和介质之间执行，极大简化了用户访问不同文件系统的过程。另一方面，新的文件系统、新类型的存储介质，可以无须编译的情况下，动态加载到 Linux 中。
-&amp;ldquo;一切皆文件&amp;quot;是 Linux 的基本哲学之一，不仅是普通的文件，包括目录、字符设备、块设备、套接字等，都可以以文件的方式被对待。实现这一行为的基础，正是 Linux 的虚拟文件系统机制。
-VFS 之所以能够衔接各种各样的文件系统，是因为它抽象了一个通用的文件系统模型，定义了通用文件系统都支持的、概念上的接口。新的文件系统只要支持并实现这些接口，并注册到 Linux 内核中，即可安装和使用。
-再举个例子，比如 Linux 写一个文件：&lt;/p>
+举个例子，Linux 用户程序可以通过&lt;code>read()&lt;/code> 来读取&lt;code>ext4&lt;/code>、&lt;code>NFS&lt;/code>、&lt;code>XFS&lt;/code>等文件系统的文件，也可以读取存储在&lt;code>SSD&lt;/code>、&lt;code>HDD&lt;/code>等不同存储介质的文件，无须考虑不同文件系统或者不同存储介质的差异。&lt;/p>
+&lt;p>通过 VFS 系统，Linux 提供了通用的系统调用，可以跨越不同文件系统和介质之间执行，极大简化了用户访问不同文件系统的过程。另一方面，新的文件系统、新类型的存储介质，可以无须编译的情况下，动态加载到 Linux 中。&lt;/p>
+&lt;p>&amp;ldquo;一切皆文件&amp;quot;是 Linux 的基本哲学之一，不仅是普通的文件，包括目录、字符设备、块设备、套接字等，都可以以文件的方式被对待。实现这一行为的基础，正是 Linux 的虚拟文件系统机制。&lt;/p>
+&lt;p>VFS 之所以能够衔接各种各样的文件系统，是因为它抽象了一个通用的文件系统模型，定义了通用文件系统都支持的、概念上的接口。新的文件系统只要支持并实现这些接口，并注册到 Linux 内核中，即可安装和使用。&lt;/p>
+&lt;p>再举个例子，比如 Linux 写一个文件：&lt;/p>
 &lt;pre>&lt;code>int ret = write(fd, buf, len);
 &lt;/code>&lt;/pre>
 &lt;p>调用了&lt;code>write()&lt;/code>系统调用，它的过程简要如下：&lt;/p>
@@ -754,100 +530,12 @@ tmpfs 378M 0 378M 0% /run/user/0
 &lt;li>**/var/run/ **# 是 /run 目录的软链接&lt;/li>
 &lt;li>/var/spool：放置“假脱机(spool)”程序的目录，如 mail、 news、打印队列和其他队列工作的目录。每个不同的 spool 在/var/spool 下有自己的子目录，例如，用户的邮箱就存放在/var/spool/mail 中。&lt;/li>
 &lt;li>/var/tmp：比/tmp 允许更大的或需要存在较长时间的临时文件。注意系统管理 员可能不允许/var/tmp 有很旧的文件。&lt;/li>
-&lt;/ul></description></item><item><title>Docs: I_O Multiplexing(输入_输出多路复用)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/i_o-multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/i_o-multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</guid><description/></item><item><title>Docs: I/O Multiplexing(输入/输出多路复用)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/i_o-multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/i_o-multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</guid><description>
+&lt;/ul></description></item><item><title>Docs: I_O Multiplexing(输入_输出多路复用)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/i_o-multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/i_o-multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</guid><description/></item><item><title>Docs: Mount(挂载)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/mount%E6%8C%82%E8%BD%BD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/mount%E6%8C%82%E8%BD%BD/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
-&lt;li>&lt;a href="https://mp.weixin.qq.com/s/tXEfsLqdePjcPS6FKa-qzg">原文链接&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.zhihu.com/question/28594409">知乎问答&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>这是高性能、高并发系列的第三篇，承接上文&lt;a href="https://mp.weixin.qq.com/s/maTzszO4Y2dyxgm7g2YdXw">《读取文件时程序经历了什么》&lt;/a>&lt;/p>
-&lt;h1 id="背景">背景&lt;/h1>
-&lt;h2 id="文件描述符太多了怎么办">文件描述符太多了怎么办&lt;/h2>
-&lt;p>经过了这么多的铺垫，终于到高性能、高并发这一主题了。&lt;/p>
-&lt;p>从前几节我们知道，所有 I/O 操作都可以通过文件样的概念来进行，这当然包括网络通信。&lt;/p>
-&lt;p>如果你是一个 web 服务器，当三次握手成功以后，我们通过调用 accept 同样会得到一个文件描述符，只不过这个文件描述符是用来进行网络通信的，通过读写该文件描述符你就可以同客户端通信。在这里为了概念上好理解，我们称之为链接描述符，通过这个描述符我们就可以读写客户端的数据了。&lt;/p>
-&lt;pre>&lt;code>int conn_fd = accept(...);
-&lt;/code>&lt;/pre>
-&lt;p>server 的处理逻辑通常是读取客户端请求数据，然后执行某些特定逻辑：&lt;/p>
-&lt;pre>&lt;code>if(read(conn_fd, request_buff) &amp;gt; 0) {
-do_something(request_buff);
-}
-&lt;/code>&lt;/pre>
-&lt;p>是不是非常简单，然而世界终归是复杂的，也不是这么简单的。&lt;/p>
-&lt;p>接下来就是比较复杂的了。&lt;/p>
-&lt;p>既然我们的主题是高并发，那么 server 端就不可能只和一个客户端通信，而是成千上万个客户端。这时你需要处理不再是一个描述符这么简单，而是有可能要处理成千上万个描述符。&lt;/p>
-&lt;p>为了不让问题一上来就过于复杂，我们先简单化，假设只同时处理两个客户端的请求。&lt;/p>
-&lt;p>有的同学可能会说，这还不简单，这样写不就行了：&lt;/p>
-&lt;pre>&lt;code>if(read(socket_fd1, buff) &amp;gt; 0) { // 处理第一个
-do_something();
-}
-if(read(socket_fd2, buff) &amp;gt; 0) {
-do_something();
-&lt;/code>&lt;/pre>
-&lt;p>在本篇第二节中我们讨论过这是非常典型的阻塞式 I/O，如果读取第一个请求进程被阻塞而暂停运行，那么这时我们就无法处理第二个请求了，即使第二个请求的数据已经就位，这也就意味着所有其它客户端必须等待，而且通常情况下也不会只有两个客户端而是成千上万个，上万个连接也要这样串行处理吗。&lt;/p>
-&lt;p>聪明的你一定会想到使用多线程，为每个请求开启一个线程，这样一个线程被阻塞不会影响到其它线程了，注意，既然是高并发，那么我们要为成千上万个请求开启成千上万个线程吗，大量创建销毁线程会严重影响系统性能。&lt;/p>
-&lt;p>那么这个问题该怎么解决呢？&lt;/p>
-&lt;p>&lt;strong>这里的关键点在于在进行 I/O 时，我们并不知道该文件描述对应的 I/O 设备是否是可读的、是否是可写的&lt;/strong>，在外设的不可读或不可写的状态下进行 I/O 只会导致进程阻塞被暂停运行。&lt;/p>
-&lt;p>因此要优雅的解决这个问题，就要从其它角度来思考这个问题了。&lt;/p>
-&lt;h3 id="不要打电话给我有需要我会打给你">不要打电话给我，有需要我会打给你&lt;/h3>
-&lt;p>大家生活中肯定会接到过推销电话，而且不止一个，一天下来接上十个八个推销电话你的身体会被掏空的。&lt;/p>
-&lt;p>这个场景的关键点在于打电话的人并不知道你是不是要买东西，只能来一遍遍问你，因此一种更好的策略是不要让他们打电话给你，记下他们的电话，有需要的话打给他们。&lt;/p>
-&lt;p>也就是&lt;strong>不要打电话给我，有需要我会打给你&lt;/strong>。&lt;/p>
-&lt;p>在这个例子中，你，就好比内核，推销者就好比应用程序，电话号码就好比文件描述符，和你用电话沟通就好比 I/O。&lt;/p>
-&lt;p>现在你应该明白了吧，处理多个文件描述符的更好方法其实就存在于推销电话中。&lt;/p>
-&lt;p>因此相比上一节中我们主动通过 I/O 接口&lt;strong>主动&lt;/strong>问内核这些文件描述符对应的外设是不是已经就绪了，一种更好的方法是，我们把这些内核一股脑扔给内核，并霸气的告诉内核：“&lt;strong>我这里有 1 万个文件描述符，你替我监视着它们，有可以读写的文件描述符时你就告诉我，我好处理&lt;/strong>”。而不是弱弱的问内核：“第一个文件描述可以读写了吗？第二个文件描述符可以读写吗？第三个文件描述符可以读写了吗？”&lt;/p>
-&lt;p>这样应用程序就从“繁忙”的&lt;strong>主动&lt;/strong>变为清闲的&lt;strong>被动&lt;/strong>了，反正哪些设备 ok 了内核会通知我， 能偷懒我才不要那么勤奋。&lt;/p>
-&lt;p>这是一种不同的处理 I/O 的机制，同样需要起一个名字，再次祭出“弄不懂原则”，就叫 I/O 多路复用吧，这就是 I/O multiplexing。&lt;/p>
-&lt;h1 id="io-多路复用io-multiplexing">I/O 多路复用，I/O multiplexing&lt;/h1>
-&lt;p>multiplexing 一词其实多用于通信领域，为了充分利用通信线路，希望在一个信道中传输多路信号，要想在一个信道中传输多路信号就需要把这多路信号结合为一路，将多路信号组合成一个信号的设备被称为 multiplexer，显然接收方接收到这一路组合后的信号后要恢复原先的多路信号，这个设备被称为 demultiplexer，如图所示：
-&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/blqckm/1616167656134-de0aac96-7af9-404c-9aab-534046313177.jpeg" alt="">&lt;/p>
-&lt;p>回到我们的主题。&lt;/p>
-&lt;p>所谓 I/O 多路复用指的是这样一个过程：&lt;/p>
-&lt;ol>
-&lt;li>我们拿到了一堆文件描述符(不管是网络相关的、还是磁盘文件相关等等，任何文件描述符都可以)&lt;/li>
-&lt;li>通过调用&lt;strong>某个函数&lt;/strong>告诉内核：“&lt;strong>这个函数你先不要返回，你替我监视着这些描述符，当这堆文件描述符中有可以进行 I/O 读写操作的时候你再返回&lt;/strong>”&lt;/li>
-&lt;li>当调用的这个函数返回后我们就能知道哪些文件描述符可以进行 I/O 操作了。&lt;/li>
-&lt;/ol>
-&lt;p>那么有哪些函数可以用来进行 I/O 多路复用呢？&lt;/p>
-&lt;p>在 Linux 世界中有这样三种机制可以用来进行 I/O 多路复用：&lt;/p>
-&lt;ul>
-&lt;li>select&lt;/li>
-&lt;li>poll&lt;/li>
-&lt;li>epoll&lt;/li>
-&lt;/ul>
-&lt;p>接下来我们就简单介绍一下牛掰的 I/O 多路复用 三剑客。本质上 select、poll、epoll 都是阻塞式 I/O，也就是我们常说的同步 I/O。&lt;/p>
-&lt;h2 id="select初出茅庐">select：初出茅庐&lt;/h2>
-&lt;p>在 select 这种 I/O 多路复用机制下，我们需要把想监控的文件描述集合通过函数参数的形式告诉 select，然后 select 会将这些文件描述符集合&lt;strong>拷贝&lt;/strong>到内核中，我们知道数据拷贝是有性能损耗的，因此为了减少这种数据拷贝带来的性能损耗，Linux 内核对集合的大小做了限制，并规定用户监控的文件描述集合不能超过 1024 个，同时当 select 返回后我们仅仅能知道有些文件描述符可以读写了，但是我们不知道是哪一个，因此程序员必须再遍历一边找到具体是哪个文件描述符可以读写了。&lt;/p>
-&lt;p>因此，总结下来 select 有这样几个特点：&lt;/p>
-&lt;ul>
-&lt;li>我能照看的文件描述符数量有限，不能超过 1024 个&lt;/li>
-&lt;li>用户给我的文件描述符需要拷贝的内核中&lt;/li>
-&lt;li>我只能告诉你有文件描述符满足要求了，但是我不知道是哪个，你自己一个一个去找吧(遍历)&lt;/li>
-&lt;/ul>
-&lt;p>因此我们可以看到，select 机制的特性在高性能网络服务器动辄几万几十万并发链接的场景下无疑是低效的。&lt;/p>
-&lt;h2 id="poll小有所成">poll：小有所成&lt;/h2>
-&lt;p>poll 和 select 是非常相似的，poll 相对于 select 的优化仅仅在于解决了文件描述符不能超过 1024 个的限制，select 和 poll 都会随着监控的文件描述增加而出现性能下降，因此不适合高并发场景。&lt;/p>
-&lt;h2 id="epoll独步天下">epoll：独步天下&lt;/h2>
-&lt;p>在 select 面临的三个问题中，文件描述数量限制已经在 poll 中解决了，剩下的两个问题呢？&lt;/p>
-&lt;p>针对第一个 epoll 使用的策略是&lt;strong>各个击破&lt;/strong>与&lt;strong>共享内存&lt;/strong>。&lt;/p>
-&lt;p>实际上文件描述符集合变化的频率比较低，select 和 poll 频繁的拷贝整个集合，内核都快要烦死了，epoll 通过引入 epoll_ctl 很体贴的做到了只操作那些有变化的文件描述符，同时 epoll 和内核还成为了好朋友，共享了同一块内存，这块内存中保存的就是那些已经可读或者可写的的文件描述符集合，这样就减少了内核和程序的内存拷贝开销。&lt;/p>
-&lt;p>针对第二点，epoll 使用的策略是“当小弟”。&lt;/p>
-&lt;p>在 select 和 poll 机制下，进程要亲自下场去各个文件描述符上等待，任何一个文件描述可读或者可写就唤醒进程，但是进程被唤醒后也是一脸懵逼并不知道到底是哪个文件描述符可读或可写，还要再从头到尾检查一遍。&lt;/p>
-&lt;p>但 epoll 就懂事多了，主动找到进程要当小弟替大哥出头。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/blqckm/1616167656131-12fb40de-2e45-48ff-8ff4-fa29ffe99d1e.jpeg" alt="">&lt;/p>
-&lt;p>在这种机制下，进程不需要亲自下场了，进程只要等待在 epoll 上，epoll 代替进程去各个文件描述符上等待，当哪个文件描述符可读或者可写的时候就告诉 epoll，epoll 用小本本认真记录下来然后唤醒大哥：“进程大哥，快醒醒，你要处理的文件描述符我都记下来了”，这样进程被唤醒后就无需自己从头到尾检查一遍，因为 epoll 都已经记下来了。&lt;/p>
-&lt;p>因此我们可以看到，在这种机制下，实际上利用的就是“不要打电话给我，有需要我会打给你”，这就不需要一遍一遍像孙子一样问各个文件描述符了，而是翻身做主人当大爷了，“你们那个文件描述符可读或者可写了主动报上来”，这中机制实际上就是大名鼎鼎的事件驱动，event-driven，这也是我们下一篇的主题。&lt;/p>
-&lt;p>实际上在 Linux 平台，&lt;strong>epoll 基本上就是高并发的代名词&lt;/strong>。&lt;/p>
-&lt;p>限于篇幅，关于 epoll 的详细使用方法就不在这里讲解了。&lt;/p>
-&lt;h2 id="总结">总结&lt;/h2>
-&lt;p>基于一切皆文件的设计哲学，I/O 也可以通过文件的形式实现，显然高并发要与多个文件交互，这就离不开高效的 I/O 多路复用技术，本文我们详细讲解了什么是 I/O 多路复用以及使用方法，这其中以 epoll 为代表的 I/O 多路复用(基于事件驱动)技术使用非常广泛，实际上你会发现但凡涉及到高并发、高性能都能见到事件驱动的编程方法，这也是下一篇的主题。&lt;/p></description></item><item><title>Docs: Mount(挂载)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/mount%E6%8C%82%E8%BD%BD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/mount%E6%8C%82%E8%BD%BD/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;blockquote>
-&lt;p>参考： - &lt;a href="https://man7.org/linux/man-pages/man5/fstab.5.html">Manual(手册),fstab(5)&lt;/a>&lt;/p>
-&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man5/fstab.5.html">Manual(手册),fstab(5)&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/mount.8.html">Manual(手册),mount(8)&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
@@ -860,9 +548,9 @@ mount 命令无法列出 bind 类型的挂载(比如 Docker 和 Containerd 的 b
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└─/mnt/cdrom /dev/vda3&lt;span style="color:#f92672">[&lt;/span>/root/downloads/webvirtcloud&lt;span style="color:#f92672">]&lt;/span> ext4 rw,relatime
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="挂载配置">挂载配置&lt;/h1>
-&lt;p>/etc/fstab # 包含各种 file systems 的描述性信息。系统启动时，根据该文件配置挂载分区到指定路径。
-/etc/mtab # 是一个软连接，连接到 /proc/self/mounts
-XXX.mount # 以 .mount 为后缀的 unit 文件，是由 systemd 管理的文件系统描述信息。systemd 将根据这些 unit 文件，将指定的文件系统挂载到系统中。&lt;/p>
+&lt;p>/etc/fstab # 包含各种 file systems 的描述性信息。系统启动时，根据该文件配置挂载分区到指定路径。&lt;/p>
+&lt;p>/etc/mtab # 是一个软连接，连接到 /proc/self/mounts&lt;/p>
+&lt;p>XXX.mount # 以 .mount 为后缀的 unit 文件，是由 systemd 管理的文件系统描述信息。systemd 将根据这些 unit 文件，将指定的文件系统挂载到系统中。&lt;/p>
 &lt;h2 id="fstab-文件详解">fstab 文件详解&lt;/h2>
 &lt;p>**File System Table(文件系统表，简称 fstab)**是一个关于文件系统的静态信息文件。默认路径为 &lt;strong>/etc/fstab&lt;/strong>&lt;/p>
 &lt;p>fstab 包含操作系统中可以挂载的文件系统的描述性信息。每个描述信息占用单独一行，每行的各个字段由制表符或空格分隔。fsck、mount、umount 命令在执行某些操作时将会顺序读取该文件的每一行。&lt;/p>
@@ -882,8 +570,8 @@ XXX.mount # 以 .mount 为后缀的 unit 文件，是由 systemd 管理的文件
 &lt;h3 id="第五字段fs_freq--确定需要转储哪些文件系统">第五字段(fs_freq) # 确定需要转储哪些文件系统&lt;/h3>
 &lt;p>dump 工具通过该字段的值决定何时作备份。 允许的数字是 0 和 1 。&lt;/p>
 &lt;ul>
-&lt;li>0 #(默认值)表示忽略&lt;/li>
-&lt;li>1 #表示进行备份。&lt;/li>
+&lt;li>0 # (默认值)表示忽略&lt;/li>
+&lt;li>1 # 表示进行备份。&lt;/li>
 &lt;/ul>
 &lt;p>大部分的用户是没有安装 dump 的 ，对这些用户而言该字段值应设为 0。&lt;/p>
 &lt;h3 id="第六字段fs_passno--确定引导时执行文件系统检查的顺序">第六字段：fs_passno # 确定引导时执行文件系统检查的顺序。&lt;/h3>
@@ -895,23 +583,26 @@ XXX.mount # 以 .mount 为后缀的 unit 文件，是由 systemd 管理的文件
 &lt;/ul>
 &lt;h1 id="mountumount--文件系统挂载卸载工具">mount/umount # 文件系统挂载/卸载工具&lt;/h1>
 &lt;blockquote>
-&lt;p>参考： - &lt;a href="https://man7.org/linux/man-pages/man8/mount.8.html">Manual(手册)，mount(8)&lt;/a>&lt;/p>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/mount.8.html">Manual(手册)，mount(8)&lt;/a>&lt;/li>
+&lt;/ul>
 &lt;/blockquote>
 &lt;h2 id="syntax语法">Syntax(语法)&lt;/h2>
 &lt;p>&lt;strong>mount [-l] [-t fstype]&lt;/strong>
 &lt;strong>mount -a [-fFnrsvw] [-t fstype] [-O optlist]&lt;/strong>
 &lt;strong>mount [-fnrsvw] [-o options] &amp;lt;DEVICE | MountPoint&amp;gt;&lt;/strong> # 从 /etc/fstab 文件读取 Device 或 MountPoint 的信息后执行对应的挂载操作
-**mount [-fnrsvw] [-t fstype] [-o options] DEVICE MountPoint **# 将 DEVICE 设备挂载到 MountPoint 上&lt;/p>
+&lt;strong>mount [-fnrsvw] [-t fstype] [-o options] DEVICE MountPoint&lt;/strong> # 将 DEVICE 设备挂载到 MountPoint 上&lt;/p>
 &lt;ul>
 &lt;li>MountPoint 通常是一个绝对路径，/PATH/DIR，即将 DEVICE 设备挂载在 PATH 路径下的 DIR 目录上&lt;/li>
 &lt;/ul>
-&lt;p>&lt;strong>mount &amp;ndash;bind|&amp;ndash;rbind|&amp;ndash;move &lt;!-- raw HTML omitted --> &lt;!-- raw HTML omitted -->&lt;/strong> # 执行 bind 挂载，将 OldDIR 目录挂载到 NewDIR 目录上
+&lt;p>&lt;strong>mount &amp;ndash;bind|&amp;ndash;rbind|&amp;ndash;move &amp;lt;OldDIR&amp;gt; &amp;lt;NewDIR&amp;gt;&lt;/strong> # 执行 bind 挂载，将 OldDIR 目录挂载到 NewDIR 目录上
 &lt;strong>mount &amp;ndash;make-[shared|slave|private|unbindable|rshared|rslave|rprivate|runbindable] MountPoint&lt;/strong>&lt;/p>
 &lt;p>OPTIONS&lt;/p>
 &lt;ul>
-&lt;li>&lt;strong>-o, &amp;ndash;options &lt;!-- raw HTML omitted -->&lt;/strong> # 使用指定选项挂载，OPTS 是一个逗号分割的列表，可以从下面的 &lt;a href="#PTV0x">Mount OPTIONS&lt;/a> 中查看所有可用的选项。&lt;/li>
-&lt;li>**-r, &amp;ndash;read-only **# 以只读方式挂载。可以被 &lt;code>-o ro&lt;/code> 选项替代&lt;/li>
-&lt;li>&lt;strong>-t &lt;!-- raw HTML omitted -->&lt;/strong> # 指明文件系统的类型。当前内核支持的文件系统类型可以从 /proc/filesystems 或 /lib/modules/$(uname -r)/kernel/fs 文件中获取&lt;/li>
+&lt;li>&lt;strong>-o, &amp;ndash;options &amp;lt;OPTS&amp;gt;&lt;/strong> # 使用指定选项挂载，OPTS 是一个逗号分割的列表，可以从下面的 &lt;a href="#Mount%20OPTIONS(%E6%8C%82%E8%BD%BD%E9%80%89%E9%A1%B9)">Mount OPTIONS&lt;/a> 中查看所有可用的选项。&lt;/li>
+&lt;li>&lt;strong>-r, &amp;ndash;read-only&lt;/strong> # 以只读方式挂载。可以被 &lt;code>-o ro&lt;/code> 选项替代&lt;/li>
+&lt;li>&lt;strong>-t &amp;lt;STRING&amp;gt;&lt;/strong> # 指明文件系统的类型。当前内核支持的文件系统类型可以从 /proc/filesystems 或 /lib/modules/$(uname -r)/kernel/fs 文件中获取&lt;/li>
 &lt;li>&lt;strong>&amp;ndash;bind|&amp;ndash;rbind|&amp;ndash;move&lt;/strong> # 进行 bind 模式挂载&lt;/li>
 &lt;/ul>
 &lt;h3 id="mount-options挂载选项">Mount OPTIONS(挂载选项)&lt;/h3>
@@ -924,10 +615,10 @@ XXX.mount # 以 .mount 为后缀的 unit 文件，是由 systemd 管理的文件
 auto # 在启动时或键入了 mount -a 命令时自动挂载。
 defaults # 使用文件系统的默认挂载参数，例如 ext4 的默认参数为:rw, suid, dev, exec, auto, nouser, async.
 dev - 解析文件系统上的块特殊设备。
-exec #允许执行此分区的二进制文件。
+exec # 允许执行此分区的二进制文件。
 flush - vfat 的选项，更频繁的刷新数据，复制对话框或进度条在全部数据都写入后才消失。
 &lt;strong>noatime&lt;/strong> # 不更新文件系统上 inode 访问记录。&lt;strong>可以提升性能&lt;/strong>。
-noauto #只在你的命令下被挂载。
+noauto # 只在你的命令下被挂载。
 nodev - 不解析文件系统上的块特殊设备。
 nodiratime - 不更新文件系统上的目录 inode 访问记录，可以提升性能(参见 atime 参数)。
 noexec # 不允许执行此文件系统上的二进制文件。
@@ -943,18 +634,17 @@ user - 允许任意用户挂载此文件系统，若无显示定义，隐含启�
 users - 允许所有 users 组中的用户挂载文件系统.&lt;/p>
 &lt;h2 id="example">EXAMPLE&lt;/h2>
 &lt;ul>
-&lt;li>mount -a #会将 /etc/fstab 中定义的所有挂载点都挂上(一般是在系统启动时的脚本中调用，自己最好别用！)。&lt;/li>
-&lt;li>mount /dev/sdb1 /mnt #/把/dev/sdb1 分区挂载到/mnt 目录&lt;/li>
+&lt;li>mount -a # 会将 /etc/fstab 中定义的所有挂载点都挂上(一般是在系统启动时的脚本中调用，自己最好别用！)。&lt;/li>
+&lt;li>mount /dev/sdb1 /mnt # /把/dev/sdb1 分区挂载到/mnt 目录&lt;/li>
 &lt;li>mount &amp;ndash;bind /root/tmp_one /root/tmp_two # 将 /root/tmp_one 目录挂载到 /root/tmp_two 目录下。&lt;/li>
 &lt;/ul>
-&lt;p>mount [-t ] #查看当前系统下的挂载信息[查看指定的类型]
+&lt;p>mount [-t ] # 查看当前系统下的挂载信息[查看指定的类型]
 &lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/hla4gc/1616167790128-b08b713d-147f-4c61-8289-47133e8124cf.jpeg" alt="">
 &lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/hla4gc/1616167790134-5f30f99c-3a70-44b7-b9c4-6c1cc3f9429f.jpeg" alt="">
 各段落含义与 fstab 文件相同&lt;/p>
 &lt;h1 id="systemd-管理-mount">systemd 管理 mount&lt;/h1>
-&lt;p>详见 [mount Unit](/docs/IT学习笔记/1.操作系统/3.Systemd%20 系统守护程序/Unit%20File/mount%20Unit.md 系统守护程序/Unit File/mount Unit.md)
-&lt;a href="https://wiki.archlinux.org/index.php/Fstab_(%25E7%25AE%2580%25E4%25BD%2593%25E4%25B8%25AD%25E6%2596%2587)">
-&lt;/a>&lt;/p></description></item><item><title>Docs: 读取文件时，程序经历了什么？</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E8%AF%BB%E5%8F%96%E6%96%87%E4%BB%B6%E6%97%B6%E7%A8%8B%E5%BA%8F%E7%BB%8F%E5%8E%86%E4%BA%86%E4%BB%80%E4%B9%88/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E8%AF%BB%E5%8F%96%E6%96%87%E4%BB%B6%E6%97%B6%E7%A8%8B%E5%BA%8F%E7%BB%8F%E5%8E%86%E4%BA%86%E4%BB%80%E4%B9%88/</guid><description>
+&lt;p>详见 [mount Unit](/docs/IT学习笔记/1.操作系统/3.Systemd%20 系统守护程序/Unit%20File/mount%20Unit.md 系统守护程序/Unit File/mount Unit.md)&lt;/p>
+&lt;p>&lt;a href="https://wiki.archlinux.org/index.php/Fstab_(%25E7%25AE%2580%25E4%25BD%2593%25E4%25B8%25AD%25E6%2596%2587">https://wiki.archlinux.org/index.php/Fstab_(%25E7%25AE%2580%25E4%25BD%2593%25E4%25B8%25AD%25E6%2596%2587&lt;/a>&lt;/p></description></item><item><title>Docs: 读取文件时，程序经历了什么？</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E8%AF%BB%E5%8F%96%E6%96%87%E4%BB%B6%E6%97%B6%E7%A8%8B%E5%BA%8F%E7%BB%8F%E5%8E%86%E4%BA%86%E4%BB%80%E4%B9%88/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E8%AF%BB%E5%8F%96%E6%96%87%E4%BB%B6%E6%97%B6%E7%A8%8B%E5%BA%8F%E7%BB%8F%E5%8E%86%E4%BA%86%E4%BB%80%E4%B9%88/</guid><description>
 &lt;p>&lt;a href="https://mp.weixin.qq.com/s?__biz=Mzg4OTYzODM4Mw==&amp;amp;mid=2247485706&amp;amp;idx=1&amp;amp;sn=bc5d6e4bf9ee5dccef520e5b2051d943&amp;amp;source=41#wechat_redirect">https://mp.weixin.qq.com/s?__biz=Mzg4OTYzODM4Mw==&amp;amp;mid=2247485706&amp;amp;idx=1&amp;amp;sn=bc5d6e4bf9ee5dccef520e5b2051d943&amp;amp;source=41#wechat_redirect&lt;/a>&lt;/p>
 &lt;p>承接上文《看完这篇还不懂高并发中的线程与线程池你来打我》，这是高性能、高并发系列的第二篇文章，在这里我们来到了 I/O 这一话题。&lt;/p>
 &lt;p>码农的荒岛求生：图解 | 看完这篇还不懂高并发中的线程与线程池你来打我 zhuanlan.zhihu.com&lt;/p>
@@ -993,8 +683,6 @@ users - 允许所有 users 组中的用户挂载文件系统.&lt;/p>
 &lt;p>进程 A 中有一段读取文件的代码，不管在什么语言中通常我们定义一个用来装数据的 buff，然后调用 read 之类的函数，像这样：&lt;/p>
 &lt;pre>&lt;code>read(buff);
 &lt;/code>&lt;/pre>
-&lt;p>1
-Plain Text&lt;/p>
 &lt;p>这就是一种典型的 I/O 操作，当 CPU 执行到这段代码的时候会向磁盘发送读取请求，注意与 CPU 执行指令的速度相比，I/O 操作操作是非常慢的，因此操作系统是不可能把宝贵的 CPU 计算资源浪费在无谓的等待上的，这时重点来了，注意接下来是重点哦。&lt;/p>
 &lt;p>由于外部设备执行 I/O 操作是相当慢的，因此在 I/O 操作完成之前进程是无法继续向前推进的，这就是所谓的&lt;strong>阻塞&lt;/strong>，即通常所说的 block。操作系统检测到进程向 I/O 设备发起请求后就暂停进程的运行，怎么暂停运行呢？很简单，只需要记录下当前进程的运行状态并把 CPU 的 PC 寄存器指向其它进程的指令就可以了。&lt;/p>
 &lt;p>进程有暂停就会有继续执行，因此操作系统必须保存被暂停的进程以备后续继续执行，显然我们可以用队列来保存被暂停执行的进程，如图所示，进程 A 被暂停执行并被放到阻塞队列中(注意，不同的操作系统会有不同的实现，可能每个 I/O 设备都有一个对应的阻塞队列，但这种实现细节上的差异不影响我们的讨论)。&lt;/p>
@@ -1025,4 +713,229 @@ Plain Text&lt;/p>
 &lt;h2 id="零拷贝zero-copy">&lt;strong>零拷贝，Zero-copy&lt;/strong>&lt;/h2>
 &lt;p>最后需要注意的一点就是上面的讲解中我们直接把磁盘数据 copy 到了进程空间中，&lt;strong>但实际上一般情况下 I/O 数据是要首先 copy 到操作系统内部，然后操作系统再 copy 到进程空间中&lt;/strong>。因此我们可以看到这里其实还有一层经过操作系统的 copy，对于性能要求很高的场景其实也是可以绕过操作系统直接进行数据 copy 的，这也是本文描述的场景，这种绕过操作系统直接进行数据 copy 的技术被称为&lt;strong>Zero-copy&lt;/strong>，也就零拷贝，高并发、高性能场景下常用的一种技术，原理上很简单吧。&lt;/p>
 &lt;h2 id="总结">&lt;strong>总结&lt;/strong>&lt;/h2>
-&lt;p>本文讲解的是程序员常用的 I/O，一般来说作为程序员我们无需关心，但是理解 I/O 背后的底层原理对于设计高性能、高并发系统是极为有益的，希望这篇能对大家加深对 I/O 的认识有所帮助。&lt;/p></description></item><item><title>Docs: 各种文件系统详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E5%90%84%E7%A7%8D%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E5%90%84%E7%A7%8D%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E8%AF%A6%E8%A7%A3/</guid><description/></item></channel></rss>
+&lt;p>本文讲解的是程序员常用的 I/O，一般来说作为程序员我们无需关心，但是理解 I/O 背后的底层原理对于设计高性能、高并发系统是极为有益的，希望这篇能对大家加深对 I/O 的认识有所帮助。&lt;/p></description></item><item><title>Docs: 各种文件系统详解</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E5%90%84%E7%A7%8D%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E5%90%84%E7%A7%8D%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E8%AF%A6%E8%A7%A3/</guid><description/></item><item><title>Docs: 零拷贝</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E9%9B%B6%E6%8B%B7%E8%B4%9D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.kernel%E5%86%85%E6%A0%B8/6.file_system_%E7%AE%A1%E7%90%86/%E9%9B%B6%E6%8B%B7%E8%B4%9D/</guid><description>
+&lt;hr>
+&lt;h2 id="前言">前言&lt;/h2>
+&lt;p>磁盘可以说是计算机系统最慢的硬件之一，读写速度相差内存 10 倍以上，所以针对优化磁盘的技术非常的多，比如零拷贝、直接 I/O、异步 I/O 等等，这些优化的目的就是为了提高系统的吞吐量，另外操作系统内核中的磁盘高速缓存区，可以有效的减少磁盘的访问次数。&lt;/p>
+&lt;p>这次，我们就以「文件传输」作为切入点，来分析 I/O 工作方式，以及如何优化传输文件的性能。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581743-fe1685b9-8478-478c-bec2-c7d550e1f54a.png" alt="">&lt;/p>
+&lt;hr>
+&lt;h2 id="正文">正文&lt;/h2>
+&lt;h3 id="为什么要有-dma-技术">为什么要有 DMA 技术?&lt;/h3>
+&lt;p>在没有 DMA 技术前，I/O 的过程是这样的：&lt;/p>
+&lt;ul>
+&lt;li>CPU 发出对应的指令给磁盘控制器，然后返回；&lt;/li>
+&lt;li>磁盘控制器收到指令后，于是就开始准备数据，会把数据放入到磁盘控制器的内部缓冲区中，然后产生一个&lt;strong>中断&lt;/strong>；&lt;/li>
+&lt;li>CPU 收到中断信号后，停下手头的工作，接着把磁盘控制器的缓冲区的数据一次一个字节地读进自己的寄存器，然后再把寄存器里的数据写入到内存，而在数据传输的期间 CPU 是无法执行其他任务的。&lt;/li>
+&lt;/ul>
+&lt;p>为了方便你理解，我画了一副图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581747-833fd3d8-b587-44e5-a4d7-2118e13b1b44.png" alt="">&lt;/p>
+&lt;p>可以看到，整个数据的传输过程，都要需要 CPU 亲自参与搬运数据的过程，而且这个过程，CPU 是不能做其他事情的。&lt;/p>
+&lt;p>简单的搬运几个字符数据那没问题，但是如果我们用千兆网卡或者硬盘传输大量数据的时候，都用 CPU 来搬运的话，肯定忙不过来。&lt;/p>
+&lt;p>计算机科学家们发现了事情的严重性后，于是就发明了 DMA 技术，也就是&lt;strong>直接内存访问（***&lt;strong>Direct Memory Access&lt;/strong>*&lt;/strong>）** 技术。&lt;/p>
+&lt;p>什么是 DMA 技术？简单理解就是，&lt;strong>在进行 I/O 设备和内存的数据传输的时候，数据搬运的工作全部交给 DMA 控制器，而 CPU 不再参与任何与数据搬运相关的事情，这样 CPU 就可以去处理别的事务&lt;/strong>。&lt;/p>
+&lt;p>那使用 DMA 控制器进行数据传输的过程究竟是什么样的呢？下面我们来具体看看。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581757-ef21d29d-7f2b-4cd1-a747-98b242f710cf.png" alt="">&lt;/p>
+&lt;p>具体过程：&lt;/p>
+&lt;ul>
+&lt;li>用户进程调用 read 方法，向操作系统发出 I/O 请求，请求读取数据到自己的内存缓冲区中，进程进入阻塞状态；&lt;/li>
+&lt;li>操作系统收到请求后，进一步将 I/O 请求发送 DMA，然后让 CPU 执行其他任务；&lt;/li>
+&lt;li>DMA 进一步将 I/O 请求发送给磁盘；&lt;/li>
+&lt;li>磁盘收到 DMA 的 I/O 请求，把数据从磁盘读取到磁盘控制器的缓冲区中，当磁盘控制器的缓冲区被读满后，向 DMA 发起中断信号，告知自己缓冲区已满；&lt;/li>
+&lt;li>&lt;strong>DMA 收到磁盘的信号，将磁盘控制器缓冲区中的数据拷贝到内核缓冲区中，此时不占用 CPU，CPU 可以执行其他任务&lt;/strong>；&lt;/li>
+&lt;li>当 DMA 读取了足够多的数据，就会发送中断信号给 CPU；&lt;/li>
+&lt;li>CPU 收到 DMA 的信号，知道数据已经准备好，于是将数据从内核拷贝到用户空间，系统调用返回；&lt;/li>
+&lt;/ul>
+&lt;p>可以看到， 整个数据传输的过程，CPU 不再参与数据搬运的工作，而是全程由 DMA 完成，但是 CPU 在这个过程中也是必不可少的，因为传输什么数据，从哪里传输到哪里，都需要 CPU 来告诉 DMA 控制器。&lt;/p>
+&lt;p>早期 DMA 只存在在主板上，如今由于 I/O 设备越来越多，数据传输的需求也不尽相同，所以每个 I/O 设备里面都有自己的 DMA 控制器。&lt;/p>
+&lt;hr>
+&lt;h3 id="传统的文件传输有多糟糕">传统的文件传输有多糟糕？&lt;/h3>
+&lt;p>如果服务端要提供文件传输的功能，我们能想到的最简单的方式是：将磁盘上的文件读取出来，然后通过网络协议发送给客户端。&lt;/p>
+&lt;p>传统 I/O 的工作方式是，数据读取和写入是从用户空间到内核空间来回复制，而内核空间的数据是通过操作系统层面的 I/O 接口从磁盘读取或写入。&lt;/p>
+&lt;p>代码通常如下，一般会需要两个系统调用：&lt;/p>
+&lt;pre>&lt;code>read(file, tmp_buf, len);write(socket, tmp_buf, len);
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>代码很简单，虽然就两行代码，但是这里面发生了不少的事情。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581754-e4951f6d-41a5-4564-a890-901bf62db701.png" alt="">&lt;/p>
+&lt;p>首先，期间共&lt;strong>发生了 4 次用户态与内核态的上下文切换&lt;/strong>，因为发生了两次系统调用，一次是 &lt;code>read()&lt;/code> ，一次是 &lt;code>write()&lt;/code>，每次系统调用都得先从用户态切换到内核态，等内核完成任务后，再从内核态切换回用户态。&lt;/p>
+&lt;p>上下文切换到成本并不小，一次切换需要耗时几十纳秒到几微秒，虽然时间看上去很短，但是在高并发的场景下，这类时间容易被累积和放大，从而影响系统的性能。&lt;/p>
+&lt;p>其次，还&lt;strong>发生了 4 次数据拷贝&lt;/strong>，其中两次是 DMA 的拷贝，另外两次则是通过 CPU 拷贝的，下面说一下这个过程：&lt;/p>
+&lt;ul>
+&lt;li>&lt;em>第一次拷贝&lt;/em>，把磁盘上的数据拷贝到操作系统内核的缓冲区里，这个拷贝的过程是通过 DMA 搬运的。&lt;/li>
+&lt;li>&lt;em>第二次拷贝&lt;/em>，把内核缓冲区的数据拷贝到用户的缓冲区里，于是我们应用程序就可以使用这部分数据了，这个拷贝到过程是由 CPU 完成的。&lt;/li>
+&lt;li>&lt;em>第三次拷贝&lt;/em>，把刚才拷贝到用户的缓冲区里的数据，再拷贝到内核的 socket 的缓冲区里，这个过程依然还是由 CPU 搬运的。&lt;/li>
+&lt;li>&lt;em>第四次拷贝&lt;/em>，把内核的 socket 缓冲区里的数据，拷贝到网卡的缓冲区里，这个过程又是由 DMA 搬运的。&lt;/li>
+&lt;/ul>
+&lt;p>我们回过头看这个文件传输的过程，我们只是搬运一份数据，结果却搬运了 4 次，过多的数据拷贝无疑会消耗 CPU 资源，大大降低了系统性能。&lt;/p>
+&lt;p>这种简单又传统的文件传输方式，存在冗余的上文切换和数据拷贝，在高并发系统里是非常糟糕的，多了很多不必要的开销，会严重影响系统性能。&lt;/p>
+&lt;p>所以，&lt;strong>要想提高文件传输的性能，就需要减少「用户态与内核态的上下文切换」和「内存拷贝」的次数&lt;/strong>。&lt;/p>
+&lt;hr>
+&lt;h3 id="如何优化文件传输的性能">如何优化文件传输的性能？&lt;/h3>
+&lt;blockquote>
+&lt;p>先来看看，如何减少「用户态与内核态的上下文切换」的次数呢？&lt;/p>
+&lt;/blockquote>
+&lt;p>读取磁盘数据的时候，之所以要发生上下文切换，这是因为用户空间没有权限操作磁盘或网卡，内核的权限最高，这些操作设备的过程都需要交由操作系统内核来完成，所以一般要通过内核去完成某些任务的时候，就需要使用操作系统提供的系统调用函数。&lt;/p>
+&lt;p>而一次系统调用必然会发生 2 次上下文切换：首先从用户态切换到内核态，当内核执行完任务后，再切换回用户态交由进程代码执行。&lt;/p>
+&lt;p>所以，&lt;strong>要想减少上下文切换到次数，就要减少系统调用的次数&lt;/strong>。&lt;/p>
+&lt;blockquote>
+&lt;p>再来看看，如何减少「数据拷贝」的次数？&lt;/p>
+&lt;/blockquote>
+&lt;p>在前面我们知道了，传统的文件传输方式会历经 4 次数据拷贝，而且这里面，「从内核的读缓冲区拷贝到用户的缓冲区里，再从用户的缓冲区里拷贝到 socket 的缓冲区里」，这个过程是没有必要的。&lt;/p>
+&lt;p>因为文件传输的应用场景中，在用户空间我们并不会对数据「再加工」，所以数据实际上可以不用搬运到用户空间，因此&lt;strong>用户的缓冲区是没有必要存在的&lt;/strong>。&lt;/p>
+&lt;hr>
+&lt;h3 id="如何实现零拷贝">如何实现零拷贝？&lt;/h3>
+&lt;p>零拷贝技术实现的方式通常有 2 种：&lt;/p>
+&lt;ul>
+&lt;li>mmap + write&lt;/li>
+&lt;li>sendfile&lt;/li>
+&lt;/ul>
+&lt;p>下面就谈一谈，它们是如何减少「上下文切换」和「数据拷贝」的次数。&lt;/p>
+&lt;p>mmap + write&lt;/p>
+&lt;p>在前面我们知道，&lt;code>read()&lt;/code> 系统调用的过程中会把内核缓冲区的数据拷贝到用户的缓冲区里，于是为了减少这一步开销，我们可以用 &lt;code>mmap()&lt;/code> 替换 &lt;code>read()&lt;/code> 系统调用函数。&lt;/p>
+&lt;pre>&lt;code>buf = mmap(file, len);write(sockfd, buf, len);
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>&lt;code>mmap()&lt;/code> 系统调用函数会直接把内核缓冲区里的数据「&lt;strong>映射&lt;/strong>」到用户空间，这样，操作系统内核与用户空间就不需要再进行任何的数据拷贝操作。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581773-7d9df0ea-5e23-48c7-9e90-5575bf286553.png" alt="">&lt;/p>
+&lt;p>具体过程如下：&lt;/p>
+&lt;ul>
+&lt;li>应用进程调用了 &lt;code>mmap()&lt;/code> 后，DMA 会把磁盘的数据拷贝到内核的缓冲区里。接着，应用进程跟操作系统内核「共享」这个缓冲区；&lt;/li>
+&lt;li>应用进程再调用 &lt;code>write()&lt;/code>，操作系统直接将内核缓冲区的数据拷贝到 socket 缓冲区中，这一切都发生在内核态，由 CPU 来搬运数据；&lt;/li>
+&lt;li>最后，把内核的 socket 缓冲区里的数据，拷贝到网卡的缓冲区里，这个过程是由 DMA 搬运的。&lt;/li>
+&lt;/ul>
+&lt;p>我们可以得知，通过使用 &lt;code>mmap()&lt;/code> 来代替 &lt;code>read()&lt;/code>， 可以减少一次数据拷贝的过程。&lt;/p>
+&lt;p>但这还不是最理想的零拷贝，因为仍然需要通过 CPU 把内核缓冲区的数据拷贝到 socket 缓冲区里，而且仍然需要 4 次上下文切换，因为系统调用还是 2 次。&lt;/p>
+&lt;p>sendfile&lt;/p>
+&lt;p>在 Linux 内核版本 2.1 中，提供了一个专门发送文件的系统调用函数 &lt;code>sendfile()&lt;/code>，函数形式如下：&lt;/p>
+&lt;pre>&lt;code>#include &amp;lt;sys/socket.h&amp;gt;ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>它的前两个参数分别是目的端和源端的文件描述符，后面两个参数是源端的偏移量和复制数据的长度，返回值是实际复制数据的长度。&lt;/p>
+&lt;p>首先，它可以替代前面的 &lt;code>read()&lt;/code> 和 &lt;code>write()&lt;/code> 这两个系统调用，这样就可以减少一次系统调用，也就减少了 2 次上下文切换的开销。&lt;/p>
+&lt;p>其次，该系统调用，可以直接把内核缓冲区里的数据拷贝到 socket 缓冲区里，不再拷贝到用户态，这样就只有 2 次上下文切换，和 3 次数据拷贝。如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581761-10aa5962-487a-444d-9c3b-878f1a5f0d4d.png" alt="">&lt;/p>
+&lt;p>但是这还不是真正的零拷贝技术，如果网卡支持 SG-DMA（&lt;em>The Scatter-Gather Direct Memory Access&lt;/em>）技术（和普通的 DMA 有所不同），我们可以进一步减少通过 CPU 把内核缓冲区里的数据拷贝到 socket 缓冲区的过程。&lt;/p>
+&lt;p>你可以在你的 Linux 系统通过下面这个命令，查看网卡是否支持 scatter-gather 特性：&lt;/p>
+&lt;pre>&lt;code>$ ethtool -k eth0 | grep scatter-gatherscatter-gather: on
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>于是，从 Linux 内核 &lt;code>2.4&lt;/code> 版本开始起，对于支持网卡支持 SG-DMA 技术的情况下， &lt;code>sendfile()&lt;/code> 系统调用的过程发生了点变化，具体过程如下：&lt;/p>
+&lt;ul>
+&lt;li>第一步，通过 DMA 将磁盘上的数据拷贝到内核缓冲区里；&lt;/li>
+&lt;li>第二步，缓冲区描述符和数据长度传到 socket 缓冲区，这样网卡的 SG-DMA 控制器就可以直接将内核缓存中的数据拷贝到网卡的缓冲区里，此过程不需要将数据从操作系统内核缓冲区拷贝到 socket 缓冲区中，这样就减少了一次数据拷贝；&lt;/li>
+&lt;/ul>
+&lt;p>所以，这个过程之中，只进行了 2 次数据拷贝，如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581761-cd2da78d-0ce1-4048-ae1c-ec5d19830fc6.png" alt="">&lt;/p>
+&lt;p>这就是所谓的&lt;strong>零拷贝（***&lt;strong>Zero-copy&lt;/strong>*&lt;/strong>）技术，因为我们没有在内存层面去拷贝数据，也就是说全程没有通过 CPU 来搬运数据，所有的数据都是通过 DMA 来进行传输的。**。&lt;/p>
+&lt;p>零拷贝技术的文件传输方式相比传统文件传输的方式，减少了 2 次上下文切换和数据拷贝次数，&lt;strong>只需要 2 次上下文切换和数据拷贝次数，就可以完成文件的传输，而且 2 次的数据拷贝过程，都不需要通过 CPU，2 次都是由 DMA 来搬运。&lt;/strong>&lt;/p>
+&lt;p>所以，总体来看，&lt;strong>零拷贝技术可以把文件传输的性能提高至少一倍以上&lt;/strong>。&lt;/p>
+&lt;p>使用零拷贝技术的项目&lt;/p>
+&lt;p>事实上，Kafka 这个开源项目，就利用了「零拷贝」技术，从而大幅提升了 I/O 的吞吐率，这也是 Kafka 在处理海量数据为什么这么快的原因之一。&lt;/p>
+&lt;p>如果你追溯 Kafka 文件传输的代码，你会发现，最终它调用了 Java NIO 库里的 &lt;code>transferTo&lt;/code> 方法：&lt;/p>
+&lt;pre>&lt;code>@Overridepublic long transferFrom(FileChannel fileChannel, long position, long count) throws IOException { return fileChannel.transferTo(position, count, socketChannel);}
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>如果 Linux 系统支持 &lt;code>sendfile()&lt;/code> 系统调用，那么 &lt;code>transferTo()&lt;/code> 实际上最后就会使用到 &lt;code>sendfile()&lt;/code> 系统调用函数。曾经有大佬专门写过程序测试过，在同样的硬件条件下，传统文件传输和零拷拷贝文件传输的性能差异，你可以看到下面这张测试数据图，使用了零拷贝能够缩短 &lt;code>65%&lt;/code> 的时间，大幅度提升了机器传输数据的吞吐量。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581773-3ca39dfc-4c62-4827-a5f8-1ccd96ce7a88.png" alt="">&lt;/p>
+&lt;p>数据来源于：&lt;a href="https://developer.ibm.com/articles/j-zerocopy/">https://developer.ibm.com/articles/j-zerocopy/&lt;/a>&lt;/p>
+&lt;p>另外，Nginx 也支持零拷贝技术，一般默认是开启零拷贝技术，这样有利于提高文件传输的效率，是否开启零拷贝技术的配置如下：&lt;/p>
+&lt;pre>&lt;code>http {... sendfile on...}
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>sendfile 配置的具体意思:&lt;/p>
+&lt;ul>
+&lt;li>设置为 on 表示，使用零拷贝技术来传输文件：sendfile ，这样只需要 2 次上下文切换，和 2 次数据拷贝。&lt;/li>
+&lt;li>设置为 off 表示，使用传统的文件传输技术：read + write，这时就需要 4 次上下文切换，和 4 次数据拷贝。&lt;/li>
+&lt;/ul>
+&lt;p>当然，要使用 sendfile，Linux 内核版本必须要 2.1 以上的版本。&lt;/p>
+&lt;hr>
+&lt;h3 id="pagecache-有什么作用">PageCache 有什么作用？&lt;/h3>
+&lt;p>回顾前面说道文件传输过程，其中第一步都是先需要先把磁盘文件数据拷贝「内核缓冲区」里，这个「内核缓冲区」实际上是&lt;strong>磁盘高速缓存（***&lt;strong>PageCache&lt;/strong>*&lt;/strong>）**。&lt;/p>
+&lt;p>由于零拷贝使用了 PageCache 技术，可以使得零拷贝进一步提升了性能，我们接下来看看 PageCache 是如何做到这一点的。&lt;/p>
+&lt;p>读写磁盘相比读写内存的速度慢太多了，所以我们应该想办法把「读写磁盘」替换成「读写内存」。于是，我们会通过 DMA 把磁盘里的数据搬运到内存里，这样就可以用读内存替换读磁盘。&lt;/p>
+&lt;p>但是，内存空间远比磁盘要小，内存注定只能拷贝磁盘里的一小部分数据。&lt;/p>
+&lt;p>那问题来了，选择哪些磁盘数据拷贝到内存呢？&lt;/p>
+&lt;p>我们都知道程序运行的时候，具有「局部性」，所以通常，刚被访问的数据在短时间内再次被访问的概率很高，于是我们可以用 &lt;strong>PageCache 来缓存最近被访问的数据&lt;/strong>，当空间不足时淘汰最久未被访问的缓存。&lt;/p>
+&lt;p>所以，读磁盘数据的时候，优先在 PageCache 找，如果数据存在则可以直接返回；如果没有，则从磁盘中读取，然后缓存 PageCache 中。&lt;/p>
+&lt;p>还有一点，读取磁盘数据的时候，需要找到数据所在的位置，但是对于机械磁盘来说，就是通过磁头旋转到数据所在的扇区，再开始「顺序」读取数据，但是旋转磁头这个物理动作是非常耗时的，为了降低它的影响，&lt;strong>PageCache 使用了「预读功能」&lt;/strong>。&lt;/p>
+&lt;p>比如，假设 read 方法每次只会读 &lt;code>32 KB&lt;/code> 的字节，虽然 read 刚开始只会读 0 ～ 32 KB 的字节，但内核会把其后面的 32 ～ 64 KB 也读取到 PageCache，这样后面读取 32 ～ 64 KB 的成本就很低，如果在 32 ～ 64 KB 淘汰出 PageCache 前，进程读取到它了，收益就非常大。&lt;/p>
+&lt;p>所以，PageCache 的优点主要是两个：&lt;/p>
+&lt;ul>
+&lt;li>缓存最近被访问的数据；&lt;/li>
+&lt;li>预读功能；&lt;/li>
+&lt;/ul>
+&lt;p>这两个做法，将大大提高读写磁盘的性能。&lt;/p>
+&lt;p>&lt;strong>但是，在传输大文件（GB 级别的文件）的时候，PageCache 会不起作用，那就白白浪费 DMA 多做的一次数据拷贝，造成性能的降低，即使使用了 PageCache 的零拷贝也会损失性能&lt;/strong>&lt;/p>
+&lt;p>这是因为如果你有很多 GB 级别文件需要传输，每当用户访问这些大文件的时候，内核就会把它们载入 PageCache 中，于是 PageCache 空间很快被这些大文件占满。&lt;/p>
+&lt;p>另外，由于文件太大，可能某些部分的文件数据被再次访问的概率比较低，这样就会带来 2 个问题：&lt;/p>
+&lt;ul>
+&lt;li>PageCache 由于长时间被大文件占据，其他「热点」的小文件可能就无法充分使用到 PageCache，于是这样磁盘读写的性能就会下降了；&lt;/li>
+&lt;li>PageCache 中的大文件数据，由于没有享受到缓存带来的好处，但却耗费 DMA 多拷贝到 PageCache 一次；&lt;/li>
+&lt;/ul>
+&lt;p>所以，针对大文件的传输，不应该使用 PageCache，也就是说不应该使用零拷贝技术，因为可能由于 PageCache 被大文件占据，而导致「热点」小文件无法利用到 PageCache，这样在高并发的环境下，会带来严重的性能问题。&lt;/p>
+&lt;hr>
+&lt;h3 id="大文件传输用什么方式实现">大文件传输用什么方式实现？&lt;/h3>
+&lt;p>那针对大文件的传输，我们应该使用什么方式呢？&lt;/p>
+&lt;p>我们先来看看最初的例子，当调用 read 方法读取文件时，进程实际上会阻塞在 read 方法调用，因为要等待磁盘数据的返回，如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581758-1e058506-1c0b-4bad-ae68-9846cd0f3016.png" alt="">&lt;/p>
+&lt;p>具体过程：&lt;/p>
+&lt;ul>
+&lt;li>当调用 read 方法时，会阻塞着，此时内核会向磁盘发起 I/O 请求，磁盘收到请求后，便会寻址，当磁盘数据准备好后，就会向内核发起 I/O 中断，告知内核磁盘数据已经准备好；&lt;/li>
+&lt;li>内核收到 I/O 中断后，就将数据从磁盘控制器缓冲区拷贝到 PageCache 里；&lt;/li>
+&lt;li>最后，内核再把 PageCache 中的数据拷贝到用户缓冲区，于是 read 调用就正常返回了。&lt;/li>
+&lt;/ul>
+&lt;p>对于阻塞的问题，可以用异步 I/O 来解决，它工作方式如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581774-bf45125c-8de0-493f-892e-1b57b4b150b9.png" alt="">&lt;/p>
+&lt;p>它把读操作分为两部分：&lt;/p>
+&lt;ul>
+&lt;li>前半部分，内核向磁盘发起读请求，但是可以&lt;strong>不等待数据就位就可以返回&lt;/strong>，于是进程此时可以处理其他任务；&lt;/li>
+&lt;li>后半部分，当内核将磁盘中的数据拷贝到进程缓冲区后，进程将接收到内核的&lt;strong>通知&lt;/strong>，再去处理数据；&lt;/li>
+&lt;/ul>
+&lt;p>而且，我们可以发现，异步 I/O 并没有涉及到 PageCache，所以使用异步 I/O 就意味着要绕开 PageCache。&lt;/p>
+&lt;p>绕开 PageCache 的 I/O 叫直接 I/O，使用 PageCache 的 I/O 则叫缓存 I/O。通常，对于磁盘，异步 I/O 只支持直接 I/O。&lt;/p>
+&lt;p>前面也提到，大文件的传输不应该使用 PageCache，因为可能由于 PageCache 被大文件占据，而导致「热点」小文件无法利用到 PageCache。&lt;/p>
+&lt;p>于是，&lt;strong>在高并发的场景下，针对大文件的传输的方式，应该使用「异步 I/O + 直接 I/O」来替代零拷贝技术&lt;/strong>。&lt;/p>
+&lt;p>直接 I/O 应用场景常见的两种：&lt;/p>
+&lt;ul>
+&lt;li>应用程序已经实现了磁盘数据的缓存，那么可以不需要 PageCache 再次缓存，减少额外的性能损耗。在 MySQL 数据库中，可以通过参数设置开启直接 I/O，默认是不开启；&lt;/li>
+&lt;li>传输大文件的时候，由于大文件难以命中 PageCache 缓存，而且会占满 PageCache 导致「热点」文件无法充分利用缓存，从而增大了性能开销，因此，这时应该使用直接 I/O。&lt;/li>
+&lt;/ul>
+&lt;p>另外，由于直接 I/O 绕过了 PageCache，就无法享受内核的这两点的优化：&lt;/p>
+&lt;ul>
+&lt;li>内核的 I/O 调度算法会缓存尽可能多的 I/O 请求在 PageCache 中，最后「&lt;strong>合并&lt;/strong>」成一个更大的 I/O 请求再发给磁盘，这样做是为了减少磁盘的寻址操作；&lt;/li>
+&lt;li>内核也会「&lt;strong>预读&lt;/strong>」后续的 I/O 请求放在 PageCache 中，一样是为了减少对磁盘的操作；&lt;/li>
+&lt;/ul>
+&lt;p>于是，传输大文件的时候，使用「异步 I/O + 直接 I/O」了，就可以无阻塞地读取文件了。&lt;/p>
+&lt;p>所以，传输文件的时候，我们要根据文件的大小来使用不同的方式：&lt;/p>
+&lt;ul>
+&lt;li>传输大文件的时候，使用「异步 I/O + 直接 I/O」；&lt;/li>
+&lt;li>传输小文件的时候，则使用「零拷贝技术」；&lt;/li>
+&lt;/ul>
+&lt;p>在 nginx 中，我们可以用如下配置，来根据文件的大小来使用不同的方式：&lt;/p>
+&lt;pre>&lt;code>location /video/ { sendfile on; aio on; directio 1024m; }
+&lt;/code>&lt;/pre>
+&lt;p>1
+Plain Text&lt;/p>
+&lt;p>当文件大小大于 &lt;code>directio&lt;/code> 值后，使用「异步 I/O + 直接 I/O」，否则使用「零拷贝技术」。&lt;/p>
+&lt;hr>
+&lt;h3 id="总结">总结&lt;/h3>
+&lt;p>早期 I/O 操作，内存与磁盘的数据传输的工作都是由 CPU 完成的，而此时 CPU 不能执行其他任务，会特别浪费 CPU 资源。&lt;/p>
+&lt;p>于是，为了解决这一问题，DMA 技术就出现了，每个 I/O 设备都有自己的 DMA 控制器，通过这个 DMA 控制器，CPU 只需要告诉 DMA 控制器，我们要传输什么数据，从哪里来，到哪里去，就可以放心离开了。后续的实际数据传输工作，都会由 DMA 控制器来完成，CPU 不需要参与数据传输的工作。&lt;/p>
+&lt;p>传统 IO 的工作方式，从硬盘读取数据，然后再通过网卡向外发送，我们需要进行 4 上下文切换，和 4 次数据拷贝，其中 2 次数据拷贝发生在内存里的缓冲区和对应的硬件设备之间，这个是由 DMA 完成，另外 2 次则发生在内核态和用户态之间，这个数据搬移工作是由 CPU 完成的。&lt;/p>
+&lt;p>为了提高文件传输的性能，于是就出现了零拷贝技术，它通过一次系统调用（&lt;code>sendfile&lt;/code> 方法）合并了磁盘读取与网络发送两个操作，降低了上下文切换次数。另外，拷贝数据都是发生在内核中的，天然就降低了数据拷贝的次数。&lt;/p>
+&lt;p>Kafka 和 Nginx 都有实现零拷贝技术，这将大大提高文件传输的性能。&lt;/p>
+&lt;p>零拷贝技术是基于 PageCache 的，PageCache 会缓存最近访问的数据，提升了访问缓存数据的性能，同时，为了解决机械硬盘寻址慢的问题，它还协助 I/O 调度算法实现了 IO 合并与预读，这也是顺序读比随机读性能好的原因。这些优势，进一步提升了零拷贝的性能。&lt;/p>
+&lt;p>需要注意的是，零拷贝技术是不允许进程对文件内容作进一步的加工的，比如压缩数据再发送。&lt;/p>
+&lt;p>另外，当传输大文件时，不能使用零拷贝，因为可能由于 PageCache 被大文件占据，而导致「热点」小文件无法利用到 PageCache，并且大文件的缓存命中率不高，这时就需要使用「异步 IO + 直接 IO 」的方式。&lt;/p>
+&lt;p>在 Nginx 里，可以通过配置，设定一个文件大小阈值，针对大文件使用异步 IO 和直接 IO，而对小文件使用零拷贝。&lt;/p>
+&lt;hr>
+&lt;h2 id="絮叨">絮叨&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581788-f2a0299b-a76a-4d58-b228-f6d81888f5fb.png" alt="">&lt;/p>
+&lt;p>&lt;strong>大家好，我是小林，一个专为大家图解的工具人，如果觉得文章对你有帮助，欢迎分享给你的朋友，这对小林非常重要，谢谢你们，我们下次见！&lt;/strong>&lt;/p></description></item></channel></rss>
