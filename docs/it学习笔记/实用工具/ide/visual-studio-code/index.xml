@@ -293,7 +293,7 @@ Ctrl+r 打开工作区&lt;/p></description></item><item><title>Docs: VS Code 配
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: WSL 中的 VS Code</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/%E5%AE%9E%E7%94%A8%E5%B7%A5%E5%85%B7/ide/visual-studio-code/wsl-%E4%B8%AD%E7%9A%84-vs-code/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/%E5%AE%9E%E7%94%A8%E5%B7%A5%E5%85%B7/ide/visual-studio-code/wsl-%E4%B8%AD%E7%9A%84-vs-code/</guid><description>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: VS Code 中的 WSL</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/%E5%AE%9E%E7%94%A8%E5%B7%A5%E5%85%B7/ide/visual-studio-code/vs-code-%E4%B8%AD%E7%9A%84-wsl/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/%E5%AE%9E%E7%94%A8%E5%B7%A5%E5%85%B7/ide/visual-studio-code/vs-code-%E4%B8%AD%E7%9A%84-wsl/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -301,8 +301,41 @@ Ctrl+r 打开工作区&lt;/p></description></item><item><title>Docs: VS Code 配
 &lt;li>&lt;a href="https://code.visualstudio.com/docs/remote/wsl">官方文档,远程-WSL&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pz2gno/1636522141650-89ca683f-8e68-4305-879f-ce3e78f565fd.png" alt="image.png">
-使用指定发行版的 WSL&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pz2gno/1636522141650-89ca683f-8e68-4305-879f-ce3e78f565fd.png" alt="image.png">&lt;/p>
+&lt;p>使用指定发行版的 WSL&lt;/p>
 &lt;blockquote>
 &lt;p>使用第一个的话，go 环境始终无法获取环境变量&lt;/p>
-&lt;/blockquote></description></item></channel></rss>
+&lt;/blockquote>
+&lt;h2 id="wsl-代理">WSL 代理&lt;/h2>
+&lt;p>VS Code 中的 WSL 将会继承 VS Code 的代理配置。&lt;/p>
+&lt;p>若启动 VS Code 之前，已启动系统代理(比如 Clash for windows)，则 VS Code 中的 WSL 也会使用代理，而此时 VS Code 的默认代理是 127.0.0.1:7890，此时 WSL 继承了这个配置，那么访问 WSL 中的这个地址是有问题的（此时 Ubuntu 中可并没有运行 Clash，也自然不会监听本地 7890 端口）&lt;/p>
+&lt;p>所以，若想让插件使用本地连接，启动 VS Code 之前不要开启系统代理。&lt;/p>
+&lt;h1 id="vs-code-部分扩展联网失败的问题">VS Code 部分扩展联网失败的问题&lt;/h1>
+&lt;p>&lt;a href="https://kawnnor.com/wsl-vscode-proxy">https://kawnnor.com/wsl-vscode-proxy&lt;/a>&lt;/p>
+&lt;p>在 VS Code 中，通过 Remote - WSL 打开 Ubuntu 子系统中的项目&lt;/p>
+&lt;ul>
+&lt;li>IntelliCode 扩展无法下载模型，WakaTime 扩展无法上传统计数据&lt;/li>
+&lt;li>ChatGPT 无法访问&lt;/li>
+&lt;/ul>
+&lt;h2 id="猜测原因">猜测原因&lt;/h2>
+&lt;p>Clash for Windows + TUN Mode 对 Ubuntu 子系统中的 vscode-server 没有起到代理的作用，但是 IntelliCode 和 WakaTime 在没有代理的情况下应该也可以正常工作，所以怀疑 vscode-server 被配置了错误的代理。&lt;/p>
+&lt;p>开启 Clash for Windows 之后，Windows 系统代理一般被设置为 &lt;code>127.0.0.1:7890&lt;/code>，VS Code 会继承这个代理设置，Ubuntu 子系统中的 vscode-server 应该也继承了这个代理设置。但是 Ubuntu 子系统在 &lt;code>127.0.0.1:7890&lt;/code> 上并没有代理服务，导致 vscode-server 联网失败。&lt;/p>
+&lt;h2 id="解决方法">解决方法&lt;/h2>
+&lt;blockquote>
+&lt;p>说白了，就是让 wsl 启动时自动配置各种代理，以便让 vscode 可以继承 wsl 中的代理配置，这样 vscode 中的插件也可以使用这个代理配置了&lt;/p>
+&lt;/blockquote>
+&lt;p>打开 VS Code 设置，并搜索 &amp;ldquo;proxy&amp;rdquo; 可以看到：&lt;/p>
+&lt;p>&lt;img src="https://cdn.hashnode.com/res/hashnode/image/upload/v1659638904404/U2-J89Pys.png?auto=compress,format&amp;amp;format=webp" alt="vscode_proxy_settings.png">&lt;/p>
+&lt;p>VS Code 的代理设置，会从 &amp;ldquo;http_proxy&amp;rdquo; 和 &amp;ldquo;https_proxy&amp;rdquo; 环境变量中继承，所以在 Ubuntu 子系统中正确设置 &amp;ldquo;http_proxy&amp;rdquo; 和 &amp;ldquo;https_proxy&amp;rdquo; 环境变量应该可以解决问题。&lt;/p>
+&lt;p>在 Ubuntu 子系统的 &lt;code>~/.bashrc&lt;/code> 文件末尾加上下面代码：&lt;/p>
+&lt;pre tabindex="0">&lt;code># 获取 Host IP
+WINDOWS_IP=$(ip route | grep default | awk &amp;#39;{print $3}&amp;#39;)
+PROXY_HTTP=&amp;#34;http://${WINDOWS_IP}:7890&amp;#34;
+# 设置环境变量
+export http_proxy=&amp;#34;${PROXY_HTTP}&amp;#34;
+export https_proxy=&amp;#34;${PROXY_HTTP}&amp;#34;
+&lt;/code>&lt;/pre>&lt;p>重新在 VS Code 中打开 Ubuntu 子系统的远程项目，发现 IntelliCode 和 WakaTime 仍然无法正常工作，经排除发现 Windows 防火墙阻止了 Ubuntu 子系统访问 Host IP。&lt;/p>
+&lt;p>在 Windows 防火墙中增加一条规则：&lt;/p>
+&lt;pre tabindex="0">&lt;code>New-NetFirewallRule -DisplayName &amp;#34;WSL&amp;#34; -Direction Inbound -InterfaceAlias &amp;#34;vEthernet (WSL)&amp;#34; -Action Allow
+&lt;/code>&lt;/pre>&lt;p>另外，Clash for Windows 需要启用 Allow LAN。&lt;/p>
+&lt;p>至此，问题解决。&lt;/p></description></item></channel></rss>
