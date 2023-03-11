@@ -356,19 +356,30 @@ read(fd, buff);
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">2&lt;/span> boot &lt;span style="color:#ae81ff">1835009&lt;/span> etc &lt;span style="color:#ae81ff">13&lt;/span> lib &lt;span style="color:#ae81ff">15&lt;/span> lib64 &lt;span style="color:#ae81ff">11&lt;/span> lost+found &lt;span style="color:#ae81ff">4063233&lt;/span> mnt &lt;span style="color:#ae81ff">1&lt;/span> proc &lt;span style="color:#ae81ff">1&lt;/span> run &lt;span style="color:#ae81ff">4980737&lt;/span> snap &lt;span style="color:#ae81ff">18&lt;/span> swap.img &lt;span style="color:#ae81ff">3801089&lt;/span> tmp &lt;span style="color:#ae81ff">1179649&lt;/span> var
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>所以，linux 里的所有文件，都相当于一个硬链接，链接到 inode 号上，展现在屏幕上的只是该文件内容的文件名。就算几个文件名字不一样的文件只要节点号相同，那么这几个文件的内容是就是相同的。想查看文件内容，就要找到该文件名对应的 inode 然后通过 inode 找到 block，找到 block 就能看到其中的内容了。&lt;/p>
 &lt;p>实际例子：我家里的内容有什么就是 block，我家的门牌号就是 inode，我家叫什么名字，比如叫“DesistDaydream 的家“这几个字就是文件名，通过文件名找到门牌号，找到了门牌号才能开门看到我家中的内容。（能不能开门就是权限决定的了）&lt;/p>
+&lt;h2 id="inode-的计算">Inode 的计算&lt;/h2>
+&lt;p>不同文件系统，有不同的计算方式，详情可以参考各类文件系统中的章节&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File_System_%E7%AE%A1%E7%90%86/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/EXT%20FileSystem.md#%E5%9D%97%E3%80%81%E5%9D%97%E7%BB%84%E3%80%81Inode%20%E8%AE%A1%E7%AE%97">EXT FileSystem&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File_System_%E7%AE%A1%E7%90%86/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/XFS.md">XFS&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>总得来说，所以我们可以&lt;!-- raw HTML omitted -->通过降低 BytesPerInode 的值以提高 Inode 数量&lt;!-- raw HTML omitted -->&lt;/p>
 &lt;h2 id="索引区和数据区">索引区和数据区&lt;/h2>
-&lt;p>文件系统怎样从文件名索引到存放文件内容的block区？&lt;/p>
+&lt;p>文件系统怎样从文件名索引到存放文件内容的 Block？&lt;/p>
 &lt;p>解答这个问题，先了解下 inode。&lt;/p>
-&lt;p>linux 文件系统在磁盘分区格式化后可以简单认为会划分&lt;strong>两个区域&lt;/strong>，一个是&lt;strong>索引区&lt;/strong>（inode 区），用来存放文件的 inode（inode 包含文件的各种属性，统称为元数据），索引区存放的 inode 个数是有上限的，在格式化的时候会分配好；另一个是&lt;strong>数据区&lt;/strong>，存放文件数据，即文件里面的真实内容。&lt;/p>
+&lt;p>linux 文件系统在磁盘分区格式化后可以简单认为会划分&lt;strong>两个区域&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>一个是&lt;strong>索引区&lt;/strong>（inode 区），用来存放文件的 inode（inode 包含文件的各种属性，统称为元数据），索引区存放的 inode 个数是有上限的，在格式化的时候会分配好&lt;/li>
+&lt;li>另一个是&lt;strong>数据区&lt;/strong>，存放文件数据，即文件里面的真实内容。&lt;/li>
+&lt;/ul>
 &lt;p>如果文件系统太大，将所有的 inode 与 block 放在一起很难管理，因此 Ext2 文件系统在格式化的时候基本上是区分为多个 &lt;strong>block group(块组)&lt;/strong>，每个块组都有独立的 inode/block/super block 系统。&lt;/p>
-&lt;p>inode 的大小和 block 的大小可以使用命令来看，inode 的大小一般为 256 字节，block 的大小一般为 4096 字节&lt;/p>
+&lt;p>inode 的大小和 block 的大小可以使用命令来看，inode 的大小一般为 256 Bytes，block 的大小一般为 4096 Bytes。&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>export DEVICE&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;/dev/vdb&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dumpe2fs &lt;span style="color:#e6db74">${&lt;/span>DEVICE&lt;span style="color:#e6db74">}&lt;/span> | egrep -i &lt;span style="color:#e6db74">&amp;#34;block size|inode size&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dumpe2fs &lt;span style="color:#e6db74">${&lt;/span>DEVICE&lt;span style="color:#e6db74">}&lt;/span> | egrep -i &lt;span style="color:#e6db74">&amp;#34;Block size|Inode size&amp;#34;&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>inode 会有一个总量，如果 inode 数耗尽了（小文件很多），磁盘就使用不了了。inode 的总量和使用量可以用 &lt;code>df -i&lt;/code> 命令查看&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xz4nq5/1627368676221-0f8a3d6d-1159-4806-85d6-20fa8f3c9801.png" alt="image.png">&lt;/p>
 &lt;p>/dev/sdb 中可以看到 Inodes 的具体总数，使用情况和可用个数&lt;/p>
 &lt;p>inode 总数有一个简单的计算公式，如下所示。假设 bytes-per-inode 为 1024，一个 1GB 的磁盘，inode 的总数可能有 1024 * 1024 个，如果 inode 的大小为 256 字节，那么索引区的大小会达到 256M。&lt;/p>
-&lt;p>&lt;code>bytes-per-inode * inode_count ~= 磁盘大小&lt;/code>&lt;/p>
+&lt;p>&lt;code>inode_count = 磁盘大小 / bytes-per-inode&lt;/code>&lt;/p>
 &lt;p>其中 bytes-per-inode 在格式化的时候可以指定，例如&lt;/p>
 &lt;p>&lt;code>mkfs.ext4 -i bytes-per-inode /dev/sda2&lt;/code>&lt;/p>
 &lt;p>不管是什么文件类型（包括目录），都会给它分配一个 inode，每个 inode 都有一个唯一的编号，文件系统就用 inode 号码来识别不同的文件。inode 结构体包含文件的元信息，简单来说有以下内容：文件大小、所属组、读写执行权限、时间戳、链接数（硬链接），&lt;strong>文件数据 block 的地址&lt;/strong>。&lt;/p>
