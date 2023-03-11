@@ -63,17 +63,17 @@
 &lt;p>&lt;code>[stupig@hostname ~]$ grep -rwn '/home/docker_rt/overlay2/e5dab77be213d9f9cfc0b0b3281dbef9c2878fee3b8e406bc8ab97adc30ae4d5/merged' /proc/*/mountinfo /proc/22283/mountinfo:50:386 542 0:92 / /home/docker_rt/overlay2/e5dab77be213d9f9cfc0b0b3281dbef9c2878fee3b8e406bc8ab97adc30ae4d5/merged rw,relatime - overlay overlay rw,lowerdir=XXX,upperdir=XXX,workdir=XXX /proc/22407/mountinfo:50:386 542 0:92 / /home/docker_rt/overlay2/e5dab77be213d9f9cfc0b0b3281dbef9c2878fee3b8e406bc8ab97adc30ae4d5/merged rw,relatime - overlay overlay rw,lowerdir=XXX,upperdir=XXX,workdir=XXX /proc/28454/mountinfo:50:386 542 0:92 / /home/docker_rt/overlay2/e5dab77be213d9f9cfc0b0b3281dbef9c2878fee3b8e406bc8ab97adc30ae4d5/merged rw,relatime - overlay overlay rw,lowerdir=XXX,upperdir=XXX,workdir=XXX /proc/28530/mountinfo:50:386 542 0:92 / /home/docker_rt/overlay2/e5dab77be213d9f9cfc0b0b3281dbef9c2878fee3b8e406bc8ab97adc30ae4d5/merged rw,relatime - overlay overlay rw,lowerdir=XXX,upperdir=XXX,workdir=XXX&lt;/code>&lt;/p>
 &lt;p>不出所料，容器读写层仍然被以上四个进程所挂载，进而导致 docker 在清理读写层目录时报错。&lt;/p>
 &lt;p>随之而来的问题是，为什么 docker 没有正确卸载容器读写层？我们先展示下 &lt;code>docker stop&lt;/code> 中卸载容器读写层挂载的相关部分代码：&lt;/p>
-&lt;p>`func (daemon _Daemon) Cleanup(container _container.Container) {
+&lt;p>`func (daemon _Daemon) Cleanup(container_container.Container) {
    if err := daemon.conditionalUnmountOnCleanup(container); err != nil {
       if mountid, err := daemon.imageService.GetLayerMountID(container.ID, container.OS); err == nil {
          daemon.cleanupMountsByID(mountid)
       }
    }
 }
-func (daemon _Daemon) conditionalUnmountOnCleanup(container _container.Container) error {
+func (daemon _Daemon) conditionalUnmountOnCleanup(container_container.Container) error {
    return daemon.Unmount(container)
 }
-func (daemon _Daemon) Unmount(container _container.Container) error {
+func (daemon _Daemon) Unmount(container_container.Container) error {
    if container.RWLayer == nil {
       return errors.New(&amp;ldquo;RWLayer of container&amp;rdquo; + container.ID + &amp;ldquo;is unexpectedly nil&amp;rdquo;)
    }
@@ -86,7 +86,7 @@ func (daemon _Daemon) Unmount(container _container.Container) error {
 func (rl _referencedRWLayer) Unmount() error {
    return rl.layerStore.driver.Put(rl.mountedLayer.mountID)
 }
-func (d _Driver) Put(id string) error {
+func (d_Driver) Put(id string) error {
    d.locker.Lock(id)
    defer d.locker.Unlock(id)
    dir := d.dir(id)
@@ -109,7 +109,7 @@ func (d _Driver) Put(id string) error {
 &lt;p>&lt;code>[stupig@hostname ~]$ ps -ef|grep -E &amp;quot;22283|22407|28454|28530&amp;quot; root      22283      1  0 10:48 ?        00:00:00 docker-containerd-shim -namespace moby root      22407      1  0 10:48 ?        00:00:00 docker-containerd-shim -namespace moby root      28454      1  0 10:49 ?        00:00:00 docker-containerd-shim -namespace moby root      28530      1  0 10:49 ?        00:00:00 docker-containerd-shim -namespace moby&lt;/code>&lt;/p>
 &lt;p>容器读写层挂载信息没有出现在 dockerd 进程命名空间中，却出现在其他容器的托管服务 shim 进程的命名空间内，推断 dockerd 进程发生了重启，对比进程启动时间与命名空间详情可以进行验证：&lt;/p>
 &lt;pre tabindex="0">&lt;code>
-~]$ ps -eo pid,cmd,lstart|grep dockerd&amp;amp;#x20;
+~]$ ps -eo pid,cmd,lstart|grep dockerd
  34836 /usr/bin/dockerd --storage- Wed Oct 14 10:50:15 2020
 [stupig[@hostname ](https://notes-learning.oss-cn-beijing.aliyuncs.com/4d90f6bb-b649-46d3-870f-b087ab75cbf9/latex)(pidof dockerd)/ns
 lrwxrwxrwx 1 root root 0 Oct 14 10:50 ipc -&amp;gt; ipc:\[4026531839]
@@ -118,7 +118,7 @@ lrwxrwxrwx 1 root root 0 Oct 14 10:50 net -&amp;gt; net:\[4026531968]
 lrwxrwxrwx 1 root root 0 Oct 14 10:50 pid -&amp;gt; pid:\[4026531836]
 lrwxrwxrwx 1 root root 0 Oct 14 10:50 user -&amp;gt; user:\[4026531837]
 lrwxrwxrwx 1 root root 0 Oct 14 10:50 uts -&amp;gt; uts:\[4026531838]
-[stupig[@hostname ](/hostname) ~]$ ps -eo pid,cmd,lstart|grep -w containerd|grep -v shim&amp;amp;#x20;
+[stupig[@hostname ](/hostname) ~]$ ps -eo pid,cmd,lstart|grep -w containerd|grep -v shim
  34849 docker-containerd --config  Wed Oct 14 10:50:15 2020
 [stupig[@hostname ](https://notes-learning.oss-cn-beijing.aliyuncs.com/4d90f6bb-b649-46d3-870f-b087ab75cbf9/latex)(pidof docker-containerd)/ns
 lrwxrwxrwx 1 root root 0 Oct 14 10:50 ipc -&amp;gt; ipc:\[4026531839]
@@ -127,12 +127,12 @@ lrwxrwxrwx 1 root root 0 Oct 14 10:50 net -&amp;gt; net:\[4026531968]
 lrwxrwxrwx 1 root root 0 Oct 14 10:50 pid -&amp;gt; pid:\[4026531836]
 lrwxrwxrwx 1 root root 0 Oct 14 10:50 user -&amp;gt; user:\[4026531837]
 lrwxrwxrwx 1 root root 0 Oct 14 10:50 uts -&amp;gt; uts:\[4026531838]
-[stupig[@hostname ](/hostname) ~]$ ps -eo pid,cmd,lstart|grep -w containerd-shim&amp;amp;#x20;
+[stupig[@hostname ](/hostname) ~]$ ps -eo pid,cmd,lstart|grep -w containerd-shim
  22283 docker-containerd-shim -nam Wed Oct 14 10:48:50 2020
  22407 docker-containerd-shim -nam Wed Oct 14 10:48:55 2020
  28454 docker-containerd-shim -nam Wed Oct 14 10:49:53 2020
  28530 docker-containerd-shim -nam Wed Oct 14 10:49:53 2020
-[stupig[@hostname ](/hostname) ~]$ sudo ls -la /proc/28454/ns&amp;amp;#x20;
+[stupig[@hostname ](/hostname) ~]$ sudo ls -la /proc/28454/ns
 lrwxrwxrwx 1 root root 0 Oct 14 10:50 ipc -&amp;gt; ipc:\[4026531839]
 lrwxrwxrwx 1 root root 0 Oct 14 10:50 mnt -&amp;gt; mnt:\[4026533200]
 lrwxrwxrwx 1 root root 0 Oct 14 10:50 net -&amp;gt; net:\[4026531968]
@@ -167,7 +167,7 @@ lrwxrwxrwx 1 panpeilong panpeilong 0 Oct 14 21:49 uts -&amp;gt; uts:\[
 &lt;p>&lt;code>Oct 14 22:12:43 hostname2 dockerd: time=&amp;quot;2020-10-14T22:12:43.730726978+08:00&amp;quot; level=debug msg=&amp;quot;Failed to unmount fb41efa2cfcbfbb8d90bd1d8d77d299e17518829faf52af40f7a1552ec8aa165 overlay: /home/docker_rt/overlay2/fb41efa2cfcbfbb8d90bd1d8d77d299e17518829faf52af40f7a1552ec8aa165/merged - invalid argument&amp;quot;&lt;/code>&lt;/p>
 &lt;p>同样存在卸载问题的情况下，高低版本的 docker 却呈现出了不同的结果，这显然是 docker 的处理逻辑发生了变更，这里我们对比源码能够很快得出结论：&lt;/p>
 &lt;p>``// 1.13.1  版本处理逻辑
-func (daemon _Daemon) cleanupContainer(container _container.Container, forceRemove, removeVolume bool) (err error) {
+func (daemon _Daemon) cleanupContainer(container_container.Container, forceRemove, removeVolume bool) (err error) {
    // If force removal is required, delete container from various
    // indexes even if removal failed.
    defer func() {
@@ -198,7 +198,7 @@ func (daemon _Daemon) cleanupContainer(container _container.Container, forc
 &lt;p>return nil
 }&lt;/p>
 &lt;p>// 18.06.3-ce  版本处理逻辑
-func (daemon _Daemon) cleanupContainer(container _container.Container, forceRemove, removeVolume bool) (err error) {
+func (daemon _Daemon) cleanupContainer(container_container.Container, forceRemove, removeVolume bool) (err error) {
    // When container creation fails and &lt;code>RWLayer&lt;/code> has not been created yet, we
    // do not call &lt;code>ReleaseRWLayer&lt;/code>
    if container.RWLayer != nil {

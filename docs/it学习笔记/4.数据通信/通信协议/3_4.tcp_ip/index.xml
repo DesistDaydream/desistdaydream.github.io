@@ -28,7 +28,7 @@
 &lt;li>Connection reset by peer&lt;/li>
 &lt;/ul>
 &lt;p>TCP 连接和释放时还有许多细节，比如半连接状态、半关闭状态等。详情请参考这方面的巨著《TCP/IP 详解》和《UNIX 网络编程》。
-前面说到出现“Connection reset”的原因是服务器关闭了 Connection[调用了 Socket.close()方法]。大家可能有疑问了：服务器关闭了 Connection 为什么会返回“RST”而不是返回“FIN”标志。原因在于 Socket.close()方法的语义和 TCP 的“FIN”标志语义不一样：发送 TCP 的“FIN”标志表示我不再发送数据了，而 Socket.close()表示我不在发送也不接受数据了。问题就出在“我不接受数据” 上，如果此时客户端还往服务器发送数据，服务器内核接收到数据，但是发现此时 Socket 已经 close 了，则会返回“RST”标志给客户端。当然，此时客户端就会提示：“Connection reset”。详细说明可以参考 oracle 的有关文档：http://docs.oracle.com/javase/1.5.0/docs/guide/net/articles/connection_release.html。
+前面说到出现“Connection reset”的原因是服务器关闭了 Connection[调用了 Socket.close()方法]。大家可能有疑问了：服务器关闭了 Connection 为什么会返回“RST”而不是返回“FIN”标志。原因在于 Socket.close()方法的语义和 TCP 的“FIN”标志语义不一样：发送 TCP 的“FIN”标志表示我不再发送数据了，而 Socket.close()表示我不在发送也不接受数据了。问题就出在“我不接受数据” 上，如果此时客户端还往服务器发送数据，服务器内核接收到数据，但是发现此时 Socket 已经 close 了，则会返回“RST”标志给客户端。当然，此时客户端就会提示：“Connection reset”。详细说明可以参考 oracle 的有关文档：&lt;a href="http://docs.oracle.com/javase/1.5.0/docs/guide/net/articles/connection%5C_release.html%E3%80%82">http://docs.oracle.com/javase/1.5.0/docs/guide/net/articles/connection\_release.html。&lt;/a>
 另一个可能导致的“Connection reset”的原因是服务器设置了 Socket.setLinger (true, 0)。但我检查过线上的 tomcat 配置，是没有使用该设置的，而且线上的服务器都使用了 nginx 进行反向代理，所以并不是该原因导致的。关于该原因上面的 oracle 文档也谈到了并给出了解释。
 此外啰嗦一下，另外还有一种比较常见的错误“Connection reset by peer”，该错误和“Connection reset”是有区别的：
 服务器返回了“RST”时，如果此时客户端正在从 Socket 套接字的输出流中读数据则会提示 Connection reset”；
