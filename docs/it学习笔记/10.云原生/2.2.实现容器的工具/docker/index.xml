@@ -12,8 +12,8 @@
 &lt;p>由于这种构造，docker 公司研究出一种技术，就是联合文件系统(UnionFS(Union File System))。可以将镜像分为多层(layers)，每层附加一个功能。&lt;/p>
 &lt;p>实现联合文件系统的驱动程序：docker 本身支持 overlay，overlay2，aufs，btrfs，devicemapper，vfs 等&lt;/p>
 &lt;h2 id="container-image-的分层结构httpwwwcnblogscomcloudman6p6806193html联合文件系统">&lt;a href="http://www.cnblogs.com/CloudMan6/p/6806193.html">Container Image 的分层结构&lt;/a>(联合文件系统)&lt;/h2>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ma1cb7/1616121959962-5b74016a-126f-4a55-a37f-f93631fd335c.png" alt="">
-Container Image 采用分层结构，最底层为 bootfs，其它为 rootfs&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ma1cb7/1616121959962-5b74016a-126f-4a55-a37f-f93631fd335c.png" alt="">&lt;/p>
+&lt;p>Container Image 采用分层结构，最底层为 bootfs，其它为 rootfs&lt;/p>
 &lt;ol>
 &lt;li>bootfs：用于系统引导的文件系统，包括 bootloader 和 kernel，Container 启动完成后会被卸载以节约内存资源&lt;/li>
 &lt;li>rootfs：位于 bootfs 之上，表现为 Container 的根文件系统；
@@ -31,9 +31,9 @@ Container Image 采用分层结构，最底层为 bootfs，其它为 rootfs&lt;/
 &lt;li>对 Container 的操作产生的变化，是在可写的容器层中进行的&lt;/li>
 &lt;/ol>
 &lt;h2 id="可写writable的层layers">可写(writable)的层(layers)&lt;/h2>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ma1cb7/1616121959993-37ba6cb0-18ec-495b-84c0-72e941c5a240.png" alt="">
-&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ma1cb7/1616121960020-2c73e0a5-a7e5-4e71-9907-d098c5233d30.png" alt="">
-当容器启动时，一个新的“可读写”层被加载到镜像的顶部。这一层通常被称作“容器层”，“容器层”之下的都叫“镜像层”。位于下层的 image 称为父镜像(parent image)，最底层的称为基础镜像(base image)&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ma1cb7/1616121959993-37ba6cb0-18ec-495b-84c0-72e941c5a240.png" alt="">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ma1cb7/1616121960020-2c73e0a5-a7e5-4e71-9907-d098c5233d30.png" alt="">&lt;/p>
+&lt;p>当容器启动时，一个新的“可读写”层被加载到镜像的顶部。这一层通常被称作“容器层”，“容器层”之下的都叫“镜像层”。位于下层的 image 称为父镜像(parent image)，最底层的称为基础镜像(base image)&lt;/p>
 &lt;p>所有对容器的改动 - 无论添加、删除、还是修改文件都只会发生在容器层中。&lt;/p>
 &lt;p>只有容器层是“可读写”的，容器层下面的所有镜像层都是“只读”的。&lt;/p>
 &lt;p>镜像层数量可能会很多，所有镜像层会联合在一起组成一个统一的文件系统。如果不同层中有一个相同路径的文件，比如 /a，上层的 /a 会覆盖下层的 /a，也就是说用户只能访问到上层中的文件 /a。在容器层中，用户看到的是一个叠加之后的文件系统。&lt;/p>
@@ -48,20 +48,18 @@ Container Image 采用分层结构，最底层为 bootfs，其它为 rootfs&lt;/
 &lt;p>最大的一个好处就是 - 共享资源。&lt;/p>
 &lt;p>比如：有多个镜像都从相同的 base 镜像构建而来，那么 Docker Host 只需在磁盘上保存一份 base 镜像；同时内存中也只需加载一份 base 镜像，就可以为所有容器服务了。而且镜像的每一层都可以被共享。&lt;/p>
 &lt;p>比如当我获取一个镜像时，可以看到下面的信息&lt;/p>
-&lt;pre>&lt;code>[root@master overlay2]# docker pull lchdzh/network-test:v2.0
-v2.0: Pulling from lchdzh/network-test
-f34b00c7da20: Pull complete # 镜像第一层
-b248a5455a16: Pull complete # 镜像第二层
-beaf4c6c50c6: Pull complete # 镜像第三层
-Digest: sha256:b27d98887f62c0cf28bc8707ee2de39f8c753afbd047e910e6f1cf2670ae141b
-Status: Downloaded newer image for lchdzh/network-test:v2.0
-docker.io/lchdzh/network-test:v2.0
-&lt;/code>&lt;/pre>
-&lt;p>在获取镜像时可以看到，一共有三个层的镜像需要下载。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker pull lchdzh/network-test:v2.0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>v2.0: Pulling from lchdzh/network-test
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>f34b00c7da20: Pull complete &lt;span style="color:#75715e"># 镜像第一层&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>b248a5455a16: Pull complete &lt;span style="color:#75715e"># 镜像第二层&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>beaf4c6c50c6: Pull complete &lt;span style="color:#75715e"># 镜像第三层&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Digest: sha256:b27d98887f62c0cf28bc8707ee2de39f8c753afbd047e910e6f1cf2670ae141b
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Status: Downloaded newer image &lt;span style="color:#66d9ef">for&lt;/span> lchdzh/network-test:v2.0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker.io/lchdzh/network-test:v2.0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在获取镜像时可以看到，一共有三个层的镜像需要下载。&lt;/p>
 &lt;p>而当容器运行时，我们通过 mount 命令可以看到如下内容&lt;/p>
-&lt;pre>&lt;code>overlay on /var/lib/docker/overlay2/XXXXXXX/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/XFVMRG3WBD4RLHJ73V5DQHSCZ5:/var/lib/docker/overlay2/l/PZG7BURXDF2DQ4FF54XUEGZE6A:/var/lib/docker/overlay2/l/L4GF2CGQ7LA6LAACXSSE5CMC4P:/var/lib/docker/overlay2/l/6XYKKSJHBNHYSTQMCETDRWL2AA,upperdir=/var/lib/docker/overlay2/7b64f08bef3ca5ab8a2aa0fa0b124b4e55f3f98f421d0cfe7dab271447cb77a2/diff,workdir=/var/lib/docker/overlay2/7b64f08bef3ca5ab8a2aa0fa0b124b4e55f3f98f421d0cfe7dab271447cb77a2/work)
-&lt;/code>&lt;/pre>
-&lt;p>这就是那个读写层，这就说明当一个容器运行的时候，会在 docker 的存储类型(这里是 overlay2)目录中，创建一个 XXX/merged 的目录，如果通过 docker exec 进入容器的话，会发现容器中的目录内容与该目录一模一样，并且如果在宿主机上的挂载目录修改文件，同样会影响到容器中。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>overlay on /var/lib/docker/overlay2/XXXXXXX/merged type overlay &lt;span style="color:#f92672">(&lt;/span>rw,relatime,lowerdir&lt;span style="color:#f92672">=&lt;/span>/var/lib/docker/overlay2/l/XFVMRG3WBD4RLHJ73V5DQHSCZ5:/var/lib/docker/overlay2/l/PZG7BURXDF2DQ4FF54XUEGZE6A:/var/lib/docker/overlay2/l/L4GF2CGQ7LA6LAACXSSE5CMC4P:/var/lib/docker/overlay2/l/6XYKKSJHBNHYSTQMCETDRWL2AA,upperdir&lt;span style="color:#f92672">=&lt;/span>/var/lib/docker/overlay2/7b64f08bef3ca5ab8a2aa0fa0b124b4e55f3f98f421d0cfe7dab271447cb77a2/diff,workdir&lt;span style="color:#f92672">=&lt;/span>/var/lib/docker/overlay2/7b64f08bef3ca5ab8a2aa0fa0b124b4e55f3f98f421d0cfe7dab271447cb77a2/work&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这就是那个读写层，这就说明当一个容器运行的时候，会在 docker 的存储类型(这里是 overlay2)目录中，创建一个 XXX/merged 的目录，如果通过 docker exec 进入容器的话，会发现容器中的目录内容与该目录一模一样，并且如果在宿主机上的挂载目录修改文件，同样会影响到容器中。&lt;/p>
 &lt;h1 id="docker-image-的管理标准oci-标准介绍">Docker Image 的管理标准(OCI 标准)介绍&lt;/h1>
 &lt;p>OCI 规范详见：&lt;a href="https://www.yuque.com/go/doc/33996191">OCI 标准介绍&lt;/a>&lt;/p>
 &lt;h2 id="docker-pull-命令的大概过程">docker pull 命令的大概过程&lt;/h2>
@@ -85,8 +83,8 @@ docker.io/lchdzh/network-test:v2.0
 &lt;ol>
 &lt;li>&lt;strong>imageID&lt;/strong> # 镜像的唯一标志，根据镜像的元数据配置文件采用 sha256 算法计算获得
 &lt;ol>
-&lt;li>imageID 一般可以在 ${DockerRootDir}/image/${StorageDriver}/repositories.json 文件中找到&lt;/li>
-&lt;li>镜像的 configuration 文件就是以 imageID 命名，一般保存在 ${DockerRootDir}/image/${StorageDriver}/imagedb/content/sha256/ 目录下&lt;/li>
+&lt;li>imageID 一般可以在 &lt;code>${DockerRootDir}/image/${StorageDriver}/repositories.json&lt;/code> 文件中找到&lt;/li>
+&lt;li>镜像的 configuration 文件就是以 imageID 命名，一般保存在 &lt;code>${DockerRootDir}/image/${StorageDriver}/imagedb/content/sha256/&lt;/code> 目录下&lt;/li>
 &lt;/ol>
 &lt;/li>
 &lt;li>&lt;strong>diffID&lt;/strong> # 镜像层的校验 ID，根据该镜像层的打包文件校验获得
@@ -96,13 +94,13 @@ docker.io/lchdzh/network-test:v2.0
 &lt;/li>
 &lt;li>&lt;strong>chainID&lt;/strong> # docker 内容寻址机制采用的索引 ID，其值根据当前层和所有父层的 diffID(或父层的 chainID) 计算获得
 &lt;ol>
-&lt;li>chainID 计算完成后，一般可以在 ${DockerRootDir}/image/${StorageDriver}/layerdb/sha256/ 目录中找到 chainID 的同名目录&lt;/li>
+&lt;li>chainID 计算完成后，一般可以在 &lt;code>${DockerRootDir}/image/${StorageDriver}/layerdb/sha256/&lt;/code> 目录中找到 chainID 的同名目录&lt;/li>
 &lt;/ol>
 &lt;/li>
-&lt;li>&lt;strong>cacheID&lt;/strong># 下载 layer 时、创建容器后产生可写 layers 时，随机生成的 uuid，用于索引镜像层
+&lt;li>&lt;strong>cacheID&lt;/strong> # 下载 layer 时、创建容器后产生可写 layers 时，随机生成的 uuid，用于索引镜像层
 &lt;ol>
 &lt;li>在 chainID 的目录中，可以找到 image 的 cache-id 文件，文件内容就是 cacheID。&lt;/li>
-&lt;li>然后在 ${DockerRootDir}/${StorageDriver}/ 目录中找到与 cacheID 同名的目录，这些目录中存储了镜像层的所有数据&lt;/li>
+&lt;li>然后在 &lt;code>${DockerRootDir}/${StorageDriver}/&lt;/code> 目录中找到与 cacheID 同名的目录，这些目录中存储了镜像层的所有数据&lt;/li>
 &lt;li>至于创建容器后生成的可写 layers 的 cacheID 信息，一般是保存在容器相关的信息文件中的，比如容器的状态文件、容器的可写层的信息、系统的 mount 信息等等地方，都会有相关记录&lt;/li>
 &lt;/ol>
 &lt;/li>
@@ -256,86 +254,80 @@ cat /data/myhosts &amp;raquo; /etc/hosts # 向 hosts 文件追加内容&lt;/p>
 &lt;li>Runtime and Lifecycle #&lt;/li>
 &lt;li>Linux-specific Runtime and Lifecycle # 这是关于 linux 平台的 Runtime 与 Lifecycle&lt;/li>
 &lt;li>Configuration # Configuration 包含对容器执行标准操作(比如 create、start、stop 等)所必须的元数据。这包括要运行的过程、要注入的环境变量、要使用的沙盒功能等等。不同平台(linux、window 等)，有不同的规范。&lt;/li>
-&lt;li>Linux-specific configuration #这是关于 linux 平台的 Configuration&lt;/li>
+&lt;li>Linux-specific configuration # 这是关于 linux 平台的 Configuration&lt;/li>
 &lt;/ol>
 &lt;h1 id="docker-create">Docker create&lt;/h1>
 &lt;p>有了 image 之后，就可以使用 image 来创建并启动 container 了。&lt;/p>
 &lt;p>docker run 命令直接创建并运行一个容器，它的背后其实包含独立的两步，一步是 docker create 创建容器，另一步是 docker start 启动容器，先介绍在 docker create 这一步中，docker 做了哪些事情。&lt;/p>
 &lt;p>简单点来说，dockerd 在收到客户端的创建容器请求后，做了两件事情&lt;/p>
 &lt;ol>
-&lt;li>
-&lt;p>准备容器所需的 layer&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>检查客户端传过来的参数，并和 image 配置文件中的参数进行合并，然后存储成容器的配置文件。&lt;/p>
-&lt;h1 id="创建容器前的-layers">创建容器前的 layers&lt;/h1>
-&lt;p>[root@lichenhao overlay2]# ls
-113a9d8407c2db3892944c17beba7a635ea39aa5108c7f716088466ea302a7e3 7704e53a9392b092479707d38b2b183b17bbe2cc220e2283cead9493e19aa651 l
-5de7ac8af2fb0a5fb0be4244aa07685bfcfcfc4c4b1c149bc753eb044d7f4a12 8f377ae99a442b37f5a831724951ce1cf8bfc7b874843c97d09e8027c3dd19e6&lt;/p>
-&lt;h1 id="创建容器后的-layers多了两个">创建容器后的 layers，多了两个&lt;/h1>
-&lt;p>[root@lichenhao overlay2]# docker create -it &amp;ndash;name docker_runtime_test ubuntu:latest
-28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-[root@lichenhao overlay2]# ls
-113a9d8407c2db3892944c17beba7a635ea39aa5108c7f716088466ea302a7e3 8f377ae99a442b37f5a831724951ce1cf8bfc7b874843c97d09e8027c3dd19e6 l
-5de7ac8af2fb0a5fb0be4244aa07685bfcfcfc4c4b1c149bc753eb044d7f4a12 d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd
-7704e53a9392b092479707d38b2b183b17bbe2cc220e2283cead9493e19aa651 d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init&lt;/p>
-&lt;h1 id="这俩-layers-的元数据在-dockerrootdirimagestoragedriverlayerdbmounts目录中">这俩 layers 的元数据在 ${DockerRootDir}/image/${StorageDriver}/layerdb/mounts目录中&lt;/h1>
-&lt;p>[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# pwd
-/var/lib/docker/image/overlay2/layerdb/mounts/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# ls
-init-id mount-id parent&lt;/p>
-&lt;h1 id="init-id-文件包含了-init-layer-的-cacheid">init-id 文件包含了 init layer 的 cacheID&lt;/h1>
-&lt;h1 id="init-layer-的-cacheid-就是在-mount-layer-的-cacheid-后面加上了一个-init">init layer 的 cacheid 就是在 mount layer 的 cacheID 后面加上了一个“-init”&lt;/h1>
-&lt;p>[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# cat init-id
-d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init&lt;/p>
-&lt;h1 id="mount-id-文件包含了-mount-layer-的-cacheid">mount-id 文件包含了 mount layer 的 cacheID&lt;/h1>
-&lt;p>[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# cat mount-id
-d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd&lt;/p>
-&lt;h1 id="parent-里面包含的是-image-的最上-layer-的-chainid">parent 里面包含的是 image 的最上 layer 的 chainID&lt;/h1>
-&lt;h1 id="表示这个容器的-init-layer-的父-layer-是-image-的最顶层-layer">表示这个容器的 init layer 的父 layer 是 image 的最顶层 layer&lt;/h1>
-&lt;p>[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# cat parent
-sha256:8a8d1f0b34041a66f09e49bdc03e75c2190f606b0db7e08b75eb6747f7b49e11&lt;/p>
-&lt;/li>
+&lt;li>准备容器所需的 layer&lt;/li>
+&lt;li>检查客户端传过来的参数，并和 image 配置文件中的参数进行合并，然后存储成容器的配置文件。&lt;/li>
 &lt;/ol>
-&lt;p>Note:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 创建容器前的 layers&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>113a9d8407c2db3892944c17beba7a635ea39aa5108c7f716088466ea302a7e3 7704e53a9392b092479707d38b2b183b17bbe2cc220e2283cead9493e19aa651 l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>5de7ac8af2fb0a5fb0be4244aa07685bfcfcfc4c4b1c149bc753eb044d7f4a12 8f377ae99a442b37f5a831724951ce1cf8bfc7b874843c97d09e8027c3dd19e6
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 创建容器后的 layers，多了两个&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker create -it --name docker_runtime_test ubuntu:latest&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>113a9d8407c2db3892944c17beba7a635ea39aa5108c7f716088466ea302a7e3 8f377ae99a442b37f5a831724951ce1cf8bfc7b874843c97d09e8027c3dd19e6 l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>5de7ac8af2fb0a5fb0be4244aa07685bfcfcfc4c4b1c149bc753eb044d7f4a12 d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>7704e53a9392b092479707d38b2b183b17bbe2cc220e2283cead9493e19aa651 d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 这俩 layers 的元数据在 ${DockerRootDir}/image/${StorageDriver}/layerdb/mounts目录中&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># pwd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/image/overlay2/layerdb/mounts/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>init-id mount-id parent
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># init-id 文件包含了 init layer 的 cacheID&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># init layer 的 cacheid 就是在 mount layer 的 cacheID 后面加上了一个“-init”&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat init-id&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># mount-id 文件包含了 mount layer 的 cacheID&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat mount-id&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># parent 里面包含的是 image 的最上 layer 的 chainID&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 表示这个容器的 init layer 的父 layer 是 image 的最顶层 layer&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat parent&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sha256:8a8d1f0b34041a66f09e49bdc03e75c2190f606b0db7e08b75eb6747f7b49e11
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Note:&lt;/p>
 &lt;ol>
 &lt;li>新加的这两层 layer 比较特殊，元数据只保存在 layerdb/mounts 下面，在 layerdb/sha256 目录下没有相关信息，说明 docker 将 container 的 layer 和 image 的 layer 的元数据放在了不同的两个目录中。&lt;/li>
 &lt;li>根据元数据中的信息，就可以通过 mount 信息中的 cacheID 来查找该 mount 信息来源于哪个容器，从而定位问题，参考：最后 docker 使用技巧 中 mount 信息章节&lt;/li>
 &lt;/ol>
 &lt;p>从上面的文章可以看到，每个创建完的容器都会新增两个层&lt;/p>
 &lt;ol>
-&lt;li>
-&lt;p>mount layer #供容器写数据的层，如果容器仅创建而没运行的话，那么该层的目录中，没有 merged 目录，并且其余目录也是空的&lt;/p>
-&lt;p>[root@lichenhao d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd]# tree
-.
-├── diff
-├── link
-├── lower
-└── work
-└── work&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>init layer #包含了 docker 为容器所预先准备的文件&lt;/p>
-&lt;p>[root@lichenhao d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init]# tree
-.
-├── committed
-├── diff
-│ ├── dev
-│ │ ├── console
-│ │ ├── pts
-│ │ └── shm
-│ └── etc
-│ ├── hostname
-│ ├── hosts
-│ ├── mtab -&amp;gt; /proc/mounts
-│ └── resolv.conf
-├── link
-├── lower
-└── work
-└── work&lt;/p>
-&lt;/li>
+&lt;li>mount layer # 供容器写数据的层，如果容器仅创建而没运行的话，那么该层的目录中，没有 merged 目录，并且其余目录也是空的&lt;/li>
 &lt;/ol>
-&lt;p>init layer 里面的文件有什么作用呢？从下面的结果可以看出，除了 mtab 文件是指向/proc/mounts 的软连接之外，其他的都是空的普通文件。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── diff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── link
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── lower
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── work
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── work
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ol>
+&lt;li>init layer # 包含了 docker 为容器所预先准备的文件&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── committed
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── diff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── dev
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ ├── console
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ ├── pts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ └── shm
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── etc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── hostname
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── hosts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── mtab -&amp;gt; /proc/mounts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── resolv.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── link
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── lower
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── work
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── work
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>init layer 里面的文件有什么作用呢？从下面的结果可以看出，除了 mtab 文件是指向/proc/mounts 的软连接之外，其他的都是空的普通文件。&lt;/p>
 &lt;p>这几个文件都是 Linux 运行时必须的文件，如果缺少的话会导致某些程序或者库出现异常，所以 docker 需要为容器准备好这些文件：&lt;/p>
 &lt;ul>
 &lt;li>/dev/console: 在 Linux 主机上，该文件一般指向主机的当前控制台，有些程序会依赖该文件。在容器启动的时候，docker 会为容器创建一个 pts，然后通过 bind mount 的方式将 pts 绑定到容器里面的/dev/console 上，这样在容器里面往这个文件里面写东西就相当于往容器的控制台上打印数据。这里创建一个空文件相当于占个坑，作为后续 bind mount 的目的路径。&lt;/li>
@@ -372,57 +364,56 @@ sha256:8a8d1f0b34041a66f09e49bdc03e75c2190f606b0db7e08b75eb6747f7b49e11&lt;/p>
 &lt;li>/var/lib/containerd/io.containerd.runtime.v1.linux/moby/ # shim.stderr.log 与 shim.stdout.log&lt;/li>
 &lt;/ul>
 &lt;p>Note：这些目录在容器停止后，会自动删除&lt;/p>
-&lt;pre>&lt;code>[root@lichenhao containerd]# find / -name &amp;quot;28f5bed704dc*&amp;quot;
-/run/docker/runtime-runc/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-/run/docker/containerd/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-/run/containerd/io.containerd.runtime.v1.linux/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-/var/lib/containerd/io.containerd.runtime.v1.linux/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log
-/var/lib/docker/image/overlay2/layerdb/mounts/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-[root@lichenhao docker]# docker stop docker_runtime_test
-docker_runtime_test
-[root@lichenhao docker]# find / -name &amp;quot;28f5bed704dc*&amp;quot;
-/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log
-/var/lib/docker/image/overlay2/layerdb/mounts/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-&lt;/code>&lt;/pre>
-&lt;h2 id="准备-rootfs">准备 rootfs&lt;/h2>
-&lt;pre>&lt;code># 容器运行后，在没有 mount layer 中，会多出来一个 merged 的目录，这就是当前已经启动容器的可读写层，所有变化都会在这里。
-# 并且当容器停止后，merged 目录也会随之消失
-[root@lichenhao overlay2]# ls d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd
-diff link lower merged work
-[root@lichenhao overlay2]# ls d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init/
-committed diff link lower work
-# 当在容器中创建一个文件时，该变化会同时应用到 mount layer 的 diff 和 merged 目录
-[root@lichenhao overlay2]# docker start docker_runtime_test
-docker_runtime_test
-[root@lichenhao overlay2]# docker exec -it docker_runtime_test /bin/bash
-root@28f5bed704dc:/# ls
-bin boot dev etc home lib lib32 lib64 libx32 media mnt opt proc root run sbin srv sys tmp usr var
-root@28f5bed704dc:/# touch home/lichenhao
-[root@lichenhao overlay2]# tree d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/diff/
-d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/diff/
-├── home
-│ └── lichenhao
-└── root
-[root@lichenhao overlay2]# tree d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged/home/
-d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged/home/
-└── lichenhao
-# 容器停止后，merged 的目录消失，但是 diff 目录还在，所有对容器的操作产生的变化，都会在diff目录中永久保存，直到该容器被删除。
-&lt;/code>&lt;/pre>
-&lt;p>可以通过 mount 命令看到如下信息&lt;/p>
-&lt;pre>&lt;code>overlay on /var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged type overlay
-(rw,relatime,lowerdir=
-/var/lib/docker/overlay2/l/QNYNLXQAPEKTOMU3TO27ITE3YO:
-/var/lib/docker/overlay2/l/2EP6BMP6AI5RGGBLLTGZURP72X:
-/var/lib/docker/overlay2/l/OLJPRTJOMYVHG3OZOMYZMBAEMQ:
-/var/lib/docker/overlay2/l/FWHKA7CXM7LSCGUQLDTAJSZFPE:
-/var/lib/docker/overlay2/l/KVQ7AO63OIRUAHZTZAS474Y3VT,
-upperdir=/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/diff,
-workdir=/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/work)
-&lt;/code>&lt;/pre>
-&lt;p>通过 overlay 联合挂载技术，将多个 layer 挂载到该容器的 mount layer 的 merged 目录中&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao containerd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># find / -name &amp;#34;28f5bed704dc*&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/docker/runtime-runc/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/docker/containerd/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/containerd/io.containerd.runtime.v1.linux/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/containerd/io.containerd.runtime.v1.linux/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/image/overlay2/layerdb/mounts/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao docker&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker stop docker_runtime_test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker_runtime_test
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao docker&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># find / -name &amp;#34;28f5bed704dc*&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/image/overlay2/layerdb/mounts/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="准备-rootfs">准备 rootfs&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 容器运行后，在没有 mount layer 中，会多出来一个 merged 的目录，这就是当前已经启动容器的可读写层，所有变化都会在这里。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 并且当容器停止后，merged 目录也会随之消失&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>diff link lower merged work
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>committed diff link lower work
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 当在容器中创建一个文件时，该变化会同时应用到 mount layer 的 diff 和 merged 目录&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker start docker_runtime_test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker_runtime_test
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker exec -it docker_runtime_test /bin/bash&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@28f5bed704dc:/# ls
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>bin boot dev etc home lib lib32 lib64 libx32 media mnt opt proc root run sbin srv sys tmp usr var
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@28f5bed704dc:/# touch home/lichenhao
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/diff/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/diff/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── home
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── lichenhao
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── root
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged/home/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged/home/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── lichenhao
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 容器停止后，merged 的目录消失，但是 diff 目录还在，所有对容器的操作产生的变化，都会在diff目录中永久保存，直到该容器被删除。&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以通过 mount 命令看到如下信息&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>overlay on /var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged type overlay
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>rw,relatime,lowerdir&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/overlay2/l/QNYNLXQAPEKTOMU3TO27ITE3YO:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/overlay2/l/2EP6BMP6AI5RGGBLLTGZURP72X:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/overlay2/l/OLJPRTJOMYVHG3OZOMYZMBAEMQ:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/overlay2/l/FWHKA7CXM7LSCGUQLDTAJSZFPE:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/overlay2/l/KVQ7AO63OIRUAHZTZAS474Y3VT,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>upperdir&lt;span style="color:#f92672">=&lt;/span>/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/diff,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>workdir&lt;span style="color:#f92672">=&lt;/span>/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/work&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过 overlay 联合挂载技术，将多个 layer 挂载到该容器的 mount layer 的 merged 目录中&lt;/p>
 &lt;ol>
 &lt;li>lower(下层挂载) # 用启动该容器的 image 的所有 layers 作为 lowerdir&lt;/li>
 &lt;li>upperdir(上层挂在) # 用容器 mount layer 的 diff 目录作为 upperdir&lt;/li>
@@ -430,21 +421,20 @@ workdir=/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a32651
 &lt;p>所有在 merged 目录的变化，会同步到 diff 目录中，这样在容器停止，merged 目录消失后，所有变化依然得以保留在 diff 目录中，这样后续再启动容器的时候，上次的操作还能看到。&lt;/p>
 &lt;h2 id="容器元数据目录的变化">容器元数据目录的变化&lt;/h2>
 &lt;p>rootfs 准备好之后，dockerd 接着会准备一些容器里面需要用的配置文件，下面是容器元数据目录的变化&lt;/p>
-&lt;pre>&lt;code>[root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10]# tree
-.
-├── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log
-├── checkpoints
-├── config.v2.json
-├── hostconfig.json
-├── hostname
-├── hosts
-├── mounts
-├── resolv.conf
-└── resolv.conf.hash
-&lt;/code>&lt;/pre>
-&lt;p>容器启动后多了几个文件，这几个文件时 docker 动态生成的&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── checkpoints
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── config.v2.json
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── hostconfig.json
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── hostname
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── hosts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── mounts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── resolv.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── resolv.conf.hash
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>容器启动后多了几个文件，这几个文件时 docker 动态生成的&lt;/p>
 &lt;ul>
-&lt;li>28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log #容器的日志文件，后续容器的 stdout 和 stderr 都会输出到这个目录。当然如果配置了其它的日志插件的话，日志就会写到别的地方。&lt;/li>
+&lt;li>28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log # 容器的日志文件，后续容器的 stdout 和 stderr 都会输出到这个目录。当然如果配置了其它的日志插件的话，日志就会写到别的地方。&lt;/li>
 &lt;li>hostname：里面是容器的主机名，来自于 config.v2.json，由 docker create 命令的-h 参数指定，如果没指定的话，就是容器 ID 的前 12 位，这里即为 28f5bed704dc&lt;/li>
 &lt;li>resolv.conf：里面包含了 DNS 服务器的 IP，来自于 hostconfig.json，由 docker create 命令的&amp;ndash;dns 参数指定，没有指定的话，docker 会根据容器的网络类型生成一个默认的，一般是主机配置的 DNS 服务器或者是 docker bridge 的 IP。&lt;/li>
 &lt;li>resolv.conf.hash：resolv.conf 文件的校验码&lt;/li>
@@ -452,62 +442,62 @@ workdir=/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a32651
 &lt;p>Note：除了日志文件外，其它文件在每次容器启动的时候都会自动生成，所以修改他们的内容后只会在当前容器运行的时候生效，容器重启后，配置又都会恢复到默认的状态&lt;/p>
 &lt;h2 id="准备-oci-所需的-bundle">准备 OCI 所需的 bundle&lt;/h2>
 &lt;p>bundle 被 docker 放在 /run/containerd/ 目录下，展示如下：&lt;/p>
-&lt;pre>&lt;code>[root@lichenhao containerd]# pwd
-/run/containerd
-[root@lichenhao containerd]# tree
-.
-├── containerd.sock
-├── io.containerd.runtime.v1.linux
-│ └── moby
-│ └── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-│ ├── config.json
-│ ├── init.pid
-│ ├── log.json
-│ └── rootfs
-└── io.containerd.runtime.v2.task
-&lt;/code>&lt;/pre>
-&lt;h2 id="准备-io-文件">准备 IO 文件&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao containerd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># pwd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/containerd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao containerd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── containerd.sock
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.runtime.v1.linux
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── moby
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── config.json
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── init.pid
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── log.json
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── rootfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── io.containerd.runtime.v2.task
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="准备-io-文件">准备 IO 文件&lt;/h2>
 &lt;p>容器运行所需的 IO 文件被 docker 放在 /run/docker/containerd/* 目录下&lt;/p>
-&lt;pre>&lt;code>[root@lichenhao containerd]# pwd
-/run/docker/containerd
-[root@lichenhao containerd]# tree
-.
-└── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-├── init-stdin
-└── init-stdout
-&lt;/code>&lt;/pre>
-&lt;p>init-stdin 文件用来向容器的 stdin 中写数据，init-stdout 用来接受容器的 stdout。如果使用 echo &amp;ldquo;XXX&amp;rdquo; &amp;gt; init-stdin 向容器的标准输入写入内容，则容器会接收该命令，并返回执行结果给 init-stdout。与此同时 cat init-stdout 的话，在宿主机就可以显示容器内在标准输出的内容。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao containerd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># pwd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/docker/containerd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao containerd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├── init-stdin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── init-stdout
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>init-stdin 文件用来向容器的 stdin 中写数据，init-stdout 用来接受容器的 stdout。如果使用 echo &amp;ldquo;XXX&amp;rdquo; &amp;gt; init-stdin 向容器的标准输入写入内容，则容器会接收该命令，并返回执行结果给 init-stdout。与此同时 cat init-stdout 的话，在宿主机就可以显示容器内在标准输出的内容。&lt;/p>
 &lt;p>docker exec 命令就是通过这两个文件，来让宿主机与容器进行交互，效果如下：
 &lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xgxt2w/1616121764249-a0867491-440e-4f2d-a52d-186aceee3136.png" alt="">&lt;/p>
 &lt;h2 id="正常启动容器">正常启动容器&lt;/h2>
 &lt;p>容器正常启动后，会在 /run/docker/runtime-runc/moby/* 目录中创建该容器的状态文件 state.json 。该文件包含当前容器详细的配置及状态信息。其中也包括 bundle 路径等等。&lt;/p>
-&lt;pre>&lt;code>[root@lichenhao moby]# pwd
-/run/docker/runtime-runc/moby
-[root@lichenhao moby]# tree
-.
-└── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
-└── state.json
-[root@lichenhao moby]# cat 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10/state.json | jq .
-{
-&amp;quot;id&amp;quot;: &amp;quot;28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&amp;quot;,
-&amp;quot;init_process_pid&amp;quot;: 32221,
-&amp;quot;init_process_start&amp;quot;: 355109292,
-&amp;quot;created&amp;quot;: &amp;quot;2020-06-24T04:03:19.300399652Z&amp;quot;,
-&amp;quot;config&amp;quot;: {
-&amp;quot;no_pivot_root&amp;quot;: false,
-&amp;quot;parent_death_signal&amp;quot;: 0,
-&amp;quot;rootfs&amp;quot;: &amp;quot;/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged&amp;quot;,
-&amp;quot;readonlyfs&amp;quot;: false,
-&amp;quot;rootPropagation&amp;quot;: 0,
-&amp;quot;mounts&amp;quot;: [
-{
-.......
-},
-.....
-&amp;quot;bundle=/run/containerd/io.containerd.runtime.v1.linux/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&amp;quot;
-......
-}
-&lt;/code>&lt;/pre></description></item><item><title>Docs: Docker 部署</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/docker/docker-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/docker/docker-%E9%83%A8%E7%BD%B2/</guid><description>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao moby&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># pwd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/docker/runtime-runc/moby
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao moby&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── state.json
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao moby&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10/state.json | jq .&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;id&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;init_process_pid&amp;#34;&lt;/span>: 32221,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;init_process_start&amp;#34;&lt;/span>: 355109292,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;created&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2020-06-24T04:03:19.300399652Z&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;config&amp;#34;&lt;/span>: &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;no_pivot_root&amp;#34;&lt;/span>: false,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;parent_death_signal&amp;#34;&lt;/span>: 0,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;rootfs&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;readonlyfs&amp;#34;&lt;/span>: false,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;rootPropagation&amp;#34;&lt;/span>: 0,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;mounts&amp;#34;&lt;/span>: &lt;span style="color:#f92672">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.....
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;bundle=/run/containerd/io.containerd.runtime.v1.linux/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Docker 部署</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/docker/docker-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/docker/docker-%E9%83%A8%E7%BD%B2/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -810,7 +800,7 @@ COMMAND：&lt;/p>
 &lt;p>Note：在使用 -v 方式应用 Storage，并且指定 SRC 为宿主机上的具体路径 ，则该 Storage 信息会记录在 /var/lib/docker/containers/ID/hostconfig.json 文件的 &lt;code>.HostConfig.Binds&lt;/code> 字段下，通过 docker inspect ID 命令查看的容器信息中，也会显示在 .HostConfig.Binds 字段下面。&lt;/p>
 &lt;p>而使用 &amp;ndash;mount 方式应用的 Storage，则会将信息记录在 hostconfig.json 文件的 &lt;code>.HostConfig.Mounts&lt;/code> 下。&lt;/p>
 &lt;p>挂载一个单独文件的方法&lt;/p>
-&lt;p>docker run -v /HOST/PATH/FILE:/CONTAINER/PATH/FILE #这样就把 host 上的 FILE 挂载到 container 指定路径下的 FILE 上去了。FILE 可以不同名&lt;/p>
+&lt;p>docker run -v /HOST/PATH/FILE:/CONTAINER/PATH/FILE # 这样就把 host 上的 FILE 挂载到 container 指定路径下的 FILE 上去了。FILE 可以不同名&lt;/p>
 &lt;h1 id="修改-docker--v-挂载的文件时遇到的问题">修改 docker -v 挂载的文件时遇到的问题&lt;/h1>
 &lt;p>在启动 docker 容器时，为了保证一些基础配置与宿主机保持同步，通常需要将这些配置文件挂载进 docker 容器，例如/etc/resolv.conf、/etc/hosts、/etc/localtime 等文件。&lt;/p>
 &lt;p>当这些配置变化时，我们通常会修改这些文件。但是此时遇到了一个问题：&lt;/p>

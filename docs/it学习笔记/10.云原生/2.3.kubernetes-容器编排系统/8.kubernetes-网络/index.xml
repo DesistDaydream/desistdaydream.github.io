@@ -67,122 +67,7 @@
 &lt;li>
 &lt;p>Kubenet 插件：使用 bridge 和 host-local CNI 插件实现了基本的 cbr0&lt;/p>
 &lt;/li>
-&lt;/ul></description></item><item><title>Docs: CNI</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/containernetworking/cni">GitHub 项目&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://github.com/containernetworking/cni/blob/master/SPEC.md">GitHub,containernetworking-cni-规范&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>CNI 与 [OCI](/docs/IT学习笔记/10.云原生/2.1.容器/Open%20Containers%20Initiative(开放容器倡议).md Containers Initiative(开放容器倡议).md) 是类似的东西，都是一种规范。&lt;/p>
-&lt;p>&lt;strong>Container Network Interface(容器网络接口，简称 CNI)&lt;/strong> 是一个 CNCF 项目，用于编写为 Linux 容器配置网络接口的插件。CNI 由两部分组成：&lt;/p>
-&lt;ul>
-&lt;li>CNI Specification(规范)&lt;/li>
-&lt;li>CNI Libraries(库)&lt;/li>
-&lt;/ul>
-&lt;p>由于 CNI 仅仅关注在容器的网络连接以及在删除容器时移出通过 CNI 分配的网络资源。所以，CNI 具有广泛的支持，并且该规范易于实现。&lt;/p>
-&lt;h2 id="cni-specification规范">CNI Specification(规范)&lt;/h2>
-&lt;p>每个 CNI 插件必须由 二进制文件 来实现，且这些文件应该可以被容器管理系统(比如 Kubernetes)调用。&lt;/p>
-&lt;p>CNI 插件负责将网络接口插入容器网络名称空间(例如 veth 对的一端)中，并在主机上进行任何必要的更改(例如将 veth 的另一端连接到网桥)。然后通过调用适当的 IPAM 插件，将 IP 分配给接口并设置与 IP 地址管理部分一致的路由。&lt;/p>
-&lt;h2 id="cni-libraries库">CNI Libraries(库)&lt;/h2>
-&lt;p>任何程序都可以调用 CNI 库来实现容器网络，比如 &lt;a href="https://github.com/containerd/nerdctl">nerdctl&lt;/a>、kubelet 等&lt;/p>
-&lt;h1 id="cni-的部署和使用方式">CNI 的部署和使用方式&lt;/h1>
-&lt;blockquote>
-&lt;p>官方文档：&lt;a href="https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#installation">https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#installation&lt;/a>&lt;/p>
-&lt;/blockquote>
-&lt;p>CNI 规范与编程语言无关，并且 CNI 自身仅仅维护标准配置文件和基础插件，想要使用 CNI 来实现容器网络，只需根据标准，调用 CNI 库，即可在程序中实现(比如 nerdctl、kubelet 等)。这些通过 CNI 库实现了容器网络的程序，通过 **CNI 插件 **为其所启动的容器，创建关联网络。&lt;/p>
-&lt;p>就拿 kubelet 举例,&lt;a href="https://github.com/kubernetes/kubernetes/blob/release-1.22/cmd/kubelet/app/options/container_runtime.go">https://github.com/kubernetes/kubernetes/blob/release-1.22/cmd/kubelet/app/options/container_runtime.go&lt;/a>&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">const&lt;/span> (
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// When these values are updated, also update test/utils/image/manifest.go
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">defaultPodSandboxImageName&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;k8s.gcr.io/pause&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">defaultPodSandboxImageVersion&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;3.5&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">var&lt;/span> (
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">defaultPodSandboxImage&lt;/span> = &lt;span style="color:#a6e22e">defaultPodSandboxImageName&lt;/span> &lt;span style="color:#f92672">+&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;:&amp;#34;&lt;/span> &lt;span style="color:#f92672">+&lt;/span> &lt;span style="color:#a6e22e">defaultPodSandboxImageVersion&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// NewContainerRuntimeOptions will create a new ContainerRuntimeOptions with
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// default values.
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">NewContainerRuntimeOptions&lt;/span>() &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">ContainerRuntimeOptions&lt;/span> {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">dockerEndpoint&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">runtime&lt;/span>.&lt;span style="color:#a6e22e">GOOS&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;windows&amp;#34;&lt;/span> {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">dockerEndpoint&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;unix:///var/run/docker.sock&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">ContainerRuntimeOptions&lt;/span>{
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ContainerRuntime&lt;/span>: &lt;span style="color:#a6e22e">kubetypes&lt;/span>.&lt;span style="color:#a6e22e">DockerContainerRuntime&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">DockerEndpoint&lt;/span>: &lt;span style="color:#a6e22e">dockerEndpoint&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">DockershimRootDirectory&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/var/lib/dockershim&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">PodSandboxImage&lt;/span>: &lt;span style="color:#a6e22e">defaultPodSandboxImage&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ImagePullProgressDeadline&lt;/span>: &lt;span style="color:#a6e22e">metav1&lt;/span>.&lt;span style="color:#a6e22e">Duration&lt;/span>{&lt;span style="color:#a6e22e">Duration&lt;/span>: &lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#f92672">*&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Minute&lt;/span>},
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">CNIBinDir&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/opt/cni/bin&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">CNIConfDir&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/etc/cni/net.d&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">CNICacheDir&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/var/lib/cni/cache&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到，kubelet 在启动时通过 /etc/cni/net.d/ 目录下的配置文件来加载网络插件。当启动一个 Pod 时，kubelet 调用该目录下的网络插件配置后，由网络插件代为给 Pod 地址分配，接口创建，网络创建等&lt;/p>
-&lt;p>在部署 Kubernetes 的 CNI 插件时，有一个步骤是安装 kubernetes-cni 包，其目的就是在宿主机上安装 CNI 插件所需的基础二进制文件。这些文件一般保存在 /opt/cni/bin/ 目录中。&lt;/p>
-&lt;p>kubelet 配置 pod 网络时，首先会读取下 /etc/cni/net.d/_ 目录下的配置，查看当前所使用的 CNI 插件及插件参数，比如现在是 flannel ，那么 flannel 会将 /run/flannel/subnet.env 文件的配置信息传递给 kubelet ，然后 kubelet 使用 /opt/cni/bin/_ 目录中的二进制文件，来处理处理 pod 的网络信息。&lt;/p>
-&lt;p>注意：各种 CNI 的 cidr 配置由 controller-manager 维护，&lt;code>--cluster-cidr=10.244.0.0/16&lt;/code> 与 &lt;code>--node-cidr-mask-size=24&lt;/code> 这俩参数用来指定 cidr 的范围。&lt;/p>
-&lt;p>同时 CNI 还可以被 nerdctl 工具使用，作为直接使用 Containerd 启动容器的网络接口，让容器附加在通过 CNI 的 plugin 创建出来的网络设备上。nerdctl 同样会读取 CNI 配置文件，并通过 CNI 插件创建网络设备之后，nerdctl 再将容器关联到网络设备上。&lt;/p>
-&lt;h2 id="cni-插件说的通俗易懂点其实就是两个主要功能">CNI 插件说的通俗易懂点，其实就是两个主要功能&lt;/h2>
-&lt;ol>
-&lt;li>路由表维护&lt;/li>
-&lt;li>发现路由规则&lt;/li>
-&lt;li>生成路由表&lt;/li>
-&lt;li>流量处理(如果需要的话)&lt;/li>
-&lt;/ol>
-&lt;h1 id="cni-插件列表">CNI 插件列表&lt;/h1>
-&lt;blockquote>
-&lt;p>官方文档：&lt;a href="https://github.com/containernetworking/plugins">https://github.com/containernetworking/plugins&lt;/a>&lt;/p>
-&lt;/blockquote>
-&lt;p>下面仅列出由 CNI 团队维护的一些参考和示例插件。CNI 的基础可执行文件一般分为三类：&lt;/p>
-&lt;p>第一类：Main 插件，用于创建具体的网络设备。
-比如，bridge、ipvlan、loopback、macvlan、ptp(Veth Pair)、vlan 等。都属于“网桥”类型的 CNI 插件，所以在具体实现中，往往会调用 bridge 这个二进制文件。&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>bridge&lt;/strong> # 创建一个桥设备，向其中添加主机和容器。&lt;/li>
-&lt;li>&lt;strong>ipvlan&lt;/strong> # Adds an ipvlan interface in the container.&lt;/li>
-&lt;li>&lt;strong>loopback&lt;/strong> # Set the state of loopback interface to up.&lt;/li>
-&lt;li>&lt;strong>macvlan&lt;/strong> # Creates a new MAC address, forwards all traffic to that to the container.&lt;/li>
-&lt;li>&lt;strong>ptp&lt;/strong> # 创建一对 veth 设备&lt;/li>
-&lt;li>&lt;strong>vlan&lt;/strong> # Allocates a vlan device.&lt;/li>
-&lt;li>&lt;strong>host-device&lt;/strong> # Move an already-existing device into a container.&lt;/li>
-&lt;/ul>
-&lt;p>第二类：IPAM 插件(IP Address Management)，用于负责分配 IP 地址。
-比如，dchp、host-local&lt;/p>
-&lt;ul>
-&lt;li>dhcp：这个文件会向 DHCP 服务器发起请求；&lt;/li>
-&lt;li>host-local，会使用预先配置的 IP 地址段来进行分配&lt;/li>
-&lt;/ul>
-&lt;p>第三类：其他插件
-比如 flannel、tuning、portmap、bandwidth&lt;/p>
-&lt;ul>
-&lt;li>flannel：专门为 Flannel 项目提供的 CNI 插件。早期的默认插件，叠加网络，不支持网络策略(即定义哪个 Pod 访问哪个 Pod 等策略)&lt;/li>
-&lt;li>tuning：是一个通过 sysctl 调整网络设备参数的二进制文件&lt;/li>
-&lt;li>portmap：是一个通过 iptables 配置端口映射的二进制文件&lt;/li>
-&lt;li>bandwidth：是一个使用 Token Bucket Filter(TBF)来进行限流的二进制文件&lt;/li>
-&lt;/ul>
-&lt;h3 id="第三方-plugin">第三方 plugin&lt;/h3>
-&lt;blockquote>
-&lt;p>可用的第三方插件列表在这里：&lt;a href="https://github.com/containernetworking/cni#3rd-party-plugins">https://github.com/containernetworking/cni#3rd-party-plugins&lt;/a>&lt;/p>
-&lt;/blockquote>
-&lt;p>下面是一些常用的第三方 CNI 简介&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>calico&lt;/strong> # 三层隧道网络，基于 BGP 协议，即支持网络配置也支持网络策略&lt;/li>
-&lt;li>**Cilium - BPF &amp;amp; XDP for containers **# 基于 eBPF 实现的，性能很好&lt;/li>
-&lt;li>等&lt;/li>
-&lt;/ul>
-&lt;h2 id="各种-cni-的对比">各种 CNI 的对比&lt;/h2>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/afl2qt/1616118670278-ee95f4dd-7834-4fbc-82e2-e8b9ddddcf33.jpeg" alt="">&lt;/p>
-&lt;h1 id="cni-关联文件">CNI 关联文件&lt;/h1>
-&lt;p>**/etc/cni/net.d/* **# 默认配置文件保存目录
-&lt;strong>/opt/cni/bin/*&lt;/strong> # 默认 CNI 插件保存目录
-&lt;strong>/var/lib/cni/*&lt;/strong> # 默认 CNI 运行时产生的数据目录&lt;/p></description></item><item><title>Docs: CNI</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/</guid><description/></item><item><title>Docs: Gateway API</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/gateway-api/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/gateway-api/</guid><description>
+&lt;/ul></description></item><item><title>Docs: CNI</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/cni/</guid><description/></item><item><title>Docs: Gateway API</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/gateway-api/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/gateway-api/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -190,406 +75,56 @@
 &lt;li>&lt;a href="https://github.com/kubernetes-sigs/gateway-api/">GitHub 项目，kubernetes-sigs/gateway-api&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://lib.jimmysong.io/kubernetes-handbook/service-discovery/gateway/">云原生资料库-Kubernetes 基础教程，服务发现与路由-GatewayAPI&lt;/a>&lt;/li>
 &lt;/ul>
-&lt;/blockquote></description></item><item><title>Docs: Ingress</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/ingress/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/ingress/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/services-networking/ingress/">官方文档,概念-服务，负载均衡和网络-Ingress&lt;/a>&lt;/li>
-&lt;li>参考：&lt;a href="https://zhangguanzhang.github.io/2018/10/06/IngressController/">https://zhangguanzhang.github.io/2018/10/06/IngressController/&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>Ingress 可以简单理解为是 Service 的 Service，是 Kubernetes 对“反向代理”概念的抽象。是一个专门给 kubernetes 用的 haproxy&lt;/p>
-&lt;p>举个例子，假如我现在有这样一个站点：&lt;a href="https://cafe.example.com">https://cafe.example.com&lt;/a>。其中，&lt;a href="https://cafe.example.com/coffee">https://cafe.example.com/coffee&lt;/a>，对应的是“咖啡点餐系统”。而，&lt;a href="https://cafe.example.com/tea">https://cafe.example.com/tea&lt;/a>，对应的则是“茶水点餐系统”。这两个系统，分别由名叫 coffee 和 tea 这样两个 Deployment 来提供服务。&lt;/p>
-&lt;p>那么现在，我如何能使用 Kubernetes 来创建一个代理系统，从而实现当用户访问不同的域名时，能够访问到不同的 Deployment 呢？&lt;/p>
-&lt;p>上述功能，在 Kubernetes 里就需要通过 Ingress 对象来描述&lt;/p>
-&lt;p>Service 都是工作在 4 层模型上的，如果在 k8s 上的应用基于 https 来提供服务，那么在调度到 pod 上的时候就需要使用 7 层调度，这时候可以创建一个独特的 pod，略过 service，直接通过这个独特的 pod 进行反向代理把请求调度给用户，把 service 放在这个特殊的 pod 前端，但是这样经过的调度算法过多，导致性能过差；这时候可以把整个独特的 Pod 通过设置，把端口直接暴露，作为 node 上的一个进程来占用一个端口使用，然后通过 daemonset 给集群中某些需要的节点各自部署一个该 Pod(可以给一部分 node 加污点不让 pod 调度到此，并让该独特的 pod 容忍这个污点并调度上来)&lt;/p>
-&lt;p>这种独特的 Pod 统称 IngressController，由于 Pod 都是无状态的，随时可能会被摧毁后重建，这时候 HAProxy 和 Nginx 基于配置文件中 IP 地址的方式，在云环境下就没法用了。这时候可以创建一个 Service 关联上后端 Pod 与 Ingress Controller，该 Service 不做代理，仅作为分类来用，可以让 Ingress Controller 来正确找到自己所管理提供服务的 Pod。&lt;/p>
-&lt;p>为了让 Service 把后端 Pod 的信息能正常反馈给 Ingress Controller，k8s 有一种专门的对象叫做 Ingress，就是做这事的。Ingress 这个对象作为 Pod 与 IngressController 之间的桥梁，可以把 service 分好类的 Pod 识别出来，把 Pod 生成的 IP 地址变成配置信息注入到 Ingress Controller 中，这时 Ingress Controller 就可以动态变化自己所管理的后端 Pod。&lt;/p>
-&lt;h1 id="ingress-controller">Ingress Controller&lt;/h1>
-&lt;p>Ingress Controller 就是 Ingress 资源的控制器，用来让 Ingress 可以按照设定的状态来运行。同时可以当做具有类似 ngxin、haproxy 等的反向代理程序。&lt;/p>
-&lt;p>可以实现 IngressController 功能的工具有 HAProxy，Nginx，Traefik，Envoy 等等；HAProxy 是最不好用的，Nginx 还可以，Traefik 适应性很好，Envoy 为微服务而生
-&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yq5gfx/1616117925361-31b9eb01-ac78-46e0-b300-1c179dfa9300.png" alt="">
-工作模式：&lt;/p>
-&lt;ol>
-&lt;li>IngressController 以 Pod 方式运行于 Kubernetes 集群之上，并时刻监听 Ingress 对象的状态&lt;/li>
-&lt;li>创建完 Ingress 对象后，Ingress 会通过 &lt;code>.spec.rules.host&lt;/code> 字段定义用户的访问入口，然后通过 &lt;code>.spec.rules.http.paths.path&lt;/code> 字段进行 7 层转发
-&lt;ol>
-&lt;li>host 字段类似 ngxin 配置里 ngx_http_core_module 模块的 service 字段 ，path 字段类似 nginx 配置里的 location,详见 2.nginx.note。&lt;/li>
-&lt;/ol>
-&lt;/li>
-&lt;li>Ingress 对象会关联后端 Service，并把所有字段下的信息以及采集到的 Service 的信息传递给 IngressControlle&lt;/li>
-&lt;li>IngressController 会根据 Ingress 传递的信息更新自己的配置文件
-&lt;ol>
-&lt;li>IngressController 的配置文件可以理解为 Nginx 或者 HAproxy 里的配置文件，所以可以把 IngressController 理解为 Nginx 或者 HAProxy。也可以直接把 Ingress 这个对象直接理解为一个配置文件，只不过这个配置文件是动态变化的。&lt;/li>
-&lt;/ol>
-&lt;/li>
-&lt;li>client 通过 IngressController 所监听的端口进行访问，IngressController 根据从 Ingress 拿到的配置信息把用户的访问请求直接转发到信息中的 pod 上(这种转发会绕过 service，service 仅仅用于给 Ingress 提供其所关联的 endpoint 的 pod 的信息)
-&lt;ol>
-&lt;li>IngressController 监听的是 80 端口，那么可以使用 Ingress 中 host 字段传递过来的 cafe.example.com 域名进行访问
-&lt;ol>
-&lt;li>比如：curl &amp;ndash;resolve cafe.example.com:80:IngressControllerIP &lt;a href="http://cafe.example.com:80/tea">http://cafe.example.com:80/tea&lt;/a>&lt;/li>
-&lt;/ol>
-&lt;/li>
-&lt;li>如果访问到了在 Ingress 的 role 字段中未定义的域名，则一般会返回 404 错误，可以在 IngressController 的启动命令加一条 &amp;ndash;default-backend-service=SERVICE 参数来设定一个当匹配域名失败的时候，会为用户返回定义的 SERVICE 下的 Pod 中的页面&lt;/li>
-&lt;/ol>
-&lt;/li>
-&lt;li>为了保证 IngressController 的高可用，可以创建多个 replicas，并在 IngressController 前面放置负载均衡设备，既然 IngressController 是以 Pod 形式出现的，那么就可以创建一个 Service 关联到这些 Pod 上来，或者直接使用其余的负载均衡功能。然后用户直接访问负载均衡的 VIP 即可。&lt;/li>
-&lt;/ol>
-&lt;h2 id="ingress-controller-高可用">Ingress Controller 高可用&lt;/h2>
-&lt;p>Ingress Controller 到集群内的路径这部分都有负载均衡了,我们比较关注部署了 Ingress Controller 后,外部到它这段的流量路径怎么高可用?&lt;/p>
-&lt;p>流量从入口到 Ingress Controller 的 Pod 有下面几种方式：&lt;/p>
-&lt;ul>
-&lt;li>type 为 LoadBalancer 的时候手写 externalIPs 很鸡肋,后面会再写文章去讲它&lt;/li>
-&lt;li>type 为 LoadBalancer 的时候只有云厂商支持分配公网 ip 来负载均衡,LoadBalancer 公开的每项服务都将获得自己的 IP 地址,但是需要收费,自己建立集群想使用它的话得部署 metaLB。&lt;/li>
-&lt;li>不创建 svc,pod 直接用 hostport,效率等同于 hostNetwork,如果不代理四层端口还好,代理了的话每增加一个四成端口都需要修改 pod 的 template 来滚动更新来让 nginx bind 的四层端口能映射到宿主机上&lt;/li>
-&lt;li>Nodeport,端口不是 web 端口(但是可以修改 Nodeport 的范围改成 web 端口),如果进来流量负载到 Nodeport 上可能某个流量路线到某个 node 上的时候因为 Ingress Controller 的 pod 不在这个 node 上,会走这个 node 的 kube-proxy 转发到 Ingress Controller 的 pod 上,多走一趟路&lt;/li>
-&lt;li>不创建 svc,效率最高,也能四层负载的时候不修改 pod 的 template,唯一要注意的是 hostNetwork: true 下 pod 会继承宿主机的网络协议,也就是使用了主机的 dns,会导致 svc 的请求直接走宿主机的上到公网的 dns 服务器而非集群里的 dns server,需要设置 pod 的 dnsPolicy: ClusterFirstWithHostNet 即可解决&lt;/li>
-&lt;li>可以使用 daemonset 的方式部署 IngressController 的 pod，然后配置 hostNetwork，直接让 IngressController 的 pod 的 ip 直接暴露在所在 node 上，然后前端配置外部负载均衡设备负载 ingressController 所在 node，不用 service 资源来关联 pod，以便节省网络开销。&lt;/li>
-&lt;li>当然，如果 node 很多，也可以通过 label 让 IngressController 运行在指定的 node 上，然后只负载指定的几个 node。&lt;/li>
-&lt;/ul>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>---
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">xxx&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dnsPolicy&lt;/span>: &lt;span style="color:#ae81ff">ClusterFirstWithHostNet&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostNetwork&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>已经部署的 deploy 的话使用 patch 修改为 hostNetwork&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl -n ingress-nginx &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> patch deploy nginx-ingress-controller &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -p &lt;span style="color:#e6db74">&amp;#39;{&amp;#34;spec&amp;#34;:{&amp;#34;template&amp;#34;:{&amp;#34;spec&amp;#34;:{&amp;#34;dnsPolicy&amp;#34;:&amp;#34;ClusterFirstWithHostNet&amp;#34;,&amp;#34;hostNetwork&amp;#34;:true}}}}&amp;#39;&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>部署方式没多大区别开心就好&lt;/p>
-&lt;ul>
-&lt;li>daemonSet + nodeSeletor&lt;/li>
-&lt;li>deploy 设置 replicas 数量 + nodeSeletor + pod 互斥&lt;/li>
-&lt;/ul>
-&lt;p>client 通过域名，最后导向到 SLB，负载到三个 node 上，三个 node 都部署了 hostNetwork 的 ingress controller，然后 ingress controller 根据 server_name 反向代理相关的 svc 的 http 服务&lt;/p>
-&lt;ul>
-&lt;li>所以可以一个 vip 飘在拥有存活的 controller 的宿主机上,云上的话就用 slb 来负载代替 vip,自己有条件有 F5 之类的硬件 LB 一样可以代替 VIP&lt;/li>
-&lt;li>最后说说域名请求指向它,如果部署在内网或者办公室啥的,内网有 dns server 的话把 ing 的域名全部解析到 ingress controller 的宿主机 ip(或者 VIP,LB 的 ip)上,否则要有人访问每个人设置/etc/hosts 才能把域名解析来贼麻烦,如果没有 dns server 可以跑一个 external-dns,它的上游 dns 是公网的 dns 服务器,办公网内机器的 dns server 指向它即可,云上的话把域名请求解析到对应 ip 即可&lt;/li>
-&lt;li>traefik 和 ingress nginx 类似,不过它用 go 实现的并且好像它不支持四层代理,如果上微服务可以上 istio,没接触过它,不知道原理是否如此&lt;/li>
-&lt;li>ingress nginx 的 log 里会一直刷找不到 ingress-nginx 的 svc 不处理的话会狂刷 log 导致机器 load 过高,创建一个同名的 svc 即可解决,例如创建一个不带选择器 clusterip 为 null 的&lt;/li>
-&lt;li>get ing 输出的时候 ADDRESS 一栏会为空，ingress-nginx 加参数&amp;ndash;report-node-internal-ip-address 即可解决&lt;/li>
-&lt;li>使用了 rancher 在负载均衡也就是 ingress 页面，ingress 状态不为 Active 的话在 ingress-nginx 的参数配置&amp;ndash;publish-service 和&amp;ndash;publish-status-address&lt;/li>
-&lt;/ul>
-&lt;h2 id="多-ingress-controllers">多 Ingress Controllers&lt;/h2>
-&lt;p>当然，一个集群可以多组 ingress controller，或者不同的 ingress controller。拿 ingress nginx 举例。&lt;/p>
-&lt;p>假如公司的内网组了 vpn，办公网和机房的 node 的网络打通，我们就需要两组 ingress controller 了(不一定需要一样，例如 ingress nginx 和 traefik)，例如下面&lt;/p>
-&lt;ul>
-&lt;li>硬件 F5 对外暴露了一组业务的 ingress 给用户&lt;/li>
-&lt;li>而 it 的研发听说 k8s 部署方便，想把服务部署到 k8s 上，然后这些服务想对办公网的同事让 http 访问，压力不高。我们使用低成本的 keepalived 飘在内网组的 node 上&lt;/li>
-&lt;li>两组 deploy 使用 nodeSelector 固定在两组不同的 label 的 node 上&lt;/li>
-&lt;/ul>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span> +---------------------------+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> -+----------&amp;gt;+ hostNetwork的ingress nginx|
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> / +---------------------------+ node1
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> /
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> /
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> / +---------------------------+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+--------+ / | |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| client +-----------&amp;gt; F5 --------------&amp;gt;+ hostNetwork的ingress nginx|
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+--------+ &lt;span style="color:#ae81ff">\ &lt;/span> +---------------------------+ node1
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#ae81ff">\ &lt;/span> +---------------------------+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> -------------&amp;gt;+hostNetwork的ingress nginx |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +---------------------------+ node3
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +---------------------------+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> -+----------&amp;gt;+ hostNetwork的ingress nginx|
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> / +---------------------------+ node4
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> /
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> /
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> / +---------------------------+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+--------+ / | |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| client +-----------&amp;gt; SLB&lt;span style="color:#f92672">(&lt;/span>or VIP&lt;span style="color:#f92672">)&lt;/span> --------&amp;gt;+ hostNetwork的ingress nginx|
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+--------+ &lt;span style="color:#ae81ff">\ &lt;/span> +---------------------------+ node5
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#ae81ff">\ &lt;/span> +---------------------------+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> -------------&amp;gt;+ hostNetwork的ingress nginx|
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +---------------------------+ node6
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们需要一个 svc 供内网服务，只需要创建该 ingress 的时候添加一个 annotation&lt;/p>
-&lt;pre>&lt;code>apiVersion: networking.k8s.io/v1beta1
-kind: Ingress
-metadata:
-name: it-work
-annotations:
-kubernetes.io/ingress.class: &amp;quot;nginx-internal&amp;quot;
-spec:
-tls:
-- secretName: tls-secret
-rules:
-- http:
-paths:
-- backend:
-serviceName: it-work-svc
-servicePort: 8080
-&lt;/code>&lt;/pre>
-&lt;p>而两组的 ingress controller 的该选项的值不同即可&lt;/p>
-&lt;pre>&lt;code>$ docker run --rm --entrypoint /nginx-ingress-controller \
-quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.26.1 --help |&amp;amp; grep -A2 -- --ingress-class
---ingress-class string
-Name of the ingress class this controller satisfies.
-The class of an Ingress object is set using the annotation &amp;quot;kubernetes.io/ingress.class&amp;quot;.
-All ingress classes are satisfied if this parameter is left empty.
-&lt;/code>&lt;/pre>
-&lt;p>这个参数内网的那组我们就写 &amp;ndash;ingress-class=nginx-internal，面向公网的不能写和这个值一样，定义成另一个即可&lt;/p>
-&lt;h1 id="ingress-class">Ingress Class&lt;/h1>
-&lt;p>Ingress 可以由不同的控制器实现，每个 Ingress 对象都应该通过 &lt;code>spec.ingressClassName&lt;/code> 字段指定一个控制器&lt;/p>
-&lt;p>说白了，就是为 Ingress 分类，不通类的 Ingress 可以被不同的 Ingress Controller 引用。&lt;/p>
-&lt;p>Ingress Class 也是一个资源，当我们部署 Ingress Controller 时，程序通常都会指定一个想要生成的 IngressClass。&lt;/p>
-&lt;p>比如 Nginx Ingress Controller，通过 &lt;code>--controller-class&lt;/code> 命令行标志来生成一个名为 k8s.io/ingress-nginx 的 nginx 类的 IngressClass，效果如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># kubectl get ingressclasses.networking.k8s.io -A&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME CONTROLLER PARAMETERS AGE
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nginx k8s.io/ingress-nginx &amp;lt;none&amp;gt; 114m
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Ingress</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/ingress/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/ingress/</guid><description/></item><item><title>Docs: kube-proxy(实现 Service 功能的组件)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/overview/components/#kube-proxy">官方文档，概念-概述-Kubernetes 组件-kube-proxy&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>kube-proxy 可以转发 Service 的流量到 POD&lt;/p>
-&lt;p>kube-proxy 有三种模式，userspace、iptables、ipvs。&lt;/p>
-&lt;ul>
-&lt;li>service 在逻辑上代表了后端的多个 Pod，外界通过 service 访问 Pod。service 接收到的请求是如何转发到 Pod 的呢？这就是 kube-proxy 要完成的工作。接管系统的 iptables，所有到达 Service 的请求，都会根据 proxy 所定义的 iptables 的规则，进行 nat 转发&lt;/li>
-&lt;li>每个 Node 都会运行 kube-proxy 服务，它负责将访问 service 的 TCP/UPD 数据流转发到后端的容器。如果有多个副本，kube-proxy 会实现负载均衡。&lt;/li>
-&lt;li>每个 Service 的变动(创建，改动，摧毁)都会通知 proxy，在 proxy 所在的本节点创建响应的 iptables 规则，如果 Service 后端的 Pod 摧毁后重新建立了，那么就是靠 proxy 来把 pod 信息提供给 Service。&lt;/li>
-&lt;/ul>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cp8r8a/1616118387292-eec78059-6dc3-4131-a895-85ccae5711f3.jpeg" alt="">
-Note:&lt;/p>
-&lt;ul>
-&lt;li>kube-proxy 的 ipvs 模式为 lvs 的 nat 模型&lt;/li>
-&lt;li>如果想要在 ipvs 模式下从 VIP:nodePort 去访问就请你暴露的服务的话，需要将 VIP 的掩码设置为 /32。
-&lt;ul>
-&lt;li>参考 issue：&lt;a href="https://github.com/kubernetes/kubernetes/issues/75443">https://github.com/kubernetes/kubernetes/issues/75443&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;h2 id="kube-proxy-监控指标">kube-proxy 监控指标&lt;/h2>
-&lt;p>kube-proxy 在 10249 端口上暴露监控指标，通过 curl -s http://127.0.0.1:10249/metrics 命令即可获取 Metrics&lt;/p>
-&lt;h1 id="kube-proxy-配置">kube-proxy 配置&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/">官方文档,参考-组件工具-kube-proxy&lt;/a>(这里是命令行标志)&lt;/li>
-&lt;li>&lt;a href="https://kubernetes.io/docs/reference/config-api/kube-proxy-config.v1alpha1/">官方文档,参考-配置 APIs-kube-proxy 配置&lt;/a>(v1alpha1)(这里是配置文详解)&lt;/li>
-&lt;li>&lt;a href="https://pkg.go.dev/k8s.io/kube-proxy/config/v1alpha1#KubeProxyConfiguration">kube-proxy 代码(v1alpha1)&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>kube-proxy 可以通过 **命令行标志 **和 **配置文件 **来控制运行时行为。与 [kubelet 配置](/docs/IT学习笔记/10.云原生/2.3.Kubernetes%20 容器编排系统/2.Kubelet%20 节点代理/Kubelet%20 配置详解.md 节点代理/Kubelet 配置详解.md)一样，很多 命令行标志 与 配置文件 具有一一对应的关系。&lt;/p>
-&lt;h2 id="命令行标志详解">命令行标志详解&lt;/h2>
-&lt;p>&lt;strong>&amp;ndash;config=&lt;!-- raw HTML omitted -->&lt;/strong> # 加载配置文件的路径。&lt;/p>
-&lt;h2 id="配置文件详解">配置文件详解&lt;/h2>
-&lt;p>kubectl get configmaps -n kube-system kube-proxy -o yaml # 在 kubeadm 安装的集群中，kube-proxy 的配置保存在 configmap 中，通过 kubectl 命令进行查看&lt;/p></description></item><item><title>Docs: kube-proxy(实现 Service 功能的组件)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/</guid><description/></item><item><title>Docs: Kubernetes DNS</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kubernetes-dns/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kubernetes-dns/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/">官方文档，概念-服务,负载均衡,网络-service 与 pod 的 DNS&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>DNS 是 kubernetes 中 &lt;strong>Service Discovery(服务发现，简称 SD)&lt;/strong> 的重要实现方式，虽然 K8S SD 还可以通过其他协议和机制提供，但 DNS 是非常常用的、并且是强烈建议的附加组件。&lt;/p>
-&lt;p>Kubernetes 集群中创建的每个 &lt;strong>service 对象&lt;/strong> 和 &lt;strong>pod 对象&lt;/strong> 都会被分配一个 &lt;strong>DNS 名称&lt;/strong>，Kubernetes 中实现 DNS 功能的程序需要自动创建 &lt;strong>DNS Resource Records(域名解析服务的资源记录)&lt;/strong>。基于此，我们可以通过 DNS 名称连接我们部署到集群中的服务，而不用通过 IP 地址。&lt;/p>
-&lt;p>kubernetes 实现 DNS 的方式：新版本默认使用 &lt;a href="https://www.yuque.com/go/doc/33164774">CoreDNS&lt;/a>，1.11.0 之前使用的是 kube-dns。Kubernetes DNS 的实现必须符合既定的规范，规范详见 &lt;a href="https://www.yuque.com/go/doc/33165005">基于 Kubernetes DNS 的服务发现规范&lt;/a> 文章。&lt;/p>
-&lt;p>也就是说，任何可以用于实现 Kubernetes DNS 功能的应用程序，至少需要满足规范中描述的 Resource Records 格式标准。&lt;/p>
-&lt;h1 id="service-对象的-dns">Service 对象的 DNS&lt;/h1>
-&lt;h2 id="aaaaa-记录">A/AAAA 记录&lt;/h2>
-&lt;p>Normal(正常) Service(除了 Headless 类型以外的所有 Service) 会以 &lt;code>my-svc.my-namespace.svc.cluster-domain.example&lt;/code> 这种名字的形式被分配一个 DNS A 或 AAAA 记录，取决于服务的 IP 协议族。 该名称会解析成对应 Service 对象的 CLUSTER-IP。&lt;/p>
-&lt;p>Headless(无头) Service(没有 CLUSTER-IP) 也会以 &lt;code>my-svc.my-namespace.svc.cluster-domain.example&lt;/code> 这种名字的形式分配一个 DNS A 或 AAAA 记录。与 Normal Service 不同的是，这个记录会被解析成对应服务所选择的 Pod 的 IP 集合。&lt;/p>
-&lt;h2 id="srv-记录">SRV 记录&lt;/h2>
-&lt;p>Kubernetes 会为命名端口创建 SRV 记录，这些端口是普通服务或 无头服务的一部分。&lt;/p>
-&lt;p>对每个具有名称端口，SRV 记录具有 &lt;code>_my-port-name._my-port-protocol.my-svc.my-namespace.svc.cluster-domain.example&lt;/code> 这种形式。 对普通服务，该记录会被解析成端口号和域名：&lt;code>my-svc.my-namespace.svc.cluster-domain.example&lt;/code>。 对无头服务，该记录会被解析成多个结果，服务对应的每个后端 Pod 各一个； 其中包含 Pod 端口号和形为 &lt;code>auto-generated-name.my-svc.my-namespace.svc.cluster-domain.example&lt;/code> 的域名。&lt;/p>
-&lt;h1 id="pod-对象的-dns">Pod 对象的 DNS&lt;/h1>
-&lt;h2 id="aaaaa-记录-1">A/AAAA 记录&lt;/h2>
-&lt;p>一般情况下，Pod 对象的域名格式如下：
-&lt;code>Pod-IP-Address.NAMESPACE.pod.ClusterDomain&lt;/code>&lt;/p>
-&lt;p>例如，如果有一个 Pod 对象，IP 为 172.17.0.3，在 default 名称空间，集群域名为默认的 cluster.local。则该 Pod 的域名为：
-&lt;code>172-17-0-3.default.pod.cluster.local&lt;/code>&lt;/p>
-&lt;h2 id="pod-的-hostname-和-subdomain-字段">Pod 的 hostname 和 subdomain 字段&lt;/h2>
-&lt;p>当前，创建 Pod 时其主机名取自 Pod 的 &lt;code>metadata.name&lt;/code> 值。Pod 规约中包含一个可选的 &lt;code>hostname&lt;/code> 字段，可以用来指定 Pod 的主机名。 当这个字段被设置时，它将优先于 Pod 的名字成为该 Pod 的主机名。 举个例子，给定一个 &lt;code>hostname&lt;/code> 设置为 &amp;ldquo;&lt;code>my-host&lt;/code>&amp;rdquo; 的 Pod， 该 Pod 的主机名将被设置为 &amp;ldquo;&lt;code>my-host&lt;/code>&amp;quot;。Pod 规约还有一个可选的 &lt;code>subdomain&lt;/code> 字段，可以用来指定 Pod 的子域名。 举个例子，某 Pod 的 &lt;code>hostname&lt;/code> 设置为 “&lt;code>foo&lt;/code>”，&lt;code>subdomain&lt;/code> 设置为 “&lt;code>bar&lt;/code>”， 在名字空间 “&lt;code>my-namespace&lt;/code>” 中对应的完全限定域名（FQDN）为 “&lt;code>foo.bar.my-namespace.svc.cluster-domain.example&lt;/code>”。&lt;/p>
-&lt;p>示例：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Service&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">default-subdomain&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">clusterIP&lt;/span>: &lt;span style="color:#ae81ff">None&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ports&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">foo&lt;/span> &lt;span style="color:#75715e"># 实际上不需要指定端口号&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">1234&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">targetPort&lt;/span>: &lt;span style="color:#ae81ff">1234&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>---
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox1&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostname&lt;/span>: &lt;span style="color:#ae81ff">busybox-1&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">subdomain&lt;/span>: &lt;span style="color:#ae81ff">default-subdomain&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">busybox:1.28&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">command&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">sleep&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;3600&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>---
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox2&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostname&lt;/span>: &lt;span style="color:#ae81ff">busybox-2&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">subdomain&lt;/span>: &lt;span style="color:#ae81ff">default-subdomain&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">busybox:1.28&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">command&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">sleep&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;3600&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果某无头服务与某 Pod 在同一个名字空间中，且它们具有相同的子域名， 集群的 DNS 服务器也会为该 Pod 的全限定主机名返回 A 记录或 AAAA 记录。 例如，在同一个名字空间中，给定一个主机名为 “busybox-1”、 子域名设置为 “default-subdomain” 的 Pod，和一个名称为 “&lt;code>default-subdomain&lt;/code>” 的无头服务，Pod 将看到自己的 FQDN 为 &amp;ldquo;&lt;code>busybox-1.default-subdomain.my-namespace.svc.cluster-domain.example&lt;/code>&amp;quot;。 DNS 会为此名字提供一个 A 记录或 AAAA 记录，指向该 Pod 的 IP。 “&lt;code>busybox1&lt;/code>” 和 “&lt;code>busybox2&lt;/code>” 这两个 Pod 分别具有它们自己的 A 或 AAAA 记录。Endpoints 对象可以为任何端点地址及其 IP 指定 &lt;code>hostname&lt;/code>。&lt;/p>
-&lt;blockquote>
-&lt;p>**说明：**因为没有为 Pod 名称创建 A 记录或 AAAA 记录，所以要创建 Pod 的 A 记录 或 AAAA 记录需要 &lt;code>hostname&lt;/code>。没有设置 &lt;code>hostname&lt;/code> 但设置了 &lt;code>subdomain&lt;/code> 的 Pod 只会为 无头服务创建 A 或 AAAA 记录（&lt;code>default-subdomain.my-namespace.svc.cluster-domain.example&lt;/code>） 指向 Pod 的 IP 地址。 另外，除非在服务上设置了 &lt;code>publishNotReadyAddresses=True&lt;/code>，否则只有 Pod 进入就绪状态 才会有与之对应的记录。&lt;/p>
-&lt;/blockquote>
-&lt;h2 id="pod-的-sethostnameasfqdn-字段">Pod 的 setHostnameAsFQDN 字段&lt;/h2>
-&lt;p>&lt;strong>FEATURE STATE:&lt;/strong> &lt;code>Kubernetes v1.20 [beta]&lt;/code>
-&lt;strong>前置条件&lt;/strong>：&lt;code>SetHostnameAsFQDN&lt;/code> 特性门控 必须在 API 服务器 上启用。当你在 Pod 规约中设置了 &lt;code>setHostnameAsFQDN: true&lt;/code> 时，kubelet 会将 Pod 的全限定域名（FQDN）作为该 Pod 的主机名记录到 Pod 所在名字空间。 在这种情况下，&lt;code>hostname&lt;/code> 和 &lt;code>hostname --fqdn&lt;/code> 都会返回 Pod 的全限定域名。&lt;/p>
-&lt;blockquote>
-&lt;p>**说明：**在 Linux 中，内核的主机名字段（&lt;code>struct utsname&lt;/code> 的 &lt;code>nodename&lt;/code> 字段）限定 最多 64 个字符。
-如果 Pod 启用这一特性，而其 FQDN 超出 64 字符，Pod 的启动会失败。 Pod 会一直出于 &lt;code>Pending&lt;/code> 状态（通过 &lt;code>kubectl&lt;/code> 所看到的 &lt;code>ContainerCreating&lt;/code>）， 并产生错误事件，例如 &amp;ldquo;Failed to construct FQDN from pod hostname and cluster domain, FQDN &lt;code>long-FQDN&lt;/code> is too long (64 characters is the max, 70 characters requested).&amp;rdquo; （无法基于 Pod 主机名和集群域名构造 FQDN，FQDN &lt;code>long-FQDN&lt;/code> 过长，至多 64 字符，请求字符数为 70）。 对于这种场景而言，改善用户体验的一种方式是创建一个 准入 Webhook 控制器， 在用户创建顶层对象（如 Deployment）的时候控制 FQDN 的长度。&lt;/p>
-&lt;/blockquote>
-&lt;h2 id="pod-的-dns-策略">Pod 的 DNS 策略&lt;/h2>
-&lt;p>DNS 策略可以逐个 Pod 来设定。目前 Kubernetes 支持以下特定 Pod 的 DNS 策略。 这些策略可以在 Pod 规约中的 &lt;code>dnsPolicy&lt;/code> 字段设置：&lt;/p>
-&lt;ul>
-&lt;li>&amp;ldquo;&lt;code>Default&lt;/code>&amp;rdquo;: Pod 从运行所在的节点继承名称解析配置。参考 相关讨论 获取更多信息。&lt;/li>
-&lt;li>&amp;ldquo;&lt;code>ClusterFirst&lt;/code>&amp;rdquo;: 与配置的集群域后缀不匹配的任何 DNS 查询（例如 &amp;ldquo;&lt;a href="https://www.kubernetes.io">www.kubernetes.io&lt;/a>&amp;rdquo;） 都将转发到从节点继承的上游名称服务器。集群管理员可能配置了额外的存根域和上游 DNS 服务器。 参阅相关讨论 了解在这些场景中如何处理 DNS 查询的信息。&lt;/li>
-&lt;li>&amp;ldquo;&lt;code>ClusterFirstWithHostNet&lt;/code>&amp;quot;：对于以 hostNetwork 方式运行的 Pod，应显式设置其 DNS 策略 &amp;ldquo;&lt;code>ClusterFirstWithHostNet&lt;/code>&amp;quot;。&lt;/li>
-&lt;li>&amp;ldquo;&lt;code>None&lt;/code>&amp;rdquo;: 此设置允许 Pod 忽略 Kubernetes 环境中的 DNS 设置。Pod 会使用其 &lt;code>dnsConfig&lt;/code> 字段 所提供的 DNS 设置。 参见 Pod 的 DNS 配置节。&lt;/li>
-&lt;/ul>
-&lt;blockquote>
-&lt;p>&lt;strong>说明：&lt;/strong> &amp;ldquo;Default&amp;rdquo; 不是默认的 DNS 策略。如果未明确指定 &lt;code>dnsPolicy&lt;/code>，则使用 &amp;ldquo;ClusterFirst&amp;rdquo;。&lt;/p>
-&lt;/blockquote>
-&lt;p>下面的示例显示了一个 Pod，其 DNS 策略设置为 &amp;ldquo;&lt;code>ClusterFirstWithHostNet&lt;/code>&amp;quot;， 因为它已将 &lt;code>hostNetwork&lt;/code> 设置为 &lt;code>true&lt;/code>。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">default&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">busybox:1.28&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">command&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">sleep&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;3600&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">imagePullPolicy&lt;/span>: &lt;span style="color:#ae81ff">IfNotPresent&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">restartPolicy&lt;/span>: &lt;span style="color:#ae81ff">Always&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostNetwork&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dnsPolicy&lt;/span>: &lt;span style="color:#ae81ff">ClusterFirstWithHostNet&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="pod-的-dns-配置">Pod 的 DNS 配置&lt;/h2>
-&lt;p>Pod 的 DNS 配置可让用户对 Pod 的 DNS 设置进行更多控制。&lt;/p>
-&lt;p>&lt;code>dnsConfig&lt;/code> 字段是可选的，它可以与任何 &lt;code>dnsPolicy&lt;/code> 设置一起使用。 但是，当 Pod 的 &lt;code>dnsPolicy&lt;/code> 设置为 &amp;ldquo;&lt;code>None&lt;/code>&amp;rdquo; 时，必须指定 &lt;code>dnsConfig&lt;/code> 字段。用户可以在 &lt;code>dnsConfig&lt;/code> 字段中指定以下属性：&lt;/p>
-&lt;ul>
-&lt;li>&lt;code>nameservers&lt;/code>：将用作于 Pod 的 DNS 服务器的 IP 地址列表。 最多可以指定 3 个 IP 地址。当 Pod 的 &lt;code>dnsPolicy&lt;/code> 设置为 &amp;ldquo;&lt;code>None&lt;/code>&amp;rdquo; 时， 列表必须至少包含一个 IP 地址，否则此属性是可选的。 所列出的服务器将合并到从指定的 DNS 策略生成的基本名称服务器，并删除重复的地址。&lt;/li>
-&lt;li>&lt;code>searches&lt;/code>：用于在 Pod 中查找主机名的 DNS 搜索域的列表。此属性是可选的。 指定此属性时，所提供的列表将合并到根据所选 DNS 策略生成的基本搜索域名中。 重复的域名将被删除。Kubernetes 最多允许 6 个搜索域。&lt;/li>
-&lt;li>&lt;code>options&lt;/code>：可选的对象列表，其中每个对象可能具有 &lt;code>name&lt;/code> 属性（必需）和 &lt;code>value&lt;/code> 属性（可选）。 此属性中的内容将合并到从指定的 DNS 策略生成的选项。 重复的条目将被删除。&lt;/li>
-&lt;/ul>
-&lt;p>以下是具有自定义 DNS 设置的 Pod 示例：
-&lt;code>service/networking/custom-dns.yaml&lt;/code>&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">default&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">dns-example&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">nginx&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dnsPolicy&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;None&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dnsConfig&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">nameservers&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">1.2.3.4&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">searches&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">ns1.svc.cluster-domain.example&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">my.dns.search.suffix&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">options&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ndots&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">value&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">edns0&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>创建上面的 Pod 后，容器 &lt;code>test&lt;/code> 会在其 &lt;code>/etc/resolv.conf&lt;/code> 文件中获取以下内容：&lt;/p>
-&lt;pre>&lt;code>nameserver 1.2.3.4
-search ns1.svc.cluster-domain.example my.dns.search.suffix
-options ndots:2 edns0
-&lt;/code>&lt;/pre>
-&lt;p>对于 IPv6 设置，搜索路径和名称服务器应按以下方式设置：&lt;/p>
-&lt;pre>&lt;code>kubectl exec -it dns-example -- cat /etc/resolv.conf
-&lt;/code>&lt;/pre>
-&lt;p>输出类似于&lt;/p>
-&lt;pre>&lt;code>nameserver fd00:79:30::a
-search default.svc.cluster-domain.example svc.cluster-domain.example cluster-domain.example
-options ndots:5
-&lt;/code>&lt;/pre></description></item><item><title>Docs: Kubernetes DNS</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kubernetes-dns/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kubernetes-dns/</guid><description/></item><item><title>Docs: NetworkPolicy 网络策略</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/networkpolicy-%E7%BD%91%E7%BB%9C%E7%AD%96%E7%95%A5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/networkpolicy-%E7%BD%91%E7%BB%9C%E7%AD%96%E7%95%A5/</guid><description>
+&lt;/blockquote></description></item><item><title>Docs: Ingress</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/ingress/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/ingress/</guid><description/></item><item><title>Docs: kube-proxy(实现 Service 功能的组件)</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kube-proxy%E5%AE%9E%E7%8E%B0-service-%E5%8A%9F%E8%83%BD%E7%9A%84%E7%BB%84%E4%BB%B6/</guid><description/></item><item><title>Docs: Kubernetes DNS</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kubernetes-dns/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/kubernetes-dns/</guid><description/></item><item><title>Docs: NetworkPolicy 网络策略</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/networkpolicy-%E7%BD%91%E7%BB%9C%E7%AD%96%E7%95%A5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.kubernetes-%E7%BD%91%E7%BB%9C/networkpolicy-%E7%BD%91%E7%BB%9C%E7%AD%96%E7%95%A5/</guid><description>
 &lt;p>如果想要正常使用 NetworkPolicy 对象，则集群的网路插件必须要支持该功能&lt;/p>
 &lt;p>使用 NetworkPolicy 对象来定义网络策略(注意：该定义的网络策略只能适用于某个 namesapce 下的 Pod，可以在 metadata 中定义生效的 namespace)&lt;/p>
 &lt;p>一个网络策略中包含两中类型的规则，规则用于控制数据流量(Traffic)，&lt;/p>
 &lt;ol>
 &lt;li>
-&lt;p>ingress #入口(入站)规则，列出所选择的 Pod，把入口规则应用其上&lt;/p>
+&lt;p>ingress # 入口(入站)规则，列出所选择的 Pod，把入口规则应用其上&lt;/p>
 &lt;ol>
 &lt;li>port，定义允许还是拒绝哪些端口，ingress 规则中为，从外面来的可以从自己哪个端口进来&lt;/li>
 &lt;/ol>
 &lt;ul>
 &lt;li>
-&lt;p>from #ingress 定义 from(目标过来的规则，即从哪来的可以入)&lt;/p>
+&lt;p>from # ingress 定义 from(目标过来的规则，即从哪来的可以入)&lt;/p>
 &lt;ul>
 &lt;li>
-&lt;p>ipBlock #定义从哪来的 IP 段可以进来&lt;/p>
+&lt;p>ipBlock # 定义从哪来的 IP 段可以进来&lt;/p>
 &lt;ul>
-&lt;li>except #定义完 ipBlock 后，定义 IP 段内的某些事不能进来&lt;/li>
+&lt;li>except # 定义完 ipBlock 后，定义 IP 段内的某些事不能进来&lt;/li>
 &lt;/ul>
 &lt;/li>
 &lt;li>
-&lt;p>namespaceSelector #定义来自哪些 namesapce 的可以进来&lt;/p>
+&lt;p>namespaceSelector # 定义来自哪些 namesapce 的可以进来&lt;/p>
 &lt;/li>
 &lt;li>
-&lt;p>podSelector #定义来自哪些 Pod 的可以进来&lt;/p>
+&lt;p>podSelector # 定义来自哪些 Pod 的可以进来&lt;/p>
 &lt;/li>
 &lt;/ul>
 &lt;/li>
 &lt;/ul>
 &lt;/li>
 &lt;li>
-&lt;p>egress #出口(出站)规则，列出所选择的 Pod，把出口规则应用其上&lt;/p>
+&lt;p>egress # 出口(出站)规则，列出所选择的 Pod，把出口规则应用其上&lt;/p>
 &lt;ol>
 &lt;li>port，定义允许还是拒绝哪些端口，egress 规则中，到哪的端口可以出去&lt;/li>
 &lt;/ol>
 &lt;ul>
 &lt;li>
-&lt;p>to #egress 定义 to(到目标的规则，即到哪的可以出)&lt;/p>
+&lt;p>to # egress 定义 to(到目标的规则，即到哪的可以出)&lt;/p>
 &lt;ul>
 &lt;li>
-&lt;p>ipBlock #定义到哪的 IP 段可以出去&lt;/p>
+&lt;p>ipBlock # 定义到哪的 IP 段可以出去&lt;/p>
 &lt;ul>
-&lt;li>except #定义完 ipBlock 后，定义 IP 段内的某些事不能出去&lt;/li>
+&lt;li>except # 定义完 ipBlock 后，定义 IP 段内的某些事不能出去&lt;/li>
 &lt;/ul>
 &lt;/li>
 &lt;li>
-&lt;p>namespaceSelector #定义到哪些 namesapce 的可以出去&lt;/p>
+&lt;p>namespaceSelector # 定义到哪些 namesapce 的可以出去&lt;/p>
 &lt;/li>
 &lt;li>
-&lt;p>podSelector #定义到哪些 Pod 的可以出去&lt;/p>
+&lt;p>podSelector # 定义到哪些 Pod 的可以出去&lt;/p>
 &lt;/li>
 &lt;/ul>
 &lt;/li>
@@ -619,10 +154,10 @@ options ndots:5
 &lt;p>网络策略中还包括规则的生效范围、(即把规则应用于 Pod 上和定义两个规则是否生效）。&lt;/p>
 &lt;ol>
 &lt;li>
-&lt;p>podSelector #通过标签选择器，选择出把该策略的规则应用于哪些 Pod 上(默认为{}空，则对所有 Pod 生效)&lt;/p>
+&lt;p>podSelector # 通过标签选择器，选择出把该策略的规则应用于哪些 Pod 上(默认为{}空，则对所有 Pod 生效)&lt;/p>
 &lt;/li>
 &lt;li>
-&lt;p>policyTypes #列出网络策略涉及的规则类型。列出哪个规则，哪个规则生效，生效后默认拒绝所有，需要再定义规则以便允许，如果不定义规则那么什么都访问不了；如果两个规则都没列出，那么后面定义了哪个规则，则哪个规则生效。&lt;/p>
+&lt;p>policyTypes # 列出网络策略涉及的规则类型。列出哪个规则，哪个规则生效，生效后默认拒绝所有，需要再定义规则以便允许，如果不定义规则那么什么都访问不了；如果两个规则都没列出，那么后面定义了哪个规则，则哪个规则生效。&lt;/p>
 &lt;/li>
 &lt;/ol>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zghpo8/1616117994284-0bc4626b-55c8-4f72-8e67-3e20bbe787c3.jpeg" alt="">&lt;/p>

@@ -214,14 +214,14 @@ man lsns # 查看当前已创建的namespace
 &lt;p>这样在创建了 PID 和 Mount namespace 后，会自动挂载 /proc 文件系统，就不需要我们手动执行 mount -t proc proc /proc 命令了。&lt;/p>
 &lt;h1 id="不能修改的进程-pid-namespace">不能修改的进程 PID namespace&lt;/h1>
 &lt;p>在前面的演示中我们为 unshare 命令添加了 &amp;ndash;fork /bin/bash 参数：&lt;/p>
-&lt;pre>&lt;code>$ sudo unshare --pid --mount-proc --fork /bin/bash
+&lt;pre>&lt;code>sudo unshare --pid --mount-proc --fork /bin/bash
 &lt;/code>&lt;/pre>
 &lt;p>1
 Plain Text&lt;/p>
-&lt;p>--fork 是为了让 unshare 进程 fork 一个新的进程出来，然后再用 /bin/bash 替换掉新的进程中执行的命令。需要这么做是由于 PID namespace 本身的特点导致的。进程所属的 PID namespace 在它创建的时候就确定了，不能更改，所以调用 unshare 和 nsenter 等命令后，原进程还是属于老的 PID namespace，新 fork 出来的进程才属于新的 PID namespace。&lt;/p>
+&lt;p>&amp;ndash;fork 是为了让 unshare 进程 fork 一个新的进程出来，然后再用 /bin/bash 替换掉新的进程中执行的命令。需要这么做是由于 PID namespace 本身的特点导致的。进程所属的 PID namespace 在它创建的时候就确定了，不能更改，所以调用 unshare 和 nsenter 等命令后，原进程还是属于老的 PID namespace，新 fork 出来的进程才属于新的 PID namespace。&lt;/p>
 &lt;p>我们在一个 shell 中执行下面的命令：&lt;/p>
-&lt;pre>&lt;code>$ echo $$
-$ sudo unshare --pid --mount-proc --fork /bin/bash
+&lt;pre>&lt;code>echo $$
+sudo unshare --pid --mount-proc --fork /bin/bash
 &lt;/code>&lt;/pre>
 &lt;p>1
 2
@@ -282,16 +282,16 @@ Shell&lt;/p>
 &lt;p>继续以上面三个 PID namespace 为例，第一步，先回到第一个 shell 窗口， 新启动两个 bash 进程：&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886449-14d989ed-8a56-45c7-abc5-6c60c637fbd1.png" alt="">&lt;/p>
 &lt;p>首先，利用 unshare、nohup 和 sleep 命令组合，创建出父子进程。下面的命令 fork 出一个子进程并在后台 sleep 一小时：&lt;/p>
-&lt;pre>&lt;code>$ unshare --fork nohup sleep 3600&amp;amp;
-$ pstree -p
+&lt;pre>&lt;code>unshare --fork nohup sleep 3600&amp;amp;
+pstree -p
 &lt;/code>&lt;/pre>
 &lt;p>1
 2
 Shell&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886445-7ba2a5b3-2ddd-4bb3-8e05-1f8681fafc75.png" alt="">&lt;/p>
 &lt;p>然后我们 kill 掉进程 unshare(34)：&lt;/p>
-&lt;pre>&lt;code>$ kill 34
-$ pstree -p
+&lt;pre>&lt;code>kill 34
+pstree -p
 &lt;/code>&lt;/pre>
 &lt;p>1
 2
@@ -314,8 +314,8 @@ sudo(25)───unshare(26)───bash(27)───bash(79)───bash(89)�
 4
 Shell&lt;/p>
 &lt;p>我们先 kill 掉 sleep 进程的父进程 unshare(105)：&lt;/p>
-&lt;pre>&lt;code>$ kill 105
-$ pstree -p
+&lt;pre>&lt;code>kill 105
+pstree -p
 &lt;/code>&lt;/pre>
 &lt;p>1
 2
@@ -323,8 +323,8 @@ Shell&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886466-1722c940-d36c-4d31-8fb8-6152fb71f100.png" alt="">&lt;/p>
 &lt;p>进程 sleep(106)被 bash(27) 收养了而不是 baus(1)，这说明孤儿进程只会被自己 PID namespace 中的 init 进程收养。&lt;/p>
 &lt;p>接下来 kill 掉第二个 PID namespace 中的 init 进程，即这里的 bash(14)：&lt;/p>
-&lt;pre>&lt;code>$ kill -SIGKILL 14
-$ pstree -p
+&lt;pre>&lt;code>kill -SIGKILL 14
+pstree -p
 &lt;/code>&lt;/pre>
 &lt;p>1
 2

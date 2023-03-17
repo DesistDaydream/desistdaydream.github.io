@@ -311,4 +311,253 @@ return nil
 &lt;p>&lt;a href="https://sentinelguard.io/zh-cn/docs/golang/circuit-breaking.html">https://sentinelguard.io/zh-cn/docs/golang/circuit-breaking.html&lt;/a>&lt;/p>
 &lt;p>&lt;a href="https://github.com/afex/hystrix-go">https://github.com/afex/hystrix-go&lt;/a>&lt;/p>
 &lt;p>&lt;a href="https://segmentfault.com/a/1190000039978117">https://segmentfault.com/a/1190000039978117&lt;/a>&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/199a3baf-f67d-407b-9e0b-ba4bf6fc022f/20210718193547.png" alt="">&lt;/p></description></item></channel></rss>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/199a3baf-f67d-407b-9e0b-ba4bf6fc022f/20210718193547.png" alt="">&lt;/p></description></item><item><title>Docs: net 包中的 HTTP</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/go/go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/net-%E5%8C%85%E4%B8%AD%E7%9A%84-http/net-%E5%8C%85%E4%B8%AD%E7%9A%84-http/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/go/go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/net-%E5%8C%85%E4%B8%AD%E7%9A%84-http/net-%E5%8C%85%E4%B8%AD%E7%9A%84-http/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/DesistDaydream/go-net">GitHub 项目，DesistDaydream/go-net&lt;/a>(学习代码)&lt;/li>
+&lt;li>&lt;a href="https://github.com/astaxie/build-web-application-with-golang">GoWeb 编程&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.kancloud.cn/kancloud/web-application-with-golang">看云 GoWeb 编程&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>go 使用 net/http 标准库来实现基本的 web 功能&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>form(表单)&lt;/strong> # 描述网页表单的处理&lt;/li>
+&lt;li>&lt;strong>middleware(中间件)&lt;/strong> # 常用来处理认证等行为&lt;/li>
+&lt;/ul>
+&lt;h2 id="一般的上网过程概述">一般的上网过程概述&lt;/h2>
+&lt;p>浏览器本身是一个客户端，当你输入 URL 的时候，首先浏览器会去请求 DNS 服务器，通过 DNS 获取相应的域名对应的 IP，然后通过 IP 地址找到 IP 对应的服务器后，要求建立 TCP 连接，等浏览器发送完 HTTP Request（请求）包后，服务器接收到请求包之后才开始处理请求包，服务器调用自身服务，返回 HTTP Response（响应）包；客户端收到来自服务器的响应后开始渲染这个 Response 包里的主体（body），等收到全部的内容随后断开与该服务器之间的 TCP 连接&lt;/p>
+&lt;h1 id="hello-world">Hello World&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// HelloWorld 处理客户端请求 /hello 时的具体逻辑
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">HelloWorld&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ResponseWriter&lt;/span>, &lt;span style="color:#a6e22e">req&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Request&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 将 Hello DesistDaydream! 这一串字符写入到 Response 中，并响应给客户端
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;Hello DesistDaydream!&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 设置访问的路由,一般也称为 Handler(处理器)，用来处理 http 请求。比如这里就是处理一个访问 /hello 的 hettp 请求。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 当客户端发起 http 请求，访问 http://IP:8080/hello ，由 HelloWorld 函数处理该请求。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">HandleFunc&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/hello&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">HelloWorld&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 设置监听的端口
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ListenAndServe&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;:8080&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="nethttp-包解析">net/http 包解析&lt;/h1>
+&lt;p>以 1.16 版本为例
+&lt;a href="https://github.com/golang/go/blob/release-branch.go1.16/src/net/http/client.go#L57">http.Client{}&lt;/a> 结构体 # HTTP 客户端，作用在该结构体的方法，就是用来发起 HTTP 请求的方法，比如 GET、POST 等
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xi368g/1626314106732-1e5da8f4-21b9-485f-988c-c99837e21513.png" alt="image.png">&lt;/p>
+&lt;p>&lt;a href="https://cs.opensource.google/go/go/+/refs/tags/go1.16.6:src/net/http/client.go;l=590">do()&lt;/a> 方法 # do 是用来发送 HTTP 请求并返回 HTTP 响应的最本质方法。像 Get()、Post() 等方法，最终还是调用的 do()&lt;/p>
+&lt;h1 id="使用-go-发起-http-request-并处理-response-body-的基本示例">使用 Go 发起 HTTP Request 并处理 Response Body 的基本示例&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;bufio&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 设置一些会用到的全局变量，省的每次都要重新初始化
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">var&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">req&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Request&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">resp&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Response&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#66d9ef">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Client1 直接使用 http.Get() 来发起请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">Client1&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// net/http 标准库中还可以实现作为客户端发送 http 请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// Get() 向指定的服务器发送一个 HTTP GET 请求，并返回一个 Response
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Get&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;http://172.38.40.250:8080/index&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> panic(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 关闭连接
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">defer&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>.&lt;span style="color:#a6e22e">Close&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 输出服务端响应的的状态码
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Response status:&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Status&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 处理 Response 中的 Body，并输出响应体的字符串格式内容
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">ioutil&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(string(&lt;span style="color:#a6e22e">body&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Client2 先构建一个 Request，再根据这个 Request 发起请求，这种方式常用来自定义请求内容
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">Client2&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 构建 Request
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">req&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">NewRequest&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;http://172.38.40.250:8080/index&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 为构建的 Request 设定请求头信息，可以多次使用 Set() 来设定多个 Header 信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">Header&lt;/span>.&lt;span style="color:#a6e22e">Set&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Content-type&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;application/json;charset=utf-8&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 查看一下将要发起的请求内容
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Printf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;本次 HTTP Request 为：%v\n请求方法为：%v\n请求头为：%v\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">req&lt;/span>, &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">Method&lt;/span>, &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">Header&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 根据新构建的 req 来发起请求，并获取响应信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 这里的 http.Client{} 中可以设置一些发起 HTTP 请求时的一些信息，比如 TLS 等
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">client&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Client&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">client&lt;/span>.&lt;span style="color:#a6e22e">Do&lt;/span>(&lt;span style="color:#a6e22e">req&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> panic(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 关闭连接
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">defer&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>.&lt;span style="color:#a6e22e">Close&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 处理响应，并输出 Response Body
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">ioutil&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(string(&lt;span style="color:#a6e22e">body&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Client1&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Client2&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="go-http-getpost-json-的服务端客户端示例包含序列化反序列化httpswwwcnblogscomjunneyangp6211190html">&lt;a href="https://www.cnblogs.com/junneyang/p/6211190.html">Go HTTP GET/POST JSON 的服务端、客户端示例，包含序列化、反序列化&lt;/a>&lt;/h1>
+&lt;h2 id="服务端代码示例">服务端代码示例：&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">handler&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;encoding/json&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;io/ioutil&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Message 是一条消息应该具有的基本属性
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Message&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Name&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;name&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Body&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;body&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Time&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;time&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// NewMessage 实例化 Message
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">NewMessage&lt;/span>() &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Message&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">Message&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;DesistDaydream&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Body&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;Hello World&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Time&lt;/span>: &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Now&lt;/span>().&lt;span style="color:#a6e22e">Format&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;2006-01-02 15:04:05&amp;#34;&lt;/span>),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// ResponseJSON 将会响应 JSON 格式数据
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">ResponseJSON&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ResponseWriter&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Request&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Printf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;当前客户端的请求 %v 页面的 Method 为：%v\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">RequestURI&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">Method&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 初始化结构体，用于存储和响应 JSON 数据
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">NewMessage&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 声明两个常用的变量
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#66d9ef">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">jsonData&lt;/span> []&lt;span style="color:#66d9ef">byte&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 根据不同请求方法，执行不同的行为
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">switch&lt;/span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">Method&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">case&lt;/span> &lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 将 struct 中的数据转换为 JSON 格式
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">jsonData&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">json&lt;/span>.&lt;span style="color:#a6e22e">Marshal&lt;/span>(&lt;span style="color:#a6e22e">m&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 响应 JSON 格式的默认值
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, string(&lt;span style="color:#a6e22e">jsonData&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">default&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 模拟下面这样的 curl 请求，程序将会根据 Request Body 中的内容替换 Message 结构体数据中的值，并返回结构体中的数据
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 这就好比请求一个需要 TOKEN 的 API，我们只有使用正确的 TOKEN，才可以获取想要的信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// curl -XPOST http://172.38.40.250:8080/json -d &amp;#39;{&amp;#34;name&amp;#34;:&amp;#34;lichenhao&amp;#34;}&amp;#39;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">//
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 读取 Request 的 Body
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">RequestBody&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">io&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Printf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;请求体为：%v\n&amp;#34;&lt;/span>, string(&lt;span style="color:#a6e22e">RequestBody&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 将 Request Body 的 JSON 格式转换为 struct 类型，并将 struct 中的值替换为 JSON 中的值
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 注意，struct 中仅传入一个 key 的值，则 struct 中也只有一个属性的值被替代，其他属性的值保持不变
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">json&lt;/span>.&lt;span style="color:#a6e22e">Unmarshal&lt;/span>(&lt;span style="color:#a6e22e">RequestBody&lt;/span>, &lt;span style="color:#a6e22e">m&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;请检查 Body，格式不正确或数据类型不对&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Printf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;请求体转换为 struct 后的值为：%v\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">m&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 根据传入的 请求体 的值，判断认证是否成功
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 比如现在假设，只有传入 {&amp;#34;name&amp;#34;:&amp;#34;DesistDaydream&amp;#34;} 这个请求体时，才会响应结构体的数据给给客户端。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">switch&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">case&lt;/span> &lt;span style="color:#e6db74">&amp;#34;DesistDaydream&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 认证正确，将 struct 类型数据转换为 JSON 格式数据并响应给客户端
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">jsonData&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">json&lt;/span>.&lt;span style="color:#a6e22e">Marshal&lt;/span>(&lt;span style="color:#a6e22e">m&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;序列化出错，请始终其他数据格式的 Body&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprint&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, string(&lt;span style="color:#a6e22e">jsonData&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">default&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;你好 %v,认证失败，请重试\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 设置访问的路由
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">HandleFunc&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/json&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">handler&lt;/span>.&lt;span style="color:#a6e22e">ResponseJSON&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 设置监听的端口
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;开始监听8080端口&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ListenAndServe&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;:8080&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Fatal&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;ListenAndServe: &amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="客户端代码示例">客户端代码示例：&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;bufio&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;bytes&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;encoding/json&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;io/ioutil&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Message 是一条消息应该具有的基本属性
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Message&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Name&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;name&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Body&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;body&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Time&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;time&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 第一种请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 模拟从外部读取 json 格式文件，将 json 与 struct 绑定，然后再发送请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">NewMessage&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 这里假定 struct 的值时从外部文件获取的
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;DesistDaydream&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;你好&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span> = &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Now&lt;/span>().&lt;span style="color:#a6e22e">Format&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;2006-01-02 15:04:05&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 将 struct 转换为 json
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">jsonData&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">json&lt;/span>.&lt;span style="color:#a6e22e">Marshal&lt;/span>(&lt;span style="color:#a6e22e">m&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 构建 Request
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">req&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">NewRequest&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;POST&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;http://172.38.40.250:8080/json&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">bytes&lt;/span>.&lt;span style="color:#a6e22e">NewBuffer&lt;/span>(&lt;span style="color:#a6e22e">jsonData&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">Header&lt;/span>.&lt;span style="color:#a6e22e">Set&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Content-type&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;application/json;charset=utf-8&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 处理响应信息并输出
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> (&lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Client&lt;/span>{}).&lt;span style="color:#a6e22e">Do&lt;/span>(&lt;span style="color:#a6e22e">req&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">ioutil&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(string(&lt;span style="color:#a6e22e">body&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 第二种请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 手动指定 json 数据，并发起请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 下面的代码等效于使用 crul 命令发起请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// curl -XPOST http://172.38.40.250:8080/json -d &amp;#39;{&amp;#34;name&amp;#34;:&amp;#34;lichenhao&amp;#34;}&amp;#39;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 创建一个 json 数据
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">jsonReqBody&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> []byte(&lt;span style="color:#e6db74">`{&amp;#34;name&amp;#34;:&amp;#34;lichenhao&amp;#34;}`&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 构建 Request
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">req&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> = &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">NewRequest&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;POST&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;http://172.38.40.250:8080/json&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">bytes&lt;/span>.&lt;span style="color:#a6e22e">NewBuffer&lt;/span>(&lt;span style="color:#a6e22e">jsonReqBody&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">Header&lt;/span>.&lt;span style="color:#a6e22e">Set&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Content-type&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;application/json&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 处理响应信息并输出
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> = (&lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Client&lt;/span>{}).&lt;span style="color:#a6e22e">Do&lt;/span>(&lt;span style="color:#a6e22e">req&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> = &lt;span style="color:#a6e22e">ioutil&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(string(&lt;span style="color:#a6e22e">body&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>

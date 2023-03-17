@@ -4,11 +4,28 @@
 &lt;p>参考：&lt;/p>
 &lt;ul>
 &lt;li>&lt;a href="https://mp.weixin.qq.com/s/qJdoXTv_XS_4ts9YuzMNIw">公众号，小林 coding-一口气搞懂「文件系统」，就靠这 25 张图了&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.junmajinlong.com/linux/ext_filesystem/">骏马金龙，第4章 ext文件系统机制原理剖析&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;p>不同的文件系统，有不同的计算方式。&lt;/p>
+&lt;p>硬盘最底层的读写 IO 一次是一个扇区 512 字节，如果要读写大量文件，以扇区为单位肯定很慢很消耗性能，所以硬盘使用了一个称作逻辑块的概念。逻辑块是逻辑的，由磁盘驱动器负责维护和操作，它并非是像扇区一样物理划分的。一个逻辑块的大小可能包含一个或多个扇区，每个逻辑块都有唯一的地址，称为 LBA。有了逻辑块之后，磁盘控制器对数据的操作就以逻辑块为单位，一次读写一个逻辑块，磁盘控制器知道如何将逻辑块翻译成对应的扇区并读写数据。&lt;/p>
+&lt;p>到了 Linux 操作系统层次，通过文件系统提供了一个也称为块的读写单元，文件系统数据块的大小一般为 1024bytes (1KiB) 或 2048bytes (2KiB) 或 4096bytes (4KiB)。文件系统数据块也是逻辑概念，是文件系统层次维护的，而磁盘上的逻辑数据块是由磁盘控制器维护的，文件系统的 IO 管理器知道如何将它的数据块翻译成磁盘维护的数据块地址 LBA。&lt;/p>
+&lt;p>对于使用文件系统的 IO 操作来说，比如读写文件，这些 &lt;strong>IO 的基本单元&lt;/strong>是&lt;strong>文件系统上的数据块&lt;/strong>，一次读写一个文件系统数据块。比如需要读一个或多个块时，文件系统的 IO 管理器首先计算这些文件系统块对应在哪些磁盘数据块，也就是计算出 LBA，然后通知磁盘控制器要读取哪些块的数据，硬盘控制器将这些块翻译成扇区地址，然后从扇区中读取数据，再通过硬盘控制器将这些扇区数据重组写入到内存中去。&lt;/p>
 &lt;p>&lt;strong>Block(块)&lt;/strong>，存放数据的最小单位，假如每个块为 4KiB，那大于 5KiB 的块就需要两个块，并且逻辑上占用了 8KiB 的空间。&lt;/p>
 &lt;p>&lt;strong>Block Group(块组)&lt;/strong>，多个 Block 的集合&lt;/p>
+&lt;p>Ext 预留了一些 Inode 做特殊特性使用，如下：某些可能并非总是准确，具体的 inode 号对应什么文件可以使用 &lt;code>find /-inum NUM&lt;/code> 查看&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>Ext4的特殊inode
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Inode号 用途
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">0&lt;/span> 不存在0号inode，可用于标识目录data block中已删除的文件
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">1&lt;/span> 虚拟文件系统，如/proc和/sys
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">2&lt;/span> 根目录 &lt;span style="color:#75715e"># 注意此行&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">3&lt;/span> ACL索引
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">4&lt;/span> ACL数据
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">5&lt;/span> Boot loader
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">6&lt;/span> 未删除的目录
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">7&lt;/span> 预留的块组描述符inode
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">8&lt;/span> 日志inode
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">11&lt;/span> 第一个非预留的inode，通常是 lost+found 目录
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>所以在 ext4 文件系统的 dumpe2fs 信息中，能观察到 fisrt inode 号可能为 11 也可能为 12。&lt;/p>
 &lt;h2 id="块块组inode-计算">块、块组、Inode 计算&lt;/h2>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -18,19 +35,34 @@
 &lt;/blockquote>
 &lt;p>这些计算的结果通常与下列设置有关&lt;/p>
 &lt;ul>
-&lt;li>DiskSize # 磁盘空间&lt;/li>
-&lt;li>BlockSize # 通常为 4096（可使用 mke2fs -b 手动指定）&lt;/li>
-&lt;li>BlocksPerGroup # 通常为 32768（可使用 mke2fs -g 手动指定）。每个块组中块的数量。&lt;/li>
-&lt;li>BytesPerInode # 通常为 16384（可使用 mke2fs -i 手动指定）。创建文件系统时，为每块 BytesPerInode 大小的空间创建一个 Inode。&lt;/li>
-&lt;li>InodeSize # 通常为 256&lt;/li>
+&lt;li>&lt;strong>DiskSize&lt;/strong> # 磁盘空间&lt;/li>
+&lt;li>&lt;strong>BlockSize&lt;/strong> # 通常为 4096 Bytes
+&lt;ul>
+&lt;li>可使用 mke2fs -b 手动指定&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>BlocksPerGroup&lt;/strong> # 通常为 32768。每个块组中块的数量。
+&lt;ul>
+&lt;li>可使用 mke2fs -g 手动指定&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>BytesPerInode&lt;/strong> # 通常为 16384 Bytes。创建文件系统时，为每块 BytesPerInode 大小的空间创建一个 Inode。
+&lt;ul>
+&lt;li>BytesPerInode 也称为 inode_ratio，即.Inode 比率，全称应该是 Inode 分配比率，即每多少空间分配一个 Inode。&lt;/li>
+&lt;li>可使用 mke2fs -i 手动指定&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>InodeSize&lt;/strong> # 通常为 256 Bytes。大小是 128 的倍数，最小为 128 Bytes。&lt;/li>
 &lt;/ul>
 &lt;p>其中 BlocksPerGroup(每个块组中块的数量)、BytesPerInode(每个Inode负责的空间大小) 这种值是后续计算的基础。固定下来这些，就算分区空间自动扩容/缩容，也可以根据这种数据自动增加/删除块的数量和 Inode 的数量。&lt;/p>
-&lt;p>将会计算出&lt;/p>
+&lt;p>其中块大小为 4K，Inode 比率为 16K，也就是说，至少每 4 个块分配一个 Inode。当然分配的这些 inode 号只是预分配，并不真的代表会全部使用，毕竟每个文件才会分配一个 inode 号。&lt;/p>
+&lt;p>这些数据将会计算出：&lt;/p>
 &lt;ul>
-&lt;li>BlockCount # 块总数&lt;/li>
-&lt;li>InodeCount # Inode 总数&lt;/li>
-&lt;li>InodePreGroup # 每个块组中包含的 Inode 数量&lt;/li>
-&lt;li>InodeUseage # 所有 Inode 占用的空间&lt;/li>
+&lt;li>&lt;strong>BlockCount&lt;/strong> # 块总数&lt;/li>
+&lt;li>&lt;strong>BlockGroup&lt;/strong> # 块组总数&lt;/li>
+&lt;li>&lt;strong>InodeCount&lt;/strong> # Inode 总数&lt;/li>
+&lt;li>&lt;strong>InodePreGroup&lt;/strong> # 每个块组中包含的 Inode 数量&lt;/li>
+&lt;li>&lt;strong>InodeUseage&lt;/strong> # 所有 Inode 占用的空间&lt;/li>
 &lt;/ul>
 &lt;p>假如现在有一块 35GiB 的磁盘，需要先转为 Bytes。然后根据给定的 BlockSize(块大小) 和 BlocksPerGroup(块组中块的数量)，计算出需要创建创建的&lt;strong>块数量&lt;/strong>和&lt;strong>块组数量&lt;/strong>。&lt;/p>
 &lt;p>&lt;strong>Block 与 BlockGroup 的计算&lt;/strong>&lt;/p>
@@ -42,10 +74,16 @@
 &lt;ul>
 &lt;li>InodeCount = DiskSize / BytesPerInode = 37580963840 / 16384 = 2293760&lt;/li>
 &lt;/ul>
+&lt;blockquote>
+&lt;p>由于之前已经知道了“每4个块分配一个Inode”，那么用“总块数/4”也是可以得到这个 Inode 总数的。&lt;/p>
+&lt;/blockquote>
 &lt;p>计算出的 Inode 数量将会平均分配到每个块组中&lt;/p>
 &lt;ul>
 &lt;li>InodePreGroup = InodeCount / BlockGroupCount = 2293760 / 280 = 8192&lt;/li>
 &lt;/ul>
+&lt;blockquote>
+&lt;p>由于之前已经知道了“每4个块分配一个Inode”，那么用“每个块组中块的数量/4”也是可以得到每个块组中 Inode 的数量。&lt;/p>
+&lt;/blockquote>
 &lt;p>计算所有 Inode 需要占用的磁盘空间&lt;/p>
 &lt;ul>
 &lt;li>InodeUseage = InodeCount * InodeSize = 2293760 * 256 = 587202560 Bytes = 560 MiB&lt;/li>
@@ -53,9 +91,12 @@
 &lt;p>也就是说，一块 35 G 的硬盘，需要拿出来至少 560 MiB 的空间来存放 Inode 数据。&lt;/p>
 &lt;p>&lt;strong>TODO:&lt;/strong>&lt;/p>
 &lt;ul>
-&lt;li>&lt;strong>Inode 还有一个最低数量？就算在 mke2fs 中使用 -i 指定了跟 DiskSize 相同的大小(或者 -N 1)，最后也不会只有一个 Inode，而是有 4480 个 Inode，这个数是怎么来的？&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>Inode 还有一个最低数量？就算执行 &lt;code>mke2fs -N 1&lt;/code> 命令，最后也不会只有一个 Inode，而是有 4480 个 Inode，这个数是怎么来的？&lt;/strong>&lt;/li>
+&lt;li>**试了下 &lt;code>mke2fs -N 1000000&lt;/code> 最后生成的 Inode 数为 1003520，正好是 4480 的倍数&lt;/li>
+&lt;li>&lt;strong>如果是 &lt;code>mke2fs -N 4481&lt;/code>，则生成的 Inode 数为 8960，也是 4480 的倍数。。。这个值到底咋来的。。。o(╯□╰)o&lt;/strong>**&lt;/li>
+&lt;li>好像是根据 Inodes per group 的值来的，这个值好像必须要是 16 的倍数，并且最低值是 16，可是这个说法的来源是在哪呢？&lt;/li>
 &lt;/ul>
-&lt;p>上述计算的结果可以通过 dumpe2fs 命令获得&lt;/p>
+&lt;p>上述计算的结果可以通过 dumpe2fs 命令查看&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># dumpe2fs -h ${DEVICE} | egrep -i &amp;#34;block|inode&amp;#34;&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dumpe2fs 1.45.5 &lt;span style="color:#f92672">(&lt;/span>07-Jan-2020&lt;span style="color:#f92672">)&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Filesystem features: ext_attr resize_inode dir_index filetype sparse_super large_file
@@ -74,8 +115,23 @@
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Reserved blocks gid: &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#f92672">(&lt;/span>group root&lt;span style="color:#f92672">)&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>First inode: &lt;span style="color:#ae81ff">11&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Inode size: &lt;span style="color:#ae81ff">256&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="最低的-inode">最低的 Inode&lt;/h3>
-&lt;p>假如我们需要最少 1 个 Inode，那首先根据 BlockGroupCount 的数量决定至少应该需要 280 Inode，&lt;/p>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="todo-最低的-inode">TODO: 最低的 Inode&lt;/h3>
+&lt;p>假如我们需要最少 1 个 Inode&lt;/p>
+&lt;p>此时已知&lt;/p>
+&lt;ul>
+&lt;li>BlockCount = 9175040&lt;/li>
+&lt;li>BlockGroupCount = 280&lt;/li>
+&lt;li>BlockSize = 4096 Bytes&lt;/li>
+&lt;li>InodeSize = 256 Bytes&lt;/li>
+&lt;li>InodeRatio = 16384 Bytes&lt;/li>
+&lt;/ul>
+&lt;p>每 4 个块给 1 个 Inode，但肯定不是这个思路，因为照着这种算法，那就是有 2293760 个。所以肯定不是每 4 个块给 1 个 Inode。&lt;/p>
+&lt;p>真实场景：&lt;/p>
+&lt;ul>
+&lt;li>现在是每 2048 个块给 一个 Inode&lt;/li>
+&lt;li>280 个块组&lt;/li>
+&lt;li>&lt;/li>
+&lt;/ul>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># mke2fs -N 1 /dev/vdb&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>mke2fs 1.45.5 &lt;span style="color:#f92672">(&lt;/span>07-Jan-2020&lt;span style="color:#f92672">)&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/dev/vdb contains a ext2 file system

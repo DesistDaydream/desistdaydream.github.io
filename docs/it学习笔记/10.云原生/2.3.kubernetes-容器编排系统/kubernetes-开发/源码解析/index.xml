@@ -1726,4 +1726,161 @@ UpdatePodCIDR(podCIDR string) error&lt;/p>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>领导者节点续约的过程通过 &lt;code>wait.PollImmediateUntil&lt;/code> 定时器定时执行，它接收一个 func 匿名函数（条件函数）和一个 stopCh，内部会定时调用条件函数，当条件函数返回 true 或 stopCh 关闭时，该定时器才会停止并退出。&lt;/p>
 &lt;p>执行 &lt;code>le.tryAcquireOrRenew&lt;/code> 函数来实现领导者节点的续约，其原理与资源锁获取过程相同。le.tryAcquireOrRenew 函数返回 true 说明续约成功，并进入下一个定时续约；返回 false 则退出并执行 le.release 函数且释放资源锁。&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/d05e3808-6527-434a-b7bb-bdf3bc826284/640" alt="">
-本文授权转载于：Kubernetes 源码剖析，作者：郑东旭&lt;/p></description></item></channel></rss>
+本文授权转载于：Kubernetes 源码剖析，作者：郑东旭&lt;/p></description></item><item><title>Docs: 源码解析</title><link>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E5%BC%80%E5%8F%91/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/it%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/kubernetes-%E5%BC%80%E5%8F%91/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/kubernetes/kubernetes">GitHub 项目，kubernetes/kubernetes&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/design-proposals-archive">GitHub 项目，kubernetes/design-proposals-archive&lt;/a>(K8S 早期设计方案)&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/enhancements/">GitHub 项目，kubernetes/enhancements&lt;/a>(K8S 当前设计方案)&lt;/li>
+&lt;li>&lt;a href="https://blog.tianfeiyu.com/source-code-reading-notes/">田飞雨博客&lt;/a>-这位大佬阅读了大部分 k8s 代码，并在博客中写了笔记&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="kubernetes-源码目录结构">kubernetes 源码目录结构&lt;/h1>
+&lt;blockquote>
+&lt;p>更新日期：2022 年 2 月 23 日
+Kubernetes 的源码目录随着更新迭代，也在不断变化中&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ tree -L &lt;span style="color:#ae81ff">1&lt;/span> -p
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> BUILD.bazel
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> CHANGELOG
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> CHANGELOG.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> CONTRIBUTING.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> LICENSE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> LICENSES
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> Makefile
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> Makefile.generated_files
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> OWNERS
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> OWNERS_ALIASES
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> README.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> SECURITY_CONTACTS
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> SUPPORT.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> WORKSPACE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> api
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> build
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> cluster
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> cmd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> code-of-conduct.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> docs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> go.mod
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> go.sum
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> hack
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> logo
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> pkg
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> plugin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> staging
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> test
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> third_party
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> translations
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> vendor
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Kubernetes 组件的代码运行逻辑集中在 cmd、pkg 这几个目录内，cmd 是通常都是程序运行的入口，然后调用 pkg 里的代码&lt;/p>
+&lt;h2 id="cmd">cmd&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ tree -L &lt;span style="color:#ae81ff">1&lt;/span> -p cmd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cmd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> BUILD
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> OWNERS
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> clicheck
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> cloud-controller-manager
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> controller-manager
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> dependencycheck
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> gendocs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> genkubedocs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> genman
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> genswaggertypedocs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> genutils
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> genyaml
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> importverifier
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kube-apiserver
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kube-controller-manager
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kube-proxy
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kube-scheduler
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kubeadm
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kubectl
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kubelet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kubemark
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> linkcheck
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> preferredimports
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> verifydependencies
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="pkg">pkg&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ tree -L &lt;span style="color:#ae81ff">1&lt;/span> -p pkg
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pkg
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> BUILD
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>-rwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> OWNERS
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> api
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> apis
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> auth
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> capabilities
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> client
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> cloudprovider
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> controller
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> credentialprovider
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> features
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> fieldpath
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> generated
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kubeapiserver
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kubectl
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kubelet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> kubemark
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> master
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> printers
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> probe
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> proxy
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> quota
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> registry
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> routes
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> scheduler
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> security
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> securitycontext
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> serviceaccount
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> ssh
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> util
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> volume
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> watch
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── &lt;span style="color:#f92672">[&lt;/span>drwxrwxrwx&lt;span style="color:#f92672">]&lt;/span> windows
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="staging分级阶段">staging(分级、阶段)&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/kubernetes/kubernetes/tree/master/staging">GitHub&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h3 id="背景">背景&lt;/h3>
+&lt;p>曾经的 kubernetes 源码都在一个顶级仓库中 ,即 &lt;a href="https://github.com/kubernetes/kubernetes">k8s.io/kubernetes&lt;/a>(也就是 Github 的&amp;lt;https://github.com/kubernetes/kubernetes)。但是随着项目的发展，功能越来越多，代码量也就越来越大，并且** Kubernetes 的各种包和规范被越来越多的项目引用**，为了避免交叉依赖，所以，从 1.4 版本开始，就出现了 staging 目录，并把这些经常被引用的库单独提取出来，放在一个顶层仓库中，而 staging 则是这些顶层仓库的来源，会定期将这里的代码发布到对应的顶层仓库中。
+在 1.4 版本时，该目录仅仅包含了一个 client-go 的代码，并且把 client-go 移出 kubernetes 仓库，成立了一个单独的仓库(&lt;a href="https://github.com/kubernetes/client-go">https://github.com/kubernetes/client-go&lt;/a>)，并定期同步代码。随后，就发展成现在这样了~~~~&lt;/p>
+&lt;h3 id="详解">详解&lt;/h3>
+&lt;p>staging 包含各种 kubernetes 包的代码，并定期将其发布到对应的顶级 k8s.io 库中。&lt;/p>
+&lt;p>比如 controller-manager 功能的代码，就会从这里同步到 k8s.io/controller-manager 仓库中、kubelet 功能的代码会从这里同步到 k8s.io/kubelet 仓库中，以此类推，随着时间的发展，该目录下的内容将会越来越多，并且 kubernetes 的代码也将会被拆分成各个顶级仓库。&lt;/p>
+&lt;p>所谓 k8s.io/XXXX，其实就是 &lt;a href="https://github.com/kubernetes/XXXX">https://github.com/kubernetes/XXXX&lt;/a>，也就是 github 的 kubernetes 项目下的顶层仓库。&lt;/p>
+&lt;p>这些顶级仓库包括(随着时间的发展，还会变化)：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>[k8s.io/api](https://github.com/kubernetes/api)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/apiextensions-apiserver](https://github.com/kubernetes/apiextensions-apiserver)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/apimachinery](https://github.com/kubernetes/apimachinery)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/apiserver](https://github.com/kubernetes/apiserver)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/cli-runtime](https://github.com/kubernetes/cli-runtime)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/client-go](https://github.com/kubernetes/client-go)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/cloud-provider](https://github.com/kubernetes/cloud-provider)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/cluster-bootstrap](https://github.com/kubernetes/cluster-bootstrap)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/code-generator](https://github.com/kubernetes/code-generator)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/component-base](https://github.com/kubernetes/component-base)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/controller-manager](https://github.com/kubernetes/controller-manager)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/cri-api](https://github.com/kubernetes/cri-api)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/csi-api](https://github.com/kubernetes/csi-api)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/csi-translation-lib](https://github.com/kubernetes/csi-translation-lib)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/kube-aggregator](https://github.com/kubernetes/kube-aggregator)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/kube-controller-manager](https://github.com/kubernetes/kube-controller-manager)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/kube-proxy](https://github.com/kubernetes/kube-proxy)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/kube-scheduler](https://github.com/kubernetes/kube-scheduler)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/kubectl](https://github.com/kubernetes/kubectl)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/kubelet](https://github.com/kubernetes/kubelet)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/legacy-cloud-providers](https://github.com/kubernetes/legacy-cloud-providers)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/metrics](https://github.com/kubernetes/metrics)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/mount-utils](https://github.com/kubernetes/mount-utils)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/sample-apiserver](https://github.com/kubernetes/sample-apiserver)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/sample-cli-plugin](https://github.com/kubernetes/sample-cli-plugin)&lt;/code>&lt;/li>
+&lt;li>&lt;code>[k8s.io/sample-controller](https://github.com/kubernetes/sample-controller)&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;h1 id="源码解析文章">源码解析文章&lt;/h1>
+&lt;p>&lt;a href="https://mp.weixin.qq.com/s/L-CQhYzxqxOoy9xYp6-JMA">公众号-k8s 技术圈，Kubernetes Pod 删除操作源码解析&lt;/a>&lt;/p></description></item></channel></rss>

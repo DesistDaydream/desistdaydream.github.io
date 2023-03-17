@@ -80,7 +80,7 @@
 &lt;p>通常情况下，一个 LVS 集群由两类节点组成：&lt;/p>
 &lt;ul>
 &lt;li>&lt;strong>Director(指挥器)&lt;/strong> # 前端接收客户端请求的节点，并将请求转发给后端 Real Server。Director 通过 IPVS 与 ipvsadm 来实现。&lt;/li>
-&lt;li>**Real Server(真实服务器) **# 处理客户端请求的节点。&lt;/li>
+&lt;li>&lt;strong>Real Server(真实服务器)&lt;/strong># 处理客户端请求的节点。&lt;/li>
 &lt;/ul>
 &lt;p>这些服务器一起组成了一个虚拟服务器，对于访问他们的客户端来说，它表现为一台机器。&lt;/p>
 &lt;p>LVS 的工作模式&lt;/p>
@@ -145,7 +145,7 @@ lvs-nat 的特性&lt;/p>
 &lt;li>8.RS 跟 Director 都得配置使用 VIP&lt;/li>
 &lt;li>9.确保前端路由器将目标 IP 为 VIP 的请求报文发往 Director(上文的设置)&lt;/li>
 &lt;/ul>
-&lt;p>lvs-dr(direct routing) #操纵新的 MAC 地址，直接路由，默认的 LVS 类型，通过请求报文的目标 MAC 地址进行转发，即需要 ARP 的 IP 与 MAC 映射表才能转发，由于调度器是基于二层 MAC 来调度的，所以调度器与 RS 必须要在同一个 VLAN 中
+&lt;p>lvs-dr(direct routing) # 操纵新的 MAC 地址，直接路由，默认的 LVS 类型，通过请求报文的目标 MAC 地址进行转发，即需要 ARP 的 IP 与 MAC 映射表才能转发，由于调度器是基于二层 MAC 来调度的，所以调度器与 RS 必须要在同一个 VLAN 中
 &lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zzd89g/1616132542782-786ee136-62a7-4fb6-8faf-2a43c660d620.jpeg" alt="">&lt;/p>
 &lt;ol>
 &lt;li>如图所示，请求报文直接到调度器，然后调度器选择一台 RS，让这台 RS 来响应该请求，RS 与用户直接交互，不再经过调度器，只有请求报文经过调度器，响应报文是不经过调度器的(RS 的网关不能指定到 DIP)所以用户访问的业务 IP 都是该业务的调度器的浮动 IP，通过调度器来给用户选择一台提供服务的主机，这样调度器没有压力。&lt;/li>
@@ -164,7 +164,7 @@ lvs-nat 的特性&lt;/p>
 &lt;li>参数 8：不回应所有（本地地址）的 arp 查询&lt;/li>
 &lt;/ol>
 &lt;/li>
-&lt;li>**arp_announce **# arp 宣告，通告 arp 给别人时的动作；以及是否接收 arp 通告，并记录；由该项参数决定
+&lt;li>&lt;strong>arp_announce&lt;/strong># arp 宣告，通告 arp 给别人时的动作；以及是否接收 arp 通告，并记录；由该项参数决定
 &lt;ol>
 &lt;li>参数 0：默认参数，把本机所有网卡上的所有地址通告给网络中（不管任何情况，使用发送或者转发的数据包的源 IP 作为发送 ARP 请求的 Sender IP）(与参数 1 的区别：不管目的 IP 与本地接口的 IP 在不在同一个网段，都是用发送源 IP 作为 Sender IP）&lt;/li>
 &lt;li>参数 1：尽量避免从本网络的外部接口向非本网络中的网络,通告非本网络中的接口的地址（只有当数据包的目的 IP 与本地某个接口的网段相同时，才使用发送或者转发的数据包的源 IP 作为发送 ARP 请求的 Sender IP，不属于则按参数 2 处理）
@@ -208,13 +208,13 @@ TUN 类型工作流程(主要是为了容灾,因为 Director 与各 RS 是在不
 &lt;li>请求和响应报文都经由 Dirctor&lt;/li>
 &lt;li>支持端口映射.&lt;/li>
 &lt;/ol>
-&lt;p>lvs-tun(ip tunneling) #在原请求 IP 报文之外新加一个 IP 首部，IP 隧道技术&lt;/p>
+&lt;p>lvs-tun(ip tunneling) # 在原请求 IP 报文之外新加一个 IP 首部，IP 隧道技术&lt;/p>
 &lt;ol>
 &lt;li>不修改请求报文的 IP 首部，通过在原有的 IP 首部之外，再封装一个 IP 首部(比如为了运送一袋米，我扛着米运相当于 IP 首部，我骑着驴送，驴相当于新封装的 IP 首部)&lt;/li>
 &lt;li>调度器收到请求报文时，再封装一层 IP 首部，把源 IP 至目标 IP 中的的 CIP 至 VIP 放在 DIP 至 RIP 的报文里面，DIP 至 RIP 相当于路由，所以可以不在同一网段,并且 RS 必须支持隧道技术，在解封装的时候，必须明白为什么在拆开 IP 首部之后还有一层 IP 首部&lt;/li>
 &lt;li>不支持端口映射，且 RS 的网关不能指向 DIP。&lt;/li>
 &lt;/ol>
-&lt;p>lvs-fullnat #修改请求报文的源和目标 IP&lt;/p>
+&lt;p>lvs-fullnat # 修改请求报文的源和目标 IP&lt;/p>
 &lt;ol>
 &lt;li>调度器同时修改请求报文的目标地址和源地址进行转发。把源 IP 和目标 IP 从 CIP—VIP 改成 DIP—RIP&lt;/li>
 &lt;li>VIP 是公网地址，RIP 和 DIP 是私网地址，二者无须在同一网络中&lt;/li>
