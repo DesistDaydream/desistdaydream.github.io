@@ -1,0 +1,309 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 1.Authenticating(认证)</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.Authenticating%E8%AE%A4%E8%AF%81/</link><description>Recent content in 1.Authenticating(认证) on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.Authenticating%E8%AE%A4%E8%AF%81/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 1.Authenticating(认证)</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.Authenticating%E8%AE%A4%E8%AF%81/1.Authenticating%E8%AE%A4%E8%AF%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.Authenticating%E8%AE%A4%E8%AF%81/1.Authenticating%E8%AE%A4%E8%AF%81/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/">官方文档,参考-API 访问控制-认证&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Authenticating(动词) 也称为 Authentication(名词) 身份验证。指明客户端是否有权限访问 API Server。&lt;/p>
+&lt;p>就好比我们在登录一个网站时，需要输入账户和密码的概念类似。在使用 API Server 时，也是通过类似的方式，使用账户来登录 API server(虽然不是真的登录)。&lt;/p>
+&lt;h2 id="accounts--kubernetes-集群中的账号">Accounts # Kubernetes 集群中的账号&lt;/h2>
+&lt;p>Accounts 是一个在认证授权系统里的逻辑概念。Accounts 需要通过认证概念中的东西(比如证书、token、或者用户名和密码等)来建立。类似于登陆系统的账户。而在 Kubernetes 中，Accounts 分为如下两类&lt;/p>
+&lt;ol>
+&lt;li>UserAccoun(用户账户，简称 User)&lt;/li>
+&lt;li>ServiceAccount(服务账户，简称 SA)&lt;/li>
+&lt;/ol>
+&lt;h3 id="user-account-用户账号">User Account 用户账号&lt;/h3>
+&lt;p>详见：[User Account 详解](/docs/IT学习笔记/10.云原生/2.3.Kubernetes%20 容器编排系统/7.API%20 访问控制/1.Authenticating(认证)/User%20Account%20 详解.md Account 详解.md)
+User 不属于 K8S 中的一个资源。这类 Account 适用于：客户端访问集群时使用(比如使用 kubectl、scheduler 等访问 api)&lt;/p>
+&lt;p>一个 User 可以管理多个 k8s 集群、也可以多个 User 管理一个集群，权限不同。User 只有在 KubeConfig 文件中才具有实际意义。&lt;/p>
+&lt;p>由于 User 不属于 K8S 资源，那么则无法通过 API 调用来添加 User Account。但是任何提供了由群集的证书颁发机构(CA)签名的有效证书的用户都将被视为已认证。基于这种情况，Kubernetes 使用证书中的 subject 字段中的 Common Name(通用名称,即 CN)的值，作为用户名。接下来，基于授权概念中的 RBAC 子系统会确定用户是否有权针对某资源执行特定的操作。&lt;/p>
+&lt;p>如果想创建一个 User，则可以通过证书的方式来创建。比如像下面这样， 这就创建了一个名为 lch 的 User Account。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>openssl genrsa -out lch.key &lt;span style="color:#ae81ff">2048&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl req -new -key lch.key -out lch.csr -subj &lt;span style="color:#e6db74">&amp;#34;/CN=lch&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果想使用 lch 这个 UA，则需要使用 kubectl config set-credentials 命令指定 lch 所需的相关凭证即可。还需要为 lch 绑定[授权概念](&amp;lt;/docs/IT学习笔记/10.云原生/2.3.Kubernetes%20 容器编排系统/7.API%20 访问控制/2.Authorization(授权).md&amp;raquo;)中的 Role 以便让该用户具有某些操作权限，然后 lch 这个 UA 即可对所绑定的集群有 Role 中所指定的操作权限。其中为 -subj 选项中 CN 的值就是 User 的名称。这个值也是在后面为 User 赋予 RBAC 权限的 rolebinding 时所使用的 &lt;code>subjects.name&lt;/code> 字段的值。&lt;/p>
+&lt;p>进一步的细节可参阅 &lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#normal-user">证书请求&lt;/a> 下普通用户主题。&lt;/p>
+&lt;h3 id="service-account-服务账号">Service Account 服务账号&lt;/h3>
+&lt;blockquote>
+&lt;p>详见：&lt;a href="https://www.yuque.com/go/doc/33165738">Service Account 详解&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>SA 属于 K8S 中的一个资源。这类 Account 适用于：Pod 访问集群时使用。&lt;/p>
+&lt;p>为什么需要 Service Account 呢？&lt;/p>
+&lt;p>Service Account(服务账户) 概念的引入是基于这样的使用场景：运行在 pod 里的进程需要调用 Kubernetes API 以及非 Kubernetes API 的其它服务。Service Account 是给 pod 里面 Container 中的进程使用的，它为 pod 提供必要的身份认证。(与用户控制 kubectl 去调用 API 一样，这里相当于 Pod 中 Container 在调用 API 的时候需要的认证)&lt;/p>
+&lt;h3 id="useraccount-与-serviceaccount-的区别httpskubernetesiodocsreferenceaccess-authn-authzservice-accounts-adminuser-accounts-versus-service-accounts">&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#user-accounts-versus-service-accounts">UserAccount 与 ServiceAccount 的区别&lt;/a>&lt;/h3>
+&lt;ol>
+&lt;li>UA 用来给人。SA 用来给运行在 pod 中的进程&lt;/li>
+&lt;li>UA 作用于全局，UA 的名字在集群的所有 namespace 中必须是唯一的。SA 作用于 namespace&lt;/li>
+&lt;li>UA 于 SA 的账户审核注意事项是不同的，UA 的凭证信息需要在使用 kubectl config 命令时候的手动指定；SA 的凭证信息在创建 SA 后会自动生成对应的 secret 并把凭证信息保存其中。&lt;/li>
+&lt;/ol>
+&lt;h2 id="accounts-group--账户组useraccount-与-serviceaccount-都有-group">Accounts Group # 账户组，UserAccount 与 ServiceAccount 都有 Group&lt;/h2>
+&lt;p>UA 与 SA 都可以属于一个或多个 Group&lt;/p>
+&lt;p>Group 是 Account 的集合，本身并没有操作权限，但附加于 Group 上的权限可由其内部的所有用户继承，以实现高效的授权管理机制。Kubernetes 有几个内建的用于特殊目的的 Group：&lt;/p>
+&lt;ol>
+&lt;li>system:unauthenticated&lt;/li>
+&lt;li>system:authenticated&lt;/li>
+&lt;li>system:serviceaccounts&lt;/li>
+&lt;li>system:serviceaccounts:&lt;!-- raw HTML omitted -->&lt;/li>
+&lt;/ol>
+&lt;p>kubeconfig 会给 UserAccount 提供与 APIServer 交互时所用的证书&lt;/p>
+&lt;p>Secret 会给 ServiceAccount 提供与 APIServer 交互时所用的证书&lt;/p>
+&lt;h1 id="authentication-strategies-认证策略httpskubernetesiozhdocsreferenceaccess-authn-authzauthenticationauthentication-strategiesieaccount-可用的认证方式">&lt;a href="https://kubernetes.io/zh/docs/reference/access-authn-authz/authentication/#authentication-strategies">Authentication Strategies 认证策略&lt;/a>(i.e.Account 可用的认证方式)&lt;/h1>
+&lt;p>Kubernetes 接受的认证方式有如下几种：&lt;/p>
+&lt;ol>
+&lt;li>client certificates&lt;/li>
+&lt;li>bearer tokens&lt;/li>
+&lt;li>an authenticating proxy&lt;/li>
+&lt;li>HTTP basic auth&lt;/li>
+&lt;/ol>
+&lt;p>向 API Server 发起 HTTPS 请求时，kubernetes 通过身份验证插件对请求进行身份验证。&lt;/p>
+&lt;h2 id="x509-client-certshttpskubernetesiodocsreferenceaccess-authn-authzauthenticationx509-client-certsx509-客户端证书">&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#x509-client-certs">X509 Client Certs&lt;/a>(X509 客户端证书)&lt;/h2>
+&lt;p>通过给 API 服务器传递 &amp;ndash;client-ca-file=SOMEFILE 选项，就可以启动客户端证书身份认证。 所引用的文件必须包含一个或者多个证书机构，用来验证向 API 服务器提供的客户端证书。 如果提供了客户端证书并且证书被验证通过，则 subject 中的公共名称（Common Name）就被 作为请求的用户名。 自 Kubernetes 1.4 开始，客户端证书还可以通过证书的 organization 字段标明用户的组成员信息。 要包含用户的多个组成员信息，可以在证书种包含多个 organization 字段。&lt;/p>
+&lt;p>例如，使用 openssl 命令行工具生成一个证书签名请求：&lt;/p>
+&lt;pre>&lt;code>openssl req -new -key jbeda.pem -out jbeda-csr.pem -subj &amp;quot;/CN=jbeda/O=app1/O=app2&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>此命令将使用用户名 jbeda 生成一个证书签名请求（CSR），且该用户属于 &amp;ldquo;app&amp;rdquo; 和 &amp;ldquo;app2&amp;rdquo; 两个用户组。&lt;/p>
+&lt;p>参阅&lt;a href="https://kubernetes.io/docs/concepts/cluster-administration/certificates/">管理证书&lt;/a>了解如何生成客户端证书&lt;/p>
+&lt;h2 id="static-token-filehttpskubernetesiodocsreferenceaccess-authn-authzauthenticationstatic-token-file静态令牌文件">&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#static-token-file">Static Token File&lt;/a>(静态令牌文件)&lt;/h2>
+&lt;p>当 API 服务器的命令行设置了 &amp;ndash;token-auth-file=SOMEFILE 选项时，会从文件中 读取持有者令牌。目前，令牌会长期有效，并且在不重启 API 服务器的情况下 无法更改令牌列表。&lt;/p>
+&lt;p>令牌文件是一个 CSV 文件，包含至少 3 个列：令牌、用户名和用户的 UID。 其余列被视为可选的组名。&lt;/p>
+&lt;p>说明：&lt;/p>
+&lt;p>如果要设置的组名不止一个，则对应的列必须用双引号括起来，例如&lt;/p>
+&lt;pre>&lt;code>token,user,uid,&amp;quot;group1,group2,group3&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>在请求中放入持有者令牌&lt;/p>
+&lt;p>当使用持有者令牌来对某 HTTP 客户端执行身份认证时，API 服务器希望看到 一个名为 Authorization 的 HTTP 头，其值格式为 Bearer THETOKEN。 持有者令牌必须是一个可以放入 HTTP 头部值字段的字符序列，至多可使用 HTTP 的编码和引用机制。 例如：如果持有者令牌为 31ada4fd-adec-460c-809a-9e56ceb75269，则其 出现在 HTTP 头部时如下所示：&lt;/p>
+&lt;pre>&lt;code>Authorization: Bearer 31ada4fd-adec-460c-809a-9e56ceb75269
+# 比如一个 curl 请求中，可以通过 -H 参数加入请求头
+curl --cacert ${CAPATH} -H &amp;quot;Authorization: Bearer ${TOKEN}&amp;quot; https://${IP}:6443/
+&lt;/code>&lt;/pre></description></item><item><title>Docs: Service Account 详解</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.Authenticating%E8%AE%A4%E8%AF%81/Service-Account-%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.Authenticating%E8%AE%A4%E8%AF%81/Service-Account-%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/">官方文档,任务-配置 Pod 和 容器-为 Pods 配置服务账户&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/">官方文档,参考-API 访问控制-管理服务账户&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>详解 Service Account 之前，需要了解这么一个 k8s 的运行逻辑：&lt;strong>每个 Pod 在创建成功后，都会声明并使用一个 ServiceAccount 作为自己与集群通信的认证，默认使用 Pod 所在 Namepace 的名为 default 的 ServiceAccount&lt;/strong>&lt;/p>
+&lt;p>上面这个默认的 default 具有很高的权限，如果想对该 default 进行安全保护，可以修改绑定到 default 的 role 的权限&lt;/p>
+&lt;p>每个 ServiceAccount 对象在被创建出来之后，都会自动生成一个对应的 Secrets 对象，认证信息即在该 Secret 中。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 与 ServiceAccount 关联的 secret 会以 SAName-token-STRING 的方式命名。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 效果如下，在monitoring 名称空间中每个 sa 都有一个 secret 对应。(SA 是 ServiceAccount 的简称)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master alertmanager&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># kubectl get serviceaccount -n monitoring&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME SECRETS AGE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>alertmanager-main &lt;span style="color:#ae81ff">1&lt;/span> 2m18s
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>default &lt;span style="color:#ae81ff">1&lt;/span> 13d
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>....
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master alertmanager&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># kubectl get secrets -n monitoring&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME TYPE DATA AGE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>alertmanager-main-token-h4vfx kubernetes.io/service-account-token &lt;span style="color:#ae81ff">3&lt;/span> 2m22s
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>default-token-8hww4 kubernetes.io/service-account-token &lt;span style="color:#ae81ff">3&lt;/span> 13d
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.......
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>该 Secret 中包含 3 个数据&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>ca.crt # 集群的 CA 的证书&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>namespace # 该 Pod 属于哪个 namespace&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>token # 该 Pod 所用的 Service Account 的令牌信息&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>这几个数据文件在 Pod 启动后会被自动挂载到 容器内的 /var/run/secrets/kubernetes.io/serviceaccount/ 目录下(该目录下的证书和 token 和 namespace 就类似于 kubeclt 命令的配置文件里的证书和 token 和 namespace)。效果如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master-1 ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># kubectl exec -it myapp -- /bin/sh&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/ &lt;span style="color:#75715e"># ls -l /var/run/secrets/kubernetes.io/serviceaccount/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">13&lt;/span> Sep &lt;span style="color:#ae81ff">16&lt;/span> 13:24 ca.crt -&amp;gt; ..data/ca.crt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">16&lt;/span> Sep &lt;span style="color:#ae81ff">16&lt;/span> 13:24 namespace -&amp;gt; ..data/namespace
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">12&lt;/span> Sep &lt;span style="color:#ae81ff">16&lt;/span> 13:24 token -&amp;gt; ..data/token
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Service Account 相关流程&lt;/p>
+&lt;p>从上面的介绍中可以看到，Pod 启动后，会自动加载 token ，SA 生成后会自动创建 token ，那么这些工作，都是由谁来完成的呢？~&lt;/p>
+&lt;p>在 Kubernetes 中有三个组件来协作完成 SA 的自动化工作&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>服务账户准入控制器（Service account admission controller）&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Token 控制器（Token controller）&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>服务账户控制器（Service account controller）&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h3 id="service-account-admission-controller-服务账户准入控制器">Service account admission controller 服务账户准入控制器&lt;/h3>
+&lt;p>对 pod 的改动通过一个被称为 &lt;a href="https://kubernetes.io/docs/admin/admission-controllers">Admission Controller&lt;/a> 的插件来实现。它是 apiserver 的一部分。 当 pod 被创建或更新时，它会同步地修改 pod。 当该插件处于激活状态 ( 在大多数 k8s 发行版中都是默认的 )，当 pod 被创建或更新时它会进行以下动作：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>如果该 pod 没有 ServiceAccount 设置，将其 ServiceAccount 设为 default。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>保证 pod 所关联的 ServiceAccount 存在，否则拒绝该 pod。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>如果 pod 不包含 ImagePullSecrets 设置，那么 将 ServiceAccount 中的 ImagePullSecrets 信息添加到 pod 中。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>为 pod 添加一个用于访问 API 的卷(卷中包含访问 API 时所需的认证 token)&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>将上面的卷挂载到 pod 中每个容器的 /var/run/secrets/kubernetes.io/serviceaccount/ 目录下&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>反映在 pod 的 yaml 中，就是下面这个样子&lt;/p>
+&lt;pre>&lt;code> volumeMounts:
+- mountPath: /var/run/secrets/kubernetes.io/serviceaccount # 将卷挂载到 pod 中每个容器的 /var/run/secrets/kubernetes.io/serviceaccount/ 目录下
+name: default-token-4w977
+readOnly: true
+volumes: # 为 pod 添加一个用于访问 API 的卷(卷中包含访问 API 时所需的认证 token)
+- name: default-token-4w977
+secret:
+defaultMode: 420
+secretName: default-token-4w977
+&lt;/code>&lt;/pre>
+&lt;h3 id="token-controller-令牌控制器">Token controller 令牌控制器&lt;/h3>
+&lt;p>Token 控制器 是 controller-manager 的一部分。 以异步的形式工作：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>检测服务账户的创建，并且创建相应的 Secret 以支持 API 访问。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>检测服务账户的删除，并且删除所有相应的服务账户 Token Secret。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>检测 Secret 的增加，保证相应的服务账户存在，如有需要，为 Secret 增加 token。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>检测 Secret 的删除，如有需要，从相应的服务账户中移除引用。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>你需要通过 &amp;ndash;service-account-private-key-file 参数项传入一个服务账户私钥文件至 Token 管理器。 私钥用于为生成的服务账户 token 签名。 同样地，你需要通过 &amp;ndash;service-account-key-file 参数将对应的公钥传入 kube-apiserver。 公钥用于认证过程中的 token 校验。&lt;/p>
+&lt;p>创建额外的 API tokens&lt;/p>
+&lt;p>控制器中有专门的循环来保证每个服务账户中都存在 API token 对应的 Secret。 当需要为服务账户创建额外的 API token 时，创建一个类型为 ServiceAccountToken 的 Secret，并在 annotation 中引用服务账户，控制器会生成 token 并更新 :&lt;/p>
+&lt;h3 id="service-account-controller-服务账户控制器">Service account controller 服务账户控制器&lt;/h3>
+&lt;p>服务账户管理器管理各命名空间下的服务账户，并且保证每个活跃的命名空间下存在一个名为 &amp;ldquo;default&amp;rdquo; 的服务账户&lt;/p>
+&lt;p>总结：&lt;/p>
+&lt;p>Secret 的作用与 kubeconfig 的作用有异曲同工之妙，ServiceAccount 生成后自动创建的 Secret 里的信息是在 pod 与 APIServer 交互时使用(可以把 pod 当做 kubectl )，比如当一个 pod 中的进程想要 get 或者 delete 资源时，相当于是对集群请求执行该指令，而集群是通过 ApiServer 来接收这些指令的。那么首先就要确认使用 pod 进行这操作的 User 是谁，这个 User 是否有证书来对 ApiServer 发起这些请求。如果 ApiServer 都不认可这个 User ,那么都不会接受这些指令请求。&lt;/p>
+&lt;p>ServiceAccount 的使用&lt;/p>
+&lt;p>官方文档：&lt;a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/">https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/&lt;/a>&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>常见用法：用来在 clusterrolebinding(或者 rolebinding) 中，将指定的 ServiceAccount 与指定的 ClusterRole(或者 role) 进行绑定，绑定之后，所有使用该 ServiceAccount 的 pod 就有了该 ClusterRole(或者 role) 中定义的操作授权&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>这是为了在部署服务(i.e.pod)时，可以不让 pod 获取太高的授权，一般都会自定义一个 sa，然后创建一个 role 仅有几种操作授权，再将 sa 与这个 role 绑定之后，就可以限制这个服务对集群可操作权限的多少&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>一般像 dashboard、prometheus、ingress 等服务都需要这么做，因为这些服务所创建的 pod 一般都会用来对 k8s 集群内的资源进行一系列操作来完成本身的功能(比如获取集群信息(至少需要 get pod)等等)。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>
+&lt;p>比如 Prometheus，当在集群中部署 Prometheus 时，一般是在 monitoring 名称空间中，如果 Prometheus 想要获取其他名称空间中 pod 的监控指标，则需要在对应的名称空间中创建 role 和 rolebing，并将 Prometheus 所用的 ServiceAccount 与该名称空间中的 role 绑定，这样，Prometheus 才可以获取指定名称空间中 pod 的相关指标。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>比如 dashboard 这个用于管理 kubernetes 集群的 web 界面的 Pod，该 Pod 可以实现对集群的增删改查的操作(通过 Pod 中 container 的进程实现)，与 kubectl 一样，这个 Pod 也会调用 API 对集群进行操作。但是在此之前需要对该 Pod 进行认证(只不过与 kubectl 不同，这个认证不是通过 UserAccount(i.e.kubeconfig)来进行的，而是通过 ServiceAccount 来进行)创建完 ServiceAccount 资源后，会自动生成一个 secrets 的资源，secrets 就是该 ServiceAccount 的认证，使用这个 Secrets 里的 token 来让 ServiceAccount 与 API 进行登录认证，然后再给 ServiceAccount 进行授权操作以决定 API 会接收哪些指令&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>创建 ServiceAccount 并获取此 ServiceAccount 的 secret，使用 kubectl describe 查看该 secret 的详细信息，使用其中的 token 来进行登录 web 界面&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>根据其管理目标，使用 rolebinding 或 clusterrolebinding 将 ServiceAccount 绑定至合理的 role 或 clusterrole 以实现权限管理&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>secret 的密文都是通过把内容进行 base64 加密后得出的结果，base64 -w 0 为加密命令 base64 -d 为解密命令，可以使用&lt;code>echo “要加/解密的内容” | base64 “加/解密选项”&lt;/code>命令&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol></description></item><item><title>Docs: User Account 详解</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.Authenticating%E8%AE%A4%E8%AF%81/User-Account-%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/7.API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.Authenticating%E8%AE%A4%E8%AF%81/User-Account-%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/">官方文档,概念-配置-使用 kubeconfig 文件访问集群&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/">官方文档,任务-访问集群中的应用程序-配置多集群访问&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>User Account(用户账户，简称 UA)&lt;/strong> 使用 KubeConfig 文件进行认证。KubeConfig 是一个允许各个客户端与集群通信时所用到的认证配置文件，由于与 kubernetes 交互的途径只有通过 API Server 这一条途径，所以就相当于 API Server 的各客户端(kubelet、scheduler、controller-manager、kube-proxy 等)与其进行通信时使用的认证、配置文件。&lt;/p>
+&lt;p>KubeConfig 是对 UserAccount 的扩展，KubeConfig 会创建 UserAccount 并关联到指定的集群上&lt;/p>
+&lt;p>使用 KubeConfig 的原因：可以不用进行双向证书交换，节省交互开销。仅用于对安全性不那么高的情况，否则依然使用双向认证，比如 etcd 与 apiserver 的交互&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>首先，Kubeconfig 可以是任意文件名的文件，Kubeconfig 只是一个概念，并以文本文件的形式展示出来。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>在开启了 TLS 的集群中，每当与集群交互的时候少不了的是身份认证，使用证书和 token(令牌)两种认证方式是最简单也最通用的认证方式。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>以 kubectl 为例，kubectl 只是个 go 编写的可执行程序，只要为 kubectl 配置合适的 KubeConfig，就可以在集群中的任意节点使用。kubectl 默认会从 ~/.kube 目录下查找文件名为 config 的文件，也可以使用 &amp;ndash;kubeconfig 命令行标志时指明具体的 KubeConfig 文件。(注意：下文中的用户指的是 kubernetes 中的用户，与 linux 的用户不同)&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>比如&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>当 kubectl 去 get 或者 delete 等资源的时候，相当于是对集群请求执行该指令，而集群是通过 API Server 来接收这些指令的&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>那么首先要确认的是使用 kubectl 进行操作的这个 User 是谁，这个 User 是否有证书来对我发起这些操作。如果我都不认可这个 User，那么我都不会接受这些指令请求，这就是 KubeConfig 的作用&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>然后 KubeConfig 可以指明一个 User 与一个 cluster 绑定，当绑定之后，即证明该 User 可以通过 kubectl 来对该绑定集群的 API Server 发起请求，一个 User 可以绑定多个集群。一个集群也可绑定多个 User&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>当 API Server 认可这个 User 通过 kubectl 发送的请求后，就需要下一步授权来对该请求中指令进行鉴权，鉴别这个 User 是否有权利执行这个指令&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>总之，KubeConfig 就是访问集群所需认证信息文件。&lt;/p>
+&lt;h1 id="kubeconfig-manifests-详解">KubeConfig Manifests 详解&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档中还没有对这个配置文件的描述&lt;/li>
+&lt;li>代码：&lt;a href="https://github.com/kubernetes/client-go/blob/master/tools/clientcmd/api/types.go">https://github.com/kubernetes/client-go/blob/master/tools/clientcmd/api/types.go&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>使用命令修改：&lt;/p>
+&lt;ul>
+&lt;li>配置方法详见 &lt;a href="https://www.yuque.com/go/doc/33163778">kubectl 的 config 子命令&lt;/a>，当使用 &amp;ndash;kubeconfig 指定文件时，如果文件不存在，则会自动创建，并包含基本模板&lt;/li>
+&lt;li>直接对文件中的各个字段进行修改&lt;/li>
+&lt;/ul>
+&lt;h2 id="apiversion-v1">apiVersion: v1&lt;/h2>
+&lt;h2 id="kind-config">kind: Config&lt;/h2>
+&lt;h2 id="clusters-object--定义访问指定集群所用的证书访问入口名称可指定多个集群">clusters: &amp;lt;[]Object&amp;gt; # 定义访问指定集群所用的证书、访问入口、名称，可指定多个集群&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>cluster: &amp;lt;map[STRING]STRING&amp;gt;&lt;/strong> # 集群列表
+&lt;ul>
+&lt;li>&lt;strong>certificate-authority-data: &amp;lt;STRING&amp;gt;&lt;/strong> # 集群的认证信息。一般为集群 ca 证书的 base64 格式的字符串&lt;/li>
+&lt;li>&lt;strong>server: &amp;lt;STRING&amp;gt;&lt;/strong> # 集群的入口，一般为 API Server 的 &lt;code>https://IP:PORT&lt;/code>&lt;/li>
+&lt;li>&lt;strong>insecure-skip-tls-verify: &amp;lt;BOOLEAN&amp;gt;&lt;/strong> # 是否跳过验证服务端证书有效性的行为。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>name: &amp;lt;STRING&amp;gt;&lt;/strong> # 指定该集群的名称&lt;/li>
+&lt;/ul>
+&lt;h2 id="contexts-object--指名用户与集群的绑定关系">contexts: &amp;lt;[]Object&amp;gt; # 指名用户与集群的绑定关系&lt;/h2>
+&lt;p>比如有一台主机作为客户端(kubelet)，想控制多个 k8s 的集群，为了让一个 kubectl 控制多个集群且多个不同用户账号可以访问多个不同的集群。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>context: &amp;lt;map[STRING]STRING&amp;gt;&lt;/strong> # 上下文列表
+&lt;ul>
+&lt;li>&lt;strong>cluster: &amp;lt;STRING&amp;gt;&lt;/strong> # 指明与 user 关联的 cluster&lt;/li>
+&lt;li>&lt;strong>user: &amp;lt;STRING&amp;gt;&lt;/strong> # 指明与 cluster 关联的 user&lt;/li>
+&lt;li>&lt;strong>namespace: &amp;lt;STRING&amp;gt;&lt;/strong> # 可省，指定该配置环境默认操作的 namespace，省略表示默认为 default 名称空间。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>name: &amp;lt;STRING&amp;gt;&lt;/strong> # 指明该上下文的名称。默认格式为&amp;quot;用户名@集群名&amp;quot;，表示这个用户被授权到这个集群中。其实可以使用任意字符串。&lt;/li>
+&lt;/ul>
+&lt;h2 id="current-context-string--当前所使用的上下文">current-context: &amp;lt;STRING&amp;gt; # 当前所使用的上下文&lt;/h2>
+&lt;p>kubectl config current-context 命令就是获取该字段的值。&lt;/p>
+&lt;h2 id="users-object--定义用户信息">users: &amp;lt;[]Object&amp;gt; # 定义用户信息&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>name: &amp;lt;STRING&amp;gt;&lt;/strong> # 指定用户名称&lt;/li>
+&lt;li>&lt;strong>user: &amp;lt;map[STRING]STRING&amp;gt;&lt;/strong> # 用户信息
+&lt;ul>
+&lt;li>&lt;strong>client-certificate-data: REDACTED&lt;/strong> # 证书，一般使用集群 ca 证书的 base64 格式的字符串。指明这个用户用来与集群 api 通信时所用客户端的证书&lt;/li>
+&lt;li>&lt;strong>client-key-data: REDACTED&lt;/strong> # 密钥，一般使用集群 ca 证书的密钥的 base64 格式的字符串。指明这个用户用来与集群 api 通信时所用客户端的密钥&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="preferences-object">preferences: &amp;lt;[]Object&amp;gt;&lt;/h2></description></item></channel></rss>

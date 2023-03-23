@@ -1,0 +1,1102 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Kubernetes 监控</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/</link><description>Recent content in Kubernetes 监控 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: kube-state-metrics</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/kube-state-metrics/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/kube-state-metrics/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics">GitHub 项目，kubernetes/kube-stsate-metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/tree/master/docs">GitHub 文档,可暴露的所有指标列表&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>已经有了 cadvisor、Metric Server，几乎容器运行的所有指标都能拿到，但是下面这种情况却无能为力：&lt;/p>
+&lt;ul>
+&lt;li>我调度了多少个 replicas？现在可用的有几个？&lt;/li>
+&lt;li>多少个 Pod 是 running/stopped/terminated 状态？&lt;/li>
+&lt;li>Pod 重启了多少次？&lt;/li>
+&lt;li>我有多少 job 在运行中&lt;/li>
+&lt;/ul>
+&lt;p>而这些则是 kube-state-metrics 提供的内容，它基于 client-go 开发，轮询 Kubernetes API，并将 Kubernetes 的结构化信息转换为 Metrics。&lt;/p>
+&lt;p>kube-state-metrics 提供的指标，按照阶段分为三种类别：&lt;/p>
+&lt;ul>
+&lt;li>1.实验性质的：k8s api 中 alpha 阶段的或者 spec 的字段。&lt;/li>
+&lt;li>2.稳定版本的：k8s 中不向后兼容的主要版本的更新&lt;/li>
+&lt;li>3.被废弃的：已经不在维护的。&lt;/li>
+&lt;/ul>
+&lt;p>指标类别包括：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/certificatessigningrequest-metrics.md">CertificateSigningRequest Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/configmap-metrics.md">ConfigMap Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/cronjob-metrics.md">CronJob Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/daemonset-metrics.md">DaemonSet Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/deployment-metrics.md">Deployment Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/endpoint-metrics.md">Endpoint Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/horizontalpodautoscaler-metrics.md">Horizontal Pod Autoscaler Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/ingress-metrics.md">Ingress Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/job-metrics.md">Job Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/lease-metrics.md">Lease Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/limitrange-metrics.md">LimitRange Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/mutatingwebhookconfiguration-metrics.md">MutatingWebhookConfiguration Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/namespace-metrics.md">Namespace Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/networkpolicy-metrics.md">NetworkPolicy Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/node-metrics.md">Node Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/persistentvolume-metrics.md">PersistentVolume Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/persistentvolumeclaim-metrics.md">PersistentVolumeClaim Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/poddisruptionbudget-metrics.md">Pod Disruption Budget Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/pod-metrics.md">Pod Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/replicaset-metrics.md">ReplicaSet Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/replicationcontroller-metrics.md">ReplicationController Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/resourcequota-metrics.md">ResourceQuota Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/secret-metrics.md">Secret Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/service-metrics.md">Service Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/statefulset-metrics.md">StatefulSet Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/storageclass-metrics.md">StorageClass Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/validatingwebhookconfiguration-metrics.md">ValidatingWebhookConfiguration Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/verticalpodautoscaler-metrics.md">VerticalPodAutoscaler Metrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/volumeattachment-metrics.md">VolumeAttachment Metrics&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>可以通过 prometheus 配置 scrape 的 target 为 kube-state-metrics ，将数据持久保存起来。&lt;/p>
+&lt;p>不过 metrics-server 和 kube-state-metrics 之间还是有很大不同的，二者的主要区别如下：&lt;/p>
+&lt;p>官方说明的区别：&lt;a href="https://github.com/kubernetes/kube-state-metrics#kube-state-metrics-vs-metrics-server">https://github.com/kubernetes/kube-state-metrics#kube-state-metrics-vs-metrics-server&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>metrics-server 主要关注的是&lt;a href="https://github.com/kubernetes/community/blob/master/contributors/design-proposals/instrumentation/resource-metrics-api.md">资源度量 API&lt;/a> 的实现，比如 CPU、文件描述符、内存、请求延时等指标。&lt;/li>
+&lt;li>kube-state-metrics 主要关注的是业务相关的一些元数据，比如 Deployment、Pod、副本状态等。&lt;/li>
+&lt;/ul>
+&lt;p>metric-server 的对比&lt;/p>
+&lt;ul>
+&lt;li>metric-server（或 heapster）是从 api-server 中获取 cpu、内存使用率这种监控指标，并把他们发送给存储后端，如 influxdb 或云厂商，他当前的核心作用是：为 HPA 等组件提供决策指标支持。&lt;/li>
+&lt;li>kube-state-metrics 关注于获取 k8s 各种资源的最新状态，如 deployment 或者 daemonset，之所以没有把 kube-state-metrics 纳入到 metric-server 的能力中，是因为他们的关注点本质上是不一样的。metric-server 仅仅是获取、格式化现有数据，写入特定的存储，实质上是一个监控系统。而 kube-state-metrics 是将 k8s 的运行状况在内存中做了个快照，并且获取新的指标，但他没有能力导出这些指标&lt;/li>
+&lt;li>换个角度讲，kube-state-metrics 本身是 metric-server 的一种数据来源，虽然现在没有这么做。&lt;/li>
+&lt;li>另外，像 Prometheus 这种监控系统，并不会去用 metric-server 中的数据，他都是自己做指标收集、集成的（Prometheus 包含了 metric-server 的能力），但 Prometheus 可以监控 metric-server 本身组件的监控状态并适时报警，这里的监控就可以通过 kube-state-metrics 来实现，如 metric-serverpod 的运行状态。&lt;/li>
+&lt;/ul>
+&lt;h2 id="与-kubernetes-的兼容性">与 Kubernetes 的兼容性&lt;/h2>
+&lt;p>kube-state-metrics 使用 client-go 与 Kubernetes 集群进行交互。支持的 Kubernetes 集群版本由 client-go 决定。client-go 和 Kubernetes 集群的兼容性矩阵可以在这里找到。所有额外的兼容性只是尽最大努力，或者碰巧仍然/已经被支持。&lt;/p>
+&lt;p>如果 kube-state-metrics 与 kubernetes 版本不兼容，通常会出现如下问题：&lt;/p>
+&lt;ul>
+&lt;li>获取某些资源的指标错误，因为 kubernetes 资源的 API 版本与 kube-state-metrics 所使用的 client-go 采集的资源的 API 版本不一致，报错信息类似 &lt;code>failed to list *${APIVersion}.${Resource}: the server could not find the requested resource&lt;/code>：&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>pkg/mod/k8s.io/client-go@v0.24.1/tools/cache/reflector.go:167: failed to list *v1.PodDisruptionBudget: the server could not find the requested resource
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pkg/mod/k8s.io/client-go@v0.24.1/tools/cache/reflector.go:167: Failed to watch *v1.CronJob: failed to list *v1.CronJob: the server could not find the requested resource
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="兼容矩阵">兼容矩阵&lt;/h3>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>&lt;strong>kube-state-metrics&lt;/strong>&lt;/th>
+&lt;th>&lt;strong>Kubernetes 1.19&lt;/strong>&lt;/th>
+&lt;th>&lt;strong>Kubernetes 1.23&lt;/strong>&lt;/th>
+&lt;th>&lt;strong>Kubernetes 1.24&lt;/strong>&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;strong>v2.3.0&lt;/strong>&lt;/td>
+&lt;td>✓&lt;/td>
+&lt;td>✓&lt;/td>
+&lt;td>-&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>v2.4.2&lt;/strong>&lt;/td>
+&lt;td>-/✓&lt;/td>
+&lt;td>✓&lt;/td>
+&lt;td>-&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>v2.5.0&lt;/strong>&lt;/td>
+&lt;td>-&lt;/td>
+&lt;td>✓&lt;/td>
+&lt;td>✓&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;ul>
+&lt;li>&lt;code>✓&lt;/code> 完全支持的版本&lt;/li>
+&lt;li>&lt;code>-&lt;/code> Kubernetes 集群具有 client-go 库无法使用的功能(其他 API 对象，不推荐使用的 API 等)。&lt;/li>
+&lt;/ul>
+&lt;h1 id="node-metricshttpsgithubcomkuberneteskube-state-metricsblobmasterdocsnode-metricsmd节点指标">&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/node-metrics.md">Node Metrics&lt;/a>(节点指标)&lt;/h1>
+&lt;p>&lt;strong>kube_node_status_allocatable&lt;/strong> # 可调度的节点中，各种资源的可分配额度
+这里面的资源指的 memory、cpu、pods 等等，也就是说，这个指标反应了集群中每个节点上可以被使用内存有多少、CPU 有多少、可以部署多少个 Pod 等等。&lt;/p>
+&lt;h1 id="pod-metricshttpsgithubcomkuberneteskube-state-metricsblobmasterdocspod-metricsmdpod-指标">&lt;a href="https://github.com/kubernetes/kube-state-metrics/blob/master/docs/pod-metrics.md">Pod Metrics&lt;/a>(Pod 指标)&lt;/h1>
+&lt;p>&lt;strong>kube_pod_container_resource_limits&lt;/strong> # 为 Pod 中每个容器配置的 &lt;code>.spec.container.resources.limits&lt;/code> 字段的值
+&lt;strong>kube_pod_container_resource_requests&lt;/strong> # 为 Pod 中每个容器配置的 &lt;code>.spec.container.resources.requests&lt;/code> 字段的值&lt;/p></description></item><item><title>Docs: kubectl top 命令解析</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/kubectl-top-%E5%91%BD%E4%BB%A4%E8%A7%A3%E6%9E%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/kubectl-top-%E5%91%BD%E4%BB%A4%E8%A7%A3%E6%9E%90/</guid><description>
+&lt;p>原文链接：&lt;a href="http://www.xuyasong.com/?p=1781">http://www.xuyasong.com/?p=1781&lt;/a>&lt;/p>
+&lt;h1 id="一-前言">一. 前言&lt;/h1>
+&lt;p>kubectl top 可以很方便地查看 node、pod 的实时资源使用情况：如 CPU、内存。这篇文章会介绍其数据链路和实现原理，同时借 kubectl top 阐述 k8s 中的监控体系，窥一斑而知全豹。最后会解释常见的一些问题：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>kubectl top 为什么会报错？&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>kubectl top node 怎么计算，和节点上直接 top 有什么区别？&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>kubectl top pod 怎么计算，包含 pause 吗？&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>kubectl top pod 和 exec 进入 pod 后看到的 top 不一样？&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>kubectl top pod 和 docker stats 得到的值为什么不同？&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>以下命令的运行环境为：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>k8s 1.8&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>k8s 1.13&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>二. 使用&lt;/p>
+&lt;p>kubectl top 是基础命令，但是需要部署配套的组件才能获取到监控值&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>1.8 以下：部署 heapter&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>1.8 以上：部署 metric-server&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>kubectl top node: 查看 node 的使用情况&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843731-13c06c73-dc96-491a-8ce3-0bca37d2a497.png" alt="">&lt;/p>
+&lt;p>kubectl top pod: 查看 pod 的使用情况&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843697-b22a3e6f-07b6-4e41-94f7-288e65e131e0.png" alt="">&lt;/p>
+&lt;p>不指定 pod 名称，则显示命名空间下所有 pod，–containers 可以显示 pod 内所有的 container&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843720-df109129-98ef-4025-bec4-169d67437e90.png" alt="">&lt;/p>
+&lt;p>指标含义：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>和 k8s 中 的 request、limit 一致，CPU 单位 100m=0.1 内存单位 1Mi=1024Ki&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>pod 的内存值是其实际使用量，也是做 limit 限制时判断 oom 的依据。pod 的使用量等于其所有业务容器的总和，不包括 pause 容器，值等于 cadvisr 中的 container_memory_working_set_bytes 指标&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>node 的值并不等于该 node 上所有 pod 值的总和，也不等于直接在机器上运行 top 或 free 看到的值&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>三. 实现原理&lt;/p>
+&lt;p>3.1 数据链路&lt;/p>
+&lt;p>kubectl top 、 k8s dashboard 以及 HPA 等调度组件使用的数据是一样，数据链路如下：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843724-7db58fec-a148-43de-8881-3a53bb53e35f.png" alt="">&lt;/p>
+&lt;p>这里可以对比下 kubect get pod 时的日志：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843855-2346b422-67b5-44dc-a82b-1da67850ac48.png" alt="">&lt;/p>
+&lt;p>3.2 metric api&lt;/p>
+&lt;p>可以发现，heapster 使用的是 proxy 转发，而 metric-server 和普通 pod 都是使用 api/xx 的资源接口，heapster 采用的这种 proxy 方式是有问题的：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>proxy 只是代理请求，一般用于问题排查，不够稳定，且版本不可控&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>heapster 的接口不能像 apiserver 一样有完整的鉴权以及 client 集成，两边都维护的话代价高，如 generic apiserver&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>pod 的监控数据是核心指标（HPA 调度），应该和 pod 本身拥有同等地位，即 metric 应该作为一种资源存在，如 metrics.k8s.io 的形式，称之为 Metric Api&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>于是官方从 1.8 版本开始逐步废弃 heapster，并提出了上边 Metric api 的概念，而 metrics-server 就是这种概念下官方的一种实现，用于从 kubelet 获取指标，替换掉之前的 heapster&lt;/p>
+&lt;p>3.3 kube-aggregator&lt;/p>
+&lt;p>有了 metrics-server 组件，采集到了需要的数据，也暴露了接口，但走到这一步和 heapster 其实没有区别，最关键的一步就是如何将打到 apiserver 的 /apis/metrics.k8s.io 请求转发给 metrics-server 组件？解决方案就是：kube-aggregator。&lt;/p>
+&lt;p>kube-aggregator 是对 apiserver 的有力扩展，它允许 k8s 的开发人员编写一个自己的服务，并把这个服务注册到 k8s 的 api 里面，即扩展 API，metric-server 其实在 1.7 版本就已经完成了，只是在等 kube-aggregator 的出现。&lt;/p>
+&lt;p>kube-aggregator 是 apiserver 中的实现，有些 k8s 版本默认没开启，你可以加上这些配置来开启，他的核心功能是动态注册、发现汇总、安全代理。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843710-fae97b7a-5863-4514-8726-5b112de5a52b.png" alt="">&lt;/p>
+&lt;p>如 metric-server 注册 pod 和 node 时:&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843761-69130537-e219-4a2f-8e5d-47542eb2393c.png" alt="">&lt;/p>
+&lt;p>3.4 监控体系&lt;/p>
+&lt;p>在提出 metric api 的概念时，官方也提出了新的监控体系，监控资源被分为了 2 种：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>Core metrics(核心指标)：从 Kubelet、cAdvisor 等获取度量数据，再由 metrics-server 提供给 Dashboard、HPA 控制器等使用。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Custom Metrics(自定义指标)：由 Prometheus Adapter 提供 API custom.metrics.k8s.io，由此可支持任意 Prometheus 采集到的指标。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843734-4b19256f-32e5-411c-ada2-176e4988c635.png" alt="">&lt;/p>
+&lt;p>核心指标只包含 node 和 pod 的 cpu、内存等，一般来说，核心指标作 HPA 已经足够，但如果想根据自定义指标：如请求 qps/5xx 错误数来实现 HPA，就需要使用自定义指标了。&lt;/p>
+&lt;p>目前 Kubernetes 中自定义指标一般由 Prometheus 来提供，再利用 k8s-prometheus-adpater 聚合到 apiserver，实现和核心指标同样的效果。&lt;/p>
+&lt;p>3.5 kubelet&lt;/p>
+&lt;p>前面提到，无论是 heapster 还是 metric-server，都只是数据的中转和聚合，两者都是调用的 kubelet 的 api 接口获取的数据，而 kubelet 代码中实际采集指标的是 cadvisor 模块，你可以在 node 节点访问 10255 端口（1.11 版本过后是 10250 端口）获取监控数据：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>Kubelet Summary metrics: 127.0.0.1:10255/metrics，暴露 node、pod 汇总数据&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Cadvisor metrics: 127.0.0.1:10255/metrics/cadvisor，暴露 container 维度数据&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>示例，容器的内存使用量：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843728-6214917d-b5e7-4773-aa29-e2057eca36fd.png" alt="">&lt;/p>
+&lt;p>Kubelet 虽然提供了 metric 接口，但实际监控逻辑由内置的 cAdvisor 模块负责，演变过程如下：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>从 k8s 1.6 开始，kubernetes 将 cAdvisor 开始集成在 kubelet 中，不需要单独配置&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>从 k8s 1.7 开始，Kubelet metrics API 不再包含 cadvisor metrics，而是提供了一个独立的 API 接口来做汇总&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>从 k8s 1.12 开始，cadvisor 监听的端口在 k8s 中被删除，所有监控数据统一由 Kubelet 的 API 提供&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>到这里为止，k8s 范围内的监控体系就结束了。&lt;/p>
+&lt;h1 id="36-cadvisor">3.6 cadvisor&lt;/h1>
+&lt;p>cadvisor 由谷歌开源，使用 Go 开发，cadvisor 不仅可以搜集一台机器上所有运行的容器信息，包括 CPU 使用情况、内存使用情况、网络吞吐量及文件系统使用情况，还提供基础查询界面和 http 接口，方便其他组件进行数据抓取。在 K8S 中集成在 Kubelet 里作为默认启动项，k8s 官方标配。&lt;/p>
+&lt;p>cadvisor 拿到的数据结构示例：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843789-49c61263-b8f7-44cf-b8e0-440f8c242e83.png" alt="">&lt;/p>
+&lt;p>核心逻辑是通过 new 出来的 memoryStorage 以及 sysfs 实例，创建一个 manager 实例，manager 的 interface 中定义了许多用于获取容器和 machine 信息的函数&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843744-243be6f9-7c39-4e21-93fd-4ee4ddc49ea3.png" alt="">&lt;/p>
+&lt;p>cadvisor 的指标解读：cgroup-v1(&lt;a href="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt&lt;/a>)&lt;/p>
+&lt;p>cadvisor 获取指标时实际调用的是 runc/libcontainer 库，而 libcontainer 是对 cgroup 文件 的封装，即 cadvsior 也只是个转发者，它的数据来自于 cgroup 文件。&lt;/p>
+&lt;h1 id="37-cgroup">3.7 cgroup&lt;/h1>
+&lt;p>cgroup 文件中的值是监控数据的最终来源，如&lt;/p>
+&lt;ul>
+&lt;li>mem usage 的值，来自于&lt;/li>
+&lt;/ul>
+&lt;p>/sys/fs/cgroup/memory/docker/[containerId]/memory.usage_in_bytes&lt;/p>
+&lt;ul>
+&lt;li>如果没限制内存，Limit=machine_mem，否则来自于&lt;/li>
+&lt;/ul>
+&lt;p>/sys/fs/cgroup/memory/docker/[id]/memory.limit_in_bytes&lt;/p>
+&lt;ul>
+&lt;li>内存使用率=memory.usage_in_bytes/memory.limit_in_bytes&lt;/li>
+&lt;/ul>
+&lt;p>一般情况下，cgroup 文件夹下的内容包括 CPU、内存、磁盘、网络等信息：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843769-b062a6f1-f27f-4e88-b759-385d802ca0ab.png" alt="">&lt;/p>
+&lt;p>如 memory 下的几个常用的指标含义：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843758-703f8e87-793f-4148-ba4f-b81660b3c1bf.png" alt="">&lt;/p>
+&lt;p>memory.stat 中的信息是最全的：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gqchw0/1616116843739-cdfe8efd-66a5-4a2a-b310-39be3008f4c6.png" alt="">&lt;/p>
+&lt;p>原理到这里结束，这里解释下最开始的 kubectl top 的几个问题：&lt;/p>
+&lt;h1 id="四-问题">四. 问题&lt;/h1>
+&lt;p>4.1 kubectl top 为什么会报错&lt;/p>
+&lt;p>一般情况下 top 报错有以下几种，可以 kubectl top pod -v=10 看到具体的调用日志:&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>没有部署 heapster 或者 metric-server，或者 pod 运行异常，可以排查对应 pod 日志&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>要看的 pod 刚刚建出来，还没来得及采集指标，报 not found 错误，默认 1 分钟&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>以上两种都不是，可以检查下 kubelet 的 10255 端口是否开放，默认情况下会使用这个只读端口获取指标，也可以在 heapster 或 metric-server 的配置中增加证书，换成 10250 认证端口&lt;/p>
+&lt;p>4.2 kubectl top pod 内存怎么计算，包含 pause 容器吗&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>每次启动 pod，都会有一个 pause 容器，既然是容器就一定有资源消耗（一般在 2-3M 的内存），cgroup 文件中，业务容器和 pause 容器都在同一个 pod 的文件夹下。&lt;/p>
+&lt;p>但 cadvisor 在查询 pod 的内存使用量时，是先获取了 pod 下的 container 列表，再逐个获取 container 的内存占用，不过这里的 container 列表并没有包含 pause，因此最终 top pod 的结果也不包含 pause 容器&lt;/p>
+&lt;p>pod 的内存使用量计算&lt;/p>
+&lt;p>kubectl top pod 得到的内存使用量，并不是 cadvisor 中的 container_memory_usage_bytes，而是 container_memory_working_set_bytes，计算方式为：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>container_memory_usage_bytes = container_memory_rss + container_memory_cache + kernel memory&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>container_memory_working_set_bytes = container_memory_usage_bytes – total_inactive_file（未激活的匿名缓存页）&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>container_memory_working_set_bytes 是容器真实使用的内存量，也是 limit 限制时的 oom 判断依据。&lt;/p>
+&lt;p>cadvisor 中的 container_memory_usage_bytes 对应 cgroup 中的 memory.usage_in_bytes 文件，但 container_memory_working_set_bytes 并没有具体的文件，他的计算逻辑在 cadvisor 的代码中，如下：&lt;/p>
+&lt;p>同理，node 的内存使用量也是 container_memory_working_set_bytes。&lt;/p>
+&lt;p>4.3 kubectl top node 怎么计算，和节点上直接 top 有什么区别&lt;/p>
+&lt;p>kubectl top node 得到的 cpu 和内存值，并不是节点上所有 pod 的总和，不要直接相加。top node 是机器上 cgroup 根目录下的汇总统计&lt;/p>
+&lt;p>在机器上直接 top 命令看到的值和 kubectl top node 不能直接对比，因为计算逻辑不同，如内存，大致的对应关系是(前者是机器上 top，后者是 kubectl top):&lt;/p>
+&lt;p>rss + cache = (in)active_anon + (in)active_file&lt;/p>
+&lt;p>4.4 kubectl top pod 和 exec 进入 pod 后看到的 top 不一样&lt;/p>
+&lt;p>top 命令的差异和上边一致，无法直接对比，同时，就算你对 pod 做了 limit 限制，pod 内的 top 看到的内存和 cpu 总量仍然是机器总量，并不是 pod 可分配量&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>进程的 RSS 为进程使用的所有物理内存（file_rss ＋ anon_rss），即 Anonymous pages ＋ Mapped apges（包含共享内存）&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>cgroup RSS 为（anonymous and swap cache memory），不包含共享内存。两者都不包含 file cache&lt;/p>
+&lt;p>4.5 kubectl top pod 和 docker stats 得到的值为什么不同？&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>docker stats dockerID 可以看到容器当前的使用量：&lt;/p>
+&lt;p>如果你的 pod 中只有一个 container，你会发现 docker stats 值不等于 kubectl top 的值，既不等于 container_memory_usage_bytes，也不等于 container_memory_working_set_bytes。&lt;/p>
+&lt;p>因为 docker stats 和 cadvisor 的计算方式不同，总体值会小于 kubectl top：计算逻辑是：&lt;/p>
+&lt;p>docker stats = container_memory_usage_bytes - container_memory_cache&lt;/p>
+&lt;p>五. 后记&lt;/p>
+&lt;p>一般情况下，我们并不需要时刻关心 node 或 pod 的使用量，因为有集群自动扩缩容(cluster-autoscaler)和 pod 水平扩缩容（HPA）来应对这两种资源变化，资源指标的意义更适合使用 prometheus 来持久化 cadvisor 的数据，用于回溯历史或者发送报警。&lt;/p>
+&lt;p>其他补充：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>虽然 kubectl top help 中显示支持 Storage，但直到 1.16 版本仍然不支持&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>1.13 之前需要 heapster，1.13 以后需要 metric-server，这部分 kubectl top help 的输出 有误，里面只提到了 heapster&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>k8s dashboard 中的监控图默认使用的是 heapster，切换为 metric-server 后数据会异常，需要多部署一个 metric-server-scraper 的 pod 来做接口转换，具体参考 pr：&lt;a href="https://github.com/kubernetes/dashboard/pull/3504">https://github.com/kubernetes/dashboard/pull/3504&lt;/a>&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>六. 参考资料&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;a href="https://github.com/kubernetes-sigs/metrics-server/issues/193">https://github.com/kubernetes-sigs/metrics-server/issues/193&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://github.com/kubernetes/kubernetes/pull/83247">https://github.com/kubernetes/kubernetes/pull/83247&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://www.cnblogs.com/liuhongru/p/11215447.html">https://www.cnblogs.com/liuhongru/p/11215447.html&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://github.com/DirectXMan12/k8s-prometheus-adapter/blob/master/docs/walkthrough.md#quantity-values">https://github.com/DirectXMan12/k8s-prometheus-adapter/blob/master/docs/walkthrough.md#quantity-values&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://github.com/fabric8io/kansible/blob/master/vendor/k8s.io/kubernetes/docs/design/resources.md">https://github.com/fabric8io/kansible/blob/master/vendor/k8s.io/kubernetes/docs/design/resources.md&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://erdong.site/linux/system/computer-unit-conversion.html">https://erdong.site/linux/system/computer-unit-conversion.html&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-cpu">https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-cpu&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/6/html/resource_management_guide/sec-memory">https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/6/html/resource_management_guide/sec-memory&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://www.cnblogs.com/liuhongru/p/11215447.html">https://www.cnblogs.com/liuhongru/p/11215447.html&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://github.com/moby/moby/issues/10824">https://github.com/moby/moby/issues/10824&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://github.com/docker/cli/pull/80">https://github.com/docker/cli/pull/80&lt;/a>&lt;/p>
+&lt;/li>
+&lt;/ul></description></item><item><title>Docs: Kubernetes 监控</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/Kubernetes-%E7%9B%91%E6%8E%A7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/Kubernetes-%E7%9B%91%E6%8E%A7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://kubernetes.io/docs/tasks/debug-application-cluster/resource-usage-monitoring">官方文档&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>对于 Kubernetes 集群的监控一般我们需要考虑以下几个方面：&lt;/p>
+&lt;ul>
+&lt;li>Kubernetes 节点的监控：比如节点的 cpu、load、disk、memory 等指标&lt;/li>
+&lt;li>集群系统组件的状态：比如 kubelet、kube-scheduler、kube-controller-manager、kubedns/coredns 等组件的详细运行状态&lt;/li>
+&lt;li>Pod 的监控：比如 Deployment 的状态、资源请求、调度和 API 延迟等数据指标&lt;/li>
+&lt;/ul>
+&lt;p>Kubernetes 中，应用程序监控不依赖于单个监控解决方案，目前主要有以下几种方案：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cboyz6/1616116947769-dcc7cae1-400b-41aa-9f37-55ef43d48d26.png" alt="">&lt;/p>
+&lt;ul>
+&lt;li>**Resource Metrics Pipeline **# 通过 API Server 中的 &lt;strong>Metrics API&lt;/strong> 暴露的一个用于显示集群指标接口，该接口在集群刚部署完成时，并不是默认自带的。需要通过其他方式来启用这个 API
+&lt;ul>
+&lt;li>可以通过 Resource Metrics 或 Full Metrics Pipelines 来收集监控指标数据&lt;/li>
+&lt;li>&lt;strong>cAdvisor&lt;/strong> # cAdvisor 是 Google 开源的容器资源监控和性能分析工具，它是专门为容器而生，本身也支持 Docker 容器，在 Kubernetes 中，我们不需要单独去安装，cAdvisor 作为 kubelet 内置的一部分程序可以直接使用。kubelet 中的子组件 cAdvisor 来收集资源用量信息，并暴露 OpemMetrics 格式的监控指标。&lt;/li>
+&lt;li>&lt;strong>metrics-server&lt;/strong> # metrics-server 是一个集群范围内的资源数据聚合工具，其前身是 Heapster。以 Pod 的形式运行在集群中，通过查询每个节点的 kubelet 以获取 CPU 和内存使用情况。
+&lt;ul>
+&lt;li>项目地址：&lt;a href="https://github.com/kubernetes-sigs/metrics-server">https://github.com/kubernetes-sigs/metrics-server&lt;/a>&lt;/li>
+&lt;li>Heapster # 由于 Heapster 无法通过 Metrics API 的方式提供监控指标，所以被废弃了。1.11 以后的版本中会使用 metrics-server 代替。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>kube-state-metrics 程序&lt;/strong>，用来监听 API Server 以补充 Metrics API 无法提供的集群指标，比如 Deployment、Node、Pod 等等资源的状态
+&lt;ul>
+&lt;li>项目地址：&lt;a href="https://github.com/kubernetes/kube-state-metrics#kube-state-metrics-vs-heapster">https://github.com/kubernetes/kube-state-metrics#kube-state-metrics-vs-heapster&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>各个系统组件暴露的 &lt;strong>&lt;code>**/metrics**&lt;/code>&lt;/strong> 端点&lt;/strong>，可以提供组件自身的指标&lt;/li>
+&lt;/ul>
+&lt;p>Note：以上几种监控方案只是简单提供一个 metrics 数据，并不会存储这些 metrics 数据，所以我们可以使用 Prometheus 来抓取这些数据然后存储。&lt;/p>
+&lt;h1 id="resource-metrics-pipelinemetrics-api--资源指标通道">Resource Metrics Pipeline(Metrics API) # 资源指标通道&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://kubernetes.io/docs/tasks/debug-application-cluster/resource-metrics-pipeline/">官方文档&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>Kubernetes 集群内的 &lt;strong>Resource Metrics Pipeline(资源指标通道)&lt;/strong>，指的是传输各种资源 Metrics(指标) 的 API 接口，该 API 通过 API 聚合功能添加。所以，也称之为 Metrics API，这种 API 是专门用来传输集群的 Metrics(指标) 数据&lt;/p>
+&lt;h2 id="metrics-api指标接口">Metrics API(指标接口)&lt;/h2>
+&lt;p>在 kuberntes 的监控体系中，Metrics API 一般分为两种&lt;/p>
+&lt;ol>
+&lt;li>**Core Metrics(核心指标) **# API 默认为 &lt;code>/apis/metrics.k8s.io&lt;/code>。该 API 一般是通过 metrics-server 等程序 从 Kubelet、cAdvisor 等获取指标。
+&lt;ol>
+&lt;li>核心指标包括 cpu 和 memory 两个&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>**Custom Metrics(自定义指标) **# API 默认为 &lt;code>/apis/custom.metrics.k8s.io&lt;/code>。该 API 一般是通过 Prometheus Adapter 从 adapter 关联的 prometheus 中查询到的数据获取度指标&lt;/li>
+&lt;/ol>
+&lt;p>Note：在 MetricsAPI 注册的每一个 metircs 也可以称为一个 kubernetes 的 resource ，只不过这些资源的 kind 会根据 MetricsAPI 的实现工具来命名(比如 prometheus-adapter 的自定义指标 kind 为 MetricValueList，metrics-server 和 prometheus-adapter 的核心指标 kind 为 NodeMetrics 和 PodMetrics)&lt;/p>
+&lt;p>通过 Metrics API，可以获取指定 node 或者 pod 当前使用的资源量 或者 某些自定义的资源指标值(比如某个 pod 的并发请求数等)。这些 metrics 可以直接被用户访问(比如使用 kubectl top 命令)，或者由集群中的控制器(比如 Horizontal Pod Autoscaler)来使用这些指标进行决策。&lt;/p>
+&lt;p>此 API 不存储 metrics 的值，因此想要获取某个指定节点 10 分钟前的资源使用量是不可能的，除非将每个时刻的 metrics 的值存储在某个地方才可以(比如 prometheus)&lt;/p>
+&lt;p>Note：Metrics API 需要在集群中部署 Metrics 服务(比如 metrics-server、prometheus-adapter 等)。否则 Metrics API 将不可用。&lt;/p>
+&lt;h2 id="实现原理">实现原理&lt;/h2>
+&lt;p>kubectl top 、 k8s dashboard 以及 HPA 等组件使用的数据是一样，对于 Core Metrics 来说，过程如下
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cboyz6/1616116947780-6dccbd72-f014-439e-9abd-4a1be9ae09cd.png" alt="">
+使用 heapster 时：apiserver 会直接将 metric 请求通过 proxy 的方式转发给集群内的 hepaster 服务。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cboyz6/1616116947765-60562da9-19b4-48dd-92f0-6b91dd92cb67.png" alt="">
+而使用 metrics-server 时：apiserver 是通过 /apis/metrics.k8s.io/ 的地址访问 metric
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cboyz6/1616116947787-3f27dbd0-b797-48b4-8de5-fa9919d7bdf5.png" alt="">
+可以发现，heapster 使用的是 proxy 转发，而 metric-server 和普通 pod 都是使用 api/xx 的资源接口，heapster 采用的这种 proxy 方式是有问题的：&lt;/p>
+&lt;ul>
+&lt;li>proxy 只是代理请求，一般用于问题排查，不够稳定，且版本不可控&lt;/li>
+&lt;li>heapster 的接口不能像 apiserver 一样有完整的鉴权以及 client 集成，两边都维护的话代价高，如 generic apiserver&lt;/li>
+&lt;li>pod 的监控数据是核心指标（HPA 调度），应该和 pod 本身拥有同等地位，即 metric 应该作为一种资源存在，如 metrics.k8s.io 的形式，称之为 Metric Api&lt;/li>
+&lt;/ul>
+&lt;p>于是官方从 1.8 版本开始逐步废弃 heapster，并提出了上边 Metric api 的概念，而 metrics-server 就是这种概念下官方的一种实现，用于从 kubelet 获取指标，替换掉之前的 heapster&lt;/p>
+&lt;h2 id="实现-metrics-api-的方式">实现 Metrics API 的方式&lt;/h2>
+&lt;p>当 Metrics API 实现后，可以通过如下命令查看是否成功注册 api，这俩命令可以获取自定义指标和核心指标的指标名。&lt;/p>
+&lt;ul>
+&lt;li>kubectl get &amp;ndash;raw &amp;ldquo;/apis/custom.metrics.k8s.io/v1beta1/&amp;rdquo;&lt;/li>
+&lt;li>kubectl get &amp;ndash;raw &amp;ldquo;/apis/metrics.k8s.io/v1beta1/&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;h3 id="metrics-server">Metrics Server&lt;/h3>
+&lt;p>Metrics Server 是资源使用情况数据的群集范围内的聚合器。使用其他方式部署的 Kubernetes(比如 kubeadm)，可以使用提供的部署文件 &lt;a href="https://github.com/kubernetes-sigs/metrics-server/releases">Components.yaml&lt;/a> 进行部署。&lt;/p>
+&lt;p>Metrics Server 的部署文件中，会通过 Kubernetes 的 API 聚合功能 注册一个名为 metrics.k8s.io 的新 API 作为 Metrics API。&lt;/p>
+&lt;p>部署成功后，会无法获取指标，报错提示 error: metrics not available yet&lt;/p>
+&lt;ul>
+&lt;li>根据&lt;a href="https://github.com/kubernetes-sigs/metrics-server/issues/143#issuecomment-477635264">https://github.com/kubernetes-sigs/metrics-server/issues/143#issuecomment-477635264&lt;/a> 这个 issue，修改 coredns 的的 configmap&lt;/li>
+&lt;li>根据&lt;a href="https://github.com/kubernetes-sigs/metrics-server/issues/143#issuecomment-469480247">https://github.com/kubernetes-sigs/metrics-server/issues/143#issuecomment-469480247&lt;/a>，给 metrics-server 添加运行时参数，因为 metrics-server 会从 kubelet 获取数据，但是 kubelet 需要认证，所以添加参数来跳过认证。&lt;/li>
+&lt;/ul>
+&lt;p>Note：Metrics Server 只能实现核心指标的 API，想要使用自定义指标的 API，可以参考下文的 prometheus-adpter&lt;/p>
+&lt;p>metrics-server 的部署文件在这个网址中：&lt;a href="https://github.com/kubernetes/kubernetes/tree/master/cluster/addons/metrics-server">https://github.com/kubernetes/kubernetes/tree/master/cluster/addons/metrics-server&lt;/a>&lt;/p>
+&lt;h3 id="prometheus-adapter">prometheus-adapter&lt;/h3>
+&lt;p>详见：&lt;a href="https://www.yuque.com/go/doc/33146377">Prometheus-adapter 章节&lt;/a>&lt;/p>
+&lt;h1 id="kube-state-metrics">kube-state-metrics&lt;/h1>
+&lt;p>详见 [kube-state-metrics](/docs/IT学习笔记/10.云原生/2.3.Kubernetes%20 容器编排系统/Kubernetes%20 管理/Kubernetes%20 监控/kube-state-metrics.md 监控/kube-state-metrics.md)&lt;/p>
+&lt;h1 id="系统组件指标">系统组件指标&lt;/h1>
+&lt;p>详见 [Kubernetes 系统组件指标](/docs/IT学习笔记/10.云原生/2.3.Kubernetes%20 容器编排系统/Kubernetes%20 管理/Kubernetes%20 监控/Kubernetes%20 系统组件指标.md 监控/Kubernetes 系统组件指标.md)&lt;/p></description></item><item><title>Docs: Kubernetes 系统组件指标</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/Kubernetes-%E7%B3%BB%E7%BB%9F%E7%BB%84%E4%BB%B6%E6%8C%87%E6%A0%87/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/Kubernetes-%E7%B3%BB%E7%BB%9F%E7%BB%84%E4%BB%B6%E6%8C%87%E6%A0%87/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://kubernetes.io/docs/concepts/cluster-administration/system-metrics/">官方文档&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>Kubernetes 系统组件以 Prometheus 格式暴露监控所需的指标。这种格式是结构化的纯文本，人类和机器都可以很方便得阅读。&lt;/p>
+&lt;p>Kubernetes 的下面几个系统组件默认都会在 &lt;code>/metrics&lt;/code> 端点暴露指标信息：&lt;/p>
+&lt;ul>
+&lt;li>kubelet
+&lt;ul>
+&lt;li>kubelet 除了基本 /metrics 端点还会在 /metrics/cadvisor、/metrics/resource、/metrics/probes 这几个端点暴露指标&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>kube-apiserver&lt;/li>
+&lt;li>kube-controller-manager&lt;/li>
+&lt;li>kube-scheduler&lt;/li>
+&lt;li>kube-proxy&lt;/li>
+&lt;/ul>
+&lt;p>想要采集这些组件的指标，通常需要 Prometheus 或类似的程序，配置抓取程序，以便定期收集，并将指标存储在时间序列数据库中。&lt;/p>
+&lt;h2 id="访问-https-前准备获取认证所需信息">访问 https 前准备，获取认证所需信息&lt;/h2>
+&lt;p>与[访问 API Server 的 HTTPS](API%20Server.md Server.md) 的方式一样&lt;/p>
+&lt;h3 id="方法一使用-kubectl-的配置文件中的证书与私钥">方法一：使用 kubectl 的配置文件中的证书与私钥&lt;/h3>
+&lt;p>想要访问 https 下的内容，首先需要准备证书与私钥或者 ca 与 token 等等。&lt;/p>
+&lt;ol>
+&lt;li>首先获取 kubeclt 工具配置文件中的证书与私钥
+&lt;ol>
+&lt;li>cat /etc/kubernetes/admin.conf | grep client-certificate-data | awk &amp;lsquo;{print $2}&amp;rsquo; | base64 -d &amp;gt; /root/certs/admin.crt&lt;/li>
+&lt;li>cat /etc/kubernetes/admin.conf | grep client-key-data | awk &amp;lsquo;{print $2}&amp;rsquo; | base64 -d &amp;gt; /root/certs/admin.key&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>确定 CA 文件位置(文件一般在 /etc/kubernetes/pki/ca.crt)
+&lt;ol>
+&lt;li>CAPATH=/etc/kubernetes/pki/ca.crt&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>确定要访问组件的的 IP
+&lt;ol>
+&lt;li>IP=172.38.40.212&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;h3 id="方法二使用拥有最高权限-serviceaccount-的-token-访问-https">方法二：使用拥有最高权限 ServiceAccount 的 Token 访问 https&lt;/h3>
+&lt;ol>
+&lt;li>创建一个 ServiceAccount
+&lt;ol>
+&lt;li>kubectl create serviceaccount test-admin&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>将该 ServiceAccount 绑定到 cluster-admin 这个 clusterrole，以赋予最高权限
+&lt;ol>
+&lt;li>kubectl create clusterrolebinding test-admin &amp;ndash;clusterrole=cluster-admin &amp;ndash;serviceaccount=default:test-admin&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>将该 ServiceAccount 的 Token 的值注册到变量中
+&lt;ol>
+&lt;li>TOKEN=$(kubectl get secrets test-admin-token-599qd -o jsonpath={.data.token} | base64 -d)&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>确定 CA 文件位置(文件一般在 /etc/kubernetes/pki/ca.crt)
+&lt;ol>
+&lt;li>CAPATH=/etc/kubernetes/pki/ca.crt&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>确定要访问组件的的 IP
+&lt;ol>
+&lt;li>IP=172.38.40.212&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>Note：也可以从一个具有权限的 ServiceAccount 下的 secret 获取，可以使用现成的，也可以手动创建。比如下面用 promtheus 自带的 token。&lt;/p>
+&lt;ol>
+&lt;li>如果权限不足，那么访问的时候会报错，比如权限不够，或者认证不通过等等。报错信息有如下几种
+&lt;ol>
+&lt;li>no kind is registered for the type v1.Status in scheme &amp;ldquo;k8s.io/kubernetes/pkg/api/legacyscheme/scheme.go:30&amp;rdquo;&lt;/li>
+&lt;li>Unauthorized&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;h3 id="方法三官方推荐类似方法二">方法三：官方推荐，类似方法二&lt;/h3>
+&lt;p>官方文档：&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/access-cluster-api/">https://kubernetes.io/docs/tasks/administer-cluster/access-cluster-api/&lt;/a>&lt;/p>
+&lt;pre>&lt;code># 查看所有的集群，因为你的 .kubeconfig 文件中可能包含多个上下文
+kubectl config view -o jsonpath='{&amp;quot;Cluster name\tServer\n&amp;quot;}{range .clusters[*]}{.name}{&amp;quot;\t&amp;quot;}{.cluster.server}{&amp;quot;\n&amp;quot;}{end}'
+# 从上述命令输出中选择你要与之交互的集群的名称
+export CLUSTER_NAME=&amp;quot;some_server_name&amp;quot;
+# 指向引用该集群名称的 API 服务器
+APISERVER=$(kubectl config view -o jsonpath=&amp;quot;{.clusters[?(@.name==\&amp;quot;${CLUSTER_NAME}\&amp;quot;)].cluster.server}&amp;quot;)
+# 获得令牌
+TOKEN=$(kubectl get secrets -o jsonpath=&amp;quot;{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='default')].data.token}&amp;quot;|base64 -d)
+# 使用令牌玩转 API
+curl -X GET $APISERVER/api --header &amp;quot;Authorization: Bearer $TOKEN&amp;quot; --insecure
+&lt;/code>&lt;/pre>
+&lt;h1 id="kubelet-指标">kubelet 指标&lt;/h1>
+&lt;p>kubelet 在 10205 端口上的多个端点暴露指标&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>/metrics&lt;/strong> # kubelet 程序本身运行情况的指标&lt;/li>
+&lt;li>&lt;strong>/metrics/cadvisor&lt;/strong> # 容器的各种资源使用情况指标，比如容器的 memory、cpu 使用 等等&lt;/li>
+&lt;li>&lt;strong>/metrics/resource&lt;/strong> # 容器的各种资源使用情况的总和，只有个别几个指标&lt;/li>
+&lt;li>&lt;strong>/metrics/probes&lt;/strong> # [ALPHA]实验性质的端点，统计 kubelet 对容器的探针&lt;/li>
+&lt;/ul>
+&lt;h2 id="获取指标">获取指标&lt;/h2>
+&lt;p>通过 https 接口获取 metrics&lt;/p>
+&lt;ul>
+&lt;li>执行访问 https 前准备方法一
+&lt;ul>
+&lt;li>通过证书与私钥访问
+&lt;ul>
+&lt;li>curl -k &amp;ndash;cert /root/cert/admin.crt &amp;ndash;key /root/cert/admin.key https://${IP}:10250/metrics&lt;/li>
+&lt;li>在 10250 端口的 /metrics/cadvisor 路径下具有 cadvisor 相关的 metrics
+&lt;ul>
+&lt;li>curl -k &amp;ndash;cert /root/cert/admin.crt &amp;ndash;key /root/cert/admin.key https://${IP}:10250/metrics/cadvisor&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>执行访问 https 前准备方法二
+&lt;ul>
+&lt;li>通过 token 访问
+&lt;ul>
+&lt;li>curl &amp;ndash;cacert ${CAPATH} -H &amp;ldquo;Authorization: Bearer ${TOKEN}&amp;rdquo; https://${IP}:10250/metrics&lt;/li>
+&lt;li>curl &amp;ndash;cacert ${CAPATH} -H &amp;ldquo;Authorization: Bearer ${TOKEN}&amp;rdquo; https://${IP}:10250/metrics/cadvisor&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="常用指标">常用指标&lt;/h2>
+&lt;p>cadvisor_version_info 具有常数“1”值的度量，由内核版本、操作系统版本、docker 版本、cadvisor 版本和 cadvisor 修订版标记。
+container_cpu_cfs_periods_total 已用强制周期间隔数。
+container_cpu_cfs_throttled_periods_total 节流周期间隔数。
+container_cpu_cfs_throttled_seconds_total 容器被限制的总持续时间。
+container_cpu_load_average_10s 过去 10 秒内容器 cpu 负载平均值的值。
+container_cpu_system_seconds_total 以秒为单位消耗的累积系统 CPU 时间。
+container_cpu_usage_seconds_total 以秒为单位消耗的累积 CPU 时间。
+container_cpu_user_seconds_total 以秒为单位消耗的累积用户 cpu 时间。
+container_file_descriptors 容器的打开文件描述符数。
+container_fs_inodes_free 可用索引节点数
+container_fs_inodes_total inode 数
+container_fs_io_current 当前正在进行的 I/O 数
+container_fs_io_time_seconds_total 花费在 I/O 上的累计秒数
+container_fs_io_time_weighted_seconds_total 累积加权 I/O 时间（以秒为单位）
+container_fs_limit_bytes 此文件系统上的容器可以消耗的字节数。
+container_fs_read_seconds_total 阅读花费的累计秒数
+container_fs_reads_bytes_total 读取的累积字节数
+container_fs_reads_merged_total 合并读取的累积计数
+container_fs_reads_total 已完成读取的累计计数
+container_fs_sector_reads_total 已完成扇区读取的累积计数
+container_fs_sector_writes_total 已完成扇区写入的累积计数
+container_fs_usage_bytes 此文件系统上的容器消耗的字节数。
+container_fs_write_seconds_total 写入花费的累计秒数
+container_fs_writes_bytes_total 写入字节的累积计数
+container_fs_writes_merged_total 合并写入的累积计数
+container_fs_writes_total 已完成写入的累积计数
+container_last_seen 上次导出器看到容器的时间
+container_memory_cache 页缓存内存的字节数。
+container_memory_failcnt 内存使用次数达到限制
+container_memory_failures_total 内存分配失败的累积计数。
+container_memory_mapped_file 内存映射文件的大小（以字节为单位）。
+container_memory_max_usage_bytes 以字节为单位记录的最大内存使用量
+container_memory_rss RSS 的大小（以字节为单位）。
+container_memory_swap 容器交换使用量（以字节为单位）。
+container_memory_usage_bytes 当前内存使用量（以字节为单位），包括所有内存，无论何时访问
+container_memory_working_set_bytes 当前工作集（以字节为单位）。
+container_network_receive_bytes_total 接收字节的累计计数
+container_network_receive_errors_total 接收时遇到的错误累积计数
+container_network_receive_packets_dropped_total 接收时丢弃的数据包的累积计数
+container_network_receive_packets_total 接收的数据包的累积计数
+container_network_transmit_bytes_total 传输的累积字节数
+container_network_transmit_errors_total 传输时遇到的错误累积计数
+container_network_transmit_packets_dropped_total 传输时丢弃的数据包的累积计数
+container_network_transmit_packets_total 传输的数据包的累积计数
+container_processes 在容器内运行的进程数。
+container_scrape_error 1 如果在获取容器指标时出错，则为 0 否则
+container_sockets 容器打开的套接字数。
+container_spec_cpu_period 容器的 CPU 周期。
+container_spec_cpu_quota 容器的 CPU 配额。
+container_spec_cpu_shares 容器的 CPU 份额。
+container_spec_memory_limit_bytes 容器的内存限制。
+container_spec_memory_reservation_limit_bytes 容器的内存预留限制。
+container_spec_memory_swap_limit_bytes 容器的内存交换限制。
+container_start_time_seconds 自 Unix 纪元以来容器的启动时间（以秒为单位）。
+container_tasks_state 处于给定状态的任务数
+container_threads 容器内运行的线程数
+container_threads_max 容器内允许的最大线程数，如果值为零则无穷大
+container_ulimits_soft 容器根进程的软 ulimit 值。如果 -1 则无限制，优先级和好除外&lt;/p>
+&lt;h1 id="kube-apiserver-指标">kube-apiserver 指标&lt;/h1>
+&lt;h2 id="获取指标-1">获取指标&lt;/h2>
+&lt;ul>
+&lt;li>执行访问 https 前准备方法一
+&lt;ul>
+&lt;li>通过证书与私钥访问
+&lt;ul>
+&lt;li>&lt;code>curl --cacert ${CAPATH} --cert /root/certs/admin.crt --key /root/certs/admin.key https://${IP}:6443/&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>执行访问 https 前准备方法二
+&lt;ul>
+&lt;li>通过 https 的方式访问 API
+&lt;ul>
+&lt;li>&lt;code>curl --cacert ${CAPATH} -H &amp;quot;Authorization: Bearer ${TOKEN}&amp;quot; https://${IP}:6443/&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>kubeclt
+&lt;ul>
+&lt;li>&lt;code>kubectl get --raw /&lt;/code> # 让 kubectl 不再输出标准格式的数据，而是直接向 api server 请求原始数据&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>kubectl proxy，一般监听在 6443 端口的 api server 使用该方式，监听在 8080 上的为 http，可直接访问
+&lt;ul>
+&lt;li>&lt;code>kubectl proxy --port=8080 --accept-hosts='^localhost$,^127.0.0.1$,^\[::1]$,10.10.100.151' --address='0.0.0.0'&lt;/code> # 在本地 8080 端口上启动 API Server 的一个代理网关，以便使用 curl 直接访问 api server 并使用命令 curl localhost:8080/获取数据
+&lt;ul>
+&lt;li>直接访问本地 8080 端口，即可通过 API Server 获取集群所有数据&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="常用指标-1">常用指标&lt;/h2>
+&lt;h1 id="kube-controller-manager-指标">kube-controller-manager 指标&lt;/h1>
+&lt;p>kube-controller-manager 在 10257 端口的 &lt;code>/metrics&lt;/code> 端点上暴露指标数据&lt;/p>
+&lt;p>kube-controller-manager 指标提供了控制器内部逻辑的性能度量，如 Go 语言运行时度量、etcd 请求延时、云服务商 API 请求延时、云存储请求延时等。Prometheus 格式的性能度量数据，可以通过 curl http://localhost:10252/metrics 来访问。1.18 版本后，10252 端口被弃用，kube-controller-manager 不再提供不安全的 http 端口。&lt;/p>
+&lt;h2 id="获取指标-2">获取指标&lt;/h2>
+&lt;p>通过 https 接口获取 metrics&lt;/p>
+&lt;ol>
+&lt;li>执行访问 https 前准备方法一
+&lt;ol>
+&lt;li>通过证书与私钥访问
+&lt;ol>
+&lt;li>curl -k &amp;ndash;cert /root/cert/admin.crt &amp;ndash;key /root/cert/admin.key https://${IP}:10257/metrics&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>执行访问 https 前准备方法二
+&lt;ol>
+&lt;li>通过 token 访问
+&lt;ol>
+&lt;li>curl &amp;ndash;cacert ${CAPATH} -H &amp;ldquo;Authorization: Bearer ${TOKEN}&amp;rdquo; https://${IP}:10257/metrics&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;h2 id="常用指标-2">常用指标&lt;/h2>
+&lt;h1 id="kube-scheduler-指标">kube-scheduler 指标&lt;/h1>
+&lt;p>kube-scheduler 在 10259 端口的 &lt;code>/metrics&lt;/code> 端点上暴露指标数据&lt;/p>
+&lt;h2 id="获取指标-3">获取指标&lt;/h2>
+&lt;p>通过 https 接口获取 metrics&lt;/p>
+&lt;ol>
+&lt;li>执行访问 https 前准备方法一
+&lt;ol>
+&lt;li>通过证书与私钥访问
+&lt;ol>
+&lt;li>curl -k &amp;ndash;cert /root/cert/admin.crt &amp;ndash;key /root/cert/admin.key https://${IP}:10259/metrics&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>执行访问 https 前准备方法二&lt;/li>
+&lt;li>通过 token 访问
+&lt;ol>
+&lt;li>curl &amp;ndash;cacert ${CAPATH} -H &amp;ldquo;Authorization: Bearer ${TOKEN}&amp;rdquo; https://${IP}:10259/metrics&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;h2 id="常用指标-3">常用指标&lt;/h2>
+&lt;h1 id="kube-proxy-指标">kube-proxy 指标&lt;/h1>
+&lt;h2 id="常用指标-4">常用指标&lt;/h2>
+&lt;h1 id="etcd-指标">Etcd 指标&lt;/h1>
+&lt;p>Etcd 在 2381 端口的 /metrics 端点暴露指标&lt;/p>
+&lt;h2 id="常用指标-5">常用指标&lt;/h2></description></item><item><title>Docs: 常用指标</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/%E5%B8%B8%E7%94%A8%E6%8C%87%E6%A0%87/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E7%9B%91%E6%8E%A7/%E5%B8%B8%E7%94%A8%E6%8C%87%E6%A0%87/</guid><description>
+&lt;p>Prometheus Operator 安装完成后会有很多默认的监控指标，一不注意就大量的报警产生，所以我们非常有必要了解下这些常用的监控指标，有部分指标很有可能对于我们自己的业务可有可无，所以可以适当的进行修改，这里我们就来对常用的几个指标进行简单的说明。&lt;/p>
+&lt;h1 id="kubernetes-资源相关">Kubernetes 资源相关&lt;/h1>
+&lt;h2 id="cputhrottlinghigh">CPUThrottlingHigh&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>sum&lt;span style="color:#f92672">(&lt;/span>increase&lt;span style="color:#f92672">(&lt;/span>container_cpu_cfs_throttled_periods_total&lt;span style="color:#f92672">{&lt;/span>container!&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>, &lt;span style="color:#f92672">}[&lt;/span>5m&lt;span style="color:#f92672">]))&lt;/span> by &lt;span style="color:#f92672">(&lt;/span>container, pod, namespace&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sum&lt;span style="color:#f92672">(&lt;/span>increase&lt;span style="color:#f92672">(&lt;/span>container_cpu_cfs_periods_total&lt;span style="color:#f92672">{}[&lt;/span>5m&lt;span style="color:#f92672">]))&lt;/span> by &lt;span style="color:#f92672">(&lt;/span>container, pod, namespace&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&amp;gt; &lt;span style="color:#f92672">(&lt;/span> &lt;span style="color:#ae81ff">25&lt;/span> / &lt;span style="color:#ae81ff">100&lt;/span> &lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>sum(increase(container_cpu_cfs_throttled_periods_total{container!=&amp;quot;&amp;quot;, }[5m])) by (container, pod, namespace) / sum(increase(container_cpu_cfs_periods_total{}[5m])) by (container, pod, namespace) &amp;gt; ( 25 / 100 )&lt;/code>&lt;/p>
+&lt;p>关于 CPU 的 limit 合理性指标。查出最近 5 分钟，超过 25%的 CPU 执行周期受到限制的容器。表达式：&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>container_cpu_cfs_periods_total：容器生命周期中度过的 cpu 周期总数&lt;/li>
+&lt;li>container_cpu_cfs_throttled_periods_total：容器生命周期中度过的受限的 cpu 周期总数&lt;/li>
+&lt;/ul>
+&lt;p>Note：比如我设置一个 pod 的 cpu limit 为 2，当这个容器的进程申请 3 个 CPU 核心的用量，就会触发这个告警。&lt;/p>
+&lt;h2 id="kubecpuovercommit">KubeCPUOvercommit&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>sum&lt;span style="color:#f92672">(&lt;/span>namespace_cpu:kube_pod_container_resource_requests:sum&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sum&lt;span style="color:#f92672">(&lt;/span>kube_node_status_allocatable&lt;span style="color:#f92672">{&lt;/span>resource&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;cpu&amp;#34;&lt;/span>&lt;span style="color:#f92672">})&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">((&lt;/span>count&lt;span style="color:#f92672">(&lt;/span>kube_node_status_allocatable&lt;span style="color:#f92672">{&lt;/span>resource&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;cpu&amp;#34;&lt;/span>&lt;span style="color:#f92672">})&lt;/span> &amp;gt; 1&lt;span style="color:#f92672">)&lt;/span> - 1&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>count&lt;span style="color:#f92672">(&lt;/span>kube_node_status_allocatable&lt;span style="color:#f92672">{&lt;/span>resource&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;cpu&amp;#34;&lt;/span>&lt;span style="color:#f92672">})&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>若产生一个故障节点后，为所有容器配置的 CPU 资源的 request 的总和，已经超过剩余节点的资源总和。也就是说如果有节点故障，那么故障节点上的 Pod 将有一部分无法在其他节点上创建。&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_pod_container_resource_requests{resource=&amp;ldquo;cpu&amp;rdquo;} # 资源 CPU 使用的 cores 数量&lt;/li>
+&lt;li>kube_node_status_allocatable{resource=&amp;ldquo;cpu&amp;rdquo;} # 节点 CPU cores 数量&lt;/li>
+&lt;/ul>
+&lt;h2 id="kubememoryovercommit">KubeMemoryOvercommit&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>sum&lt;span style="color:#f92672">(&lt;/span>namespace_memory:kube_pod_container_resource_requests:sum&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sum&lt;span style="color:#f92672">(&lt;/span>kube_node_status_allocatable&lt;span style="color:#f92672">{&lt;/span>resource&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;memory&amp;#34;&lt;/span>&lt;span style="color:#f92672">})&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">((&lt;/span>count&lt;span style="color:#f92672">(&lt;/span>kube_node_status_allocatable&lt;span style="color:#f92672">{&lt;/span>resource&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;memory&amp;#34;&lt;/span>&lt;span style="color:#f92672">})&lt;/span> &amp;gt; 1&lt;span style="color:#f92672">)&lt;/span> - 1&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>count&lt;span style="color:#f92672">(&lt;/span>kube_node_status_allocatable&lt;span style="color:#f92672">{&lt;/span>resource&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;memory&amp;#34;&lt;/span>&lt;span style="color:#f92672">})&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>若产生一个故障节点后，为所有容器配置的 Memory 资源的 request 的总和，已经超过剩余节点的资源总和。也就是说如果有节点故障，那么故障节点上的 Pod 将有一部分无法在其他节点上创建。&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_pod_container_resource_requests{resource=&amp;ldquo;memory&amp;rdquo;} # 资源内存使用的量&lt;/li>
+&lt;li>kube_node_status_allocatable{resource=&amp;ldquo;memory&amp;rdquo;} # 节点内存量&lt;/li>
+&lt;/ul>
+&lt;h2 id="kubecpuquotaovercommit">KubeCPUQuotaOvercommit&lt;/h2>
+&lt;p>&lt;code>sum(kube_pod_container_resource_limits_cpu_cores{job=&amp;quot;kube-state-metrics&amp;quot;}) / sum(kube_node_status_allocatable_cpu_cores) &amp;gt; 1.1&lt;/code>&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_pod_container_resource_limits_cpu_cores：资源分配的 CPU 资源额度&lt;/li>
+&lt;li>kube_node_status_allocatable_cpu_cores：节点 CPU 总量&lt;/li>
+&lt;/ul>
+&lt;p>KubeMemoryQuotaOvercommit&lt;/p>
+&lt;p>集群超分内存，查看内存资源分配的额度是否超过进群总额度&lt;/p>
+&lt;p>表达式：
+sum(kube_pod_container_resource_limits_memory_bytes{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}) / sum(kube_node_status_allocatable_memory_bytes{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}) &amp;gt; 1.1&lt;/p>
+&lt;p>相关指标:&lt;/p>
+&lt;ul>
+&lt;li>kube_pod_container_resource_limits_memory_bytes：资源配额内存量&lt;/li>
+&lt;li>kube_node_status_allocatable_memory_bytes：节点内存量&lt;/li>
+&lt;/ul>
+&lt;p>KubeMEMQuotaExceeded
+命名空间级内存资源使用的比例，关乎资源配额。当使用 request 和 limit 限制资源时，使用值和最大值还是有一点区别，当有 request 时说明最低分配了这么多资源。需要注意当 request 等于 limit 时那么说明资源已经是 100%已经分配使用当监控告警发出的时候需要区分。&lt;/p>
+&lt;p>表达式：
+sum (kube_pod_container_resource_requests_memory_bytes{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} ) by (namespace)/ (sum(kube_pod_container_resource_limits_memory_bytes{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}) by (namespace)) &amp;gt; 0.8&lt;/p>
+&lt;p>相关指标:&lt;/p>
+&lt;ul>
+&lt;li>kube_pod_container_resource_requests_memory_bytes：内存资源使用量&lt;/li>
+&lt;li>kube_pod_container_resource_limits_memory_bytes：内存资源最大值&lt;/li>
+&lt;/ul>
+&lt;p>KubeCPUQuotaExceeded
+命名空间级 CPU 资源使用的比例，关乎资源配额。当使用 request 和 limit 限制资源时，使用值和最大值还是有一点区别，当有 request 时说明最低分配了这么多资源。需要注意当 request 等于 limit 时那么说明资源已经是 100%已经分配使用当监控告警发出的时候需要区分。&lt;/p>
+&lt;p>表达式：
+sum (kube_pod_container_resource_requests_cpu_cores{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} ) by (namespace) / (sum(kube_pod_container_resource_limits_cpu_cores{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}) by (namespace)) &amp;gt; 0.8&lt;/p>
+&lt;p>相关指标:&lt;/p>
+&lt;ul>
+&lt;li>kube_pod_container_resource_requests_cpu_cores：CPU 使用量&lt;/li>
+&lt;li>kube_pod_container_resource_limits_cpu_cores：CPU 限额最大值&lt;/li>
+&lt;/ul>
+&lt;h1 id="kubernetes-存储相关">Kubernetes 存储相关&lt;/h1>
+&lt;p>KubePersistentVolumeFillingUp&lt;/p>
+&lt;p>PVC 容量监控&lt;/p>
+&lt;p>表达式：kubelet_volume_stats_available_bytes{job=&amp;ldquo;kubelet&amp;rdquo;, metrics_path=&amp;quot;/metrics&amp;quot;} / kubelet_volume_stats_capacity_bytes{job=&amp;ldquo;kubelet&amp;rdquo;, metrics_path=&amp;quot;/metrics&amp;quot;} &amp;lt; 0.3&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kubelet_volume_stats_available_bytes：剩余空间&lt;/li>
+&lt;li>kubelet_volume_stats_capacity_bytes：空间总量&lt;/li>
+&lt;/ul>
+&lt;p>KubePersistentVolumeFillingUp&lt;/p>
+&lt;p>磁盘空间耗尽预测：通过 PVC 资源使用 6 小时变化率预测 接下来 4 天的磁盘使用率&lt;/p>
+&lt;p>表达式：(kubelet_volume_stats_available_bytes{job=&amp;ldquo;kubelet&amp;rdquo;, metrics_path=&amp;quot;/metrics&amp;quot;} / kubelet_volume_stats_capacity_bytes{job=&amp;ldquo;kubelet&amp;rdquo;, metrics_path=&amp;quot;/metrics&amp;quot;} ) &amp;lt; 0.4 and predict_linear(kubelet_volume_stats_available_bytes{job=&amp;ldquo;kubelet&amp;rdquo;, metrics_path=&amp;quot;/metrics&amp;quot;}[6h], 4 _ 24 _ 3600) &amp;lt; 0&lt;/p>
+&lt;p>相关指标:&lt;/p>
+&lt;ul>
+&lt;li>kubelet_volume_stats_available_bytes：剩余空间&lt;/li>
+&lt;li>kubelet_volume_stats_capacity_bytes：空间总量&lt;/li>
+&lt;/ul>
+&lt;p>KubePersistentVolumeErrors&lt;/p>
+&lt;p>PV 使用状态监控。&lt;/p>
+&lt;p>表达式：kube_persistentvolume_status_phase{phase=~&amp;ldquo;Failed|Pending&amp;rdquo;,job=&amp;ldquo;kube-state-metrics&amp;rdquo;}&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_persistentvolume_status_phase：PV 使用状态&lt;/li>
+&lt;/ul>
+&lt;h1 id="kubernetes-system-相关">kubernetes system 相关&lt;/h1>
+&lt;p>3.1 KubeVersionMismatch&lt;/p>
+&lt;p>组件版本与当前集群版本是否有差异。对比组件版本是否有差异，默认为 1 。&lt;/p>
+&lt;p>表达式：count(count by (gitVersion) (label_replace(kubernetes_build_info{job!~&amp;ldquo;kube-dns|coredns&amp;rdquo;},&amp;ldquo;gitVersion&amp;rdquo;,&amp;quot;$1&amp;quot;,&amp;ldquo;gitVersion&amp;rdquo;,&amp;quot;(v[0-9]&lt;em>.[0-9]&lt;/em>.[0-9]&lt;em>).&lt;/em>&amp;quot;)))&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>kubernetes_build_info：获取组件信息&lt;/p>
+&lt;p>3.2 KubeClientErrors&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>客户端访问某些接口的错误率。&lt;/p>
+&lt;p>表达式：&lt;/p>
+&lt;p>(sum(rate(rest_client_requests_total{code=~&amp;ldquo;5..&amp;rdquo;}[5m])) by (instance, job) / sum(rate(rest_client_requests_total[5m])) by (instance, job)) &amp;gt; 0.01&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>rest_client_requests_total：状态码&lt;/li>
+&lt;/ul>
+&lt;h1 id="apiserver-相关">APIServer 相关&lt;/h1>
+&lt;p>KubeAPIErrorsHigh&lt;/p>
+&lt;p>APIServer 请求错误率。5 分钟内 APIServer 请求错误率。&lt;/p>
+&lt;p>表达式：&lt;/p>
+&lt;p>sum(rate(apiserver_request_total{job=&amp;ldquo;apiserver&amp;rdquo;,code=~&amp;ldquo;5..&amp;rdquo;}[5m])) by (resource,subresource,verb) / sum(rate(apiserver_request_total{job=&amp;ldquo;apiserver&amp;rdquo;}[5m])) by (resource,subresource,verb) &amp;gt; 0.05&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>apiserver_request_total：APIServer 请求数&lt;/li>
+&lt;/ul>
+&lt;p>KubeClientCertificateExpiration&lt;/p>
+&lt;p>kubelet 客户端证书过期。监测证书状态 30 天告警和 7 天告警。&lt;/p>
+&lt;p>表达式：apiserver_client_certificate_expiration_seconds_count{job=&amp;ldquo;apiserver&amp;rdquo;} &amp;gt; 0 and on(job) histogram_quantile(0.01, sum by (job, le) (rate(apiserver_client_certificate_expiration_seconds_bucket{job=&amp;ldquo;apiserver&amp;rdquo;}[5m]))) &amp;lt; 2592000apiserver_client_certificate_expiration_seconds_count{job=&amp;ldquo;apiserver&amp;rdquo;} &amp;gt; 0 and on(job) histogram_quantile(0.01, sum by (job, le) (rate(apiserver_client_certificate_expiration_seconds_bucket{job=&amp;ldquo;apiserver&amp;rdquo;}[5m]))) &amp;lt; 604800&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>apiserver_client_certificate_expiration_seconds_count：证书有效剩余时间&lt;/li>
+&lt;/ul>
+&lt;p>AggregatedAPIErrors&lt;/p>
+&lt;p>自定义注册的 APIServer 服务可用性监控，当检测到自定义注册的 APIServer 五分钟不用次数达到 2 次。&lt;/p>
+&lt;p>表达式：sum by(name, namespace)(increase(aggregator_unavailable_apiservice_count[5m])) &amp;gt; 2&lt;/p>
+&lt;p>相关指标:&lt;/p>
+&lt;ul>
+&lt;li>aggregator_unavailable_apiservice_count：监测自定义注册的 APIService 不可用次数。&lt;/li>
+&lt;/ul>
+&lt;p>KubeAPIDown&lt;/p>
+&lt;p>APIserver 失联，监控 APIServer 服务，失联原因可能是服务 down 还可能是网络出现状况。&lt;/p>
+&lt;p>表达式：absent(up{job=&amp;ldquo;apiserver&amp;rdquo;} == 1)&lt;/p>
+&lt;h1 id="kubelet-相关">kubelet 相关&lt;/h1>
+&lt;p>KubeNodeNotReady&lt;/p>
+&lt;p>节点是否处于就绪状态。检测节点是否为就绪状态，或者可能是 kubelet 服务 down 了。&lt;/p>
+&lt;p>表达式：kube_node_status_condition{job=&amp;ldquo;kube-state-metrics&amp;rdquo;,condition=&amp;ldquo;Ready&amp;rdquo;,status=&amp;ldquo;true&amp;rdquo;} == 0&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_node_status_condition：节点状态监测&lt;/li>
+&lt;/ul>
+&lt;p>KubeNodeUnreachable&lt;/p>
+&lt;p>节点状态为 Unreachable。&lt;/p>
+&lt;p>表达式：kube_node_spec_unschedulable{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} == 1&lt;/p>
+&lt;p>KubeletTooManyPods&lt;/p>
+&lt;p>节点运行过多的 Pod，监测节点上运行的 Pods 数量。&lt;/p>
+&lt;p>表达式：max(max(kubelet_running_pod_count{job=&amp;ldquo;kubelet&amp;rdquo;, metrics_path=&amp;quot;/metrics&amp;quot;}) by(instance) * on(instance) group_left(node) kubelet_node_name{job=&amp;ldquo;kubelet&amp;rdquo;, metrics_path=&amp;quot;/metrics&amp;quot;}) by(node) / max(kube_node_status_capacity_pods{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} != 1) by(node) &amp;gt; 0.95&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kubelet_running_pod_count：节点运行的 Pods 数量&lt;/li>
+&lt;li>kubelet_node_name：节点名称&lt;/li>
+&lt;li>kube_node_status_capacity_pods：节点可运行的最大 Pod 数量&lt;/li>
+&lt;/ul>
+&lt;p>KubeNodeReadinessFlapping&lt;/p>
+&lt;p>监测集群状态，查看集群内节点状态改变的频率。&lt;/p>
+&lt;p>表达式：sum(changes(kube_node_status_condition{status=&amp;ldquo;true&amp;rdquo;,condition=&amp;ldquo;Ready&amp;rdquo;}[15m])) by (node) &amp;gt; 2&lt;/p>
+&lt;p>KubeletDown&lt;/p>
+&lt;p>监控 kubelet 服务，down 或者网络出现问题。&lt;/p>
+&lt;p>表达式：absent(up{job=&amp;ldquo;kubelet&amp;rdquo;, metrics_path=&amp;quot;/metrics&amp;quot;} == 1)&lt;/p>
+&lt;h1 id="集群组件">集群组件&lt;/h1>
+&lt;p>KubeSchedulerDown&lt;/p>
+&lt;p>KubeScheduler 失联，监测 KubeScheduler 是否正常。&lt;/p>
+&lt;p>表达式：absent(up{job=&amp;ldquo;kube-scheduler&amp;rdquo;} == 1)&lt;/p>
+&lt;p>KubeControllerManagerDown&lt;/p>
+&lt;p>监测 KubeControllerManager 服务，Down 或者网络不通。&lt;/p>
+&lt;p>表达式：absent(up{job=&amp;ldquo;kube-controller-manager&amp;rdquo;} == 1)&lt;/p>
+&lt;p>应用相关&lt;/p>
+&lt;p>KubePodCrashLooping&lt;/p>
+&lt;p>Pod 重启时间，重启时间超过 3m 告警。&lt;/p>
+&lt;p>表达式：rate(kube_pod_container_status_restarts_total{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}[5m]) _ 60 _ 3 &amp;gt; 0&lt;/p>
+&lt;p>相关指标:&lt;/p>
+&lt;ul>
+&lt;li>kube_pod_container_status_restarts_total：重启状态 0 为正常&lt;/li>
+&lt;/ul>
+&lt;p>KubePodNotReady&lt;/p>
+&lt;p>Pods 没有就绪，检测 Pod 是否就绪。&lt;/p>
+&lt;p>表达式：sum by (namespace, pod) (max by(namespace, pod) (kube_pod_status_phase{job=&amp;ldquo;kube-state-metrics&amp;rdquo;, phase=~&amp;ldquo;Pending|Unknown&amp;rdquo;}) * on(namespace, pod) group_left(owner_kind) max by(namespace, pod, owner_kind) (kube_pod_owner{owner_kind!=&amp;ldquo;Job&amp;rdquo;})) &amp;gt; 0&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_pod_status_phase：Pod 状态&lt;/li>
+&lt;/ul>
+&lt;p>KubeDeploymentGenerationMismatch&lt;/p>
+&lt;p>Deployment 部署失败，Deployment 生成的资源与定义的资源不匹配。&lt;/p>
+&lt;p>表达式：kube_deployment_status_observed_generation{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} != kube_deployment_metadata_generation{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_deployment_status_observed_generation：Deployment 生成资源数&lt;/li>
+&lt;li>kube_deployment_metadata_generation：Deployment 定义资源数&lt;/li>
+&lt;/ul>
+&lt;p>KubeDeploymentReplicasMismatch&lt;/p>
+&lt;p>查看 Deplyment 副本是否达到预期。&lt;/p>
+&lt;p>表达式：( kube_deployment_spec_replicas{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} != kube_deployment_status_replicas_available{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}) and (changes(kube_deployment_status_replicas_updated{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}[3m]) == 0)&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_deployment_spec_replicas 资源定义副本数&lt;/li>
+&lt;li>kube_deployment_status_replicas_available 正在运行副本数&lt;/li>
+&lt;li>kube_deployment_status_replicas_updated 更新的副本数&lt;/li>
+&lt;/ul>
+&lt;p>KubeStatefulSetReplicasMismatch&lt;/p>
+&lt;p>监测 StatefulSet 副本是否达到预期。&lt;/p>
+&lt;p>表达式：(kube_statefulset_status_replicas_ready{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} != kube_statefulset_status_replicas{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}) and (changes(kube_statefulset_status_replicas_updated{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}[5m]) == 0)&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_statefulset_status_replicas_ready：就绪副本数&lt;/li>
+&lt;li>kube_statefulset_status_replicas：当前副本数&lt;/li>
+&lt;li>kube_statefulset_status_replicas_updated：更新的副本数&lt;/li>
+&lt;/ul>
+&lt;p>KubeStatefulSetUpdateNotRolledOut&lt;/p>
+&lt;p>StatefulSet 更新失败且未回滚，对比版本号和副本数。&lt;/p>
+&lt;p>表达式：max without (revision) (kube_statefulset_status_current_revision{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} unless kube_statefulset_status_update_revision{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}) * (kube_statefulset_replicas{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} != kube_statefulset_status_replicas_updated{job=&amp;ldquo;kube-state-metrics&amp;rdquo;})&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_statefulset_status_replicas：每个 StatefulSet 的副本数。&lt;/li>
+&lt;li>kube_statefulset_status_replicas_current：每个 StatefulSet 的当前副本数。&lt;/li>
+&lt;li>kube_statefulset_status_replicas_ready：每个 StatefulSet 的就绪副本数。&lt;/li>
+&lt;li>kube_statefulset_status_replicas_updated：每个 StatefulSet 的更新副本数。&lt;/li>
+&lt;li>kube_statefulset_status_observed_generation：StatefulSet 控制器观察到的生成。&lt;/li>
+&lt;li>kube_statefulset_replicas：StatefulSet 所需的副本数。&lt;/li>
+&lt;li>kube_statefulset_metadata_generation：表示 StatefulSet 所需状态的特定生成的序列号。&lt;/li>
+&lt;li>kube_statefulset_created：创建时间戳。&lt;/li>
+&lt;li>kube_statefulset_labels：Kubernetes 标签转换为 Prometheus 标签。&lt;/li>
+&lt;li>kube_statefulset_status_current_revision：指示用于按顺序(0，currentReplicas)生成 Pod 的 StatefulSet 的版本。&lt;/li>
+&lt;li>kube_statefulset_status_update_revision：指示用于按顺序 [replicas-updatedReplicas，replicas] 生成 Pod 的 StatefulSet 的版本。&lt;/li>
+&lt;/ul>
+&lt;p>KubeDaemonSetRolloutStuck&lt;/p>
+&lt;p>监测 DaemonSet 是否处于就绪状态。&lt;/p>
+&lt;p>表达式：kube_daemonset_status_number_ready{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} / kube_daemonset_status_desired_number_scheduled{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} &amp;lt; 1.00&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_daemonset_status_number_ready：就绪的 DaemonSet&lt;/li>
+&lt;li>kube_daemonset_status_desired_number_scheduled：应该调度的 DaemonSet 数量&lt;/li>
+&lt;/ul>
+&lt;p>KubeDaemonSetMisScheduled&lt;/p>
+&lt;p>DaemonSet 运行在不该运行的节点上面。&lt;/p>
+&lt;p>表达式：kube_daemonset_status_number_misscheduled{job=&amp;ldquo;kube-state-metrics&amp;rdquo;} &amp;gt; 0&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_daemonset_status_number_misscheduled：运行在不该运行的节点状态&lt;/li>
+&lt;/ul>
+&lt;p>KubeContainerWaiting&lt;/p>
+&lt;p>监测哪些容器是在等待状态的。&lt;/p>
+&lt;p>表达式：sum by (namespace, pod, container) (kube_pod_container_status_waiting_reason{job=&amp;ldquo;kube-state-metrics&amp;rdquo;}) &amp;gt; 0&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>kube_pod_container_status_waiting_reason：容器声明周期过程中的状态，无论是创建成功还是失败都应该是 0。&lt;/li>
+&lt;/ul>
+&lt;h1 id="节点相关">节点相关&lt;/h1>
+&lt;p>NodeClockNotSynchronising&lt;/p>
+&lt;p>主机与时间服务器失联。&lt;/p>
+&lt;p>表达式：min_over_time(node_timex_sync_status[5m]) == 0&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>node_timex_sync_status：同步状态。&lt;/li>
+&lt;/ul>
+&lt;p>NodeClockSkewDetected&lt;/p>
+&lt;p>本地时间偏移量。&lt;/p>
+&lt;p>表达式：(node_timex_offset_seconds &amp;gt; 0.05 and deriv(node_timex_offset_seconds[5m]) &amp;gt;= 0) or (node_timex_offset_seconds &amp;lt; -0.05 and deriv(node_timex_offset_seconds[5m]) &amp;lt;= 0)&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>node_timex_offset_seconds：误差&lt;/li>
+&lt;/ul>
+&lt;p>NodeHighNumberConntrackEntriesUsed&lt;/p>
+&lt;p>链接状态跟踪。&lt;/p>
+&lt;p>表达式：(node_nf_conntrack_entries / node_nf_conntrack_entries_limit) &amp;gt; 0.75&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>node_nf_conntrack_entries：链接状态跟踪表分配的数量&lt;/li>
+&lt;li>node_nf_conntrack_entries_limit：表总量&lt;/li>
+&lt;/ul>
+&lt;p>NodeNetworkReceiveErrs&lt;/p>
+&lt;p>网卡接收错误量。&lt;/p>
+&lt;p>表达式：increase(node_network_receive_errs_total[2m]) &amp;gt; 10&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>node_network_receive_errs_total：接收错误总量&lt;/li>
+&lt;/ul>
+&lt;p>NodeNetworkTransmitErrs&lt;/p>
+&lt;p>网卡传输错误量。&lt;/p>
+&lt;p>表达式：increase(node_network_transmit_errs_total[2m]) &amp;gt; 10&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>node_network_transmit_errs_total：传输错误总量&lt;/li>
+&lt;/ul>
+&lt;p>NodeFilesystemAlmostOutOfFiles&lt;/p>
+&lt;p>inode 数量监测 表达式：&lt;/p>
+&lt;p>(node_filesystem_files_free{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} / node_filesystem_files{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} * 100 &amp;lt; 5 and node_filesystem_readonly{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} == 0)&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>node_filesystem_files_free：空闲的 inode&lt;/li>
+&lt;li>node_filesystem_files：inodes 总量&lt;/li>
+&lt;/ul>
+&lt;p>NodeFilesystemFilesFillingUp&lt;/p>
+&lt;p>inode 耗尽预测，以 6 小时曲线变化预测接下来 24 小时和 4 小时可能使用的 inodes。&lt;/p>
+&lt;p>表达式：(node_filesystem_files_free{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} / node_filesystem_files{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} * 100 &amp;lt; 20 and predict_linear(node_filesystem_files_free{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;}[6h], 4*60*60) &amp;lt; 0 and node_filesystem_readonly{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} == 0)&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>node_filesystem_files_free：空闲的 inode&lt;/li>
+&lt;li>node_filesystem_files：inodes 总量&lt;/li>
+&lt;/ul>
+&lt;p>NodeFilesystemAlmostOutOfSpace&lt;/p>
+&lt;p>分区容量使用率。&lt;/p>
+&lt;p>表达式：(node_filesystem_avail_bytes{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} / node_filesystem_size_bytes{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} * 100 &amp;lt; 10 and node_filesystem_readonly{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} == 0)&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>node_filesystem_avail_bytes：空闲容量&lt;/li>
+&lt;li>node_filesystem_size_bytes：总容量&lt;/li>
+&lt;/ul>
+&lt;p>NodeFilesystemSpaceFillingUp&lt;/p>
+&lt;p>分区容量耗尽预测，以 6 小时曲线变化预测接下来 24 小时和 4 小时可能使用的容量。&lt;/p>
+&lt;p>表达式：&lt;/p>
+&lt;p>(node_filesystem_avail_bytes{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} / node_filesystem_size_bytes{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} * 100 &amp;lt; 15 and predict_linear(node_filesystem_avail_bytes{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;}[6h], 4*60*60) &amp;lt; 0 and node_filesystem_readonly{job=&amp;ldquo;node-exporter&amp;rdquo;,fstype!=&amp;quot;&amp;quot;} == 0)&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>node_filesystem_avail_bytes：空闲容量&lt;/li>
+&lt;li>node_filesystem_size_bytes：总容量&lt;/li>
+&lt;/ul>
+&lt;h1 id="etcd-相关">Etcd 相关&lt;/h1>
+&lt;p>Etcdlived&lt;/p>
+&lt;p>etcd 存活检测。&lt;/p>
+&lt;p>表达式：up{job=&amp;ldquo;etcd&amp;rdquo;} &amp;lt; 1&lt;/p>
+&lt;p>EtcdCluseterUnavailable&lt;/p>
+&lt;p>etcd 集群健康检查，down 数量大于集群可允许故障数量。&lt;/p>
+&lt;p>表达式：count(up{job=&amp;ldquo;etcd&amp;rdquo;} == 0) &amp;gt; (count(up{job=&amp;ldquo;etcd&amp;rdquo;}) / 2 - 1)&lt;/p>
+&lt;p>EtcdLeaderCheck&lt;/p>
+&lt;p>检查 leader。&lt;/p>
+&lt;p>表达式：max(etcd_server_has_leader) != 1&lt;/p>
+&lt;p>EtcdBackendFsync&lt;/p>
+&lt;p>etcd io 监测，后端提交 延时。&lt;/p>
+&lt;p>表达式：histogram_quantile(0.99, sum(rate(etcd_disk_backend_commit_duration_seconds_bucket[5m])) by (instance, le)) &amp;gt; 100&lt;/p>
+&lt;p>EtcdWalFsync&lt;/p>
+&lt;p>etcd io 监测，文件同步到磁盘延时。&lt;/p>
+&lt;p>表达式：histogram_quantile(0.99, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket[5m])) by (instance, le)) &amp;gt; 100&lt;/p>
+&lt;p>EtcdDbSize&lt;/p>
+&lt;p>检测数据库大小。&lt;/p>
+&lt;p>表达式：etcd_debugging_mvcc_db_total_size_in_bytes/1024/1024 &amp;gt; 1024&lt;/p>
+&lt;p>EtcdGrpc&lt;/p>
+&lt;p>Grpc 调用速率。表达式：&lt;/p>
+&lt;p>sum(rate(grpc_server_handled_total{grpc_type=&amp;ldquo;unary&amp;rdquo;}[1m])) &amp;gt; 100&lt;/p>
+&lt;h1 id="coredns-相关">CoreDNS 相关&lt;/h1>
+&lt;p>DnsRequest&lt;/p>
+&lt;p>DNS 查询速率，每分钟查询超过 100 告警。&lt;/p>
+&lt;p>表达式：sum(irate(coredns_dns_requests_total{zone !=&amp;ldquo;dropped&amp;rdquo;}[1m])) &amp;gt; 100&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>coredns_dns_requests_total：总查询数&lt;/li>
+&lt;/ul>
+&lt;p>DnsRequestFaild&lt;/p>
+&lt;p>异常查询，异常状态码，不是 NOERROR。&lt;/p>
+&lt;p>表达式：irate(coredns_dns_responses_total{rcode!=&amp;ldquo;NOERROR&amp;rdquo;} [1m]) &amp;gt; 0&lt;/p>
+&lt;p>相关指标：&lt;/p>
+&lt;ul>
+&lt;li>coredns_dns_responses_total：查询返回状态码&lt;/li>
+&lt;/ul>
+&lt;p>DnsPanic&lt;/p>
+&lt;p>DNS 恐慌值，可能收到攻击。&lt;/p>
+&lt;p>表达式：&lt;/p>
+&lt;p>irate(coredns_panics_total[1m]) &amp;gt; 100&lt;/p></description></item></channel></rss>

@@ -1,0 +1,613 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Kubernetes DNS</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/</link><description>Recent content in Kubernetes DNS on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: CoreDNS</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/CoreDNS/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/CoreDNS/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;a href="https://coredns.io/">官网&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://coredns.io/manual/toc/">官方手册&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://coredns.io/plugins/">CoreDNS 所有插件详解&lt;/a>&lt;/p>
+&lt;/li>
+&lt;li>&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/">k8s 中的 CoreDNS 的配置示例&lt;/a>&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>CoreDNS 是一个用 Go 编写的 DNS 服务器，目标是要称为云原生环境下的 DNS 服务器和服务发现解决方案。&lt;/p>
+&lt;p>CoreDNS 与 &lt;a href="https://zh.wikipedia.org/zh-cn/BIND">BIND&lt;/a> 这类 DNS 服务器不同，CoreDNS 非常灵活，几乎所有功能都由插件来实现&lt;/p>
+&lt;p>插件可以独立或者一起运行，以便执行一个 **DNS Function(DNS 功能)。**可以说 CoreDNS 是由插件驱动的&lt;/p>
+&lt;p>那么什么是“ DNS 功能”？ 出于 CoreDNS 的目标，我们将其定义为实现 CoreDNS Plugin API 的软件。 实现的功能可能会大相径庭。 有些插件本身并不会创建响应，例如指标或缓存，但会添加功能。 然后有一些插件确实会产生响应。 这些也可以做任何事情：有一些与 Kubernetes 通信以提供服务发现的插件，有一些从文件或数据库中读取数据的插件。&lt;/p>
+&lt;p>So what’s a “DNS function”? For the purpose of CoreDNS, we define it as a piece of software that implements the CoreDNS Plugin API. The functionality implemented can wildly deviate. There are plugins that don’t themselves create a response, such as &lt;a href="https://coredns.io/plugins/metrics">metrics&lt;/a> or &lt;a href="https://coredns.io/plugins/cache">cache&lt;/a>, but that add functionality. Then there are plugins that &lt;em>do&lt;/em> generate a response. These can also do anything: There are plugins that communicate with &lt;a href="https://coredns.io/plugins/kubernetes">Kubernetes&lt;/a> to provide service discovery, plugins that read data from a &lt;a href="https://coredns.io/plugins/file">file&lt;/a> or a &lt;a href="https://coredns.io/explugins/pdsql">database&lt;/a>.&lt;/p>
+&lt;p>用白话说：&lt;/p>
+&lt;p>它有以下几个特性：&lt;/p>
+&lt;ul>
+&lt;li>插件化（Plugins）基于 Caddy 服务器框架，CoreDNS 实现了一个插件链的架构，将大量应用端的逻辑抽象成 plugin 的形式（如 Kubernetes 的 DNS 服务发现，Prometheus 监控等）暴露给使用者。CoreDNS 以预配置的方式将不同的 plugin 串成一条链，按序执行 plugin 的逻辑。从编译层面，用户选择所需的 plugin 编译到最终的可执行文件中，使得运行效率更高。CoreDNS 采用 Go 编写，所以从具体代码层面来看，每个 plugin 其实都是实现了其定义的 interface 的组件而已。第三方只要按照 CoreDNS Plugin API 去编写自定义插件，就可以很方便地集成于 CoreDNS。&lt;/li>
+&lt;li>配置简单化引入表达力更强的 DSL[2]，即 &lt;code>Corefile&lt;/code> 形式的配置文件（也是基于 Caddy 框架开发）。&lt;/li>
+&lt;li>一体化的解决方案区别于 &lt;code>kube-dns&lt;/code>，CoreDNS 编译出来就是一个单独的二进制可执行文件，内置了 cache，backend storage，health check 等功能，无需第三方组件来辅助实现其他功能，从而使得部署更方便，内存管理更为安全。&lt;/li>
+&lt;/ul>
+&lt;p>其实从功能角度来看，CoreDNS 更像是一个通用 DNS 方案（类似于 &lt;code>BIND&lt;/code>），然后通过插件模式来极大地扩展自身功能，从而可以适用于不同的场景（比如 Kubernetes）。正如官方博客所说：&lt;/p>
+&lt;h2 id="coredns-metrics">CoreDNS Metrics&lt;/h2>
+&lt;p>在 K8S 中，CoreDNS 不在宿主机暴露端口，需要通过其 service 来访问&lt;/p>
+&lt;p>指标获取路径：CoreDNS_SVC_IP:9153/metrics&lt;/p>
+&lt;h1 id="coredns-关联文件与配置">CoreDNS 关联文件与配置&lt;/h1>
+&lt;p>&lt;strong>./Corefile&lt;/strong> # CoreDNS 运行所需配置文件，参考：&lt;a href="https://coredns.io/2017/07/23/corefile-explained/">&lt;strong>Corefile 解释&lt;/strong>&lt;/a>。&lt;/p>
+&lt;h2 id="kubeadm-安装的-k8s-集群中-coredns-的默认配置文件">kubeadm 安装的 k8s 集群中 coredns 的默认配置文件&lt;/h2>
+&lt;p>在 kubeadm 安装的集群中，coredns 的配置保存在 configmap 中，通过 kubectl 命令进行查看&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>[&lt;span style="color:#ae81ff">root@master myapp]# kubectl get configmaps -n kube-system coredns -o yaml&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">ConfigMap&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">data&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">Corefile&lt;/span>: |&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> .:53 {
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> errors
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> health
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> ready
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> kubernetes cluster.local in-addr.arpa ip6.arpa {
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> pods insecure
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> fallthrough in-addr.arpa ip6.arpa
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> ttl 30
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> }
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> prometheus :9153
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> forward . /etc/resolv.conf
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> cache 30
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> loop
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> reload
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> loadbalance
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> }&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="coredns-plugins插件">CoreDNS Plugins(插件)&lt;/h1>
+&lt;p>参考：&lt;a href="https://coredns.io/manual/toc/#plugins">官方 Plugins 手册&lt;/a>&lt;/p>
+&lt;h2 id="coredns-plugins-的工作模式">CoreDNS Plugins 的工作模式&lt;/h2>
+&lt;p>当 CoreDNS 启动后，它将根据配置文件启动不同 server ，每台 server 都拥有自己的插件链。当有 DNS 请求时，它将依次经历如下 3 步逻辑：&lt;/p>
+&lt;ul>
+&lt;li>如果有当前请求的 server 有多个 zone，将采用贪心原则选择最匹配的 zone；&lt;/li>
+&lt;li>一旦找到匹配的 server，按照 &lt;a href="https://github.com/coredns/coredns/blob/master/plugin.cfg">&lt;strong>plugin.cfg&lt;/strong>&lt;/a> 定义的顺序执行插件链上的插件；
+&lt;ul>
+&lt;li>plugin.cfg 是定义在代码中的，在处理请求时，总是根据 plugin.cfg 中定义的顺序加载插件&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>每个插件将判断当前请求是否应该处理，将有以下几种可能：
+&lt;ul>
+&lt;li>&lt;strong>请求被当前插件处理&lt;/strong>插件将生成对应的响应并回给客户端，此时请求结束，下一个插件将不会被调用，如 whoami 插件；&lt;/li>
+&lt;li>&lt;strong>请求被当前插件以 Fallthrough 形式处理&lt;/strong>如果请求在该插件处理过程中有可能将跳转至下一个插件，该过程称为 fallthrough，并以关键字 &lt;code>fallthrough&lt;/code> 来决定是否允许此项操作，例如 host 插件，当查询域名未位于 /etc/hosts，则调用下一个插件；&lt;/li>
+&lt;li>&lt;strong>请求在处理过程被携带 Hint&lt;/strong>请求被插件处理，并在其响应中添加了某些信息（hint）后继续交由下一个插件处理。这些额外的信息将组成对客户端的最终响应，如 &lt;code>metric&lt;/code> 插件；&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="coredns-的常用插件">CoreDNS 的常用插件&lt;/h2>
+&lt;p>参考：&lt;a href="https://coredns.io/plugins/">官方 Plugins 列表文档&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://coredns.io/plugins/errors/">errors&lt;/a> # coredns 查询处理过程中遇到的任何错误都将被打印到标准输出。Note：每个配置文件中，仅能使用一次 errors 插件&lt;/li>
+&lt;li>&lt;a href="https://coredns.io/plugins/health/">health&lt;/a> # 该插件用来将 CoreDNS 的运行状态暴露在 http://localhost:8080/health。&lt;/li>
+&lt;li>&lt;a href="https://coredns.io/plugins/ready/">ready&lt;/a> # 当所有插件都就绪之后，会在 8181 端口上返回 http 的 200 状态码。&lt;/li>
+&lt;li>&lt;a href="https://coredns.io/plugins/kubernetes/">kubernetes&lt;/a> # CoreDNS 将基于 Kubernetes 的服务和 Pod 的 IP 答复 DNS 查询。&lt;/li>
+&lt;li>&lt;a href="https://coredns.io/plugins/metrics/">prometheus&lt;/a> # 在 9153 端口上以 OpenMetrics 格式暴露 coredns 指标。&lt;/li>
+&lt;li>&lt;a href="https://coredns.io/plugins/forward/">forward&lt;/a> # 任何不在 Kubernetes 集群域内的查询都将转发到预定义的解析器（/etc/resolv.conf）。&lt;/li>
+&lt;li>&lt;a href="https://coredns.io/plugins/cache/">cache&lt;/a> # 启用前端缓存。&lt;/li>
+&lt;li>&lt;a href="https://coredns.io/plugins/loop/">loop&lt;/a> # 检测简单的转发循环，如果发现循环，则中止 CoreDNS 进程。&lt;/li>
+&lt;li>&lt;a href="https://coredns.io/plugins/reload">reload&lt;/a> # 允许自动重新加载已更改的 Corefile。 编辑 ConfigMap 配置后，等待两分钟，以使更改生效。&lt;/li>
+&lt;li>&lt;a href="https://coredns.io/plugins/loadbalance">loadbalance&lt;/a> # 一个轮询 DNS 负载均衡器，它随机分配 dns 响应中的 A，AAAA 和 MX 记录的顺序。&lt;/li>
+&lt;li>等等等&lt;/li>
+&lt;/ul>
+&lt;h2 id="kubernetes-插件">kubernetes 插件&lt;/h2>
+&lt;p>kubernetes [ZONES&amp;hellip;] {    endpoint URL    tls CERT KEY CACERT    kubeconfig KUBECONFIG CONTEXT    namespaces NAMESPACE&amp;hellip;    labels EXPRESSION    pods POD-MODE    endpoint_pod_names    ttl TTL # 设置自定义 TTL。 默认值为 5 秒。 允许的最小 TTL 为 0 秒，最大为 3600 秒。 将 TTL 设置为 0 将防止记录被缓存。    noendpoints    transfer to ADDRESS&amp;hellip;    fallthrough [ZONES&amp;hellip;]    ignore empty_service}&lt;/p>
+&lt;p>pods POD-MODE # 提供了 pods insecure 选项，以便与 kube-dn 向后兼容。 您可以使用经过验证的 Pod 选项，只有在相同名称空间中存在具有匹配 IP 的 Pod 时，该选项才返回 A 记录。 如果您不使用广告连播记录，则可以使用“广告连播禁用”选项。&lt;/p>
+&lt;h1 id="coredns-的工作模式">CoreDNS 的工作模式&lt;/h1>
+&lt;p>如果 Corefile 为：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>coredns.io:5300 &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> file db.coredns.io
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>example.io:53 &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> log
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> errors
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> file db.example.io
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>example.net:53 &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> file db.example.net
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.:53 &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> kubernetes
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy . 8.8.8.8
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> log
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> health
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> errors
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> cache
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>从配置文件来看，我们定义了两个 server（尽管有 4 个区块），分别监听在 &lt;code>5300&lt;/code> 和 &lt;code>53&lt;/code> 端口。其逻辑图可如下所示：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gggg2s/1622809781189-17c30eb0-ece4-4e93-b40a-34714856af7f.png" alt="">
+每个进入到某个 server 的请求将按照 &lt;a href="https://github.com/coredns/coredns/blob/master/plugin.cfg">&lt;strong>plugin.cfg&lt;/strong>&lt;/a> 定义顺序执行其已经加载的插件。&lt;/p>
+&lt;p>从上图，我们需要注意以下几点：&lt;/p>
+&lt;ul>
+&lt;li>尽管在 &lt;code>.:53&lt;/code> 配置了 &lt;code>health&lt;/code> 插件，但是它并为在上面的逻辑图中出现，原因是：该插件并未参与请求相关的逻辑（即并没有在插件链上），只是修改了 server 配置。更一般地，我们可以将插件分为两种：
+&lt;ul>
+&lt;li>&lt;strong>Normal 插件&lt;/strong>：参与请求相关的逻辑，且插入到插件链中；&lt;/li>
+&lt;li>&lt;strong>其他插件&lt;/strong>：不参与请求相关的逻辑，也不出现在插件链中，只是用于修改 server 的配置，如 &lt;code>health&lt;/code>，&lt;code>tls&lt;/code> 等插件；&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul></description></item><item><title>Docs: CoreDNS</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/CoreDNS/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/CoreDNS/</guid><description/></item><item><title>Docs: DNS 管理与优化</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/</guid><description>
+&lt;p>优化方法&lt;/p>
+&lt;p>禁用 ipv6 解析，以提高解析速度&lt;/p>
+&lt;p>参考文章：&lt;a href="https://yuerblog.cc/2019/09/13/k8s-coredns%25E7%25A6%2581%25E7%2594%25A8ipv6%25E8%25A7%25A3%25E6%259E%2590/">https://yuerblog.cc/2019/09/13/k8s-coredns%E7%A6%81%E7%94%A8ipv6%E8%A7%A3%E6%9E%90/&lt;/a>&lt;/p>
+&lt;p>如果 K8S 集群宿主机没有关闭 IPV6 内核模块的话，容器请求 coredns 时的默认行为是同时发起 IPV4 和 IPV6 解析。&lt;/p>
+&lt;p>由于我们通常只使用 IPV4 地址，所以此时如果我们仅仅在 coredns 中配置 DOMAIN -&amp;gt; IPV4 地址的解析的话，当 coredns 收到 IPV6 解析请求的时候就会因为本地找不到配置而 foward 到 upstream DNS 服务器解析，从而导致容器的 DNS 解析请求变慢。&lt;/p>
+&lt;p>coredns 提供了一种 plugin 叫做 template，经过配置后可以给所有的 IPV6 请求立即返回一个空结果的应答，避免请求 forward 到上游 DNS。&lt;/p>
+&lt;p>使用方法&lt;/p>
+&lt;p>template 插件的官方文档地址：&lt;a href="https://github.com/coredns/coredns/tree/master/plugin/template">https://github.com/coredns/coredns/tree/master/plugin/template&lt;/a>，coredns 默认已携带此插件，大家只需要配置即可。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">template&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">ANY&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">AAAA&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">rcode&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">NXDOMAIN&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>该配置添加到 forward 下面即可&lt;/p>
+&lt;p>AAAA 表示 IPV6 解析请求，rcode 控制应答返回 NXDOMAIN，即表示没有解析结果。&lt;/p>
+&lt;p>修改每个 pod 中 /etc/resolv.conf 中 ndots 的值&lt;/p>
+&lt;p>由于每个 pod 启动后，其 resolv.conf 文件中，会自动加入 options: ndots=5 的参数，所以此 pod 想要通过域名与其他服务交互，很有可能会搜索 search ，产生很多不必要的解析请求。所以修改 ndots 可以省掉很多解析时间。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">default&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">dns-example&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dnsConfig&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">options&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ndots&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">value&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>尝试修改 coredns 的配置来实现，如下（需要验证）：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qb8zlf/1616118141230-181857cf-18fc-4ccf-a1a9-d73735230cc7.png" alt="">&lt;/p>
+&lt;p>附：一则 Corefile 的 configmap 的配置：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">kubectl&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">get&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">configmap&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">-n&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">kube-system&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">coredns&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">-o&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">jsonpath=&amp;#39;&lt;/span>{&lt;span style="color:#960050;background-color:#1e0010">.data&lt;/span>}&lt;span style="color:#960050;background-color:#1e0010">&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">map&lt;/span>[&lt;span style="color:#960050;background-color:#1e0010">Corefile:.:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">log&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">errors&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">health&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">kubernetes&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">cluster.local&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">in-addr.arpa&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">ip6.arpa&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">pods&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">insecure&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">upstream&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">fallthrough&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">in-addr.arpa&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">ip6.arpa&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">hosts&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">/etc/hostfile&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">fallthrough&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">proxy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">domain.com&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">2&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">policy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">round_robin&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">proxy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">domain.cn&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">2&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">policy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">round_robin&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">proxy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">consul&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">2&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">policy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">round_robin&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">prometheus&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">9153&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">proxy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">.&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">/etc/resolv.conf&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">policy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">first&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">cache&lt;/span> &lt;span style="color:#ae81ff">120&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">loop&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">reload&lt;/span> &lt;span style="color:#75715e">//加上这个配置之后修改配置会自动reload pod的配置，可能存在pod不会重启
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">loadbalance&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>]
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用：&lt;/p>
+&lt;pre>&lt;code># kubectl edit deployment -n kube-system coredns
+&lt;/code>&lt;/pre>
+&lt;p>编辑修改，然后修改对应的 deployment 重启 pod 或者重新发布 pod 生效。&lt;/p>
+&lt;pre>&lt;code>error: 错误记录到stdout
+health ：CoreDNS的运行状况报告为 http：// localhost：8080 / health
+kubernetes ：CoreDNS将根据Kubernetes服务和pod的IP回复DNS查询
+prometheus ：CoreDNS的度量标准可以在 http://localhost:9153/ Prometheus格式的 指标 中找到
+proxy ：任何不在Kubernetes集群域内的查询都将转发到预定义的解析器（/etc/resolv.conf）
+cache ：启用前端缓存
+loop ：检测简单的转发循环，如果找到循环则停止CoreDNS进程
+reload ：允许自动重新加载已更改的Corefile。编辑ConfigMap配置后，请等待两分钟以使更改生效
+loadbalance ：这是一个循环DNS负载均衡器，可以在答案中随机化A，AAAA和MX记录的顺序
+&lt;/code>&lt;/pre>
+&lt;p>使用 .spec.HostAliases 字段将解析条目添加到容器内的 /etc /hosts 文件中&lt;/p>
+&lt;p>官方文档：&lt;a href="https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/">https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/&lt;/a>&lt;/p>
+&lt;p>为什么通过 Kubelet 管理 hosts 文件？&lt;/p>
+&lt;p>kubelet 管理 Pod 中每个容器的 hosts 文件，避免 Docker 在容器已经启动之后去 修改 该文件。&lt;/p>
+&lt;p>因为该文件是托管性质的文件，无论容器重启或 Pod 重新调度，用户修改该 hosts 文件的任何内容，都会在 Kubelet 重新安装后被覆盖。因此，不建议修改该文件的内容。&lt;/p>
+&lt;p>示例 manifests&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">hostaliases-pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">restartPolicy&lt;/span>: &lt;span style="color:#ae81ff">Never&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostAliases&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">ip&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;127.0.0.1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostnames&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;foo.local&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;bar.local&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">ip&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10.1.2.3&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostnames&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;foo.remote&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;bar.remote&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">cat-hosts&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">command&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">cat&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">args&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;/etc/hosts&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>hostaliases-pod 这个 pod 的容器内的 /etc/hosts 文件的内容看起来类似如下这样&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Kubernetes-managed hosts file.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>127.0.0.1 localhost
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>::1 localhost ip6-localhost ip6-loopback
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>fe00::0 ip6-localnet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>fe00::0 ip6-mcastprefix
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>fe00::1 ip6-allnodes
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>fe00::2 ip6-allrouters
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10.200.0.5 hostaliases-pod
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Entries added by HostAliases.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>127.0.0.1 foo.local bar.local
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10.1.2.3 foo.remote bar.remote
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: DNS 管理与优化</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/</guid><description/></item><item><title>Docs: Kubernetes DNS</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/Kubernetes-DNS/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/Kubernetes-DNS/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/">官方文档，概念-服务,负载均衡,网络-service 与 pod 的 DNS&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>DNS 是 kubernetes 中 &lt;strong>Service Discovery(服务发现，简称 SD)&lt;/strong> 的重要实现方式，虽然 K8S SD 还可以通过其他协议和机制提供，但 DNS 是非常常用的、并且是强烈建议的附加组件。&lt;/p>
+&lt;p>Kubernetes 集群中创建的每个 &lt;strong>service 对象&lt;/strong> 和 &lt;strong>pod 对象&lt;/strong> 都会被分配一个 &lt;strong>DNS 名称&lt;/strong>，Kubernetes 中实现 DNS 功能的程序需要自动创建 &lt;strong>DNS Resource Records(域名解析服务的资源记录)&lt;/strong>。基于此，我们可以通过 DNS 名称连接我们部署到集群中的服务，而不用通过 IP 地址。&lt;/p>
+&lt;p>kubernetes 实现 DNS 的方式：新版本默认使用 &lt;a href="https://www.yuque.com/go/doc/33164774">CoreDNS&lt;/a>，1.11.0 之前使用的是 kube-dns。Kubernetes DNS 的实现必须符合既定的规范，规范详见 &lt;a href="https://www.yuque.com/go/doc/33165005">基于 Kubernetes DNS 的服务发现规范&lt;/a> 文章。&lt;/p>
+&lt;p>也就是说，任何可以用于实现 Kubernetes DNS 功能的应用程序，至少需要满足规范中描述的 Resource Records 格式标准。&lt;/p>
+&lt;h1 id="service-对象的-dns">Service 对象的 DNS&lt;/h1>
+&lt;h2 id="aaaaa-记录">A/AAAA 记录&lt;/h2>
+&lt;p>Normal(正常) Service(除了 Headless 类型以外的所有 Service) 会以 &lt;code>my-svc.my-namespace.svc.cluster-domain.example&lt;/code> 这种名字的形式被分配一个 DNS A 或 AAAA 记录，取决于服务的 IP 协议族。 该名称会解析成对应 Service 对象的 CLUSTER-IP。&lt;/p>
+&lt;p>Headless(无头) Service(没有 CLUSTER-IP) 也会以 &lt;code>my-svc.my-namespace.svc.cluster-domain.example&lt;/code> 这种名字的形式分配一个 DNS A 或 AAAA 记录。与 Normal Service 不同的是，这个记录会被解析成对应服务所选择的 Pod 的 IP 集合。&lt;/p>
+&lt;h2 id="srv-记录">SRV 记录&lt;/h2>
+&lt;p>Kubernetes 会为命名端口创建 SRV 记录，这些端口是普通服务或 无头服务的一部分。&lt;/p>
+&lt;p>对每个具有名称端口，SRV 记录具有 &lt;code>_my-port-name._my-port-protocol.my-svc.my-namespace.svc.cluster-domain.example&lt;/code> 这种形式。 对普通服务，该记录会被解析成端口号和域名：&lt;code>my-svc.my-namespace.svc.cluster-domain.example&lt;/code>。 对无头服务，该记录会被解析成多个结果，服务对应的每个后端 Pod 各一个； 其中包含 Pod 端口号和形为 &lt;code>auto-generated-name.my-svc.my-namespace.svc.cluster-domain.example&lt;/code> 的域名。&lt;/p>
+&lt;h1 id="pod-对象的-dns">Pod 对象的 DNS&lt;/h1>
+&lt;h2 id="aaaaa-记录-1">A/AAAA 记录&lt;/h2>
+&lt;p>一般情况下，Pod 对象的域名格式如下：
+&lt;code>Pod-IP-Address.NAMESPACE.pod.ClusterDomain&lt;/code>&lt;/p>
+&lt;p>例如，如果有一个 Pod 对象，IP 为 172.17.0.3，在 default 名称空间，集群域名为默认的 cluster.local。则该 Pod 的域名为：
+&lt;code>172-17-0-3.default.pod.cluster.local&lt;/code>&lt;/p>
+&lt;h2 id="pod-的-hostname-和-subdomain-字段">Pod 的 hostname 和 subdomain 字段&lt;/h2>
+&lt;p>当前，创建 Pod 时其主机名取自 Pod 的 &lt;code>metadata.name&lt;/code> 值。Pod 规约中包含一个可选的 &lt;code>hostname&lt;/code> 字段，可以用来指定 Pod 的主机名。 当这个字段被设置时，它将优先于 Pod 的名字成为该 Pod 的主机名。 举个例子，给定一个 &lt;code>hostname&lt;/code> 设置为 &amp;ldquo;&lt;code>my-host&lt;/code>&amp;rdquo; 的 Pod， 该 Pod 的主机名将被设置为 &amp;ldquo;&lt;code>my-host&lt;/code>&amp;quot;。Pod 规约还有一个可选的 &lt;code>subdomain&lt;/code> 字段，可以用来指定 Pod 的子域名。 举个例子，某 Pod 的 &lt;code>hostname&lt;/code> 设置为 “&lt;code>foo&lt;/code>”，&lt;code>subdomain&lt;/code> 设置为 “&lt;code>bar&lt;/code>”， 在名字空间 “&lt;code>my-namespace&lt;/code>” 中对应的完全限定域名（FQDN）为 “&lt;code>foo.bar.my-namespace.svc.cluster-domain.example&lt;/code>”。&lt;/p>
+&lt;p>示例：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Service&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">default-subdomain&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">clusterIP&lt;/span>: &lt;span style="color:#ae81ff">None&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ports&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">foo&lt;/span> &lt;span style="color:#75715e"># 实际上不需要指定端口号&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">1234&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">targetPort&lt;/span>: &lt;span style="color:#ae81ff">1234&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>---
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostname&lt;/span>: &lt;span style="color:#ae81ff">busybox-1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">subdomain&lt;/span>: &lt;span style="color:#ae81ff">default-subdomain&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">busybox:1.28&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">command&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">sleep&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;3600&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>---
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostname&lt;/span>: &lt;span style="color:#ae81ff">busybox-2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">subdomain&lt;/span>: &lt;span style="color:#ae81ff">default-subdomain&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">busybox:1.28&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">command&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">sleep&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;3600&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果某无头服务与某 Pod 在同一个名字空间中，且它们具有相同的子域名， 集群的 DNS 服务器也会为该 Pod 的全限定主机名返回 A 记录或 AAAA 记录。 例如，在同一个名字空间中，给定一个主机名为 “busybox-1”、 子域名设置为 “default-subdomain” 的 Pod，和一个名称为 “&lt;code>default-subdomain&lt;/code>” 的无头服务，Pod 将看到自己的 FQDN 为 &amp;ldquo;&lt;code>busybox-1.default-subdomain.my-namespace.svc.cluster-domain.example&lt;/code>&amp;quot;。 DNS 会为此名字提供一个 A 记录或 AAAA 记录，指向该 Pod 的 IP。 “&lt;code>busybox1&lt;/code>” 和 “&lt;code>busybox2&lt;/code>” 这两个 Pod 分别具有它们自己的 A 或 AAAA 记录。Endpoints 对象可以为任何端点地址及其 IP 指定 &lt;code>hostname&lt;/code>。&lt;/p>
+&lt;blockquote>
+&lt;p>**说明：**因为没有为 Pod 名称创建 A 记录或 AAAA 记录，所以要创建 Pod 的 A 记录 或 AAAA 记录需要 &lt;code>hostname&lt;/code>。没有设置 &lt;code>hostname&lt;/code> 但设置了 &lt;code>subdomain&lt;/code> 的 Pod 只会为 无头服务创建 A 或 AAAA 记录（&lt;code>default-subdomain.my-namespace.svc.cluster-domain.example&lt;/code>） 指向 Pod 的 IP 地址。 另外，除非在服务上设置了 &lt;code>publishNotReadyAddresses=True&lt;/code>，否则只有 Pod 进入就绪状态 才会有与之对应的记录。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="pod-的-sethostnameasfqdn-字段">Pod 的 setHostnameAsFQDN 字段&lt;/h2>
+&lt;p>&lt;strong>FEATURE STATE:&lt;/strong> &lt;code>Kubernetes v1.20 [beta]&lt;/code>
+&lt;strong>前置条件&lt;/strong>：&lt;code>SetHostnameAsFQDN&lt;/code> 特性门控 必须在 API 服务器 上启用。当你在 Pod 规约中设置了 &lt;code>setHostnameAsFQDN: true&lt;/code> 时，kubelet 会将 Pod 的全限定域名（FQDN）作为该 Pod 的主机名记录到 Pod 所在名字空间。 在这种情况下，&lt;code>hostname&lt;/code> 和 &lt;code>hostname --fqdn&lt;/code> 都会返回 Pod 的全限定域名。&lt;/p>
+&lt;blockquote>
+&lt;p>**说明：**在 Linux 中，内核的主机名字段（&lt;code>struct utsname&lt;/code> 的 &lt;code>nodename&lt;/code> 字段）限定 最多 64 个字符。
+如果 Pod 启用这一特性，而其 FQDN 超出 64 字符，Pod 的启动会失败。 Pod 会一直出于 &lt;code>Pending&lt;/code> 状态（通过 &lt;code>kubectl&lt;/code> 所看到的 &lt;code>ContainerCreating&lt;/code>）， 并产生错误事件，例如 &amp;ldquo;Failed to construct FQDN from pod hostname and cluster domain, FQDN &lt;code>long-FQDN&lt;/code> is too long (64 characters is the max, 70 characters requested).&amp;rdquo; （无法基于 Pod 主机名和集群域名构造 FQDN，FQDN &lt;code>long-FQDN&lt;/code> 过长，至多 64 字符，请求字符数为 70）。 对于这种场景而言，改善用户体验的一种方式是创建一个 准入 Webhook 控制器， 在用户创建顶层对象（如 Deployment）的时候控制 FQDN 的长度。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="pod-的-dns-策略">Pod 的 DNS 策略&lt;/h2>
+&lt;p>DNS 策略可以逐个 Pod 来设定。目前 Kubernetes 支持以下特定 Pod 的 DNS 策略。 这些策略可以在 Pod 规约中的 &lt;code>dnsPolicy&lt;/code> 字段设置：&lt;/p>
+&lt;ul>
+&lt;li>&amp;ldquo;&lt;code>Default&lt;/code>&amp;rdquo;: Pod 从运行所在的节点继承名称解析配置。参考 相关讨论 获取更多信息。&lt;/li>
+&lt;li>&amp;ldquo;&lt;code>ClusterFirst&lt;/code>&amp;rdquo;: 与配置的集群域后缀不匹配的任何 DNS 查询（例如 &amp;ldquo;&lt;a href="https://www.kubernetes.io">www.kubernetes.io&lt;/a>&amp;rdquo;） 都将转发到从节点继承的上游名称服务器。集群管理员可能配置了额外的存根域和上游 DNS 服务器。 参阅相关讨论 了解在这些场景中如何处理 DNS 查询的信息。&lt;/li>
+&lt;li>&amp;ldquo;&lt;code>ClusterFirstWithHostNet&lt;/code>&amp;quot;：对于以 hostNetwork 方式运行的 Pod，应显式设置其 DNS 策略 &amp;ldquo;&lt;code>ClusterFirstWithHostNet&lt;/code>&amp;quot;。&lt;/li>
+&lt;li>&amp;ldquo;&lt;code>None&lt;/code>&amp;rdquo;: 此设置允许 Pod 忽略 Kubernetes 环境中的 DNS 设置。Pod 会使用其 &lt;code>dnsConfig&lt;/code> 字段 所提供的 DNS 设置。 参见 Pod 的 DNS 配置节。&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>&lt;strong>说明：&lt;/strong> &amp;ldquo;Default&amp;rdquo; 不是默认的 DNS 策略。如果未明确指定 &lt;code>dnsPolicy&lt;/code>，则使用 &amp;ldquo;ClusterFirst&amp;rdquo;。&lt;/p>
+&lt;/blockquote>
+&lt;p>下面的示例显示了一个 Pod，其 DNS 策略设置为 &amp;ldquo;&lt;code>ClusterFirstWithHostNet&lt;/code>&amp;quot;， 因为它已将 &lt;code>hostNetwork&lt;/code> 设置为 &lt;code>true&lt;/code>。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">default&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">busybox:1.28&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">command&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">sleep&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;3600&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">imagePullPolicy&lt;/span>: &lt;span style="color:#ae81ff">IfNotPresent&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">restartPolicy&lt;/span>: &lt;span style="color:#ae81ff">Always&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostNetwork&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dnsPolicy&lt;/span>: &lt;span style="color:#ae81ff">ClusterFirstWithHostNet&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="pod-的-dns-配置">Pod 的 DNS 配置&lt;/h2>
+&lt;p>Pod 的 DNS 配置可让用户对 Pod 的 DNS 设置进行更多控制。&lt;/p>
+&lt;p>&lt;code>dnsConfig&lt;/code> 字段是可选的，它可以与任何 &lt;code>dnsPolicy&lt;/code> 设置一起使用。 但是，当 Pod 的 &lt;code>dnsPolicy&lt;/code> 设置为 &amp;ldquo;&lt;code>None&lt;/code>&amp;rdquo; 时，必须指定 &lt;code>dnsConfig&lt;/code> 字段。用户可以在 &lt;code>dnsConfig&lt;/code> 字段中指定以下属性：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>nameservers&lt;/code>：将用作于 Pod 的 DNS 服务器的 IP 地址列表。 最多可以指定 3 个 IP 地址。当 Pod 的 &lt;code>dnsPolicy&lt;/code> 设置为 &amp;ldquo;&lt;code>None&lt;/code>&amp;rdquo; 时， 列表必须至少包含一个 IP 地址，否则此属性是可选的。 所列出的服务器将合并到从指定的 DNS 策略生成的基本名称服务器，并删除重复的地址。&lt;/li>
+&lt;li>&lt;code>searches&lt;/code>：用于在 Pod 中查找主机名的 DNS 搜索域的列表。此属性是可选的。 指定此属性时，所提供的列表将合并到根据所选 DNS 策略生成的基本搜索域名中。 重复的域名将被删除。Kubernetes 最多允许 6 个搜索域。&lt;/li>
+&lt;li>&lt;code>options&lt;/code>：可选的对象列表，其中每个对象可能具有 &lt;code>name&lt;/code> 属性（必需）和 &lt;code>value&lt;/code> 属性（可选）。 此属性中的内容将合并到从指定的 DNS 策略生成的选项。 重复的条目将被删除。&lt;/li>
+&lt;/ul>
+&lt;p>以下是具有自定义 DNS 设置的 Pod 示例：
+&lt;code>service/networking/custom-dns.yaml&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">default&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">dns-example&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dnsPolicy&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;None&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dnsConfig&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">nameservers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">1.2.3.4&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">searches&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">ns1.svc.cluster-domain.example&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">my.dns.search.suffix&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">options&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ndots&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">value&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">edns0&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>创建上面的 Pod 后，容器 &lt;code>test&lt;/code> 会在其 &lt;code>/etc/resolv.conf&lt;/code> 文件中获取以下内容：&lt;/p>
+&lt;pre>&lt;code>nameserver 1.2.3.4
+search ns1.svc.cluster-domain.example my.dns.search.suffix
+options ndots:2 edns0
+&lt;/code>&lt;/pre>
+&lt;p>对于 IPv6 设置，搜索路径和名称服务器应按以下方式设置：&lt;/p>
+&lt;pre>&lt;code>kubectl exec -it dns-example -- cat /etc/resolv.conf
+&lt;/code>&lt;/pre>
+&lt;p>输出类似于&lt;/p>
+&lt;pre>&lt;code>nameserver fd00:79:30::a
+search default.svc.cluster-domain.example svc.cluster-domain.example cluster-domain.example
+options ndots:5
+&lt;/code>&lt;/pre></description></item><item><title>Docs: 故障处理案例</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</guid><description/></item><item><title>Docs: 故障处理案例</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</guid><description/></item><item><title>Docs: 基于 DNS 的 Kubernetes 服务发现的规范</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/%E5%9F%BA%E4%BA%8E-DNS-%E7%9A%84-Kubernetes-%E6%9C%8D%E5%8A%A1%E5%8F%91%E7%8E%B0%E7%9A%84%E8%A7%84%E8%8C%83/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/%E5%9F%BA%E4%BA%8E-DNS-%E7%9A%84-Kubernetes-%E6%9C%8D%E5%8A%A1%E5%8F%91%E7%8E%B0%E7%9A%84%E8%A7%84%E8%8C%83/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;p>参考：&lt;a href="https://github.com/kubernetes/dns/blob/master/docs/specification.md">官方文档&lt;/a>&lt;/p>
+&lt;p>任何基于 DNS 的以实现 Kubernetes 服务发现的实现工具，必须提供本规范描述的 Resource Record&lt;/p>
+&lt;p>DNS Records 类型包含以下几种：A/AAAA、SRV、PTR、CHAME。不同的 k8s 资源，其可用的 Record Type 也不相同。&lt;/p>
+&lt;p>Resource Records 规范&lt;/p>
+&lt;p>在下面的描述中，有几个占位符，表示如下含义：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;strong>&lt;!-- raw HTML omitted -->&lt;/strong> # service 对象的名字&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>&lt;!-- raw HTML omitted -->&lt;/strong> # namesapce 的名字&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>&lt;!-- raw HTML omitted -->&lt;/strong> # 集群域名(默认为 cluster.local)。&lt;/p>
+&lt;ul>
+&lt;li>集群域名可以通过 kubelet 的配置文件 clusterDomain 字段定义。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>&lt;!-- raw HTML omitted -->&lt;/strong> # 一条 Record 的标准 DNS 存活时间&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="clusterip-类型-service-的-rr-格式">ClusterIP 类型 Service 的 RR 格式&lt;/h2>
+&lt;p>参考：&lt;a href="https://github.com/kubernetes/dns/blob/master/docs/specification.md#23---records-for-a-service-with-clusterip">官方文档&lt;/a>&lt;/p>
+&lt;p>现在假定一个 Service 对象名为 &lt;code>&amp;lt;service&amp;gt;&lt;/code>，在名为 &lt;code>&amp;lt;ns&amp;gt;&lt;/code> 名称空间，该 Service 对象的 CLUSTER-IP 为 &lt;code>&amp;lt;cluster-ip&amp;gt;&lt;/code>。则 DNS 实现程序必须具有下列几种类型的 Records(记录)。&lt;/p>
+&lt;h3 id="aaaaa-record">A/AAAA Record&lt;/h3>
+&lt;p>如果 &lt;!-- raw HTML omitted --> 对象具有 &lt;!-- raw HTML omitted --> 且为 IPv4 地址。&lt;/p>
+&lt;p>&lt;strong>A 记录 格式：&lt;/strong>&lt;code>**&amp;lt;service&amp;gt;.&amp;lt;ns&amp;gt;.svc.&amp;lt;zone&amp;gt;. &amp;lt;ttl&amp;gt; IN A &amp;lt;cluster-ip&amp;gt;**&lt;/code>&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>请求样例：&lt;/p>
+&lt;ul>
+&lt;li>kubernetes.default.svc.cluster.local. IN A&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>响应样例：&lt;/p>
+&lt;ul>
+&lt;li>kubernetes.default.svc.cluster.local. 4 IN A 10.3.0.1&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>如果 &lt;!-- raw HTML omitted --> 对象具有 &lt;!-- raw HTML omitted --> 且为 IPv6 地址。&lt;/p>
+&lt;p>&lt;strong>AAAA 记录 格式：&lt;/strong>&lt;code>**&amp;lt;service&amp;gt;.&amp;lt;ns&amp;gt;.svc.&amp;lt;zone&amp;gt;. &amp;lt;ttl&amp;gt; IN AAAA &amp;lt;cluster-ip&amp;gt;**&lt;/code>&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>请求样例：&lt;/p>
+&lt;ul>
+&lt;li>kubernetes.default.svc.cluster.local. IN AAAA&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>响应样例：&lt;/p>
+&lt;ul>
+&lt;li>kubernetes.default.svc.cluster.local. 4 IN AAAA 2001:db8::1&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="srv-record">SRV Record&lt;/h3>
+&lt;h3 id="ptr-record">PTR Record&lt;/h3>
+&lt;h3 id="总结">总结&lt;/h3>
+&lt;p>Service 域名与 Service 的 CLUSTER-IP 具有关联关系&lt;/p>
+&lt;p>Headless 类型的 Service 的 RR 格式&lt;/p>
+&lt;p>参考：&lt;a href="https://github.com/kubernetes/dns/blob/master/docs/specification.md#24---records-for-a-headless-service">官方文档&lt;/a>
+现在假定一个 Headless 类型的 Service 对象名为 &lt;code>&amp;lt;service&amp;gt;&lt;/code>，在名为 &lt;code>&amp;lt;ns&amp;gt;&lt;/code> 名称空间，没有 CLUSTER-IP，Service 关联的每个 Pod 的主机名为 &lt;code>&amp;lt;hostname&amp;gt;&lt;/code>，每个 Pod 的 IP 地址为 &lt;code>&amp;lt;endpoint-ip&amp;gt;&lt;/code>。则 DNS 实现程序必须具有下列几种类型的 Records(记录)。&lt;/p>
+&lt;h3 id="aaaaa-record-1">A/AAAA Record&lt;/h3>
+&lt;p>对于 Headless 类型的 Service，Service 对应的每个 endpoint 的 &lt;code>&amp;lt;endpoint-ip&amp;gt;&lt;/code>(也就是 Pod 的 IP)，都必须有一个 A 记录。如果 endpoint 不存在，则 DNS-Rcode 应该是 NXDOMAIN。并且，&lt;!-- raw HTML omitted --> 会对应两种 A 记录&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>通过 Service 名称解析到 endpoint-ip 的 Record&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>通过 Pod 主机名解析到 endpoint-ip 的 Record。注意，该记录只有在 Statefulset 生成的 Pod 才有效果。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>针对 Service 名称的 A 记录格式：&lt;/strong>&lt;code>**&amp;lt;service&amp;gt;.&amp;lt;ns&amp;gt;.svc.&amp;lt;zone&amp;gt;. &amp;lt;ttl&amp;gt; IN A &amp;lt;endpoint-ip&amp;gt;**&lt;/code>&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>请求样例：&lt;/p>
+&lt;ul>
+&lt;li>headless.default.svc.cluster.local. IN A&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>响应样例：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>headless.default.svc.cluster.local. 4 IN A 10.3.0.1&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>headless.default.svc.cluster.local. 4 IN A 10.3.0.2&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>headless.default.svc.cluster.local. 4 IN A 10.3.0.3&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&amp;hellip;.. 有多少个 endpoint 就有多少个响应&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>注意：Headless 与 ClusterIP 类型的 Service 最大的不同在于下面的 Resource Record。说白了就是多了个子域名&lt;/p>
+&lt;p>除了上面的 A 记录，还必须要有这样一种 A 记录。Service 对应的 endpoint 的 &lt;code>&amp;lt;endpoint-ip&amp;gt;&lt;/code>(也就是 Pod 的 IP)，还必须有另一个 A 记录，该记录是 &lt;code>&amp;lt;endpoint-ip&amp;gt;&lt;/code> 与 包含 &lt;code>&amp;lt;hostname&amp;gt;&lt;/code>(也就是 Pod 的主机名) 的域名的对应关系。如果一个给定的 hostname 具有多个 IPv4 地址，则每个 IP 都要有一个 A 记录。&lt;/p>
+&lt;p>&lt;strong>针对 Pod 主机名的 A 记录格式：&lt;/strong>&lt;code>**&amp;lt;hostname&amp;gt;.&amp;lt;service&amp;gt;.&amp;lt;ns&amp;gt;.svc.&amp;lt;zone&amp;gt;. &amp;lt;ttl&amp;gt; IN A &amp;lt;endpoint-ip&amp;gt;**&lt;/code>&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>请求样例：&lt;/p>
+&lt;ul>
+&lt;li>my-pet.headless.default.svc.cluster.local. IN A&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>响应样例：&lt;/p>
+&lt;ul>
+&lt;li>my-pet.headless.default.svc.cluster.local. 4 IN A 10.3.0.100&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>AAAA 记录格式&lt;/strong>&lt;/p>
+&lt;p>略，把 A 改为 AAAA，IPv4 改为 IPv6，与 ClusterIP 类型的 Service 的 A 和 AAAA 记录的对应关系一样。&lt;/p>
+&lt;h3 id="srv-record-1">SRV Record&lt;/h3>
+&lt;h3 id="ptr-record-1">PTR Record&lt;/h3>
+&lt;h3 id="总结-1">总结&lt;/h3>
+&lt;p>Service 域名 与 Service 关联的后端 Pod 的 IP 具有解析关系。&lt;/p>
+&lt;p>带主机名的域名与 Service 关联的后端 Pod 的 IP 具有解析关系&lt;/p>
+&lt;h2 id="externalname-类型的-service-的-rr-格式">ExternalName 类型的 Service 的 RR 格式&lt;/h2>
+&lt;ol>
+&lt;li>
+&lt;p>CNAME Record：&lt;!-- raw HTML omitted -->.&lt;!-- raw HTML omitted -->.svc.&lt;!-- raw HTML omitted -->. &lt;!-- raw HTML omitted --> IN CNAME &lt;!-- raw HTML omitted -->.&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>请求样例：foo.default.svc.cluster.local. IN A&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>响应样例：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>foo.default.svc.cluster.local. 10 IN CNAME &lt;a href="https://www.example.com">www.example.com&lt;/a>.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://www.example.com">www.example.com&lt;/a>. 28715 IN A 192.0.2.53&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>示例：&lt;/p>
+&lt;pre>&lt;code># 在default名称空间中有一个名为 myapp 的 servcie ，ip 为 10.108.255.155
+[root@master-1 ~]# kubectl get svc
+NAME TYPE CLUSTER-IP EXTERNAL-IP PORT(S) AGE
+kubernetes ClusterIP 10.96.0.1 &amp;lt;none&amp;gt; 443/TCP 239d
+myapp NodePort 10.108.255.155 &amp;lt;none&amp;gt; 80:52202/TCP 6d10h
+# 这个 default 名称空间下的 myapp 的 service，在coredns中记录的域名为 myapp.default.svc.cluster.local ，对应的ip为 10.108.255.155
+[root@master-1 ~]# kubectl exec -it -n test myapp-5ccfc89896-zxljh -- /bin/bash
+[root@myapp-5ccfc89896-zxljh /]# ping myapp.default
+PING myapp.default.svc.cluster.local (10.108.255.155) 56(84) bytes of data.
+64 bytes from myapp.default.svc.cluster.local (10.108.255.155): icmp_seq=1 ttl=64 time=0.030 ms
+&lt;/code>&lt;/pre>
+&lt;p>有两种类型的控制器，各自有两种类型的 Service。&lt;/p>
+&lt;pre>&lt;code>root@lichenhao:~# kubectl get svc -n logging
+NAME TYPE CLUSTER-IP EXTERNAL-IP PORT(S) AGE
+log-bj-test-grafana ClusterIP 10.103.6.159 &amp;lt;none&amp;gt; 80/TCP 2d4h
+log-bj-test-grafana-headless ClusterIP None &amp;lt;none&amp;gt; 80/TCP 4h37m
+log-bj-test-loki ClusterIP 10.102.159.19 &amp;lt;none&amp;gt; 3100/TCP 2d4h
+log-bj-test-loki-headless ClusterIP None &amp;lt;none&amp;gt; 3100/TCP 2d4h
+root@lichenhao:~# kubectl get pod -n logging -o wide
+NAME READY STATUS RESTARTS AGE IP NODE NOMINATED NODE READINESS GATES
+log-bj-test-grafana-7764f5b4d7-28ngk 2/2 Running 0 2d4h 10.244.2.129 master-3.bj-test &amp;lt;none&amp;gt; &amp;lt;none&amp;gt;
+log-bj-test-loki-0 1/1 Running 0 2d4h 10.244.1.211 master-2.bj-test &amp;lt;none&amp;gt; &amp;lt;none&amp;gt;
+&lt;/code>&lt;/pre>
+&lt;p>首先实验 ClusterIP 类型的 Service&lt;/p>
+&lt;pre>&lt;code>~ # nslookup log-bj-test-grafana.logging.svc.cluster.local
+......
+Name: log-bj-test-grafana.logging.svc.cluster.local
+Address: 10.103.6.159
+~ # nslookup log-bj-test-loki.logging.svc.cluster.local
+......
+Name: log-bj-test-loki.logging.svc.cluster.local
+Address: 10.102.159.19
+&lt;/code>&lt;/pre>
+&lt;p>实验 Headless 类型的 Service&lt;/p>
+&lt;pre>&lt;code># 解析 Service 名
+~ # nslookup log-bj-test-grafana-headless.logging.svc.cluster.local
+......
+Name: log-bj-test-grafana-headless.logging.svc.cluster.local
+Address: 10.244.2.129
+~ # nslookup log-bj-test-loki-headless.logging.svc.cluster.local
+......
+Name: log-bj-test-loki-headless.logging.svc.cluster.local
+Address: 10.244.1.211
+# 解析主机名
+~ # nslookup log-bj-test-grafana-7764f5b4d7-28ngk.log-bj-test-grafana-headless.logging.svc.cluster.local
+......
+** server can't find log-bj-test-grafana-7764f5b4d7-28ngk.log-bj-test-grafana-headless.logging.svc.cluster.local: NXDOMAIN
+** server can't find log-bj-test-grafana-7764f5b4d7-28ngk.log-bj-test-grafana-headless.logging.svc.cluster.local: NXDOMAIN
+~ # nslookup log-bj-test-loki-0.log-bj-test-loki-headless.logging.svc.cluster.local
+......
+Name: log-bj-test-loki-0.log-bj-test-loki-headless.logging.svc.cluster.local
+Address: 10.244.1.211
+&lt;/code>&lt;/pre>
+&lt;p>SRV 记录&lt;/p>
+&lt;pre>&lt;code>~ # nslookup _http-metrics._tcp.log-bj-test-loki-headless.logging.svc.cluster.local
+......
+Name: _http-metrics._tcp.log-bj-test-loki-headless.logging.svc.cluster.local
+Address: 10.244.1.211
+&lt;/code>&lt;/pre></description></item></channel></rss>

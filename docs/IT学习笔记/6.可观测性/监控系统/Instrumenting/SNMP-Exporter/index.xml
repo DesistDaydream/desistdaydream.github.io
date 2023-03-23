@@ -1,0 +1,456 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – SNMP Exporter</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/SNMP-Exporter/</link><description>Recent content in SNMP Exporter on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/SNMP-Exporter/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: SNMP Exporter</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/SNMP-Exporter/SNMP-Exporter/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/SNMP-Exporter/SNMP-Exporter/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/prometheus/snmp_exporter">GitHub 项目&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Snmp Exporter 通过 snmp 采集监控数据，并转换成[ OpenMetrics 格式](&amp;lt;/docs/IT学习笔记/6.可观测性/监控系统/监控系统概述/HTTP(新监控标准).md&amp;raquo;)的指标。&lt;/p>
+&lt;p>在这个项目中，有两个组件，&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Exporter(导出器)&lt;/strong> # 通过 snmp 抓去指标数据并转换成 OpenMetrics 格式&lt;/li>
+&lt;li>&lt;a href="https://github.com/prometheus/snmp_exporter/blob/master/generator">&lt;strong>Generator(生成器)&lt;/strong>&lt;/a> # 生成 Exporter 的配置文件。&lt;/li>
+&lt;/ul>
+&lt;h2 id="exporter导出器">Exporter(导出器)&lt;/h2>
+&lt;p>snmp_exporter 启动后默认监听在 9116 端口上。&lt;strong>snmp_exporter 会根据 snmp.yml 配置文件中的配置规则抓取 snmp 数据并转换成 Metrics 格式的数据。&lt;/strong>&lt;/p>
+&lt;p>Prometheus Server 抓取 metircs 的 http 请求样例： &lt;code>http://IP:PORT/snmp?module=if_mib&amp;amp;target=TargetIP&lt;/code> # 获取 TargetIP 上的 snmp 信息，并转换成 metrics 格式，其中 &lt;code>module=if_mib&amp;amp;&lt;/code> 是可省的，若不指定 module，则抓取所有 module。&lt;/p>
+&lt;p>snmp exporter 源码简单解析&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 这个结构体实现了 prometheus.Collector 接口
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">collector&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// ......略
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 采集 Metrics 的主要逻辑在这里，这里省略了很多不相关的代码
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">c&lt;/span> &lt;span style="color:#a6e22e">collector&lt;/span>) &lt;span style="color:#a6e22e">Collect&lt;/span>(&lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span>&lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">prometheus&lt;/span>.&lt;span style="color:#a6e22e">Metric&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 这里使用了 gosnmp/gosnmp 这个库，通过这个库来执行类似 snmpwalk 这样的命令获取 snmp 数据
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">pdus&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">ScrapeTarget&lt;/span>(&lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">target&lt;/span>, &lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">module&lt;/span>, &lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">logger&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">oidToPdu&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> make(&lt;span style="color:#66d9ef">map&lt;/span>[&lt;span style="color:#66d9ef">string&lt;/span>]&lt;span style="color:#a6e22e">gosnmp&lt;/span>.&lt;span style="color:#a6e22e">SnmpPDU&lt;/span>, len(&lt;span style="color:#a6e22e">pdus&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">PduLoop&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 为每个 pdu 查找匹配到的 Metrics
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">oid&lt;/span>, &lt;span style="color:#a6e22e">pdu&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">oidToPdu&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">head&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">metricTree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">oidList&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">oidToList&lt;/span>(&lt;span style="color:#a6e22e">oid&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">i&lt;/span>, &lt;span style="color:#a6e22e">o&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">oidList&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">ok&lt;/span> &lt;span style="color:#66d9ef">bool&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">head&lt;/span>, &lt;span style="color:#a6e22e">ok&lt;/span> = &lt;span style="color:#a6e22e">head&lt;/span>.&lt;span style="color:#a6e22e">children&lt;/span>[&lt;span style="color:#a6e22e">o&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> !&lt;span style="color:#a6e22e">ok&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">continue&lt;/span> &lt;span style="color:#a6e22e">PduLoop&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">head&lt;/span>.&lt;span style="color:#a6e22e">metric&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 在这里获取 snmp 数据并转换为 Metrics 格式的数据
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">samples&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">pduToSamples&lt;/span>(&lt;span style="color:#a6e22e">oidList&lt;/span>[&lt;span style="color:#a6e22e">i&lt;/span>&lt;span style="color:#f92672">+&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>:], &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">pdu&lt;/span>, &lt;span style="color:#a6e22e">head&lt;/span>.&lt;span style="color:#a6e22e">metric&lt;/span>, &lt;span style="color:#a6e22e">oidToPdu&lt;/span>, &lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">logger&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">sample&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">samples&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ch&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">sample&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">break&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="generator生成器">Generator(生成器)&lt;/h2>
+&lt;p>用于生成 Exporter 运行时所需的配置文件(snmp.yml)。&lt;/p>
+&lt;p>为什么 snmp exporter 这个导出器的配置需要生成呢？~&lt;/p>
+&lt;p>首先得先从 snmp exporter 的运行逻辑说起，snmp exporter 的运行，必须依赖于 snmp.yml 这个配置文件。snmp.yaml 指明了每一个 OID 转换成 Metrics 之后的格式及内容。Prometheus Server 每次对 snmp exporter 发起 http 请求获取 Metrics 时，snmp exporter 都会使用 &lt;a href="https://github.com/gosnmp/gosnmp">gosnmp 这个第三方库中的功能&lt;/a> 向目标执行类似 snmpwalk 的命令，获取 snmp 的数据，并逐一将获取到的 snmp 数据转换为 Metrics 格式的数据。&lt;/p>
+&lt;p>基于这个运行机制，那么 snmp.yml 文件中，必须就必须包含 Metrics 的名字、OID、Metrics 的类型、Metircs 的帮助信息。而这些信息如何填写到这个文件中呢？总不能手写吧。。。这么多指标。。。查来查去，再手写进去。。。。无法想象~~~所以，此时就需要一个工具，可以根据某些信息来自动生成这个 snmp.yml 文件，而依据内容，当然就是 MIB 啦！所以 &lt;strong>Generator 将会根据 MIB 的内容，生成 snmp.yml 文件&lt;/strong>。&lt;/p>
+&lt;ul>
+&lt;li>MIB 中的 DESCRIPTION，将会变为 Metrics 的帮助信息&lt;/li>
+&lt;li>MIB 中的 Object 名称，将会变为 Metrics 的名称&lt;/li>
+&lt;li>MIB 中 Object 的值类型，将会变为 Metrics 的值类型&lt;/li>
+&lt;/ul>
+&lt;p>Generator 使用 MIB 中的哪些信息、转换后是否需要设置标签、是否忽略某些 OID 等等这种行为，是由 generator.yml 文件进行控制的&lt;/p>
+&lt;p>&lt;strong>总结：Generator(生成器) 通过&lt;/strong>&lt;code>**MIB库文件**&lt;/code>&lt;strong>以及&lt;/strong>&lt;code>**generator.yml文件**&lt;/code>&lt;strong>这两种东西，来生成 snmp.yml 文件&lt;/strong>&lt;/p>
+&lt;blockquote>
+&lt;p>MIB 库文件一般是放在 generator 程序运行时所在目录的 mibs 目录下的，generator.yml 文件一般是放在 generator 程序运行时所在目录下。
+如果运行 generator 时无法在 MIB 库文件中找到 generator.yml 文件中配置的 OID，则 generator 程序运行将会报错，提示无法找到对应的 Object。此时就需要将必要的 MIB 库文件，拷贝到 mibs/ 目录下即可。&lt;/p>
+&lt;/blockquote>
+&lt;p>generator.yml 文件详解见[此处](/docs/IT学习笔记/6.可观测性/监控系统/Instrumenting/SNMP%20Exporter/配置详解.md Exporter/配置详解.md)&lt;/p>
+&lt;p>&lt;strong>generator.yml 文件最简单示例&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">modules&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Default IF-MIB interfaces table with ifIndex.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">if_mib&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 指定要获取的 OID，在生成 snmp.yaml 时，会根据这里面的定义去 MIB 中查找对应的 Object&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 这个示例表示要获取 sysUpTime 与 ifXTable 这俩 OID 的数据以及 interfaces 这个 Object 组的数据&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 用白话说就是对下面这些 Object 执行 walk 命令&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">walk&lt;/span>: [&lt;span style="color:#ae81ff">sysUpTime, interfaces, ifXTable]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 指定要使用的 snmp 版本&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">version&lt;/span>: &lt;span style="color:#ae81ff">2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 获取 snmp 数据时的认证信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">auth&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">community&lt;/span>: &lt;span style="color:#ae81ff">public&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="snmp-exporter-部署">Snmp Exporter 部署&lt;/h1>
+&lt;h2 id="通过二进制方式安装">通过二进制方式安装&lt;/h2>
+&lt;p>从 &lt;a href="https://github.com/prometheus/snmp_exporter/releases">GitHub Release&lt;/a> 处下载二进制文件，以后台方式运行即可&lt;/p>
+&lt;h2 id="通过-docker-启动">通过 docker 启动&lt;/h2>
+&lt;pre>&lt;code>docker run -d --name snmp_exporter --restart=always \
+--net=host \
+lchdzh/snmp-exporter:0.19.1 \
+--config.file=/etc/snmp_exporter/snmp.yml
+&lt;/code>&lt;/pre>
+&lt;p>注意：该项目没有现成的 docker 镜像，需要先手动构建，参考 &lt;a href="https://github.com/DesistDaydream/snmp_exporter">fork 到自己仓库的项目&lt;/a>，修改 Dockerfile 后，执行构建&lt;/p>
+&lt;pre>&lt;code>git clone https://github.com/prometheus/snmp_exporter.git
+cd snmp_exporter
+go build .
+docker build -t lchdzh/snmp-exporter:0.19.1 .
+&lt;/code>&lt;/pre>
+&lt;h1 id="snmp_exporter-配置">snmp_exporter 配置&lt;/h1>
+&lt;h2 id="exporter-配置">Exporter 配置&lt;/h2>
+&lt;p>&lt;strong>snmp.yml&lt;/strong># snmp_exporter 程序运行时根据该文件，将 OID 转换为 Metircs。通过 generator 程序自动生成。&lt;/p>
+&lt;blockquote>
+&lt;p>snmp_exporter 默认使用 snmp v2 来获取 snmp 格式的数据，如果想要修改配置 snmp_exporter 的配置文件，比如使用 snmp v3 的方式获取 snmp 格式的数据，则需要使用 generator 来生成配置文件&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="generator-配置">Generator 配置&lt;/h2>
+&lt;p>&lt;strong>mibs/*&lt;/strong># 用来存放 MIB 文件。
+&lt;strong>generator.yml&lt;/strong> # 用来配置生成 snmp.yml 的行为。&lt;/p>
+&lt;h1 id="prometheus-中的-scrape_configs-配置示例">Prometheus 中的 scrape_configs 配置示例&lt;/h1>
+&lt;p>Prometheus 默认从 snmp_exporter 所监控的 9116 端口获取数据，其路径为：&lt;code>http://localhost:9116/snmp?target=1.2.3.4&lt;/code>(其中 1.2.3.4 是 snmp_exporter 程序要获取 SNMP 数据的目的设备的 ip)&lt;/p>
+&lt;p>&lt;strong>有两种方式配置 job：&lt;/strong>
+这两种配置方式，虽然配置方式不一样，但是最终结果是一样的，只不过过程不一样，适应场景不一样&lt;/p>
+&lt;ul>
+&lt;li>第一种配置方式可以极大简化配置文件，让所有要采集的 SNMP 目标，都包含在同一个 job 中，但是思维方式比较抽象。&lt;/li>
+&lt;li>第二种配置方式比较直观，但是每个要采集的 SNMP 目标都需要单独一个 job，并且配置文件内容过长。
+&lt;ul>
+&lt;li>并且，第二种配置方式是 prometheus operator 的 serviceMonitor 自动生成的配置文件的格式。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="第一种一个-job-配置多个-snmp-目标">第一种：一个 job 配置多个 SNMP 目标&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">scrape_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;snmp&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">static_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">targets&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">172.19.42.200&lt;/span> &lt;span style="color:#75715e"># 指定 snmp_exporter 要采集的目标设备ip&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">172.19.42.243&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">metrics_path&lt;/span>: &lt;span style="color:#ae81ff">/snmp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">params&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">module&lt;/span>: [&lt;span style="color:#ae81ff">if_mib]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 主要用来将 instance 标签的值修改为待采集的 snmp 目标，否则所有 instance 的值都是 snmp exporter 程序的 IP 了。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 最后将 __address__ 标签替换为 snmp_exporter 的监听地址&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">relabel_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_labels&lt;/span>: [&lt;span style="color:#ae81ff">__address__]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">target_label&lt;/span>: &lt;span style="color:#ae81ff">__param_target&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_labels&lt;/span>: [&lt;span style="color:#ae81ff">__param_target]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">target_label&lt;/span>: &lt;span style="color:#ae81ff">instance&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">target_label&lt;/span>: &lt;span style="color:#ae81ff">__address__&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">replacement&lt;/span>: &lt;span style="color:#ae81ff">172.19.42.210&lt;/span>:&lt;span style="color:#ae81ff">9116&lt;/span> &lt;span style="color:#75715e"># snmp_exporter 监听的IP:PORT&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/re86m3/1616069331853-cfb8bf5e-eef0-40b6-9f7f-51dc914e9bab.png" alt="">
+为什么需要 relabel 呢？如果不写 relabel_configs 字段的话，会出现这种情况，endpoint 就是 target 中的值，效果如下图
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/re86m3/1616069331885-e0d59911-2da2-4ab7-83d2-50af6adbdc42.png" alt="">&lt;/p>
+&lt;h2 id="第二种一个-job-配置一个-snmp-目标">第二种：一个 job 配置一个 SNMP 目标&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">scrape_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;snmp1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">static_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">targets&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">172.19.42.210&lt;/span>:&lt;span style="color:#ae81ff">9116&lt;/span> &lt;span style="color:#75715e"># 指定 snmp_exporter 监听的 IP:PORT&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">metrics_path&lt;/span>: &lt;span style="color:#ae81ff">/snmp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">params&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">module&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">if_mib&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">target&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">172.19.42.200&lt;/span> &lt;span style="color:#75715e"># 指定要采集的 SNMP 信息的目标设备 IP&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;snmp2&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">static_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">targets&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">172.19.42.210&lt;/span>:&lt;span style="color:#ae81ff">9116&lt;/span> &lt;span style="color:#75715e"># 指定 snmp_exporter 监听的 IP:PORT&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">metrics_path&lt;/span>: &lt;span style="color:#ae81ff">/snmp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">params&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">module&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">if_mib&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">target&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">172.19.42.243&lt;/span> &lt;span style="color:#75715e"># 指定要采集的 SNMP 信息的目标设备 IP&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/re86m3/1616069331867-03f9cfc0-f33f-40a5-8701-fdbb6089b8fa.png" alt="">
+为什么要写多个 job 呢？因为如果将配置写成这样，将会出现下面这种情况&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">scrape_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;snmp1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">static_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">targets&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">172.19.42.210&lt;/span>:&lt;span style="color:#ae81ff">9116&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">metrics_path&lt;/span>: &lt;span style="color:#ae81ff">/snmp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">params&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">module&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">if_mib&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">target&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">172.19.42.200&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">172.19.42.243&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/re86m3/1616069331849-200a90f1-f81e-40d1-99a9-bb96cc390971.png" alt="">&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>上述两种配置实际上，都是使用类似下面的 URL 发送向 snmp_exporter 发送一个 http 的 GET 请求：&lt;/p>
+&lt;pre>&lt;code>http://172.19.42.210:9116/snmp?module=if_mib&amp;amp;target=172.19.42.200
+&lt;/code>&lt;/pre></description></item><item><title>Docs: 配置详解</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/SNMP-Exporter/%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/SNMP-Exporter/%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考:&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/prometheus/snmp_exporter/tree/main/generator">GitHub 项目,generator&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="generatoryml-文件详解">generator.yml 文件详解&lt;/h1>
+&lt;p>&lt;code>generator.yml&lt;/code> 文件提供一个模块列表。 最简单的模块只需要具有一个名称和一组要 walk 的 OID&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">modules&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ModuleName&lt;/span>: &lt;span style="color:#75715e"># 模块的名字，可以随意写。写 fuck_you 都行&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 指定要 walk 的 OID 列表。所谓的 walk 就是指通过类似 snmpwalk 命令获取指定 OID 的信息。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 这里 walk 到指定的 OID 之后，会将 OID 转换为 Metrics&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 小技巧：可以直接写高层次的 OID，这样，该层下面的所有 OID 都将被 walk。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 比如我可以写个 1，这样所有 mibs 文件下的所有 OID 都包含了&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">walk&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#75715e"># 等同于 walk 所有 OID&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">1.3.6.1.2.1.2&lt;/span> &lt;span style="color:#75715e"># 等同于 &amp;#34;interfaces&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">sysUpTime &lt;/span> &lt;span style="color:#75715e"># 等同于 &amp;#34;1.3.6.1.2.1.1.3&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">1.3.6.1.2.1.31.1.1.1.6.40&lt;/span> &lt;span style="color:#75715e"># 等同于 索引为 40的 ifHCInOctets 这个 OID&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># SNMP 版本，默认为 2。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 版本1使用 GETNEXT 方法发送 udp 请求、2和3版本使用 GETBULK 方法发送 udp 请求&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">version&lt;/span>: &lt;span style="color:#ae81ff">2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">max_repetitions&lt;/span>: &lt;span style="color:#ae81ff">25&lt;/span> &lt;span style="color:#75715e"># How many objects to request with GET/GETBULK, defaults to 25.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># May need to be reduced for buggy devices.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">retries&lt;/span>: &lt;span style="color:#ae81ff">3&lt;/span> &lt;span style="color:#75715e"># How many times to retry a failed request, defaults to 3.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 每个单独的SNMP请求的超时，默认为5s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">timeout&lt;/span>: &lt;span style="color:#ae81ff">5s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 配置认证信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">auth&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 用于 SNMP 的 v1 和 v2 版本的认证信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 设置团体名字. 默认为&amp;#34;public&amp;#34;.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">community&lt;/span>: &lt;span style="color:#ae81ff">public&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># SNMP 的 v3 版本的认证配置与 1，2 都不同，且更为复杂&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Which are required depends on the security_level.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># The equivalent options on NetSNMP commands like snmpbulkwalk and snmpget are also listed. See snmpcmd(1).&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">username&lt;/span>: &lt;span style="color:#ae81ff">user &lt;/span> &lt;span style="color:#75715e"># Required, no default. -u option to NetSNMP.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">security_level&lt;/span>: &lt;span style="color:#ae81ff">noAuthNoPriv &lt;/span> &lt;span style="color:#75715e"># Defaults to noAuthNoPriv. -l option to NetSNMP.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Can be noAuthNoPriv, authNoPriv or authPriv.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">password&lt;/span>: &lt;span style="color:#ae81ff">pass &lt;/span> &lt;span style="color:#75715e"># Has no default. Also known as authKey, -A option to NetSNMP.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Required if security_level is authNoPriv or authPriv.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">auth_protocol&lt;/span>: &lt;span style="color:#ae81ff">MD5 &lt;/span> &lt;span style="color:#75715e"># MD5 or SHA, defaults to MD5. -a option to NetSNMP.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Used if security_level is authNoPriv or authPriv.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">priv_protocol&lt;/span>: &lt;span style="color:#ae81ff">DES &lt;/span> &lt;span style="color:#75715e"># DES or AES, defaults to DES. -x option to NetSNMP.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Used if security_level is authPriv.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">priv_password&lt;/span>: &lt;span style="color:#ae81ff">otherPass&lt;/span> &lt;span style="color:#75715e"># Has no default. Also known as privKey, -X option to NetSNMP.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Required if security_level is authPriv.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">context_name&lt;/span>: &lt;span style="color:#ae81ff">context&lt;/span> &lt;span style="color:#75715e"># Has no default. -n option to NetSNMP.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Required if context is configured on the device.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookups&lt;/span>: &lt;span style="color:#75715e"># Optional list of lookups to perform.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># The default for `keep_source_indexes` is false. Indexes must be unique for this option to be used.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># If the index of a table is bsnDot11EssIndex, usually that&amp;#39;d be the label&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># on the resulting metrics from that table. Instead, use the index to&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># lookup the bsnDot11EssSsid table entry and create a bsnDot11EssSsid label&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># with that value.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_indexes&lt;/span>: [&lt;span style="color:#ae81ff">bsnDot11EssIndex]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookup&lt;/span>: &lt;span style="color:#ae81ff">bsnDot11EssSsid&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">drop_source_indexes&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span> &lt;span style="color:#75715e"># If true, delete source index labels for this lookup.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># This avoids label clutter when the new index is unique.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">overrides&lt;/span>: &lt;span style="color:#75715e"># Allows for per-module overrides of bits of MIBs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">metricName&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span> &lt;span style="color:#75715e"># Drops the metric from the output.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">regex_extracts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">Temp&lt;/span>: &lt;span style="color:#75715e"># A new metric will be created appending this to the metricName to become metricNameTemp.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;(.*)&amp;#39;&lt;/span> &lt;span style="color:#75715e"># Regex to extract a value from the returned SNMP walks&amp;#39;s value.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">value&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;$1&amp;#39;&lt;/span> &lt;span style="color:#75715e"># The result will be parsed as a float64, defaults to $1.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">Status&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;.*Example&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">value&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;1&amp;#39;&lt;/span> &lt;span style="color:#75715e"># The first entry whose regex matches and whose value parses wins.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;.*&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">value&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;0&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#f92672">DisplayString # Override the metric type, possible types are&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># gauge: An integer with type gauge.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># counter: An integer with type counter.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># OctetString: A bit string, rendered as 0xff34.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># DateAndTime: An RFC 2579 DateAndTime byte sequence. If the device has no time zone data, UTC is used.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># DisplayString: An ASCII or UTF-8 string.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># PhysAddress48: A 48 bit MAC address, rendered as 00:01:02:03:04:ff.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Float: A 32 bit floating-point value with type gauge.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Double: A 64 bit floating-point value with type gauge.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># InetAddressIPv4: An IPv4 address, rendered as 1.2.3.4.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># InetAddressIPv6: An IPv6 address, rendered as 0102:0304:0506:0708:090A:0B0C:0D0E:0F10.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># InetAddress: An InetAddress per RFC 4001. Must be preceded by an InetAddressType.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># InetAddressMissingSize: An InetAddress that violates section 4.1 of RFC 4001 by&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># not having the size in the index. Must be preceded by an InetAddressType.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># EnumAsInfo: An enum for which a single timeseries is created. Good for constant values.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># EnumAsStateSet: An enum with a time series per state. Good for variable low-cardinality enums.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Bits: An RFC 2578 BITS construct, which produces a StateSet with a time series per bit.&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="enumasinfo-和-enumasstateset">EnumAsInfo 和 EnumAsStateSet&lt;/h3>
+&lt;p>SNMP contains the concept of integer indexed enumerations (enums). There are two ways to represent these strings in Prometheus. They can be &amp;ldquo;info&amp;rdquo; metrics, or they can be &amp;ldquo;state sets&amp;rdquo;. SNMP does not specify which should be used, and it&amp;rsquo;s up to the use case of the data. Some users may also prefer the raw integer value, rather than the string.&lt;/p>
+&lt;p>In order to set enum integer to string mapping, you must use one of the two overrides.&lt;/p>
+&lt;p>&lt;code>EnumAsInfo&lt;/code> should be used for properties that provide inventory-like data. For example a device type, the name of a colour etc. It is important that this value is constant.&lt;code>EnumAsStateSet&lt;/code> should be used for things that represent state or that you might want to alert on. For example the link state, is it up or down, is it in an error state, whether a panel is open or closed etc. Please be careful to not use this for high cardinality values as it will generate 1 time series per possible value.&lt;/p>
+&lt;h1 id="生成-snmpyml-文件">生成 snmp.yml 文件&lt;/h1>
+&lt;p>snmp.yml 文件通过 &lt;a href="https://github.com/prometheus/snmp_exporter/tree/master/generator">generator&lt;/a> 程序生成&lt;/p>
+&lt;p>&lt;a href="https://github.com/prometheus/snmp_exporter/tree/master/generator">generator&lt;/a> 程序将会根据根据 &lt;code>generator.yml 文件&lt;/code> 与 &lt;code>mibs 目录下的 MIB 库文件&lt;/code> 生成 snmp.yml 文件。&lt;/p>
+&lt;h2 id="构建-generator-程序">构建 generator 程序&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>git clone https://github.com/prometheus/snmp_exporter.git
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cd snmp_exporter/generator
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 生成 MIB 信息到当前目录的 mibs/ 目录下&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>make mibs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 构建 docker 镜像&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker build -t snmp-generator .
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>其中 Dockerfile 文件需要修改一些内容，以便适应国内环境&lt;/p>
+&lt;/blockquote>
+&lt;p>Dockerfile 示例如下&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-dockerfile" data-lang="dockerfile">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">FROM&lt;/span>&lt;span style="color:#e6db74"> golang:1.16&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">ENV&lt;/span> GOPROXY&lt;span style="color:#f92672">=&lt;/span>https://goproxy.cn,https://goproxy.io,https://mirrors.aliyun.com/goproxy/,direct&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">RUN&lt;/span> apt-get update &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> apt-get install -y libsnmp-dev p7zip-full unzip&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">RUN&lt;/span> export GO111MODULE&lt;span style="color:#f92672">=&lt;/span>on&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">RUN&lt;/span> go install github.com/prometheus/snmp_exporter/generator@latest&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">WORKDIR&lt;/span>&lt;span style="color:#e6db74"> &amp;#34;/opt&amp;#34;&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">ENTRYPOINT&lt;/span> [&lt;span style="color:#e6db74">&amp;#34;/go/bin/generator&amp;#34;&lt;/span>]&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">ENV&lt;/span> MIBDIRS mibs&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">&lt;/span>&lt;span style="color:#66d9ef">CMD&lt;/span> [&lt;span style="color:#e6db74">&amp;#34;generate&amp;#34;&lt;/span>]&lt;span style="color:#960050;background-color:#1e0010">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="拷贝所需-mib-文件到项目中的-generatormibs-目录下">拷贝所需 MIB 文件到项目中的 ./generator/mibs/ 目录下&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zbztl3/1622184148328-d98f98c5-99c5-4010-bc4f-0d262d4d6275.png" alt="image.png">&lt;/p>
+&lt;h2 id="配置-generatoryml-文件">配置 generator.yml 文件&lt;/h2>
+&lt;p>下面是一个 generator.yml 示例，使用 h3c 的 Mib 和 网络相关的 MIb 生成 snmp.yml 文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">modules&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">if_mib&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">walk&lt;/span>: [&lt;span style="color:#ae81ff">sysUpTime, interfaces, ifXTable]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookups&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_indexes&lt;/span>: [&lt;span style="color:#ae81ff">ifIndex]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookup&lt;/span>: &lt;span style="color:#ae81ff">ifAlias&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_indexes&lt;/span>: [&lt;span style="color:#ae81ff">ifIndex]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Uis OID to avoid conflict with PaloAlto PAN-COMMON-MIB.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookup&lt;/span>: &lt;span style="color:#ae81ff">1.3.6.1.2.1.2.2.1.2&lt;/span> &lt;span style="color:#75715e"># ifDescr&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_indexes&lt;/span>: [&lt;span style="color:#ae81ff">ifIndex]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Use OID to avoid conflict with Netscaler NS-ROOT-MIB.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookup&lt;/span>: &lt;span style="color:#ae81ff">1.3.6.1.2.1.31.1.1.1.1&lt;/span> &lt;span style="color:#75715e"># ifName&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">overrides&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifAlias&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span> &lt;span style="color:#75715e"># Lookup metric&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifDescr&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span> &lt;span style="color:#75715e"># Lookup metric&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifName&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span> &lt;span style="color:#75715e"># Lookup metric&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifType&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">EnumAsInfo&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="运行-generator-程序以生成-snmpyml-文件">运行 generator 程序以生成 snmp.yml 文件&lt;/h2>
+&lt;p>运行 generator 程序，generator 会根据 generator.yml 文件及 mibs 目录下的文件生成 snmp.yml 文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 进入项目的 generator 目录中&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cd XXXX/snmp_exporter/generator
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 通过 docker 启动 generator 并挂载当前目录，以便通过当前目录的信息生成 snmp.yaml 文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker run -it --rm &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v &lt;span style="color:#e6db74">&amp;#34;&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>PWD&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">:/opt/&amp;#34;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> snmp-generator generate
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: 应用实例</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/SNMP-Exporter/%E5%BA%94%E7%94%A8%E5%AE%9E%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/SNMP-Exporter/%E5%BA%94%E7%94%A8%E5%AE%9E%E4%BE%8B/</guid><description>
+&lt;h1 id="generatoryml-文件示例">generator.yml 文件示例&lt;/h1>
+&lt;h2 id="h3c">H3C&lt;/h2>
+&lt;p>这是从 H3C 的 HDM 中提取到的所有序列&lt;a href="https://www.yuque.com/attachments/yuque/0/2021/sh/12851928/1622171528693-3b329879-01c8-4981-bf9e-735d43bced37.sh?_lake_card=%7B%22src%22%3A%22https%3A%2F%2Fwww.yuque.com%2Fattachments%2Fyuque%2F0%2F2021%2Fsh%2F12851928%2F1622171528693-3b329879-01c8-4981-bf9e-735d43bced37.sh%22%2C%22name%22%3A%22h3c-series.sh%22%2C%22size%22%3A431864%2C%22type%22%3A%22%22%2C%22ext%22%3A%22sh%22%2C%22status%22%3A%22done%22%2C%22source%22%3A%22transfer%22%2C%22id%22%3A%22GZkg2%22%2C%22card%22%3A%22file%22%7D">h3c-series.sh&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">modules&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">h3c_mib&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">walk&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">hh3cHealthInfo&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">hh3cPowerInfo&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">hh3cFansInfo&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">hh3cMemDetailInfoTable&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">hh3cTempSensorName&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">hh3cTempSensorReading&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">hh3cTempSensorSubStatus&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">version&lt;/span>: &lt;span style="color:#ae81ff">2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">auth&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">community&lt;/span>: &lt;span style="color:#ae81ff">public&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">if_mib&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">walk&lt;/span>: [&lt;span style="color:#ae81ff">sysUpTime, interfaces, ifXTable]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookups&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_indexes&lt;/span>: [&lt;span style="color:#ae81ff">ifIndex]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookup&lt;/span>: &lt;span style="color:#ae81ff">ifAlias&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_indexes&lt;/span>: [&lt;span style="color:#ae81ff">ifIndex]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Uis OID to avoid conflict with PaloAlto PAN-COMMON-MIB.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookup&lt;/span>: &lt;span style="color:#ae81ff">1.3.6.1.2.1.2.2.1.2&lt;/span> &lt;span style="color:#75715e"># ifDescr&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_indexes&lt;/span>: [&lt;span style="color:#ae81ff">ifIndex]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Use OID to avoid conflict with Netscaler NS-ROOT-MIB.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookup&lt;/span>: &lt;span style="color:#ae81ff">1.3.6.1.2.1.31.1.1.1.1&lt;/span> &lt;span style="color:#75715e"># ifName&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">overrides&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifAlias&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span> &lt;span style="color:#75715e"># Lookup metric&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifDescr&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span> &lt;span style="color:#75715e"># Lookup metric&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifName&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span> &lt;span style="color:#75715e"># Lookup metric&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifType&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">EnumAsInfo&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="prometheus-监控交换机流量案例">Prometheus 监控交换机流量案例&lt;/h1>
+&lt;h3 id="默认已经安装-prometheus">默认已经安装 prometheus&lt;/h3>
+&lt;h3 id="手动验证能否获取交换机数据">手动验证能否获取交换机数据&lt;/h3>
+&lt;p>用 prometheus 监控交换机流量首先需要确定安装 prometheus 的机器已经被交换机允许获取他的数据。命令如下：
+以交换机版本为 v2c 为例：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 获取交换机的接口描述信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>snmpwalk -v 2c 10.0.1.52 -c public ifDescr
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>其中-v 是指版本（SNMP 主要有 SNMPv1、SNMPV2c、SNMPv3 几种最常用的版本。）,-c 是指密钥（Community：团体名，用于 Agent 与 NMS 之间的认证，由交换机提供）。&lt;/p>
+&lt;p>如果返回数据，则说明可以进行下一步通过 prometheus 获取数据了，数据如下：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lhrvkg/1616069331874-01b424a1-64dc-49ef-a538-3095ce031a74.jpeg" alt="">&lt;/p>
+&lt;h3 id="生成-snmpyml-文件">生成 snmp.yml 文件&lt;/h3>
+&lt;p>准备好如下 generator.yml 文件。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">modules&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">if_mib&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">walk&lt;/span>: [&lt;span style="color:#ae81ff">sysUpTime, interfaces, ifXTable]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookups&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_indexes&lt;/span>: [&lt;span style="color:#ae81ff">ifIndex]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookup&lt;/span>: &lt;span style="color:#ae81ff">ifAlias&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_indexes&lt;/span>: [&lt;span style="color:#ae81ff">ifIndex]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Uis OID to avoid conflict with PaloAlto PAN-COMMON-MIB.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookup&lt;/span>: &lt;span style="color:#ae81ff">1.3.6.1.2.1.2.2.1.2&lt;/span> &lt;span style="color:#75715e"># ifDescr&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_indexes&lt;/span>: [&lt;span style="color:#ae81ff">ifIndex]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Use OID to avoid conflict with Netscaler NS-ROOT-MIB.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">lookup&lt;/span>: &lt;span style="color:#ae81ff">1.3.6.1.2.1.31.1.1.1.1&lt;/span> &lt;span style="color:#75715e"># ifName&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">overrides&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifAlias&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span> &lt;span style="color:#75715e"># Lookup metric&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifDescr&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span> &lt;span style="color:#75715e"># Lookup metric&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifName&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ignore&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span> &lt;span style="color:#75715e"># Lookup metric&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ifType&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">EnumAsInfo&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>根据 &lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/SNMP%20Exporter/%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3.md">生成 snmp.yml 文件&lt;/a>章节内容，生成 snmp.yml 文件。&lt;/p>
+&lt;h3 id="安装-snmp-插件">安装 snmp 插件&lt;/h3>
+&lt;p>启动 snmp_exporter&lt;/p>
+&lt;pre>&lt;code>./snmp_exporter --config.file=snmp.yml
+&lt;/code>&lt;/pre>
+&lt;p>验证 snmp 监控数据&lt;/p>
+&lt;pre>&lt;code>curl 'http://安装snmp_exporter的设备的IP:9116/snmp?module=if_mib&amp;amp;target=要采集SNMP设备的IP'
+&lt;/code>&lt;/pre>
+&lt;h3 id="配置-prometheus-的配置文件">配置 prometheus 的配置文件&lt;/h3>
+&lt;p>添加关于 snmp 的配置，如下：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lhrvkg/1616069331887-3fda034d-20b8-41e6-9dac-3a999e9937d9.jpeg" alt="">
+其中红线化掉的是安装 snmp_exporter 的机器的 ip，而 9116，是 snmp_exporter 的端口。如果出现多个 community 的情况（如上面所说），只需要再加一个 job 即可，如下：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lhrvkg/1616069331920-0da080b3-e92e-4864-ad3e-9ac3a200d7fd.jpeg" alt="">
+到目前为止，prometheus 通过 snmp_exporter 抓取交换机流量数据已完成。&lt;/p>
+&lt;h3 id="关于交换机的各项指标介绍">关于交换机的各项指标介绍&lt;/h3>
+&lt;p>snmp 指标&lt;/p>
+&lt;p>针对普通网络设备的端口，MIB 的相关定义是 Interface 组，主要管理如下信息:&lt;/p>
+&lt;ul>
+&lt;li>ifIndex 端口索引号&lt;/li>
+&lt;li>ifOperStatus # 端口状态&lt;/li>
+&lt;li>ifDescr 端口描述&lt;/li>
+&lt;li>ifType 端口类型&lt;/li>
+&lt;li>ifMtu 最大传输包字节数&lt;/li>
+&lt;li>ifSpeed 端口速度&lt;/li>
+&lt;li>ifPhysAddress 物理地址&lt;/li>
+&lt;li>ifOperStatus 操作状态&lt;/li>
+&lt;li>ifLastChange 上次状态更新时间&lt;/li>
+&lt;li>ifInOctets 输入字节数&lt;/li>
+&lt;li>ifInUcastPkts 输入非广播包数&lt;/li>
+&lt;li>ifInNUcastPkts 输入广播包数&lt;/li>
+&lt;li>ifInDiscards 输入包丢弃数&lt;/li>
+&lt;li>ifInErrors 输入包错误数&lt;/li>
+&lt;li>ifInUnknownProtos 输入未知协议包数&lt;/li>
+&lt;li>ifOutOctets 输出字节数&lt;/li>
+&lt;li>ifOutUcastPkts 输出非广播包数&lt;/li>
+&lt;li>ifOutNUcastPkts 输出广播包数&lt;/li>
+&lt;li>ifOutDiscards 输出包丢弃数&lt;/li>
+&lt;li>ifOutErrors 输出包错误数&lt;/li>
+&lt;li>ifOutQLen 输出队长 其中，号标识的是与网络流量有关的信息。&lt;/li>
+&lt;/ul>
+&lt;h3 id="根据需要查找指标">根据需要查找指标&lt;/h3>
+&lt;p>由于我们要监控交换机流量，所以对我们有用的指标主要是 ifHCOutOctets 和 ifHCInOctets，为什么是 ifHCOutOctets 而不是上面所说的 ifOutOctets，因为在流量监控中发现了一个问题：监控交换机的网络流量，经常发现少数据的情况，prometheus 绘的图断断续续的，snmp 协议返回的 ifInOctets 和 ifOutOctets 都是流量的总量，如果我们需要获取一段时间的流量，我们需要取两段时间的差值，而 ifOutOctets 对应的 counter32 的数据类型计数的最大值是 2 的 32 次方减 1，当超过 4G 的时候，计数器就会清零。当我们取数据如果正巧处于 4G 左右，当他清零重新计数，那我们获取的流量是不准确的。解决办法是：&lt;/p>
+&lt;p>查询数据换成 ifHCOutOctets 和 ifHCInOctets 来代替 ifOutOctets 和 ifInOctets。因为 ifHCOutOctets 对应的计数 counter64，64 位计数器足够大，可以解决这个问题。&lt;/p>
+&lt;h1 id="问题实力">问题实力&lt;/h1>
+&lt;h2 id="invalid-utf-8-label">invalid utf-8 label&lt;/h2>
+&lt;p>当数通设备上的接口描述字符串为中文时，若设备本身不支持中文，则通过 snmpwalk 到的指标将无法显示。此时 snmp-exporter 将会出现如下报错
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lhrvkg/1636362037475-aa107b4b-4263-4614-a50a-204e27fa58d5.png" alt="image.png">
+相关 ISSUE：&lt;a href="https://github.com/prometheus/snmp_exporter/issues/279">#279&lt;/a>&lt;/p></description></item></channel></rss>

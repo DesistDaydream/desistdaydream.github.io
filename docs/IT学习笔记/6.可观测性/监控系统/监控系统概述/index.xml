@@ -1,0 +1,766 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 监控系统概述</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/</link><description>Recent content in 监控系统概述 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: HTTP(新监控标准)</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/HTTP%E6%96%B0%E7%9B%91%E6%8E%A7%E6%A0%87%E5%87%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/HTTP%E6%96%B0%E7%9B%91%E6%8E%A7%E6%A0%87%E5%87%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;p>由于 SNMP 的种种不便，现在更多的是基于 HTTP 协议来实现监控指标的采集。&lt;/p>
+&lt;p>同样，也是需要一个 Client 采集指标，需要一个 Server 端接收指标后存储指标。&lt;/p>
+&lt;p>就像 SNMP 协议一样，光有协议还不行，基于 HTTP 协议的监控也需要一个数据模型的标准，就像 MIB 和 OID 类似。而现阶段，从 Prometheus 演化过来的 OpenMetrics 标准，就是这么一种东西。&lt;/p>
+&lt;h1 id="openmetrics">OpenMetrics&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/OpenObservability/OpenMetrics">GitHub 项目，OpenObservability/OpenMetrics&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://openmetrics.io/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md">OpenMetrics 规范&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>OpenMetrics&lt;/strong> 是新时代的监控指标的标准，由 CNCF 主导，OpenMetrics 定义了大规模传输云原生指标的事实标准。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>OpenMetricsSpec&lt;/strong> 用来定义监控指标的标准&lt;/li>
+&lt;/ul>
+&lt;h1 id="data-model数据模型">Data Model(数据模型)&lt;/h1>
+&lt;p>平时我们口语交流，一般将随时间变化的数据称为 &lt;strong>Metrics(指标)&lt;/strong>。这是监控数据的另一种叫法，与 OID 类似，可以代表一种监控数据、同时也是一种名词，比如我采集某个程序的监控数据，可以说采集这个程序的 Metrics。所以 Metrics 是一个抽象的叫法。&lt;/p>
+&lt;p>This section MUST be read together with the ABNF section. In case of disagreements between the two, the ABNF&amp;rsquo;s restrictions MUST take precedence. This reduces repetition as the text wire format MUST be supported.&lt;/p>
+&lt;h2 id="data-types">Data Types&lt;/h2>
+&lt;h3 id="values">Values&lt;/h3>
+&lt;p>Metric values in OpenMetrics MUST be either floating points or integers. Note that ingestors of the format MAY only support float64. The non-real values NaN, +Inf and -Inf MUST be supported. NaN MUST NOT be considered a missing value, but it MAY be used to signal a division by zero.&lt;/p>
+&lt;h4 id="booleans">Booleans&lt;/h4>
+&lt;p>Boolean values MUST follow 1==true, 0==false.&lt;/p>
+&lt;h3 id="timestamps">Timestamps&lt;/h3>
+&lt;p>Timestamps MUST be Unix Epoch in seconds. Negative timestamps MAY be used.&lt;/p>
+&lt;h3 id="strings">Strings&lt;/h3>
+&lt;p>Strings MUST only consist of valid UTF-8 characters and MAY be zero length. NULL (ASCII 0x0) MUST be supported.&lt;/p>
+&lt;h3 id="label">Label&lt;/h3>
+&lt;p>Labels are key-value pairs consisting of strings.
+Label names beginning with underscores are RESERVED and MUST NOT be used unless specified by this standard. Label names MUST follow the restrictions in the ABNF section.
+Empty label values SHOULD be treated as if the label was not present.&lt;/p>
+&lt;h3 id="labelset">LabelSet&lt;/h3>
+&lt;p>A LabelSet MUST consist of Labels and MAY be empty. Label names MUST be unique within a LabelSet.&lt;/p>
+&lt;h3 id="metricpoint">MetricPoint&lt;/h3>
+&lt;p>Each MetricPoint consists of a set of values, depending on the MetricFamily type.&lt;/p>
+&lt;h3 id="exemplars">Exemplars&lt;/h3>
+&lt;p>Exemplars are references to data outside of the MetricSet. A common use case are IDs of program traces.
+Exemplars MUST consist of a LabelSet and a value, and MAY have a timestamp. They MAY each be different from the MetricPoints&amp;rsquo; LabelSet and timestamp.
+The combined length of the label names and values of an Exemplar&amp;rsquo;s LabelSet MUST NOT exceed 128 UTF-8 characters. Other characters in the text rendering of an exemplar such as &amp;ldquo;,= are not included in this limit for implementation simplicity and for consistency between the text and proto formats.
+Ingestors MAY discard exemplars.&lt;/p>
+&lt;h3 id="metric">Metric&lt;/h3>
+&lt;p>Metrics are defined by a unique LabelSet within a MetricFamily. Metrics MUST contain a list of one or more MetricPoints. Metrics with the same name for a given MetricFamily SHOULD have the same set of label names in their LabelSet.
+MetricPoints SHOULD NOT have explicit timestamps.
+If more than one MetricPoint is exposed for a Metric, then its MetricPoints MUST have monotonically increasing timestamps.&lt;/p>
+&lt;h3 id="metricfamily">MetricFamily&lt;/h3>
+&lt;p>A MetricFamily MAY have zero or more Metrics. A MetricFamily MUST have a name, HELP, TYPE, and UNIT metadata. Every Metric within a MetricFamily MUST have a unique LabelSet.&lt;/p>
+&lt;h4 id="name">Name&lt;/h4>
+&lt;p>MetricFamily names are a string and MUST be unique within a MetricSet. Names SHOULD be in snake_case. Metric names MUST follow the restrictions in the ABNF section.
+Colons in MetricFamily names are RESERVED to signal that the MetricFamily is the result of a calculation or aggregation of a general purpose monitoring system.
+MetricFamily names beginning with underscores are RESERVED and MUST NOT be used unless specified by this standard.&lt;/p>
+&lt;h5 id="suffixes">Suffixes&lt;/h5>
+&lt;p>The name of a MetricFamily MUST NOT result in a potential clash for sample metric names as per the ABNF with another MetricFamily in the Text Format within a MetricSet. An example would be a gauge called &amp;ldquo;foo_created&amp;rdquo; as a counter called &amp;ldquo;foo&amp;rdquo; could create a &amp;ldquo;foo_created&amp;rdquo; in the text format.
+Exposers SHOULD avoid names that could be confused with the suffixes that text format sample metric names use.&lt;/p>
+&lt;ul>
+&lt;li>Suffixes for the respective types are:&lt;/li>
+&lt;li>Counter: &amp;lsquo;_total&amp;rsquo;, &amp;lsquo;_created&amp;rsquo;&lt;/li>
+&lt;li>Summary: &amp;lsquo;_count&amp;rsquo;, &amp;lsquo;_sum&amp;rsquo;, &amp;lsquo;_created&amp;rsquo;, &amp;rsquo;&amp;rsquo; (empty)&lt;/li>
+&lt;li>Histogram: &amp;lsquo;_count&amp;rsquo;, &amp;lsquo;_sum&amp;rsquo;, &amp;lsquo;_bucket&amp;rsquo;, &amp;lsquo;_created&amp;rsquo;&lt;/li>
+&lt;li>GaugeHistogram: &amp;lsquo;_gcount&amp;rsquo;, &amp;lsquo;_gsum&amp;rsquo;, &amp;lsquo;_bucket&amp;rsquo;&lt;/li>
+&lt;li>Info: &amp;lsquo;_info&amp;rsquo;&lt;/li>
+&lt;li>Gauge: &amp;rsquo;&amp;rsquo; (empty)&lt;/li>
+&lt;li>StateSet: &amp;rsquo;&amp;rsquo; (empty)&lt;/li>
+&lt;li>Unknown: &amp;rsquo;&amp;rsquo; (empty)&lt;/li>
+&lt;/ul>
+&lt;h4 id="type">Type&lt;/h4>
+&lt;p>Type specifies the MetricFamily type. Valid values are &amp;ldquo;unknown&amp;rdquo;, &amp;ldquo;gauge&amp;rdquo;, &amp;ldquo;counter&amp;rdquo;, &amp;ldquo;stateset&amp;rdquo;, &amp;ldquo;info&amp;rdquo;, &amp;ldquo;histogram&amp;rdquo;, &amp;ldquo;gaugehistogram&amp;rdquo;, and &amp;ldquo;summary&amp;rdquo;.&lt;/p>
+&lt;h4 id="unit">Unit&lt;/h4>
+&lt;p>Unit specifies MetricFamily units. If non-empty, it MUST be a suffix of the MetricFamily name separated by an underscore. Be aware that further generation rules might make it an infix in the text format.&lt;/p>
+&lt;h4 id="help">Help&lt;/h4>
+&lt;p>Help is a string and SHOULD be non-empty. It is used to give a brief description of the MetricFamily for human consumption and SHOULD be short enough to be used as a tooltip.&lt;/p>
+&lt;h4 id="metricset">MetricSet&lt;/h4>
+&lt;p>A MetricSet is the top level object exposed by OpenMetrics. It MUST consist of MetricFamilies and MAY be empty.
+Each MetricFamily name MUST be unique. The same label name and value SHOULD NOT appear on every Metric within a MetricSet.
+There is no specific ordering of MetricFamilies required within a MetricSet. An exposer MAY make an exposition easier to read for humans, for example sort alphabetically if the performance tradeoff makes sense.
+If present, an Info MetricFamily called &amp;ldquo;target&amp;rdquo; per the &amp;ldquo;Supporting target metadata in both push-based and pull-based systems&amp;rdquo; section below SHOULD be first.&lt;/p>
+&lt;h2 id="metric-types">Metric Types&lt;/h2>
+&lt;h3 id="gauge">Gauge&lt;/h3>
+&lt;p>Gauges are current measurements, such as bytes of memory currently used or the number of items in a queue. For gauges the absolute value is what is of interest to a user.
+A MetricPoint in a Metric with the type gauge MUST have a single value.
+Gauges MAY increase, decrease, or stay constant over time. Even if they only ever go in one direction, they might still be gauges and not counters. The size of a log file would usually only increase, a resource might decrease, and the limit of a queue size may be constant.
+A gauge MAY be used to encode an enum where the enum has many states and changes over time, it is the most efficient but least user friendly.&lt;/p>
+&lt;h3 id="counter">Counter&lt;/h3>
+&lt;p>Counters measure discrete events. Common examples are the number of HTTP requests received, CPU seconds spent, or bytes sent. For counters how quickly they are increasing over time is what is of interest to a user.
+A MetricPoint in a Metric with the type Counter MUST have one value called Total. A Total is a non-NaN and MUST be monotonically non-decreasing over time, starting from 0.
+A MetricPoint in a Metric with the type Counter SHOULD have a Timestamp value called Created. This can help ingestors discern between new metrics and long-running ones it did not see before.
+A MetricPoint in a Metric&amp;rsquo;s Counter&amp;rsquo;s Total MAY reset to 0. If present, the corresponding Created time MUST also be set to the timestamp of the reset.
+A MetricPoint in a Metric&amp;rsquo;s Counter&amp;rsquo;s Total MAY have an exemplar.&lt;/p>
+&lt;h3 id="stateset">StateSet&lt;/h3>
+&lt;p>StateSets represent a series of related boolean values, also called a bitset. If ENUMs need to be encoded this MAY be done via StateSet.
+A point of a StateSet metric MAY contain multiple states and MUST contain one boolean per State. States have a name which are Strings.
+A StateSet Metric&amp;rsquo;s LabelSet MUST NOT have a label name which is the same as the name of its MetricFamily.
+If encoded as a StateSet, ENUMs MUST have exactly one Boolean which is true within a MetricPoint.
+This is suitable where the enum value changes over time, and the number of States isn&amp;rsquo;t much more than a handful.
+EDITOR’S NOTE: This might be better as Consideration
+MetricFamilies of type StateSets MUST have an empty Unit string.&lt;/p>
+&lt;h3 id="info">Info&lt;/h3>
+&lt;p>Info metrics are used to expose textual information which SHOULD NOT change during process lifetime. Common examples are an application&amp;rsquo;s version, revision control commit, and the version of a compiler.
+A MetricPoint of an Info Metric contains a LabelSet. An Info MetricPoint&amp;rsquo;s LabelSet MUST NOT have a label name which is the same as the name of a label of the LabelSet of its Metric.
+Info MAY be used to encode ENUMs whose values do not change over time, such as the type of a network interface.
+MetricFamilies of type Info MUST have an empty Unit string.&lt;/p>
+&lt;h3 id="histogram">Histogram&lt;/h3>
+&lt;p>Histograms measure distributions of discrete events. Common examples are the latency of HTTP requests, function runtimes, or I/O request sizes.
+A Histogram MetricPoint MUST contain at least one bucket, and SHOULD contain Sum, and Created values. Every bucket MUST have a threshold and a value.
+Histogram MetricPoints MUST have at least a bucket with an +Inf threshold. Buckets MUST be cumulative. As an example for a metric representing request latency in seconds its values for buckets with thresholds 1, 2, 3, and +Inf MUST follow value_1 &amp;lt;= value_2 &amp;lt;= value_3 &amp;lt;= value_+Inf. If ten requests took 1 second each, the values of the 1, 2, 3, and +Inf buckets MUST equal 10.
+The +Inf bucket counts all requests. If present, the Sum value MUST equal the Sum of all the measured event values. Bucket thresholds within a MetricPoint MUST be unique.
+Semantically, Sum, and buckets values are counters so MUST NOT be NaN or negative. Negative threshold buckets MAY be used, but then the Histogram MetricPoint MUST NOT contain a sum value as it would no longer be a counter semantically. Bucket thresholds MUST NOT equal NaN. Count and bucket values MUST be integers.
+A Histogram MetricPoint SHOULD have a Timestamp value called Created. This can help ingestors discern between new metrics and long-running ones it did not see before.
+A Histogram&amp;rsquo;s Metric&amp;rsquo;s LabelSet MUST NOT have a &amp;ldquo;le&amp;rdquo; label name.
+Bucket values MAY have exemplars. Buckets are cumulative to allow monitoring systems to drop any non-+Inf bucket for performance/anti-denial-of-service reasons in a way that loses granularity but is still a valid Histogram.
+EDITOR’S NOTE: The second sentence is a consideration, it can be moved if needed
+Each bucket covers the values less and or equal to it, and the value of the exemplar MUST be within this range. Exemplars SHOULD be put into the bucket with the highest value. A bucket MUST NOT have more than one exemplar.&lt;/p>
+&lt;h3 id="gaugehistogram">GaugeHistogram&lt;/h3>
+&lt;p>GaugeHistograms measure current distributions. Common examples are how long items have been waiting in a queue, or size of the requests in a queue.
+A GaugeHistogram MetricPoint MUST have at least one bucket with an +Inf threshold, and SHOULD contain a Gsum value. Every bucket MUST have a threshold and a value.
+The buckets for a GaugeHistogram follow all the same rules as for a Histogram.
+The bucket and Gsum of a GaugeHistogram are conceptually gauges, however bucket values MUST NOT be negative or NaN. If negative threshold buckets are present, then sum MAY be negative. Gsum MUST NOT be NaN. Bucket values MUST be integers.
+A GaugeHistogram&amp;rsquo;s Metric&amp;rsquo;s LabelSet MUST NOT have a &amp;ldquo;le&amp;rdquo; label name.
+Bucket values can have exemplars.
+Each bucket covers the values less and or equal to it, and the value of the exemplar MUST be within this range. Exemplars SHOULD be put into the bucket with the highest value. A bucket MUST NOT have more than one exemplar.&lt;/p>
+&lt;h3 id="summary">Summary&lt;/h3>
+&lt;p>Summaries also measure distributions of discrete events and MAY be used when Histograms are too expensive and/or an average event size is sufficient.
+They MAY also be used for backwards compatibility, because some existing instrumentation libraries expose precomputed quantiles and do not support Histograms. Precomputed quantiles SHOULD NOT be used, because quantiles are not aggregatable and the user often can not deduce what timeframe they cover.
+A Summary MetricPoint MAY consist of a Count, Sum, Created, and a set of quantiles.
+Semantically, Count and Sum values are counters so MUST NOT be NaN or negative. Count MUST be an integer.
+A MetricPoint in a Metric with the type Summary which contains Count or Sum values SHOULD have a Timestamp value called Created. This can help ingestors discern between new metrics and long-running ones it did not see before. Created MUST NOT relate to the collection period of quantile values.
+Quantiles are a map from a quantile to a value. An example is a quantile 0.95 with value 0.2 in a metric called myapp_http_request_duration_seconds which means that the 95th percentile latency is 200ms over an unknown timeframe. If there are no events in the relevant timeframe, the value for a quantile MUST be NaN. A Quantile&amp;rsquo;s Metric&amp;rsquo;s LabelSet MUST NOT have &amp;ldquo;quantile&amp;rdquo; label name. Quantiles MUST be between 0 and 1 inclusive. Quantile values MUST NOT be negative. Quantile values SHOULD represent the recent values. Commonly this would be over the last 5-10 minutes.&lt;/p>
+&lt;h3 id="unknown">Unknown&lt;/h3>
+&lt;p>Unknown SHOULD NOT be used. Unknown MAY be used when it is impossible to determine the types of individual metrics from 3rd party systems.
+A point in a metric with the unknown type MUST have a single value.&lt;/p>
+&lt;h2 id="基本示例">基本示例&lt;/h2>
+&lt;p>Metrics 数据格式如下图所示
+# HELP http_requests_total The total number of HTTP requests.
+# TYPE http_requests_total counter
+http_requests_total{method=&amp;ldquo;post&amp;rdquo;,code=&amp;ldquo;200&amp;rdquo;} 1027 1395066363000
+http_requests_total{method=&amp;ldquo;post&amp;rdquo;,code=&amp;ldquo;400&amp;rdquo;} 3 1395066363000
+# Escaping in label values:msdos_file_access_time_seconds{path=&amp;ldquo;C:\DIR\FILE.TXT&amp;rdquo;,error=&amp;ldquo;Cannot find file:\n&amp;quot;FILE.TXT&amp;rdquo;&amp;rdquo;} 1.458255915e9
+# Minimalistic line:metric_without_timestamp_and_labels 12.47
+# A weird metric from before the epoch:something_weird{problem=&amp;ldquo;division by zero&amp;rdquo;} +Inf -3982045&lt;/p>
+&lt;p>默认有三行数据来表示&lt;/p>
+&lt;ol>
+&lt;li>#HELP MetricsName Metrics 的描述&lt;/li>
+&lt;li>#TYPE MetricsName Metrics 的数据类型&lt;/li>
+&lt;li>MetricsName 与 Metrics 的值&lt;/li>
+&lt;li>如果有多个 Metrics 的项目，则会有多行&lt;/li>
+&lt;/ol>
+&lt;p>主要由三个部分组成：样本的一般注释信息（HELP），样本的类型注释信息（TYPE）和样本。Prometheus 会对 Exporter 响应的内容逐行解析：
+如果当前行以# HELP 开始，Prometheus 将会按照以下规则对内容进行解析，得到当前的指标名称以及相应的说明信息：
+# HELP&lt;/p>
+&lt;p>如果当前行以# TYPE 开始，Prometheus 会按照以下规则对内容进行解析，得到当前的指标名称以及指标类型:
+# TYPE&lt;/p>
+&lt;p>TYPE 注释行必须出现在指标的第一个样本之前。如果没有明确的指标类型需要返回为 untyped。 除了# 开头的所有行都会被视为是监控样本数据。 每一行样本需要满足以下格式规范:
+metric_name [
+&amp;ldquo;{&amp;rdquo; label_name &amp;ldquo;=&amp;rdquo; &lt;code>&amp;quot;&lt;/code> label_value &lt;code>&amp;quot;&lt;/code> { &amp;ldquo;,&amp;rdquo; label_name &amp;ldquo;=&amp;rdquo; &lt;code>&amp;quot;&lt;/code> label_value &lt;code>&amp;quot;&lt;/code> } [ &amp;ldquo;,&amp;rdquo; ] &amp;ldquo;}&amp;rdquo;
+] value [ timestamp ]&lt;/p>
+&lt;p>其中 metric_name 和 label_name 必须遵循 PromQL 的格式规范要求。value 是一个 float 格式的数据，timestamp 的类型为 int64（从 1970-01-01 00:00:00 以来的毫秒数），timestamp 为可选默认为当前时间。具有相同 metric_name 的样本必须按照一个组的形式排列，并且每一行必须是唯一的指标名称和标签键值对组合。&lt;/p></description></item><item><title>Docs: SNMP(传统监控标准)</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/SNMP%E4%BC%A0%E7%BB%9F%E7%9B%91%E6%8E%A7%E6%A0%87%E5%87%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/SNMP%E4%BC%A0%E7%BB%9F%E7%9B%91%E6%8E%A7%E6%A0%87%E5%87%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Simple_Network_Management_Protocol">Wiki,SNMP&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Simple Network Management Protocol(简单网络管理协议，简称 SNMP)&lt;/strong>。想实现该协议，通常需要由两部分完成(监控端和被监控端)，是在两端的两个进程之间进行通信，该进程都需要占用一个 socket&lt;/p>
+&lt;ul>
+&lt;li>监控端：通常称为 NMS 端，管理端&lt;/li>
+&lt;li>被监控端：通常称为 Agent 端，NMS 要去收集被监控端的数据的时候，可能收集到的是一些很敏感的数据(CPU 使用率，带宽占用率等，这些一般是不公开的)，所以需要在被监控节点上部署一个专门的程序，这个程序能在本地取得一定的管理权限，然后接受监控端发送的数据收集指令，代为在被监控节点本地完成数据收集，所以被称为 Agent 端，代理端&lt;/li>
+&lt;/ul>
+&lt;p>SNMP 的工作模式，使用 udp 协议发送报文&lt;/p>
+&lt;ul>
+&lt;li>监控端主动发送请求到被监控端的 agent 去收集数据&lt;/li>
+&lt;li>被监控节点主动向监控端报告自己所采集的数据&lt;/li>
+&lt;li>当监控端发现被监控端发生异常时，可以发送一些控制指令，将被监控端修改一些参数&lt;/li>
+&lt;/ul>
+&lt;h1 id="实现-snmp-的组件">实现 &lt;strong>SNMP 的组件&lt;/strong>&lt;/h1>
+&lt;ul>
+&lt;li>&lt;strong>Management Information Base(管理信息库，简称 MIB)&lt;/strong> # 用来定义所有监控端的 objects，其中包括 objects 的名称、OID、数据类型、描述(干什么用的)。MIB 也可以看作是 SNMP 的服务端与代理端的沟通桥梁，只有具有统一的格式，才能确定数据。
+&lt;ul>
+&lt;li>&lt;strong>Object(对象)：&lt;strong>这个对象可以是一个具体需要采集到的数据，比如 内存、CPU、磁盘、网络接口等等，也可以是一种抽象的集合，比如地区、硬件、系统、硬件、网络等等。上面说的所有事物，每一个都是一个 Object。所以，Object 可以包含另一个 Object，这也是人称常常将 MIB 称为&lt;/strong>树状&lt;/strong>的原因
+&lt;ul>
+&lt;li>&lt;strong>Object Identifier(对象标识符，简称 OID)&lt;/strong> # 每一个 Object 都有一个 OID&lt;/li>
+&lt;li>数据存取格式：即每个 object 除了 OID 用作标示以外，还有数据内容需要遵循一定个格式规范&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Structure of Managerment Intormation(管理信息结构,简称 SMI)&lt;/strong> # 是 ASN.1 的子集&lt;/li>
+&lt;li>&lt;strong>SNMP 本身&lt;/strong>：一般通过 Net-SNMP 中的工具实现。&lt;/li>
+&lt;/ul>
+&lt;p>所谓的 &lt;strong>MIB&lt;/strong>，其实主要是通过文件记录的内容。与其说是用文件记录，不如说 MIB 就是使用 ASN.1(标准的接口描述语言) 编写的代码。ASN.1 语言同样有类似 import、 function 这类的东西。只不过，记录 MIB 文件的语言，又与 ASN.1 有一些细微的区别，我们暂且称为 **MIB 语言 **吧~&lt;/p>
+&lt;p>可以这么说，&lt;strong>MIB 就是一门描述 OID 的编程语言。&lt;/strong>&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;strong>Abstract Syntax Notation One&lt;/strong> (&lt;strong>ASN.1&lt;/strong>) 是一种标准的 interface description language(接口描述语言)，用于定义以跨平台方式序列化和反序列化的数据结构。 它广泛用于电信和计算机网络，尤其是在密码学中。&lt;/p>
+&lt;/blockquote>
+&lt;h1 id="snmp-安全">SNMP 安全&lt;/h1>
+&lt;p>&lt;a href="https://www.dnsstuff.com/snmp-community-string#what-is-an-snmp-community-string">https://www.dnsstuff.com/snmp-community-string#what-is-an-snmp-community-string&lt;/a>&lt;/p>
+&lt;h2 id="community-string团体字符串">Community String(团体字符串)&lt;/h2>
+&lt;p>SNMP 的 &lt;strong>Community String(团体字符串)&lt;/strong> 是一种访问存储在路由器或其他设备中的统计信息的方法。有时简称为社区字符串或 SNMP 字符串，它包含与 GET 请求一起提供的用户凭据（ID 或密码）。&lt;/p>
+&lt;h1 id="oid-的格式">OID 的格式&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="http://oidref.com/">OID 参考数据库&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>在解释 MIB 语法前，首先要明确以下 OID 的格式，因为 MIB 就是用来记录 OID 的，只有明确了 OID 的格式，才能更好的理解 MIB 的语法。&lt;/strong>&lt;/p>
+&lt;p>OID 有两种格式：&lt;/p>
+&lt;ul>
+&lt;li>字符串：&lt;code>MIB::OBJECT.INDEX&lt;/code>
+&lt;ul>
+&lt;li>MIB # 表示当前 Object 所属的 MIB 库&lt;/li>
+&lt;li>OBJECT # 表示当前 Object 的名称&lt;/li>
+&lt;li>INDEX # 表示当前 Object 的索引&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>数字：&lt;code>.x.x.x.x.x.&lt;/code>
+&lt;ul>
+&lt;li>每一个 Object 都对应一个数字，而 Object 总是属于某一个 MIB，所以，可以将 字符串 转换为 数字。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>其中数字格式的 OID 是一种树状的结构，国际统一标准，效果如图所示，从 root 开始,每一层使用一个数字来表示&lt;/p>
+&lt;blockquote>
+&lt;p>一般常见的都是从 &lt;code>.1.3.6.1&lt;/code> 开始&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/fqmpt9/1616067085191-648071a5-d977-424f-b97d-e40625eb536e.jpeg" alt="">
+这两种方式可以使用 snmptranslate 命令进行转换，转换成字符串后，人类可以通过英文了解到大概意思，比如下图，表示的是该设备内存的大小。这是 snmpwalk 命令获取内存这个 OID 的当前的值(下图中=后面的内容是该 Object 的数据类型以及值，数据类型与值以冒号分隔)&lt;/p>
+&lt;p>SNMPv2-MIB::sysDescr.0 这个 Object 用来输出系统描述信息。显示一些基本的系统信息&lt;/p>
+&lt;pre>&lt;code>[root@exporter ~]# snmpwalk -v 2c -c public 172.19.42.243 | more
+SNMPv2-MIB::sysDescr.0 = STRING: Linux HDM210235A3KHH209000234 3.14.17-ami #1 Thu Sep 10 10:55:48 CST 2020 armv6l
+[root@exporter ~]# snmptranslate -On iso
+.1
+[root@exporter ~]# snmptranslate -On SNMPv2-SMI::dod
+.1.3.6
+[root@exporter ~]# snmptranslate -On SNMPv2-MIB::sysDescr.0
+.1.3.6.1.2.1.1.1.0
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>Object 中的 INDEX 说明：&lt;/strong>
+INDEX 是该 obejct 中项目的索引，默认值为 0。一个 object 里面可能包含多个项目，比如一个块磁盘里面可能包含多个分区，效果如下图，当一个 object 里面有多个项目时，INDEX 则不再是 0，而是一个随机数。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/fqmpt9/1616067085208-f6f5abc2-3713-4baf-8852-f1db9a9c7905.jpeg" alt="">
+想要获取某个 object 的值，可以直接使用数字，也可以直接使用字符串
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/fqmpt9/1616067085202-a29526e8-85c9-4e45-91ea-d6c8baf46310.jpeg" alt="">&lt;/p>
+&lt;h1 id="mib-语法">MIB 语法&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://blog.csdn.net/shanzhizi/article/details/15340305?spm=a2c4e.10696291.0.0.149419a4qn7Vvh">CSDN&lt;/a>、&lt;a href="https://blog.csdn.net/fuhanghang/article/details/104656348">CSDN2&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>注释的写法：在每行开头写两个 - 的行&lt;/p>
+&lt;p>MIB 编写完成后，呈现的是一种树状的结构。MIB 实际上就是很多 Objects 的集合。Objects 的结构就像树状一样。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/fqmpt9/1616067085173-e9ba88c6-a0c7-417e-a19e-d3eee254cc58.jpeg" alt="">&lt;/p>
+&lt;h2 id="mib-helloworld">MIB HelloWorld&lt;/h2>
+&lt;p>MIB 文件总是以 &lt;code>XXXX DEFINITIONS ::= BEGIN&lt;/code> 开始，最后一行以 &lt;code>END&lt;/code> 结束，在 BEGIN 和 END 之间，就是用来定义 Object 的代码块。其中 XXXX 为库的名称。比如：&lt;/p>
+&lt;pre>&lt;code># 这是一个名为 SNMPv2-SMI 的库。这给地方相当于 func main() { 而最后的 END 就是 }
+SNMPv2-SMI DEFINITIONS ::= BEGIN
+# 从这里开始，就是具体的代码逻辑
+# 定义了一个名为 org 的对象，OID 号为 3，属于 iso 这个对象。而 iso 这个对象又属于 iso
+org OBJECT IDENTIFIER ::= { iso 3 } -- &amp;quot;iso&amp;quot; = 1
+# 定义了一个名为 dod 的对象，OID 号为 6，属于 org 这个对象。
+dod OBJECT IDENTIFIER ::= { org 6 }
+# 定义了一个名为 internet 的对象，OID 号为 1，属于 dod 这个对象
+internet OBJECT IDENTIFIER ::= { dod 1 }
+directory OBJECT IDENTIFIER ::= { internet 1 }
+mgmt OBJECT IDENTIFIER ::= { internet 2 }
+mib-2 OBJECT IDENTIFIER ::= { mgmt 1 }
+......略
+# 结束
+END
+&lt;/code>&lt;/pre>
+&lt;p>在代码块中，通常定义两种东西：&lt;/p>
+&lt;ul>
+&lt;li>**OBJECT # 对象。**就是上文描述的一个可以采集到的监控数据对象&lt;/li>
+&lt;li>**MACRO # 宏。**一种类似 function 的代码块，可以实现一个完成的功能，并让其他 MIB 调用。&lt;/li>
+&lt;/ul>
+&lt;p>在 MIB 中除了可以定义 Object，还可以定义一些类似于编程语言的 function 的东西，在 MIB 语言里称为 &lt;strong>MACRO(宏指令)&lt;/strong>&lt;/p>
+&lt;blockquote>
+&lt;p>这里提个题外话，本人玩魔兽，经常就会编写一些 &lt;strong>宏&lt;/strong>，魔兽中的宏，其实跟变成语言中的 function 是类似的概念，都是通过一组代码，实现一个行为。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="mib-语言关键字">MIB 语言关键字&lt;/h2>
+&lt;h3 id="definitions--一般只出现在文件开头用来定义一个该-mib-的名称与文件最后一行的-end-关键字组合构成了一个完成-mib-代码">DEFINITIONS # 一般只出现在文件开头，用来定义一个该 MIB 的名称。与文件最后一行的 END 关键字组合，构成了一个完成 MIB 代码&lt;/h3>
+&lt;h3 id="object-identifier--对象标识符就是用来定义一个对象">OBJECT IDENTIFIER # 对象标识符，就是用来定义一个对象&lt;/h3>
+&lt;pre>&lt;code>org OBJECT IDENTIFIER ::= { iso 3 } -- &amp;quot;iso&amp;quot; = 1
+&lt;/code>&lt;/pre>
+&lt;p>这是定义 Object 的标准格式&lt;/p>
+&lt;ul>
+&lt;li>关键字的左边 # 是对象的名称&lt;/li>
+&lt;li>关键字的右边 # 使用 &lt;code>::={ }&lt;/code> 这种格式，其中 &lt;code>{ }&lt;/code> 中的内容是 &lt;code>{该对象所属对象的OID名 该对象的OID号}&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>也就是说 org 这个对象如果用数字格式表示的话，就是 &lt;code>.1.3&lt;/code>，如果用字符串表示的话需要一个前提，就是指定 MIB，因为 org 这个对象可以定义在不同的 MIB 中，只不过大家懒得重复造轮子，大部分情况都会直接导入 SNMPv2-SMI 这个 MIB，以便可以直接使用其中已经定义好的的各种 Object。但是 iso 是不用指定 MIB 的，因为 iso 是基础，是根下面的一级，就算属于，也只会属于 根 MIB&lt;/p>
+&lt;p>比如咱用 snmptranslate 转换以下&lt;/p>
+&lt;pre>&lt;code>[root@exporter ~]# snmptranslate -On iso
+.1
+[root@exporter ~]# snmptranslate -On org
+org: Unknown Object Identifier (Sub-id not found: (top) -&amp;gt; org)
+[root@exporter ~]# snmptranslate -On SNMPv2-SMI::org
+.1.3
+&lt;/code>&lt;/pre>
+&lt;p>除了这种最基本的定义 Object 的格式，&lt;strong>还可以通过自定义的 MACRO 来定义 Object&lt;/strong>，这种方式更为复杂，但是可以更详细得描述一个 Object 的数据格式，以及代表什么监控项。详见 OBJECT-TYPE 宏。这种定义 Object 的方式，常用来定义一个具体的待采集的具体的监控项，比如 内存大小、内存使用率、磁盘大小 等等&lt;/p>
+&lt;h3 id="macro--宏用来定义一个宏指令">MACRO # 宏，用来定义一个宏指令&lt;/h3>
+&lt;pre>&lt;code>MODULE-IDENTITY MACRO ::=
+BEGIN
+TYPE NOTATION ::=
+&amp;quot;LAST-UPDATED&amp;quot; value(Update ExtUTCTime)
+&amp;quot;ORGANIZATION&amp;quot; Text
+&amp;quot;CONTACT-INFO&amp;quot; Text
+&amp;quot;DESCRIPTION&amp;quot; Text
+RevisionPart
+VALUE NOTATION ::=
+value(VALUE OBJECT IDENTIFIER)
+RevisionPart ::=
+Revisions
+| empty
+Revisions ::=
+Revision
+| Revisions Revision
+Revision ::=
+&amp;quot;REVISION&amp;quot; value(Update ExtUTCTime)
+&amp;quot;DESCRIPTION&amp;quot; Text
+-- a character string as defined in section 3.1.1
+Text ::= value(IA5String)
+END
+&lt;/code>&lt;/pre>
+&lt;p>MACRO 也是以 BEGIN 开头，END 结尾，上面的例子定义个一个名为 MODULE-IDENITY 的宏指令，可以让其他 MIB 导入后直接使用。&lt;/p>
+&lt;h3 id="imports--从其他-mib-中导入-object对象-或-marcro宏指令">IMPORTS # 从其他 MIB 中导入 Object(对象) 或 MARCRO(宏指令)&lt;/h3>
+&lt;pre>&lt;code>IMPORTS
+MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+TimeTicks, Counter32, snmpModules, mib-2
+FROM SNMPv2-SMI
+DisplayString, TestAndIncr, TimeStamp
+FROM SNMPv2-TC
+MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+FROM SNMPv2-CONF;
+&lt;/code>&lt;/pre>
+&lt;p>SNMPv2-MIB 这个库导入了多个对象和宏，来自于三个库。宏一般都是全大写的字符串：&lt;/p>
+&lt;ul>
+&lt;li>从 SNMPv2-SMI 库导入了 MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE, TimeTicks, Counter32, snmpModules, mib-2&lt;/li>
+&lt;li>从 FROM SNMPv2-TC 库导入了 DisplayString, TestAndIncr, TimeStamp&lt;/li>
+&lt;li>从 SNMPv2-CONF 库 导入了 MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP&lt;/li>
+&lt;/ul>
+&lt;h3 id="其他">其他&lt;/h3>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>经过多年的发展，现在已经发展出了很多非常常见的 MIB 和 MACRO。很多 snmp 相关的工具，默认都已经导入了这些基本的 MIB。&lt;/p>
+&lt;p>所以当各大公司，想要根据自己产品，再定义新的 MIB 时，绝大多数情况，都会直接引用这些常见的 MIB，基于此，再定义自己的 MIB&lt;/p>
+&lt;h3 id="常见的-mib">常见的 MIB&lt;/h3>
+&lt;p>&lt;strong>SNMPv2-SMI&lt;/strong>&lt;/p>
+&lt;p>非常基本的 MIB，从 根 开始定义每一个 Object，并定义了以下常见的 MACRO。很多 MIB 中，都会导入这个 MIB。&lt;/p>
+&lt;p>就像这个 库的名字一样，它代表了 v2 版本的 SNMP 应该具有的一般 OBJECT 和 MACRO。&lt;/p>
+&lt;pre>&lt;code>SNMPv2-SMI DEFINITIONS ::= BEGIN
+org OBJECT IDENTIFIER ::= { iso 3 } -- &amp;quot;iso&amp;quot; = 1
+dod OBJECT IDENTIFIER ::= { org 6 }
+internet OBJECT IDENTIFIER ::= { dod 1 }
+directory OBJECT IDENTIFIER ::= { internet 1 }
+......略
+MODULE-IDENTITY MACRO ::=
+BEGIN
+......略
+END
+......略
+END
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>SNMPv2-MIB&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>SNMPv2-TC&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>IF-MIB&lt;/strong>&lt;/p>
+&lt;h3 id="常见的-macro宏指令">常见的 &lt;strong>MACRO(宏指令)&lt;/strong>&lt;/h3>
+&lt;p>经过了这么多年的发展，现在有很多常用的 MACRO 作为默认自带的。比如其中 MODULE-IDENTITY 这个宏，就是对 Object 的一个抽象，其实也可以当作 Object 的一种。&lt;/p>
+&lt;p>有一个名为** SNMPv2-SMI** 的库，可以当作一个基本库，每次大家定义新库时，总会导入这个库，&lt;strong>这些常见的 MACRO 很多都是在 SNMPv2-SMI 这个库中定义的&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>MODULE-IDENTITY&lt;/strong>&lt;/p>
+&lt;p>很多 Object 的集合&lt;/p>
+&lt;p>&lt;strong>OBJECT IDENTIFIER&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>TEXTUAL-CONVENTION&lt;/strong>&lt;/p>
+&lt;p>定义了对标准数据类型的进行扩展的语法。很多 MIB 定义中都会先定义一些&lt;strong>基于标准类型的扩展类型&lt;/strong>，如：&lt;/p>
+&lt;pre>&lt;code>KBytes ::= TEXTUAL-CONVENTION（文本约定）
+STATUS current
+DESCRIPTION
+&amp;quot;Storage size, expressed in units of 1024 bytes.&amp;quot;
+SYNTAX Integer32 (0..2147483647)
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>OBJECT-TYPE&lt;/strong>&lt;/p>
+&lt;p>用来定义一个 Object，&lt;/p>
+&lt;pre>&lt;code>sysDescr OBJECT-TYPE
+SYNTAX DisplayString (SIZE (0..255))
+MAX-ACCESS read-only
+STATUS current
+DESCRIPTION
+&amp;quot;A textual description of the entity. This value should
+include the full name and version identification of
+the system's hardware type, software operating-system,
+and networking software.&amp;quot;
+::= { system 1 }
+&lt;/code>&lt;/pre>
+&lt;p>需要注意，这里面定义 Object 已经不是使用 **OBJECT IDENTIFIER **这个关键字了，而是通过 MACRO 来定义的，这个宏就是 OBJECT-TYPE，&lt;/p>
+&lt;p>&lt;strong>OBJECT-GROUP&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>MODULE-COMPLIANCE&lt;/strong>&lt;/p>
+&lt;h2 id="mib-文件简单示例">MIB 文件简单示例：&lt;/h2>
+&lt;pre>&lt;code># SNMPv2-MIB 是该 MIB 库的名字，也是在调用该 MIB 时所用的名字。
+SNMPv2-MIB DEFINITIONS ::= BEGIN
+# 类似于编程中导入某某包，这里就是导入一些 MIB 信息。比如Object 类型、
+IMPORTS
+MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+TimeTicks, Counter32, snmpModules, mib-2
+FROM SNMPv2-SMI
+......略
+# 该 MIB 库的一些基本信息，介绍、维护者的邮箱名字等等
+# snmpMIB 是最重要的标识之一，标识该模块的标识。一般情况，一个文件中只有一个 MODULE-IDENTITY
+# 且该文件中后面所有的 Object 都属于 snmpMIB 这个 MODULE-IDENTITY
+# 这些模块可以在 IMPORTS 中被 MIB 导入。
+snmpMIB MODULE-IDENTITY
+DESCRIPTION
+&amp;quot;The MIB module for SNMP entities.
+Copyright (C) The Internet Society (2002). This
+version of this MIB module is part of RFC 3418;
+see the RFC itself for full legal notices.
+&amp;quot;
+REVISION &amp;quot;200210160000Z&amp;quot;
+# snmpMIBObjects 是一个 Objcet 的标识符
+# 属于 snmpMIB 这个模块
+snmpMIBObjects OBJECT IDENTIFIER ::= { snmpMIB 1 }
+# system 是一个 Object 的标识符。
+# 属于 mib-2 这个模块
+system OBJECT IDENTIFIER ::= { mib-2 1 }
+# sysDescr 这个 Object 的信息。
+# ::= { system 1 } 表示 sysDescr 属于 system 这个 Object
+sysDescr OBJECT-TYPE
+SYNTAX DisplayString (SIZE (0..255))
+MAX-ACCESS read-only
+STATUS current
+DESCRIPTION
+&amp;quot;A textual description of the entity. This value should
+include the full name and version identification of
+the system's hardware type, software operating-system,
+and networking software.&amp;quot;
+::= { system 1 }
+# sysObjectID 这个 Object 的信息。
+# ::= { system 2 } 表示 sysObjectID 属于 system 这个 Object
+sysObjectID OBJECT-TYPE
+SYNTAX OBJECT IDENTIFIER
+MAX-ACCESS read-only
+STATUS current
+DESCRIPTION
+&amp;quot;The vendor's authoritative identification of the
+network management subsystem contained in the entity.
+This value is allocated within the SMI enterprises
+subtree (1.3.6.1.4.1) and provides an easy and
+unambiguous means for determining `what kind of box' is
+being managed. For example, if vendor `Flintstones,
+Inc.' was assigned the subtree 1.3.6.1.4.1.424242,
+it could assign the identifier 1.3.6.1.4.1.424242.1.1
+to its `Fred Router'.&amp;quot;
+::= { system 2 }
+END
+&lt;/code>&lt;/pre>
+&lt;p>如果仔细观察，可以看到一个树状的关系网：&lt;/p>
+&lt;ul>
+&lt;li>在 &lt;code>IMPORTS&lt;/code> 字段中导入了 mib-2&lt;/li>
+&lt;li>在 &lt;code>system OBJECT IDENTIFIER ::= { mib-2 1 }&lt;/code> 中可以看导 system 这个 Object 属于 mib-2&lt;/li>
+&lt;li>在 &lt;code>sysDescr OBJECT-TYPE ...略... ::= { system 1 }&lt;/code> 中可以看到 sysDescr 这个 Object 属于 system&lt;/li>
+&lt;/ul>
+&lt;h1 id="一些官方的-mib">一些官方的 MIB&lt;/h1>
+&lt;ul>
+&lt;li>Cisco: &lt;a href="ftp://ftp.cisco.com/pub/mibs/v2/v2.tar.gz">ftp://ftp.cisco.com/pub/mibs/v2/v2.tar.gz&lt;/a>&lt;/li>
+&lt;li>APC: &lt;a href="https://download.schneider-electric.com/files?p_File_Name=powernet432.mib">https://download.schneider-electric.com/files?p_File_Name=powernet432.mib&lt;/a>&lt;/li>
+&lt;li>Servertech: &lt;a href="ftp://ftp.servertech.com/Pub/SNMP/sentry3/Sentry3.mib">ftp://ftp.servertech.com/Pub/SNMP/sentry3/Sentry3.mib&lt;/a>&lt;/li>
+&lt;li>Palo Alto PanOS 7.0 enterprise MIBs: &lt;a href="https://www.paloaltonetworks.com/content/dam/pan/en_US/assets/zip/technical-documentation/snmp-mib-modules/PAN-MIB-MODULES-7.0.zip">https://www.paloaltonetworks.com/content/dam/pan/en_US/assets/zip/technical-documentation/snmp-mib-modules/PAN-MIB-MODULES-7.0.zip&lt;/a>&lt;/li>
+&lt;li>Arista Networks: &lt;a href="https://www.arista.com/assets/data/docs/MIBS/ARISTA-ENTITY-SENSOR-MIB.txt">https://www.arista.com/assets/data/docs/MIBS/ARISTA-ENTITY-SENSOR-MIB.txt&lt;/a> &lt;a href="https://www.arista.com/assets/data/docs/MIBS/ARISTA-SW-IP-FORWARDING-MIB.txt">https://www.arista.com/assets/data/docs/MIBS/ARISTA-SW-IP-FORWARDING-MIB.txt&lt;/a> &lt;a href="https://www.arista.com/assets/data/docs/MIBS/ARISTA-SMI-MIB.txt">https://www.arista.com/assets/data/docs/MIBS/ARISTA-SMI-MIB.txt&lt;/a>&lt;/li>
+&lt;li>Synology: &lt;a href="https://global.download.synology.com/download/Document/Software/DeveloperGuide/Firmware/DSM/All/enu/Synology_MIB_File.zip">https://global.download.synology.com/download/Document/Software/DeveloperGuide/Firmware/DSM/All/enu/Synology_MIB_File.zip&lt;/a>&lt;/li>
+&lt;li>MikroTik: &lt;a href="http://download2.mikrotik.com/Mikrotik.mib">http://download2.mikrotik.com/Mikrotik.mib&lt;/a>&lt;/li>
+&lt;li>UCD-SNMP-MIB (Net-SNMP): &lt;a href="http://www.net-snmp.org/docs/mibs/UCD-SNMP-MIB.txt">http://www.net-snmp.org/docs/mibs/UCD-SNMP-MIB.txt&lt;/a>&lt;/li>
+&lt;li>Ubiquiti Networks: &lt;a href="http://dl.ubnt-ut.com/snmp/UBNT-MIB">http://dl.ubnt-ut.com/snmp/UBNT-MIB&lt;/a> &lt;a href="http://dl.ubnt-ut.com/snmp/UBNT-UniFi-MIB">http://dl.ubnt-ut.com/snmp/UBNT-UniFi-MIB&lt;/a> &lt;a href="https://dl.ubnt.com/firmwares/airos-ubnt-mib/ubnt-mib.zip">https://dl.ubnt.com/firmwares/airos-ubnt-mib/ubnt-mib.zip&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>&lt;a href="https://github.com/librenms/librenms/tree/master/mibs">https://github.com/librenms/librenms/tree/master/mibs&lt;/a> 也是不错的 MIB 来源，这里收录了很多的 MIB 文件&lt;/p>
+&lt;p>推荐使用 &lt;a href="http://oidref.com">http://oidref.com&lt;/a> 浏览 MIBs.&lt;/p></description></item><item><title>Docs: 常用告警级别</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/%E5%B8%B8%E7%94%A8%E5%91%8A%E8%AD%A6%E7%BA%A7%E5%88%AB/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/%E5%B8%B8%E7%94%A8%E5%91%8A%E8%AD%A6%E7%BA%A7%E5%88%AB/</guid><description>
+&lt;p>告警级别用于标识一条告警的严重程度，按严重程度递减分为六级：紧急告警、重要告警、次要告警、提示告警、不确定告警和清除告警，如下表所示。&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th style="text-align:center">告警级别&lt;/th>
+&lt;th style="text-align:center">定义&lt;/th>
+&lt;th style="text-align:left">说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td style="text-align:center">1&lt;/td>
+&lt;td style="text-align:center">critical：紧急&lt;/td>
+&lt;td style="text-align:left">此类级别的故障影响到系统提供的服务，需要立即采取相应动作。如某设备或资源完全不可用，需进行恢复，即使该故障在非工作时间内发生，也需立即采取措施。&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td style="text-align:center">2&lt;/td>
+&lt;td style="text-align:center">major：重要&lt;/td>
+&lt;td style="text-align:left">此类级别的故障影响到服务质量，需要采取紧急动作。如某设备或资源服务质量下降，需对其进行还原，恢复全部能力，需在工作时间内立即采取措施。&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td style="text-align:center">3&lt;/td>
+&lt;td style="text-align:center">minor：次要&lt;/td>
+&lt;td style="text-align:left">此类级别的故障还未影响到服务质量，但为了避免更严重的故障，需要在适当时候进行处理或进一步观察。&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td style="text-align:center">4&lt;/td>
+&lt;td style="text-align:center">warning：警告&lt;/td>
+&lt;td style="text-align:left">此类级别的故障指示可能有潜在的错误影响到提供的服务，相应的措施根据不同的错误进行处理。&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td style="text-align:center">5&lt;/td>
+&lt;td style="text-align:center">indeterminate：不确定&lt;/td>
+&lt;td style="text-align:left">告警的级别不能确定，即告警造成的影响需视实际环境而定。&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td style="text-align:center">6&lt;/td>
+&lt;td style="text-align:center">cleared：清除&lt;/td>
+&lt;td style="text-align:left">表示清除一个或多个此前已上报的告警。此级别告警为受管理对象清除所有具有相同告警类型、可能原因和具体问题的告警。多个关联的通告可以通过配置相互关联的通告参数进行删除。&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table></description></item><item><title>Docs: 监控系统概述</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F%E6%A6%82%E8%BF%B0/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://ke.qq.com/user/index/index.html#/plan/cid=3172074&amp;amp;term_id=103299436">马哥视频&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/Y1DVmIyij31kjapsuSCn2g">公众号,贵司的监控系统处于什么时代&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>**Network Monitor Server(网络监控服务器，简称 NMS)。**最早的时候，在产生大规模监控需求前，一般都是通过在本机安装监控系统来实现对单台主机进行监控，后来当主机越来越多，这种让每台设备各自监控的方式显然是不行的，这时候为了解决这个问题，一般采用的方式是通过一个 NMS 来监控各个 node host，这台 NSM 要求能够定期得向每个被监控 node host 的传感器发送数据采集请求，各 node 收到请求后，收集对方请求的本地指标来返回给 NMS&lt;/p>
+&lt;p>NMS 会周期得完成数据采集，然后进行本地存储。为了实现简单便捷对被监控节点进行管理，就出现了 &lt;strong>SNMP&lt;/strong> 这个协议。SNMP 是一种基于 UDP 的 7 层协议。&lt;/p>
+&lt;p>监控协议：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>SNMP&lt;/strong> # 详见 &lt;a href="https://www.yuque.com/go/doc/33144984">SNMP 详解&lt;/a>&lt;/li>
+&lt;li>&lt;strong>HTTP&lt;/strong> # 详见 &lt;a href="https://www.yuque.com/go/doc/33145018">此处&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h2 id="时间序列数据">时间序列数据&lt;/h2>
+&lt;p>在监控体系里，被采集的数据一般就称为 &lt;a href="https://www.yuque.com/go/doc/33217381">&lt;strong>Time Seies Data(时间序列数据)&lt;/strong>&lt;/a>。通常人们将每一条时序数据，也称为 &lt;strong>Metrics(指标)&lt;/strong>。一系列的指标，就是用来总结被监控目标在一段时间内的运行状态。&lt;/p>
+&lt;p>**Metrics(指标) **就是指随时间变化的数据。不管是通过 SNMP 还是 HTTP 中的任何一种协议，从被监控对象采集到的状态信息，都统称为 Metrics(指标)。&lt;/p>
+&lt;h2 id="监控系统组件">监控系统组件&lt;/h2>
+&lt;p>一套完整的监控系统，通常都包含实现下面几种功能的组件：&lt;/p>
+&lt;ul>
+&lt;li>指标数据采集(有时候 采集 也称为 刮擦/抓取，英文一般是 Scrape)&lt;/li>
+&lt;li>指标数据存储&lt;/li>
+&lt;li>指标数据趋势分析及可视化&lt;/li>
+&lt;li>告警&lt;/li>
+&lt;/ul>
+&lt;h2 id="常见的监控对象">常见的监控对象&lt;/h2>
+&lt;p>&lt;strong>系统层监控&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>硬件状态&lt;/li>
+&lt;li>系统监控：CPU、Load(负载)、Memory、DiskIO、Processes、Kernel Parameters 等等&lt;/li>
+&lt;li>网络监控：网络设备、网络延迟、丢包率 扽等&lt;/li>
+&lt;li>端口存活状态、JVM 的状态等&lt;/li>
+&lt;/ul>
+&lt;p>中间件及基础设施类系统监控&lt;/p>
+&lt;ul>
+&lt;li>消息中间件：Kafka、RabbitMQ、RocketMQ 等&lt;/li>
+&lt;li>Web 服务器容器：Tomcat、Jetty 等&lt;/li>
+&lt;li>数据库及缓存：MySQL、PostgreSQL、MogoDB、ElasticSearch、Redis 等&lt;/li>
+&lt;li>数据库连接池：ShardingSpere 等&lt;/li>
+&lt;li>存储系统：Ceph 等&lt;/li>
+&lt;/ul>
+&lt;p>应用层监控&lt;/p>
+&lt;ul>
+&lt;li>用于衡量应用程序代码的状态和性能&lt;/li>
+&lt;li>状态码、时延、QPS 等&lt;/li>
+&lt;/ul>
+&lt;p>业务层监控&lt;/p>
+&lt;ul>
+&lt;li>用于衡量应用程序的价值，例如电子商务网站删的销售量&lt;/li>
+&lt;li>QPS、DAU 日活、转化率、成功率、增长速度 等等&lt;/li>
+&lt;li>业务接口：登陆数、注册数、订单量、搜索量、支付量 等等。&lt;/li>
+&lt;/ul>
+&lt;p>监控指标选择原则：&lt;/p>
+&lt;ul>
+&lt;li>选择能够表示一个主体是否稳定的指标，如果不是这个主体本身的指标，或者不能标识主体稳定性的，就要排除在外&lt;/li>
+&lt;li>优先选择与用户体验强相关或用户可以明显感知的指标&lt;/li>
+&lt;/ul>
+&lt;h1 id="监控体系">监控体系&lt;/h1>
+&lt;p>监控分为两种：&lt;/p>
+&lt;ul>
+&lt;li>**白盒监控 **# 善于发现系统中单个组件的问题，但是很难覆盖系统端到端的健康检查。&lt;/li>
+&lt;li>**黑盒监控 **# 可以提供最接近真实用户的系统端到端的检测。&lt;/li>
+&lt;/ul>
+&lt;h2 id="白盒监控">白盒监控&lt;/h2>
+&lt;p>白盒监控就是传统意义上的监控，通过指标采集、存储、展示等一系列操作，来观察被监控目标的运行状态。&lt;/p>
+&lt;p>通常，白盒监控体系包含如下几个步骤：&lt;strong>数据采集&amp;ndash;&amp;gt;数据存储&amp;ndash;&amp;gt;数据展示|告警&lt;/strong>&lt;/p>
+&lt;h3 id="数据采集">数据采集&lt;/h3>
+&lt;p>通过采集程序来采集相关数据，比如温度，磁盘用量，网卡流量，服务是否可用，进程是否运行等，通常都需要一个&lt;strong>客户端&lt;/strong>来采集数据，并主动推送 或者 被动等待拉取，以便将数据统一保存起来。
+以被监控对象为行为主体，数据采集主要有 2 种模式，分为：主动推送和被动拉取，这两种采集方式各有利弊。&lt;/p>
+&lt;h4 id="主动推送">主动推送&lt;/h4>
+&lt;p>&lt;strong>优点&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>不存在目标发现问题，新应用上线后自动可以加入监控&lt;/li>
+&lt;li>监控系统架构简单，应用只需调用接口上报数据即可&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>缺点&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>缺乏准确的需要监控的目标数&lt;/li>
+&lt;li>难以区分合法和非法的数据上报（权限验证可以有所帮助）&lt;/li>
+&lt;li>当数据没有准时推送时，监控很难判断是应用 overload 或者 dead 了&lt;/li>
+&lt;li>时钟不同步导致的时间序列对齐问题&lt;/li>
+&lt;/ul>
+&lt;h4 id="被动拉取">被动拉取&lt;/h4>
+&lt;p>&lt;strong>优点&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>所有时间序列都是对齐的&lt;/li>
+&lt;li>知道需要抓取的准确目标数&lt;/li>
+&lt;li>容易区分应用 overload 或者 dead，通过记录每次抓取花费的时间&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>缺点&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>需要额外机制发现新添加的监控目标&lt;/li>
+&lt;li>需要更复杂的 library 或者 agent 给应用吐数据&lt;/li>
+&lt;li>难以监控 short-live 的应用，比如 cronjob&lt;/li>
+&lt;/ul>
+&lt;p>上面两种采集方法的缺点都是可以被改善的，取决于愿意为之花费的工程师时间。
+总体来说被动拉取方式在体现监控的完备性上更好一些，其最大的短板是监控 short-live 应用，可以让这些应用主动推送到 proxy 应用，之后被动拉取。目标发现则可以结合公司内部名字系统实现。&lt;/p>
+&lt;h3 id="数据存储">数据存储&lt;/h3>
+&lt;p>时间序列采集之后就是怎么存储的问题了，主流存储有 3 种方式：&lt;/p>
+&lt;ol>
+&lt;li>RRD（Round Robin Database）
+&lt;ol>
+&lt;li>老牌的 Nagios，collectd 和 Ganglia 采用的是这种存储方式；graphite 采用的 Wisper 也是基于 RDD 的基本思想设计的。特点是采用基于圆形队列的数据库(Circular buffer based database），数据库大小在系统初始化后是恒定的，不用担心数据存储空间不足。缺点也是在于数据库大小恒定，因此只能保存一定时间的数据，而且时间序列的间隔在数据库初始化后不能调整。另外一个致命的缺点是受单机磁盘限制，当需要监控的规模很大时数据存储和读取瓶颈。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>Relational DataBase(关系型数据库)
+&lt;ol>
+&lt;li>Zabbix 使用 MySQL 存储时间序列数据。MySQL 也受到单机磁盘大小和性能限制，但是可以通过 partition 缓解。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>Time Series Database(时间序列数据库)
+&lt;ol>
+&lt;li>用 No-SQL 存储时间序列的应用有很多：Opentsdb，kairosdb，newts。使用 No-SQL 存储时间序列没有单机磁盘限制，数据量大时不存在扩展问题。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>时间序列的存储一般不需要考虑数据存储的 schema，客户端只通过简单 API 存取时间序列数据，具体的存储 schema 由底层存储系统（MySQL or No-SQL）决定，但是不同的存储 schema 决定了数据查询/展示的性能。&lt;/p>
+&lt;p>RRD 和 Relational DataBase 都受限于单机磁盘的性能，SSD 可以显著提高数据的读取性能，在数据量大时 MySQL 可以通过 partition 进行扩展，RRD 无法扩展。MySQL 虽然可以进行 paritition，但是复杂度和维护成本也很高。&lt;/p>
+&lt;p>**Time Series Database 天生就适合存储时间序列，**可以提供超大的存储能力和读性能，但是也需要考虑维护成本，如果公司有 No-SQL 公共服务可以适用，那 No-SQL 存储时间序列是不二的选择。&lt;/p>
+&lt;h3 id="数据展示">数据展示&lt;/h3>
+&lt;p>采集到的数据一般为时间序列数据，根据时间流逝产生的采样点收集到的数据，把所有采集点所采集到的数据连成线，就可绘制出来一个数据趋势图。数据展示需要具备以下绘图能力：&lt;/p>
+&lt;ul>
+&lt;li>数据汇聚，根据原始数据计算生成新的时间序列并画图&lt;/li>
+&lt;li>不同时间序列之间的合并计算，一般用来计算比例关系&lt;/li>
+&lt;li>多条时间序列汇总展示，用来查找事件相关性。&lt;/li>
+&lt;li>不同的图表样式，针对不同场景&lt;/li>
+&lt;li>比如每隔 1 分钟采集一次网卡流量，把 1 个小时内的每分钟采集到的网卡流量按照横向为时间轴，纵向为流量数轴的方式，展现出来，并把每个时间点都连成线，形成如有图的样子，这就是以时间序列产生的数据趋势图&lt;/li>
+&lt;/ul>
+&lt;p>数据展示有 2 个应用场景&lt;/p>
+&lt;ul>
+&lt;li>一是提供给运维人员定位问题时使用，需要能够快速的编辑生成新的图表验证猜想，所以需要灵活易用；&lt;/li>
+&lt;li>二是业务人员查看统计数据，需要强大的综合汇总以反映系统总体运行状况。&lt;/li>
+&lt;/ul>
+&lt;p>数据展示有时会涉及大量时间序列的短时间内读取，亦或是很多人同时有绘图查询需要读取数据，底层的数据存储格式是影响查询性能的主要因素。底层数据存储的 schema 影响查询性能，合理的架构设计能够极大的提升查询性能。
+常见的优化点有：&lt;/p>
+&lt;ul>
+&lt;li>冷热数据分离：近期的数据是最容易被查询的，可以增加内存存储的 replica 数（Bigtable/HBase)，历史数据可以放在硬盘上。&lt;/li>
+&lt;li>downsample：不仅减少存储，也降低了查询成本，但是需要好的策略降低对数据准确性的影响&lt;/li>
+&lt;li>资源隔离：不同部门时间序列数据存储在不同 server 上，减少相互影响。&lt;/li>
+&lt;/ul>
+&lt;h3 id="告警">告警&lt;/h3>
+&lt;p>&lt;strong>异常触发&lt;/strong>&lt;/p>
+&lt;p>数据采集到了，也存储好了，图表展示也没有问题了，但是没人会愿意每天盯着图表去发现问题，根据历史经验，通过定义一些条件触发某些动作的需求应运而生。 这需要一个 rule evaluatoin 引擎，可以是单独的进程也可以和数据采集集成在一起。输入是时间序列和用户定义的 rule，当时间序列符合 rule 里定义的状态时执行指定的动作，一般的动作包括：执行一个命令（修复脚本），发送定义好的内容到外部系统，等。&lt;/p>
+&lt;p>对引擎系统的要求有：&lt;/p>
+&lt;ul>
+&lt;li>规则定制：灵活，强大。因为需要满足不同部门不同应用的需求，必须灵活且强大。&lt;/li>
+&lt;li>规则依赖：service 内部依赖、service 外部依赖。很少有大的应用系统不依赖于其他系统，所以异常触发的判断一定要能够根据依赖系统的异常触发情况进行抑制，没有必要因为某个组件的异常而触发一系列其他组件的异常（这些异常根本原因是一个）。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>报警发送&lt;/strong>
+异常触发之后，可以自动修复的一定是自动化去解决，当自动化无法解决的异常发生之后，就需要发送警报给人来介入了。&lt;/p>
+&lt;p>最基本的报警发送是发送邮件，高级一点的可以支撑短信和语音呼叫，现在手机普及了有的公司可能有手机软件可以接收报警信息了。&lt;/p>
+&lt;p>发送的警报内容一般包含：&lt;/p>
+&lt;ul>
+&lt;li>发生问题的组件信息&lt;/li>
+&lt;li>具体的问题描述，是 error rate 高了还是程序 down 了&lt;/li>
+&lt;li>问题的持续时间&lt;/li>
+&lt;/ul>
+&lt;p>高级的报警内容还可能包含：&lt;/p>
+&lt;ul>
+&lt;li>产生这个警报的时间序列和触发的 rule 定义&lt;/li>
+&lt;li>如何处理这个问题的文档链接&lt;/li>
+&lt;li>如何暂时关闭这个报警(处理需要较长时间，不想再次收到同样的报警)&lt;/li>
+&lt;/ul>
+&lt;h2 id="黑盒监控">黑盒监控&lt;/h2>
+&lt;p>黑盒监控与白盒监控不太一样。黑盒监控并不去采集被监控目标主动暴露出来的一些可监控指标数据。而是让客户端模拟用户的行为，对监控目标执行一些操作，并以时间序列的方式存储这些操作所导致的结果，通过对这个结果数据进行监控。&lt;/p>
+&lt;p>常见的黑盒监控方式：&lt;/p>
+&lt;ul>
+&lt;li>使用 HTTP 探针、TCP 探针、DNS 探针、ICMP 探针 等用于检测站点、服务的可访问性、服务连通性、服务效率等。&lt;/li>
+&lt;/ul>
+&lt;p>以 etcd 集群的可用性来举例，我们可以实现一个探测用例，逻辑是对 etcd 做 create/get/delete/txn 等等操作，并记录每个操作的成功率/消耗时间，当成功率低于 100% 或消耗时间超过容忍阈值后，触发报警。我们将周期高频运行这个 etcd 的探测用例，同时对于 etcd 集群的任何变更都会发出一个事件 event 触发这个 etcd 探测立即运行，这样就能尽量确保第一时间发现 etcd 可用性故障了。同时，当 etcd 集群因为某些原因不可用了，我们也可以通过手动触发等其他方式做探活，也能第一时间得到是否恢复的信息。&lt;/p>
+&lt;h2 id="黑白盒监控的比较">黑/白盒监控的比较&lt;/h2>
+&lt;p>&lt;code>两者比较&lt;/code>：黑盒监控相较于白盒监控最大的不同在于黑盒监控是以故障为导向当故障发生时，黑盒监控能快速发现故障，而白盒监控则侧重于主动发现或者预测潜在的问题。一个完善的监控目标是要能够从白盒的角度发现潜在问题，能够在黑盒的角度快速发现已经发生的问题。&lt;/p>
+&lt;h2 id="定期巡检">定期巡检&lt;/h2>
+&lt;p>在大规模集集群/系统场景下，数据一致性是一定会面临的难题。数据不一致，将导致一些隐患，可能会在未来引发某些确定性的故障。
+相比于黑盒探测面对的未知故障场景，定向巡检的目标是对集群的已知风险点做扫描。
+我们希望 一个程序 能够定期对整个集群/链路做定向的巡检，找出这些数据不一致的点，判断数据不一致是否可能引发风险，从而能够防患于未然，治未病。
+比如 etcd 冷热备多集群覆盖不全，可能导致集群遇到故障无法快速恢复。那么我们就定期对 etcd 的冷热备覆盖情况做定向巡检，找出没有覆盖推平的集群，并告警。比如 集群风控系统没有全集群链路覆盖，限流配置没有全集群链路推平，可能导致某些故障场景引发集群全面崩溃，我们定期对风控配置全网扫描，判断是否可能导致故障，找出这些隐藏的已知风险点并告警。&lt;/p>
+&lt;h1 id="著名的监控方法论">著名的监控方法论&lt;/h1>
+&lt;h2 id="google-的四个黄金指标">Google 的四个黄金指标&lt;/h2>
+&lt;p>常用于在服务级别帮助衡量终端用户体验、服务中断、业务影响等层面的问题。适用于应用及服务监控&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Latency(延迟)&lt;/strong>
+&lt;ul>
+&lt;li>服务请求所需要的时长，例如 HTTP 请求的平均延迟。需要区分失败请求和成功请求&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Traffic(流量)&lt;/strong>
+&lt;ul>
+&lt;li>衡量服务的容量需求，例如每秒处理的 HTTP 请求书或者数据库的事务数量&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Errors(错误)&lt;/strong>
+&lt;ul>
+&lt;li>请求失败的速率，用于衡量错误发生的情况&lt;/li>
+&lt;li>例如，HTTP 500 错误数量等显式失败，返回错误内容或无效内容等隐式失败，以及由策略原因导致的失败(例如强制要求响应时间超过 30 毫秒的请求视为错误)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Saturation(饱和度)&lt;/strong>
+&lt;ul>
+&lt;li>衡量资源的使用情况，用于表达应用程序有多“满”&lt;/li>
+&lt;li>例如 内存、CPU、I/O、磁盘等资源的使用量&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="netflix-的-use-方法">Netflix 的 USE 方法&lt;/h2>
+&lt;p>全称为 Utilization Saturation and Errors Method。主要用于分析系统性能问题，可以指导用户快速识别资源瓶颈以及错误的方法。应用于主机指标监控&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Utilization(使用率)&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>Saturation(饱和度)&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>Errors(错误)&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;h2 id="weave-cloud-的-red-方法">Weave Cloud 的 RED 方法&lt;/h2>
+&lt;p>Weave Cloud 基于 Google 的四个黄金指标的原则下，结合 Prometheus 以及 Kubernetes 容器实践，细化和总结的方法论，特别适合于云原生应用以及微服务架构应用的监控和度量。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>(Request)Rate # 每秒接收的请求数&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>(Request)Errors # 每秒失败的请求数&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>(Request)Duration # 每隔请求所花费的时长&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;h1 id="常见的大型监控工具">常见的大型监控工具&lt;/h1>
+&lt;p>著名的开源监控工具：zabbix，zennos，opennms，cacti，nagios(icinga)，ganglia&lt;/p>
+&lt;ol>
+&lt;li>Cacti：是一套基于 PHP,MySQL,SNMP 及 RRDTool 开发的网络流量监测图形分析工具。
+&lt;ol>
+&lt;li>本身不具备报警能力，需要安装第三方插件才可以&lt;/li>
+&lt;li>rrd 存储系统：&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>Nagios：在系统或服务状态异常时发出邮件或短信报警第一时间通知网站运维人员，在状态恢复后发出正常的邮件或短信通知。
+&lt;ol>
+&lt;li>本身不具备展现数据趋势图功能&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>zabbix：同时具有 Cacti 与 Nagios 的特点
+&lt;ol>
+&lt;li>zabbix server&lt;/li>
+&lt;li>zabbix database&lt;/li>
+&lt;li>zabbix web gui&lt;/li>
+&lt;li>zabbix proxy 分布式数据采集&lt;/li>
+&lt;li>zabbix agent 每台需要监控的设备上都要装的代理&lt;/li>
+&lt;li>Passive checks related：监控 Server 主动来找 agent 收取监控数据&lt;/li>
+&lt;li>Active checks related：agent 主动上传监控数据给监控 Server&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>Prometheus # 基于 HTTP 的新时代监控&lt;/li>
+&lt;/ol>
+&lt;h1 id="http-黄金信号http-golden-signals">HTTP 黄金信号（HTTP Golden Signals）&lt;/h1>
+&lt;p>指标来作为 HTTP（即 API 层）连接健康状况的三个关键指标，这三个指标分别是：&lt;/p>
+&lt;ul>
+&lt;li>HTTP 请求速率；&lt;/li>
+&lt;li>HTTP 请求延迟；&lt;/li>
+&lt;li>HTTP 请求响应码。&lt;/li>
+&lt;/ul></description></item></channel></rss>

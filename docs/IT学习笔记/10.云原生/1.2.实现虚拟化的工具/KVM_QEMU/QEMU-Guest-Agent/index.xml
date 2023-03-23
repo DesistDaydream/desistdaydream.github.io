@@ -1,0 +1,503 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – QEMU Guest Agent</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/KVM_QEMU/QEMU-Guest-Agent/</link><description>Recent content in QEMU Guest Agent on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/KVM_QEMU/QEMU-Guest-Agent/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: QEMU Guest Agent</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/KVM_QEMU/QEMU-Guest-Agent/QEMU-Guest-Agent/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/KVM_QEMU/QEMU-Guest-Agent/QEMU-Guest-Agent/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.qemu.org/docs/master/interop/qemu-ga.html">官方文档，系统模拟管理和互操作性-QEMU 客户机代理&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.qemu.org/docs/master/interop/qemu-ga-ref.html">官方文档，系统模拟管理和互操作性-QEMU 客户机代理协议参考&lt;/a>(i.e.QGA 的 QMP API 参考文档)&lt;/li>
+&lt;li>&lt;a href="https://wiki.qemu.org/Features/GuestAgent">https://wiki.qemu.org/Features/GuestAgent&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.toutiao.com/i6646012291059810823/">https://www.toutiao.com/i6646012291059810823/&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.shuzhiduo.com/A/QV5ZgK76dy/">https://www.shuzhiduo.com/A/QV5ZgK76dy/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>QEMU Guest Agent(QEMU 虚拟机代理，简称 QGA)&lt;/strong> 是一个类似于 VMware Tools 的工具，用来辅助 Hypervisor 实现对 VM 的管理。&lt;/p>
+&lt;p>QEMU Guest Agent 旨在通过标准的 **QEMU Monitor Protocol(QEMU 监控协议，简称 QMP) **命令，实现 VM 与 宿主机 之间数据交互的功能。(比如可以在不登陆 VM 的情况下，让 VM 执行某些命令或者直接获取 VM 的信息)&lt;/p>
+&lt;h2 id="qemu-guest-agent-架构">QEMU Guest Agent 架构&lt;/h2>
+&lt;p>QGA 功能的实现与 虚拟化 I/O 的实现，是相同的原理。KVM/QEMU 会在 VM 中模拟一个 I/O 设备，并通过 ID 关联到宿主机的某个文件或设备上，这样就可以实现宿主机与虚拟机之间的交互。其实说白了，这个年代基本都是半虚拟化设备的实现方式，通过两部分来实现完整的功能：&lt;/p>
+&lt;ol>
+&lt;li>Host Device # 宿主机设备
+&lt;ol>
+&lt;li>**socket(套接字)&lt;strong>是宿主机中实现 QGA 的设备&lt;/strong>。**也可以是其他未来待发明的东西。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>Guest Driver # 虚拟机驱动
+&lt;ol>
+&lt;li>**virtio-serial(半虚拟化的串口设备)&lt;strong>是 VM 中实现 QGA 的设备&lt;/strong>。**也可以是 isa-serial 等模拟设备。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>除了基本的半虚拟化设备，VM 中还需要一个程序来处理宿主机发来的 QMP 命令：&lt;/p>
+&lt;ul>
+&lt;li>一个名为 &lt;strong>qemu-ga&lt;/strong> 的二进制文件。&lt;/li>
+&lt;/ul>
+&lt;p>默认情况下，qemu-ga 会监听 VM 中的 virtio-serial(默认为 /dev/virtio-ports/org.qemu.guest_agent.0) 串口设备。这样一来，所有从宿主机向 socket 发送的命令，都会传递到 virtio-serial 中，进而被监听该设备的 qemu-ga 接收，并处理该命令。&lt;/p>
+&lt;blockquote>
+&lt;p>/dev/virtio-ports/org.qemu.guest_agent.0 实际上是 /dev/vport1p1 的符号链接，这类设备名字都是 vport1pX 这种格式，X 从 0 开始&lt;/p>
+&lt;/blockquote>
+&lt;p>为了可以让 VM 实时处理 virtio-serial 中的数据，所以，qemu-ga 以守护程序的方式运行在宿主机上，这个守护程序默认为 qemu-guest-agent.service。&lt;/p>
+&lt;p>&lt;strong>这样一来，qemu-ga、qemu-guest-agent.service、virtio-serial、socket 这四个东西，就组成了一个完整的 QGA 技术栈。&lt;/strong>
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/mxgyxv/1624240513497-c71382f6-ebc0-4486-a2de-68de15875a07.png" alt="image.png">&lt;/p>
+&lt;h3 id="virtio-serial-和-socket-之间的数据通信路线">**virtio-serial **和 &lt;strong>socket 之间的数据通信路线&lt;/strong>&lt;/h3>
+&lt;p>假如我现在启动如下虚拟机，在 宿主机上创建了一个 socket(/tmp/qga.sock)，并为 VM 模拟了一个 virtio-serial&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># qemu-kvm -m 4096 -smp 2 -name test \&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-drive file&lt;span style="color:#f92672">=&lt;/span>/var/lib/libvirt/images/test-2.bj-net.qcow2,format&lt;span style="color:#f92672">=&lt;/span>qcow2,if&lt;span style="color:#f92672">=&lt;/span>virtio &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-netdev tap,id&lt;span style="color:#f92672">=&lt;/span>n1 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-net-pci,netdev&lt;span style="color:#f92672">=&lt;/span>n1 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-vnc :3 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-chardev socket,path&lt;span style="color:#f92672">=&lt;/span>/tmp/qga.sock,server,nowait,id&lt;span style="color:#f92672">=&lt;/span>qga0 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-serial &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtserialport,chardev&lt;span style="color:#f92672">=&lt;/span>qga0,name&lt;span style="color:#f92672">=&lt;/span>org.qemu.guest_agent.0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>查看 VM 的进程 和 socket&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># fuser qga.sock&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/tmp/qga.sock: &lt;span style="color:#ae81ff">267751&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ps -ef f | grep 267751&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">267766&lt;/span> &lt;span style="color:#ae81ff">2&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 01:45 ? S 0:00 &lt;span style="color:#ae81ff">\_&lt;/span> &lt;span style="color:#f92672">[&lt;/span>kvm-pit/267751&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#ae81ff">267751&lt;/span> &lt;span style="color:#ae81ff">238001&lt;/span> &lt;span style="color:#ae81ff">99&lt;/span> 01:45 pts/3 Sl+ 0:36 | &lt;span style="color:#ae81ff">\_&lt;/span> qemu-kvm -m &lt;span style="color:#ae81ff">4096&lt;/span> -smp &lt;span style="color:#ae81ff">2&lt;/span> -name test -drive file&lt;span style="color:#f92672">=&lt;/span>/var/lib/libvirt/images/test-2.bj-net.qcow2,format&lt;span style="color:#f92672">=&lt;/span>qcow2,if&lt;span style="color:#f92672">=&lt;/span>virtio -netdev tap,id&lt;span style="color:#f92672">=&lt;/span>n1 -device virtio-net-pci,netdev&lt;span style="color:#f92672">=&lt;/span>n1 -vnc :3 -chardev socket,path&lt;span style="color:#f92672">=&lt;/span>/tmp/qga.sock,server,nowait,id&lt;span style="color:#f92672">=&lt;/span>qga0 -device virtio-serial -device virtserialport,chardev&lt;span style="color:#f92672">=&lt;/span>qga0,name&lt;span style="color:#f92672">=&lt;/span>org.qemu.guest_agent.0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到，qga.sock 被 267751 进程使用着，而这个进程就是我们启动的一台虚拟机。当连接该 socket 后，读写的数据都会经过 267751 进程，并根据其中的 chardev 与 virtserialport 的关系，将数据送到 qemu 模拟的 virtio-serial 设备上，进而被 VM 内的 qemu-ga 接受并处理。&lt;/p>
+&lt;h2 id="qemu-monitor-protocol">&lt;strong>QEMU Monitor Protocol&lt;/strong>&lt;/h2>
+&lt;p>&lt;strong>QEMU Monitor Protocol(QEMU 监控协议，简称 QMP)&lt;/strong>
+可用的 QMP 命令详见：&lt;a href="https://www.yuque.com/go/doc/33175114">QMP 命令参考&lt;/a>&lt;/p>
+&lt;h1 id="qemu-guest-agent-部署">QEMU Guest Agent 部署&lt;/h1>
+&lt;p>有多种方式可以部署 QEMU Guest Agent&lt;/p>
+&lt;h2 id="kvmqemu-创建-qga">KVM/QEMU 创建 QGA&lt;/h2>
+&lt;p>首先启动一个 VM&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># qemu-kvm -m 4096 -smp 2 -name test \&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-drive file&lt;span style="color:#f92672">=&lt;/span>/var/lib/libvirt/images/test-2.bj-net.qcow2,format&lt;span style="color:#f92672">=&lt;/span>qcow2,if&lt;span style="color:#f92672">=&lt;/span>virtio &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-netdev tap,id&lt;span style="color:#f92672">=&lt;/span>n1 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-net-pci,netdev&lt;span style="color:#f92672">=&lt;/span>n1 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-vnc :3 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-chardev socket,path&lt;span style="color:#f92672">=&lt;/span>/tmp/qga.sock,server,nowait,id&lt;span style="color:#f92672">=&lt;/span>qga0 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-serial &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtserialport,chardev&lt;span style="color:#f92672">=&lt;/span>qga0,name&lt;span style="color:#f92672">=&lt;/span>org.qemu.guest_agent.0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 VM 中安装 QGA，并启动(直接 yum 即可，&lt;strong>一般通过 libvirt 启动的虚拟机，都默认自带 qemu-guest-aent&lt;/strong>)。一般默认配置即可，如果 qemu-ga 未监听默认设备，修改配置文件，并重启服务即可。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>yum install qemu-guest-agent -y
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>systemctl start qemu-guest-agent.service &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> systemctl enable qemu-guest-agent.service
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在宿主机上然后使用 socat 连接 /tmp/qga.sock 即可开始使用 QGA。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># socat - unix:/tmp/qga.sock&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#e6db74">&amp;#34;execute&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;guest-get-host-name&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 这是发送给 QGA 的数据&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#e6db74">&amp;#34;return&amp;#34;&lt;/span>: &lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#e6db74">&amp;#34;host-name&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;centos8-2004&amp;#34;&lt;/span>&lt;span style="color:#f92672">}}&lt;/span> &lt;span style="color:#75715e"># 这是 QGA 返回的数据&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="libvirt-创建-qga">libvirt 创建 QGA&lt;/h2>
+&lt;p>libvrit 提供了专门的 DomainQemuAgentCommand API（对应 virsh qemu-agent-command 命令）来和 QGA 通讯，另外还有有些 libvirt 内置 api 也可以支持 QGA，例如 virsh 的 reboot、shutdown 等命令。&lt;/p>
+&lt;p>&lt;strong>通过 libvirt 启动 KVM/QEMU 的虚拟机不需要做任何配置，默认就会自动创建一个 channel&lt;/strong>，VM 的 xml 中 channel 配置段如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-html" data-lang="html">&lt;span style="display:flex;">&lt;span>&amp;lt;&lt;span style="color:#f92672">channel&lt;/span> &lt;span style="color:#a6e22e">type&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;unix&amp;#34;&lt;/span>&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &amp;lt;&lt;span style="color:#f92672">target&lt;/span> &lt;span style="color:#a6e22e">type&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;virtio&amp;#34;&lt;/span> &lt;span style="color:#a6e22e">name&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;org.qemu.guest_agent.0&amp;#34;&lt;/span> /&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &amp;lt;&lt;span style="color:#f92672">address&lt;/span> &lt;span style="color:#a6e22e">type&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;virtio-serial&amp;#34;&lt;/span> &lt;span style="color:#a6e22e">controller&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;0&amp;#34;&lt;/span> &lt;span style="color:#a6e22e">bus&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;0&amp;#34;&lt;/span> &lt;span style="color:#a6e22e">port&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;1&amp;#34;&lt;/span> /&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&amp;lt;/&lt;span style="color:#f92672">channel&lt;/span>&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>默认情况，虚拟机启动后会在 /var/lib/libvirt/qemu/channel/target/DOMAIN/ 目录下生成一个名为 org.qemu.guest_agent.0 的 socket 文件，如果在 virt-manager 中查看该 channel 设备，也可以看到 Source path
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/mxgyxv/1616123963420-5de205c9-b9f1-4910-a984-12f711d617b1.png" alt="">
+注意：该 socket 被 libvirtd 始终连接着，无法通过 socat 等工具再次连接使用，通过 fuser 命令可以看到占用该 socket 的进程(255192 就是 qemu-kvm 运行虚拟机的进程)：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># fuser org.qemu.guest_agent.0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/libvirt/qemu/channel/target/domain-54-lichenhao.bj-net/org.qemu.guest_agent.0: &lt;span style="color:#ae81ff">255192&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>而在 VM 内部，默认情况下，会在 /dev 目录下生成也会自动生成串口设备，并自动生成 qemu-ga 文件，且启动 qemu-guest-agent.service 服务&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ll /dev/virtio-ports/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">11&lt;/span> Nov &lt;span style="color:#ae81ff">21&lt;/span> 00:41 com.redhat.spice.0 -&amp;gt; ../vport1p2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">11&lt;/span> Nov &lt;span style="color:#ae81ff">21&lt;/span> 00:41 org.qemu.guest_agent.0 -&amp;gt; ../vport1p1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">11&lt;/span> Nov &lt;span style="color:#ae81ff">21&lt;/span> 00:41 org.qemu.guest_agent.1 -&amp;gt; ../vport1p3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># systemctl status qemu-guest-agent.service&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>● qemu-guest-agent.service - QEMU Guest Agent
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Loaded: loaded &lt;span style="color:#f92672">(&lt;/span>/usr/lib/systemd/system/qemu-guest-agent.service; disabled; vendor preset: enabled&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Active: active &lt;span style="color:#f92672">(&lt;/span>running&lt;span style="color:#f92672">)&lt;/span> since Fri 2020-11-20 23:40:33 CST; 44min ago
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Main PID: &lt;span style="color:#ae81ff">826&lt;/span> &lt;span style="color:#f92672">(&lt;/span>qemu-ga&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Tasks: &lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#f92672">(&lt;/span>limit: 23968&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Memory: 2.7M
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>CGroup: /system.slice/qemu-guest-agent.service
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└─826 /usr/bin/qemu-ga --method&lt;span style="color:#f92672">=&lt;/span>virtio-serial --path&lt;span style="color:#f92672">=&lt;/span>/dev/virtio-ports/org.qemu.guest_agent.0 --blacklist&lt;span style="color:#f92672">=&lt;/span> -F/etc/qemu-ga/fsfreeze-hook
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Nov &lt;span style="color:#ae81ff">20&lt;/span> 23:40:33 lichenhao.bj-net systemd&lt;span style="color:#f92672">[&lt;/span>1&lt;span style="color:#f92672">]&lt;/span>: Started QEMU Guest Agent.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>此时，宿主机的 socket 与 VM 中的串口设备(/dev/virtio-ports/org.qemu.guest_agent.0) 之间建立了一条 channel&lt;/p>
+&lt;p>然后宿主机通过 libvirt 的 API(即 virsh qemu-agent-command 命令)，即可向 VM 中发送指令，效果如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># virsh qemu-agent-command lichenhao.bj-net --pretty &amp;#39;{&amp;#34;execute&amp;#34;:&amp;#34;guest-get-osinfo&amp;#34;}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;return&amp;#34;&lt;/span>: &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;name&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;CentOS Linux&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;kernel-release&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;4.18.0-193.28.1.el8_2.x86_64&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;version&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;8 (Core)&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;pretty-name&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;CentOS Linux 8 (Core)&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;version-id&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;8&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;kernel-version&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;#1 SMP Thu Oct 22 00:20:22 UTC 2020&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;machine&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;x86_64&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;id&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;centos&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="通过-socat-等工具连接-socket">通过 socat 等工具连接 socket&lt;/h3>
+&lt;p>由于通过 libvirt 创建的虚拟机的这个 channel 的 socket 一直被 libvirt 占用，所以无法使用别的方式连接。这时候我们可以自己再创建一个 channel&lt;/p>
+&lt;p>那么在宿主机上的 libvirt 将不会建立与 socket 建立连接。&lt;/p>
+&lt;p>宿主机上的 libvirt 的 xml：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-html" data-lang="html">&lt;span style="display:flex;">&lt;span>&amp;lt;&lt;span style="color:#f92672">channel&lt;/span> &lt;span style="color:#a6e22e">type&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;unix&amp;#34;&lt;/span>&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &amp;lt;&lt;span style="color:#f92672">target&lt;/span> &lt;span style="color:#a6e22e">type&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;virtio&amp;#34;&lt;/span> &lt;span style="color:#a6e22e">name&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;org.qemu.guest_agent.1&amp;#34;&lt;/span> /&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &amp;lt;&lt;span style="color:#f92672">address&lt;/span> &lt;span style="color:#a6e22e">type&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;virtio-serial&amp;#34;&lt;/span> &lt;span style="color:#a6e22e">controller&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;0&amp;#34;&lt;/span> &lt;span style="color:#a6e22e">bus&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;0&amp;#34;&lt;/span> &lt;span style="color:#a6e22e">port&lt;/span>&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;3&amp;#34;&lt;/span> /&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&amp;lt;/&lt;span style="color:#f92672">channel&lt;/span>&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>我们也可以在其中加入 &lt;!-- raw HTML omitted --> 这一行，来手动指定 socket 文件的绝对路径。否则 socket 默认在 /var/lib/libvirt/qemu/channel/target/DOMAIN/ 目录下&lt;/p>
+&lt;/blockquote>
+&lt;p>此时 VM 内部的 qemu-guest-agent 进程还是在连接 org.qemu.guest_agent.0 设备，为了使用 .1 ，我们需要将 /usr/lib/systemd/system/qemu-guest-agent.service 文件中的所有 .0 改为 .1，然后重启服务。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># sed -i &amp;#39;s/qemu.guest_agent.0/qemu.guest_agent.1/g&amp;#39; /usr/lib/systemd/system/qemu-guest-agent.service&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># systemctl daemon-reload&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># systemctl restart qemu-guest-agent.service&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>最后，我们就可以在宿主机上使用 socat 去连接 socket 文件了：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># socat unix:/var/lib/libvirt/qemu/channel/target/domain-55-lichenhao.bj-net/org.qemu.guest_agent.1 readline&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#e6db74">&amp;#34;execute&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;guest-get-osinfo&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#e6db74">&amp;#34;return&amp;#34;&lt;/span>: &lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#e6db74">&amp;#34;name&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;CentOS Linux&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;kernel-release&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;4.18.0-193.28.1.el8_2.x86_64&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;version&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;8 (Core)&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;pretty-name&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;CentOS Linux 8 (Core)&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;version-id&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;8&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;kernel-version&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;#1 SMP Thu Oct 22 00:20:22 UTC 2020&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;machine&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;x86_64&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;id&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;centos&amp;#34;&lt;/span>&lt;span style="color:#f92672">}}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="qemu-guest-agent-关联文件">QEMU Guest Agent 关联文件&lt;/h1>
+&lt;p>&lt;strong>/etc/sysconfig/qemu-ga&lt;/strong> # qemu-ga 的配置文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># rpc 黑名单列表。这里用来定义 qemu-ga 不处理来自宿主机的哪些 QMP 命令。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>BLACKLIST_RPC&lt;span style="color:#f92672">=&lt;/span>guest-file-open,guest-file-close,guest-file-read,guest-file-write,guest-file-seek,guest-file-flush,guest-exec,guest-exec-status
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Fsfreeze hook script specification.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># FSFREEZE_HOOK_PATHNAME=/dev/null : disables the feature.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># FSFREEZE_HOOK_PATHNAME=/path/to/executable : enables the feature with the&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># specified binary or shell script.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># FSFREEZE_HOOK_PATHNAME= : enables the feature with the&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># default value (invoke &amp;#34;qemu-ga --help&amp;#34; to interrogate).&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>FSFREEZE_HOOK_PATHNAME&lt;span style="color:#f92672">=&lt;/span>/etc/qemu-ga/fsfreeze-hook
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>/usr/lib/systemd/system/qemu-guest-agent.service&lt;/strong> # qemu-ga 守护程序文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># systemctl cat qemu-guest-agent.service&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># /usr/lib/systemd/system/qemu-guest-agent.service&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Unit&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Description&lt;span style="color:#f92672">=&lt;/span>QEMU Guest Agent
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>BindsTo&lt;span style="color:#f92672">=&lt;/span>dev-virtio&lt;span style="color:#ae81ff">\x&lt;/span>2dports-org.qemu.guest_agent.0.device
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>After&lt;span style="color:#f92672">=&lt;/span>dev-virtio&lt;span style="color:#ae81ff">\x&lt;/span>2dports-org.qemu.guest_agent.0.device
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>IgnoreOnIsolate&lt;span style="color:#f92672">=&lt;/span>True
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Service&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>UMask&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">0077&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>EnvironmentFile&lt;span style="color:#f92672">=&lt;/span>/etc/sysconfig/qemu-ga
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ExecStart&lt;span style="color:#f92672">=&lt;/span>/usr/bin/qemu-ga &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --method&lt;span style="color:#f92672">=&lt;/span>virtio-serial &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --path&lt;span style="color:#f92672">=&lt;/span>/dev/virtio-ports/org.qemu.guest_agent.0 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --blacklist&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>BLACKLIST_RPC&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -F&lt;span style="color:#e6db74">${&lt;/span>FSFREEZE_HOOK_PATHNAME&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>StandardError&lt;span style="color:#f92672">=&lt;/span>syslog
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Restart&lt;span style="color:#f92672">=&lt;/span>always
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RestartSec&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Install&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>WantedBy&lt;span style="color:#f92672">=&lt;/span>dev-virtio&lt;span style="color:#ae81ff">\x&lt;/span>2dports-org.qemu.guest_agent.0.device
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="ovirt-guest-agent">ovirt-guest-agent&lt;/h1>
+&lt;p>ovirt-guest-agent 是和 qemu-guest-agent 并列的一个概念。在使用 oVirt 作为虚拟化管理时，虚拟机内部安装下面三个工具，和 ovirt 配合能够提高虚拟机的用户体验和性能。&lt;/p>
+&lt;ul>
+&lt;li>oVirt Guest Agent：原理与 qemu-guest-agent 类似，但是提供的功能有所区别。&lt;/li>
+&lt;li>Spice Agent：提高 spice 连接虚拟机的用户体验。&lt;/li>
+&lt;li>VirtIO Drivers：包含一些驱程序，VirtIO Serial、VirtIO SCS、VirtIO Network、Memory Ballooning&lt;/li>
+&lt;/ul>
+&lt;p>qemu：
+&lt;a href="https://wiki.qemu.org/Features/GuestAgent">https://wiki.qemu.org/Features/GuestAgent&lt;/a>&lt;/p></description></item><item><title>Docs: QMP 命令参考</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/KVM_QEMU/QEMU-Guest-Agent/QMP-%E5%91%BD%E4%BB%A4%E5%8F%82%E8%80%83/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/KVM_QEMU/QEMU-Guest-Agent/QMP-%E5%91%BD%E4%BB%A4%E5%8F%82%E8%80%83/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.qemu.org/docs/master/interop/qemu-ga-ref.html">官方文档，系统模拟管理与交互-QEMU Guest Agent 协议参考&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.jianshu.com/p/27d8491ed100">简书，qemu-agent-command 命令含义&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>通过指令&lt;/p>
+&lt;pre>&lt;code>virsh qemu-agent-command 虚拟机 --cmd '{&amp;quot;execute&amp;quot;:&amp;quot;guest-info&amp;quot;}'
+&lt;/code>&lt;/pre>
+&lt;p>可以查看其所有支持的命令，返回的数据如下&lt;/p>
+&lt;pre>&lt;code>{&amp;quot;return&amp;quot;:{&amp;quot;version&amp;quot;:&amp;quot;2.8.0&amp;quot;,
+&amp;quot;supported_commands&amp;quot;: [
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-sync-delimited&amp;quot;,&amp;quot;success-response&amp;quot;:true},{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-sync&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-suspend-ram&amp;quot;,&amp;quot;success-response&amp;quot;:false},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-suspend-hybrid&amp;quot;,&amp;quot;success-response&amp;quot;:false},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-suspend-disk&amp;quot;,&amp;quot;success-response&amp;quot;:false},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-shutdown&amp;quot;,&amp;quot;success-response&amp;quot;:false},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-set-vcpus&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-set-user-password&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-set-time&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-set-memory-blocks&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-ping&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-network-get-interfaces&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-info&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-get-vcpus&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-get-time&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-get-memory-blocks&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-get-memory-block-info&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-get-fsinfo&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-fstrim&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-fsfreeze-thaw&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-fsfreeze-status&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-fsfreeze-freeze-list&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:true,&amp;quot;name&amp;quot;:&amp;quot;guest-fsfreeze-freeze&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:false,&amp;quot;name&amp;quot;:&amp;quot;guest-file-write&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:false,&amp;quot;name&amp;quot;:&amp;quot;guest-file-seek&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:false,&amp;quot;name&amp;quot;:&amp;quot;guest-file-read&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:false,&amp;quot;name&amp;quot;:&amp;quot;guest-file-open&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:false,&amp;quot;name&amp;quot;:&amp;quot;guest-file-flush&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:false,&amp;quot;name&amp;quot;:&amp;quot;guest-file-close&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:false,&amp;quot;name&amp;quot;:&amp;quot;guest-exec-status&amp;quot;,&amp;quot;success-response&amp;quot;:true},
+{&amp;quot;enabled&amp;quot;:false,&amp;quot;name&amp;quot;:&amp;quot;guest-exec&amp;quot;,&amp;quot;success-response&amp;quot;:true}
+]}}
+&lt;/code>&lt;/pre>
+&lt;p>返回为数据，其中 supported_command 为所有命令的数组&lt;/p>
+&lt;p>其官方地址为：&lt;a href="https://links.jianshu.com/go?to=https%3A%2F%2Fqemu.weilnetz.de%2Fdoc%2Fqemu-ga-ref.html%23API-Reference">QEMU Guest Agent Protocol Reference&lt;/a>&lt;/p>
+&lt;p>各命令含义如下：
+1. guest-sync-delimited&lt;/p>
+&lt;p>宿主机发送一个 int 数字给 qga，qga 返回这个数字，并且在后续返回字符串响应中加入 ascii 码为 0xff 的字符。
+2. guest-sync&lt;/p>
+&lt;p>回文唯一的整数，这个命令进行测试。&lt;/p>
+&lt;p>这个命令用于确保 client 与 guest agent 是同步的，不包含之前 client 的陈旧数据。直到返回特定的数字之前的 guest agent 响应都应被忽略。当含有 client 接收到陈旧数据时，这个命令并不能可靠的执行。一个特定的场景是，如果 qemu-ga 响应被逐个字符地输入到 JSON 解析器中。在这些情况下，使用 guest-sync-delimited 可能是最佳选择。对于逐行获取响应并将其转换为 JSON 对象的客户机，guest-sync 应该足够了，但请注意，在通道不干净的情况下，一些解析响应的尝试可能会导致解析器错误。此类客户端还应该在此命令之前加上 0xFF 字节，以确保客户代理刷新前一个会话的部分读取的 JSON 数据。&lt;/p>
+&lt;p>&lt;strong>Arguments:&lt;/strong>
+&lt;em>id: int,随机生成的 64-bit 整数&lt;/em>&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>
+&lt;em>客户端发出的特定整数&lt;/em>&lt;/p>
+&lt;p>&lt;strong>测试:&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>virsh qemu-agent-command centos --cmd '{&amp;quot;execute&amp;quot;:&amp;quot;guest-sync&amp;quot;, &amp;quot;arguments&amp;quot;:{&amp;quot;id&amp;quot;:1234567890}}'
+{&amp;quot;return&amp;quot;:1234567890}
+&lt;/code>&lt;/pre>
+&lt;ol start="3">
+&lt;li>guest-ping
+Ping the guest agent，如果不返回错误信息，则成功&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>测试:&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>virsh qemu-agent-command centos --cmd
+'{&amp;quot;execute&amp;quot;:&amp;quot;guest-ping&amp;quot;}'
+{&amp;quot;return&amp;quot;:{}}
+&lt;/code>&lt;/pre>
+&lt;ol start="4">
+&lt;li>guest-get-time
+获取虚拟机系统时间（相对于 1970-01-01 in UTC)；&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>Returns:&lt;/strong>
+&lt;em>纳秒格式的时间&lt;/em>&lt;/p>
+&lt;p>&lt;strong>测试:&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>virsh qemu-agent-command centos --cmd
+'{&amp;quot;execute&amp;quot;:&amp;quot;guest-get-time&amp;quot;}'
+{&amp;quot;return&amp;quot;:1534345952638400000}
+&lt;/code>&lt;/pre>
+&lt;ol start="5">
+&lt;li>guest-set-time
+设置虚拟机时间&lt;/li>
+&lt;/ol>
+&lt;p>Arguments:
+time: int (optional)&lt;/p>
+&lt;p>时间格式为纳秒，相对于 1970-01-01 in UTC&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>
+&lt;em>成功则无返回值&lt;/em>&lt;/p>
+&lt;ol start="6">
+&lt;li>guest-info
+获取 guest agent 信息&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>Returns:&lt;/strong>
+&lt;em>GuestAgentInfo 对象&lt;/em>&lt;/p>
+&lt;ol start="7">
+&lt;li>guest-shutdown
+开启虚拟机关机任务，其为异步命令，不保证关机成功&lt;/li>
+&lt;/ol>
+&lt;p>Arguments:&lt;/p>
+&lt;p>&lt;em>mode: string (optional)&lt;/em>&lt;/p>
+&lt;p>&lt;em>&amp;ldquo;halt&amp;rdquo;， &amp;ldquo;powerdown&amp;rdquo; ， &amp;ldquo;reboot&amp;quot;三种状态可以选择，powerdown 为默认选项，命令成功执行无返回。成功的标志是，VM 以 0 的推出状态推出，或使用 QMP 命令查询时返回 VM 状态为 shutdown&lt;/em>&lt;/p>
+&lt;ol start="8">
+&lt;li>guest-file-open&lt;/li>
+&lt;/ol>
+&lt;p>打开虚拟机内文件并返回文件句柄&lt;/p>
+&lt;p>Arguments:&lt;/p>
+&lt;p>path: string，虚拟机所打开文件完整路径&lt;/p>
+&lt;p>mode: string (optional)，打开文件方式，与 fopen()函数相同，默认为&amp;quot;r&amp;rdquo;&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>&lt;/p>
+&lt;p>执行成功则返回文件句柄&lt;/p>
+&lt;ol start="9">
+&lt;li>guest-file-close&lt;/li>
+&lt;/ol>
+&lt;p>关闭虚拟机文件&lt;/p>
+&lt;p>Arguments:&lt;/p>
+&lt;p>&lt;em>handle: int，guest-file-open 所返回的文件句柄&lt;/em>&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>&lt;/p>
+&lt;p>&lt;em>成功无返回值&lt;/em>&lt;/p>
+&lt;ol start="10">
+&lt;li>guest-file-read&lt;/li>
+&lt;/ol>
+&lt;p>读取虚拟机中打开的文件（Data will be base64-encoded）&lt;/p>
+&lt;p>Arguments:&lt;/p>
+&lt;p>handle: int，guest-file-open 所返回的文件句柄&lt;/p>
+&lt;p>count：int，最少读取位数（默认为 64K）&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>&lt;/p>
+&lt;p>&lt;em>成功则返回 GuestFileRead 类&lt;/em>&lt;/p>
+&lt;ol start="11">
+&lt;li>guest-file-write&lt;/li>
+&lt;/ol>
+&lt;p>写入虚拟机打开的文件&lt;/p>
+&lt;p>Arguments:&lt;/p>
+&lt;p>handle: int，guest-file-open 所返回的文件句柄&lt;/p>
+&lt;p>count：int，最少读取位数（默认为 64K）&lt;/p>
+&lt;p>buf-b64: string，表示要写入数据的 base64 编码字符串&lt;/p>
+&lt;p>count: int (optional)，写入的位数，默认是在 buffer 中的全部位数&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>&lt;/p>
+&lt;p>&lt;em>成功返回 GuestFileWrite 类&lt;/em>&lt;/p>
+&lt;ol start="12">
+&lt;li>guest-file-seek&lt;/li>
+&lt;/ol>
+&lt;p>同 fseek()用法相同，seek 到文件的指定位置，&lt;/p>
+&lt;p>Arguments:&lt;/p>
+&lt;p>handle: int，guest-file-open 所返回的文件句柄&lt;/p>
+&lt;p>offset：int，文件位移量&lt;/p>
+&lt;p>whence: GuestFileWhence，描述 offset&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>&lt;/p>
+&lt;p>成功则返回 GuestFileSeek 类&lt;/p>
+&lt;p>&lt;strong>13. guest-file-flush&lt;/strong>&lt;/p>
+&lt;p>将用户缓冲区数据写入磁盘或内核缓冲区&lt;/p>
+&lt;p>Arguments:&lt;/p>
+&lt;p>&lt;em>handle: int，guest-file-open 所返回的文件句柄&lt;/em>&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>&lt;/p>
+&lt;p>成功则无返回值*&lt;/p>
+&lt;ol start="14">
+&lt;li>guest-fsfreeze-status&lt;/li>
+&lt;/ol>
+&lt;p>获取虚拟机文件冻结状态&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>&lt;/p>
+&lt;p>&lt;em>GuestFsfreezeStatus 枚举，包括 thawed，frozen 两种状态&lt;/em>&lt;/p>
+&lt;ol start="15">
+&lt;li>guest-fsfreeze-freeze&lt;/li>
+&lt;/ol>
+&lt;p>同步并冻结虚拟机文件系统&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>&lt;/p>
+&lt;p>返回目前冻结的文件个数，如果执行错误，则解冻当前所有文件。&lt;/p>
+&lt;ol start="16">
+&lt;li>guest-fsfreeze-freeze-list&lt;/li>
+&lt;/ol>
+&lt;p>同步和冻结指定的虚拟机文件，&lt;/p>
+&lt;p>Arguments:&lt;/p>
+&lt;p>&lt;em>mountpoints: array of string (optional)，要冻结的文件系统挂载点数组。如果省略，每个挂载的文件系统都会被冻结。无效的挂载点被忽略。&lt;/em>&lt;/p>
+&lt;ol start="17">
+&lt;li>guest-fsfreeze-thaw&lt;/li>
+&lt;/ol>
+&lt;p>解冻所有冻结的文件&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>&lt;/p>
+&lt;p>&lt;em>解冻的文件个数&lt;/em>&lt;/p>
+&lt;ol start="18">
+&lt;li>guest-fstrim&lt;/li>
+&lt;/ol>
+&lt;p>文件系统未使用的硬盘空间&lt;/p>
+&lt;p>Arguments：&lt;/p>
+&lt;p>minimum: int (optional)&lt;/p>
+&lt;p>最小可丢弃的连续自由范围，单位为字节。通过增加这个值，fstrim 操作将更快地完成具有严重碎片化的空闲空间的文件系统，尽管并非所有块都将被丢弃。默认值为零，意思是“丢弃所有空闲块”。&lt;/p>
+&lt;ol start="19">
+&lt;li>guest-suspend-disk&lt;/li>
+&lt;/ol>
+&lt;p>挂起虚拟机磁盘，如成功则不返回值&lt;/p>
+&lt;ol start="20">
+&lt;li>guest-suspend-ram&lt;/li>
+&lt;/ol>
+&lt;p>挂起虚拟机 ram&lt;/p>
+&lt;ol start="21">
+&lt;li>guest-suspend-hybrid&lt;/li>
+&lt;/ol>
+&lt;p>将虚拟机状态写入磁盘，并挂起 ram&lt;/p>
+&lt;h2 id="guest-network-get-interfaces--获取虚拟机-ip-地址mac-地址子网掩码">guest-network-get-interfaces # 获取虚拟机 IP 地址，MAC 地址，子网掩码&lt;/h2>
+&lt;p>{&amp;ldquo;execute&amp;rdquo;: &amp;ldquo;guest-network-get-interfaces&amp;rdquo;}&lt;/p>
+&lt;ol start="23">
+&lt;li>guest-get-vcpus
+检索客户的逻辑处理器列表。这是一个只读操作。&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>Returns:&lt;/strong>&lt;/p>
+&lt;p>&lt;em>虚拟机的 VCPUs 列表，以 GuestLogicalProcessor 类形式返回&lt;/em>&lt;/p>
+&lt;ol start="24">
+&lt;li>guest-set-vcpus&lt;/li>
+&lt;/ol>
+&lt;p>尝试重新配置客户内部的逻辑处理器(当前:启用/禁用)。&lt;/p>
+&lt;p>Arguments:&lt;/p>
+&lt;p>&lt;em>vcpus: array of GuestLogicalProcessor&lt;/em>&lt;/p>
+&lt;ol start="25">
+&lt;li>guest-get-fsinfo&lt;/li>
+&lt;/ol>
+&lt;p>获取在虚拟机中挂载的文件系统列表&lt;/p>
+&lt;ol start="26">
+&lt;li>guest-set-user-password&lt;/li>
+&lt;/ol>
+&lt;p>Arguments:&lt;/p>
+&lt;p>username: string，需要更改密码的用户名&lt;/p>
+&lt;p>password: string，新的密码（base64 encoded）&lt;/p>
+&lt;p>crypted: boolean，如果以被 crypt()加密则为真，否则为 false&lt;/p>
+&lt;p>&lt;strong>Returns:&lt;/strong>&lt;/p>
+&lt;p>&lt;em>如成功则无返回值&lt;/em>&lt;/p>
+&lt;ol start="27">
+&lt;li>guest-get-memory-block&lt;/li>
+&lt;/ol>
+&lt;p>获取虚拟机内存块信息，返回虚拟机所知的所有内存块，以 GuestMemoryBlock 对象展示&lt;/p>
+&lt;ol start="28">
+&lt;li>guest-set-memory-blocks&lt;/li>
+&lt;/ol>
+&lt;p>设置虚拟机中的内存块信息&lt;/p>
+&lt;h2 id="guest-exec-status--获取虚拟机中的进程状态如进程退出则获取其相关元数据">guest-exec-status # 获取虚拟机中的进程状态，如进程退出，则获取其相关元数据。&lt;/h2>
+&lt;p>Arguments：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>pid: int&lt;/p>
+&lt;p>{ &amp;ldquo;execute&amp;rdquo;: &amp;ldquo;guest-exec-status&amp;rdquo;, &amp;ldquo;arguments&amp;rdquo;: { &amp;ldquo;pid&amp;rdquo;: PID } }&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>Returns:&lt;/strong>
+成功则返回 GuestExecStatus 类对象,GuestExecStatus 含有如下成员&lt;/p>
+&lt;blockquote>
+&lt;p>exited: boolean，如进程已经终止则为真
+exitcode: int (optional)，进程退出码
+signal: int (optional)，异常终止代码
+out-data: string (optional)，程序 stdout(base64-encoded)
+err-data: string (optional)，程序 stderr(base64-encoded)
+out-truncated: boolean (optional)，如果由于大小限制而未完全捕获 stdout，则为真。&lt;/p>
+&lt;/blockquote>
+&lt;p>err-truncated: boolean (optional)，如果由于大小限制而没有完全捕获 stderr，则为真。&lt;/p>
+&lt;h2 id="guest-exec--在虚拟机中执行命令">guest-exec # 在虚拟机中执行命令&lt;/h2>
+&lt;p>&lt;strong>Arguments:&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>path: string，执行的路径或名称&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>arg: array of string (optional)，执行命令所需参数&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>env: array of string (optional)，执行所需的环境变量&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>input-data: string (optional)，所需数据&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>capture-output: boolean (optional)，获取进程的 stdout/stderr&lt;/p>
+&lt;p>{ &amp;ldquo;execute&amp;rdquo;: &amp;ldquo;guest-exec&amp;rdquo;, &amp;ldquo;arguments&amp;rdquo;: { &amp;ldquo;path&amp;rdquo;: &amp;ldquo;ip&amp;rdquo;, &amp;ldquo;arg&amp;rdquo;: [ &amp;ldquo;addr&amp;rdquo;, &amp;ldquo;list&amp;rdquo; ], &amp;ldquo;capture-output&amp;rdquo;: true } }&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>Returns:&lt;/strong>
+如执行成功则返回其 PID&lt;/p>
+&lt;h2 id="guest-get-host-name--返回机器名称">guest-get-host-name # 返回机器名称&lt;/h2>
+&lt;h2 id="guest-get-timezone--获取虚拟机时区信息">guest-get-timezone # 获取虚拟机时区信息&lt;/h2>
+&lt;h2 id="guest-get-osinfo--获取操作系统信息">guest-get-osinfo # 获取操作系统信息&lt;/h2>
+&lt;h1 id="应用示例">应用示例&lt;/h1>
+&lt;p>以 virsh qemu-agent-command 命令为例，通过 socat 等工具与 VM 交互，只需要直接输入 QMP 指令即可&lt;/p>
+&lt;h2 id="在-vm-中执行命令并在宿主机接收执行结果">在 VM 中执行命令，并在宿主机接收执行结果&lt;/h2>
+&lt;pre>&lt;code># 在 VM 中执行命令，并返回该命令 PID
+[root@host-3 ~]# virsh qemu-agent-command lichenhao.bj-net --pretty '{ &amp;quot;execute&amp;quot;: &amp;quot;guest-exec&amp;quot;, &amp;quot;arguments&amp;quot;: { &amp;quot;path&amp;quot;: &amp;quot;ip&amp;quot;, &amp;quot;arg&amp;quot;: [ &amp;quot;addr&amp;quot;, &amp;quot;list&amp;quot; ], &amp;quot;capture-output&amp;quot;: true } }'
+{
+&amp;quot;return&amp;quot;: {
+&amp;quot;pid&amp;quot;: 1826
+}
+}
+# 通过 PID 获取命令输出结果，这个结果是 base64 编码的。
+[root@host-3 ~]# virsh qemu-agent-command lichenhao.bj-net --pretty '{ &amp;quot;execute&amp;quot;: &amp;quot;guest-exec-status&amp;quot;, &amp;quot;arguments&amp;quot;: { &amp;quot;pid&amp;quot;: 1826 } }'
+{
+&amp;quot;return&amp;quot;: {
+&amp;quot;exitcode&amp;quot;: 0,
+&amp;quot;out-data&amp;quot;: &amp;quot;MTogbG86IDxMT09QQkFDSyxVUCxMT1dFUl9VUD4gbXR1IDY1NTM2IHFkaXNjIG5vcXVldWUgc3RhdGUgVU5LTk9XTiBncm91cCBkZWZhdWx0IHFsZW4gMTAwMAogICAgbGluay9sb29wYmFjayAwMDowMDowMDowMDowMDowMCBicmQgMDA6MDA6MDA6MDA6MDA6MDAKICAgIGluZXQgMTI3LjAuMC4xLzggc2NvcGUgaG9zdCBsbwogICAgICAgdmFsaWRfbGZ0IGZvcmV2ZXIgcHJlZmVycmVkX2xmdCBmb3JldmVyCiAgICBpbmV0NiA6OjEvMTI4IHNjb3BlIGhvc3QgCiAgICAgICB2YWxpZF9sZnQgZm9yZXZlciBwcmVmZXJyZWRfbGZ0IGZvcmV2ZXIKMjogZW5zMzogPEJST0FEQ0FTVCxNVUxUSUNBU1QsVVAsTE9XRVJfVVA+IG10dSAxNTAwIHFkaXNjIGZxX2NvZGVsIHN0YXRlIFVQIGdyb3VwIGRlZmF1bHQgcWxlbiAxMDAwCiAgICBsaW5rL2V0aGVyIDUyOjU0OjAwOjZkOmZhOmYwIGJyZCBmZjpmZjpmZjpmZjpmZjpmZgogICAgaW5ldCAxNzIuMTkuNDIuMjQ4LzI0IGJyZCAxNzIuMTkuNDIuMjU1IHNjb3BlIGdsb2JhbCBub3ByZWZpeHJvdXRlIGVuczMKICAgICAgIHZhbGlkX2xmdCBmb3JldmVyIHByZWZlcnJlZF9sZnQgZm9yZXZlcgo0OiBkb2NrZXIwOiA8Tk8tQ0FSUklFUixCUk9BRENBU1QsTVVMVElDQVNULFVQPiBtdHUgMTUwMCBxZGlzYyBub3F1ZXVlIHN0YXRlIERPV04gZ3JvdXAgZGVmYXVsdCAKICAgIGxpbmsvZXRoZXIgMDI6NDI6NWU6MjQ6Mjg6YmQgYnJkIGZmOmZmOmZmOmZmOmZmOmZmCiAgICBpbmV0IDEwLjM4LjAuMS8yNCBicmQgMTAuMzguMC4yNTUgc2NvcGUgZ2xvYmFsIGRvY2tlcjAKICAgICAgIHZhbGlkX2xmdCBmb3JldmVyIHByZWZlcnJlZF9sZnQgZm9yZXZlcgo=&amp;quot;,
+&amp;quot;exited&amp;quot;: true
+}
+}
+# 使用 base64 将数据解码
+[root@host-3 ~]# echo &amp;quot;MTogbG86IDxMT09QQkFDSyxVUCxMT1dFUl9VUD4gbXR1IDY1NTM2IHFkaXNjIG5vcXVldWUgc3RhdGUgVU5LTk9XTiBncm91cCBkZWZhdWx0IHFsZW4gMTAwMAogICAgbGluay9sb29wYmFjayAwMDowMDowMDowMDowMDowMCBicmQgMDA6MDA6MDA6MDA6MDA6MDAKICAgIGluZXQgMTI3LjAuMC4xLzggc2NvcGUgaG9zdCBsbwogICAgICAgdmFsaWRfbGZ0IGZvcmV2ZXIgcHJlZmVycmVkX2xmdCBmb3JldmVyCiAgICBpbmV0NiA6OjEvMTI4IHNjb3BlIGhvc3QgCiAgICAgICB2YWxpZF9sZnQgZm9yZXZlciBwcmVmZXJyZWRfbGZ0IGZvcmV2ZXIKMjogZW5zMzogPEJST0FEQ0FTVCxNVUxUSUNBU1QsVVAsTE9XRVJfVVA+IG10dSAxNTAwIHFkaXNjIGZxX2NvZGVsIHN0YXRlIFVQIGdyb3VwIGRlZmF1bHQgcWxlbiAxMDAwCiAgICBsaW5rL2V0aGVyIDUyOjU0OjAwOjZkOmZhOmYwIGJyZCBmZjpmZjpmZjpmZjpmZjpmZgogICAgaW5ldCAxNzIuMTkuNDIuMjQ4LzI0IGJyZCAxNzIuMTkuNDIuMjU1IHNjb3BlIGdsb2JhbCBub3ByZWZpeHJvdXRlIGVuczMKICAgICAgIHZhbGlkX2xmdCBmb3JldmVyIHByZWZlcnJlZF9sZnQgZm9yZXZlcgo0OiBkb2NrZXIwOiA8Tk8tQ0FSUklFUixCUk9BRENBU1QsTVVMVElDQVNULFVQPiBtdHUgMTUwMCBxZGlzYyBub3F1ZXVlIHN0YXRlIERPV04gZ3JvdXAgZGVmYXVsdCAKICAgIGxpbmsvZXRoZXIgMDI6NDI6NWU6MjQ6Mjg6YmQgYnJkIGZmOmZmOmZmOmZmOmZmOmZmCiAgICBpbmV0IDEwLjM4LjAuMS8yNCBicmQgMTAuMzguMC4yNTUgc2NvcGUgZ2xvYmFsIGRvY2tlcjAKICAgICAgIHZhbGlkX2xmdCBmb3JldmVyIHByZWZlcnJlZF9sZnQgZm9yZXZlcgo=&amp;quot; | base64 -d
+1: lo: &amp;lt;LOOPBACK,UP,LOWER_UP&amp;gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+inet 127.0.0.1/8 scope host lo
+valid_lft forever preferred_lft forever
+inet6 ::1/128 scope host
+valid_lft forever preferred_lft forever
+2: ens3: &amp;lt;BROADCAST,MULTICAST,UP,LOWER_UP&amp;gt; mtu 1500 qdisc fq_codel state UP group default qlen 1000
+link/ether 52:54:00:6d:fa:f0 brd ff:ff:ff:ff:ff:ff
+inet 172.19.42.248/24 brd 172.19.42.255 scope global noprefixroute ens3
+valid_lft forever preferred_lft forever
+4: docker0: &amp;lt;NO-CARRIER,BROADCAST,MULTICAST,UP&amp;gt; mtu 1500 qdisc noqueue state DOWN group default
+link/ether 02:42:5e:24:28:bd brd ff:ff:ff:ff:ff:ff
+inet 10.38.0.1/24 brd 10.38.0.255 scope global docker0
+valid_lft forever preferred_lft forever
+&lt;/code>&lt;/pre></description></item></channel></rss>

@@ -1,0 +1,382 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Nginx</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/</link><description>Recent content in Nginx on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Nginx</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/nginx/nginx">GitHub 项目，nginx/nginx&lt;/a>
+&lt;ul>
+&lt;li>原始代码：&lt;a href="https://hg.nginx.org/nginx/">https://hg.nginx.org/nginx/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;a href="http://nginx.org/">org 官方网站&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.nginx.com/">官方网站&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.nginx.com/products/nginx/modules/">官方网站,动态模块列表&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Nginx 称为 Engine X，可以做为代理服务器、web 服务器、缓存服务器等来使用。&lt;/p>
+&lt;p>传统上基于进程或线程模型架构的 web 服务通过每进程或每线程处理并发连接请求，这势必会在网络和 I/O 操作时产生阻塞，其另一个必然结果则是对内存或 CPU 的利用率低下。生成一个新的进程/线程需要事先备好其运行时环境，这包括为其分配堆内存和栈内存，以及为其创建新的执行上下文等。这些操作都需要占用 CPU，而且过多的进程/线程还会带来线程抖动或频繁的上下文切换，系统性能也会由此进一步下降。&lt;/p>
+&lt;p>在设计的最初阶段，nginx 的主要着眼点就是其高性能以及对物理计算资源的高密度利用，因此其采用了不同的架构模型。受启发于多种操作系统设计中基于“事件”的高级处理机制，nginx 采用了模块化、事件驱动、异步、单线程及非阻塞的架构，并大量采用了多路复用及事件通知机制。在 nginx 中，连接请求由为数不多的几个仅包含一个线程的进程 worker 以高效的回环(run-loop)机制进行处理，而每个 worker 可以并行处理数千个的并发连接及请求。&lt;/p>
+&lt;p>Nginx 会按需同时运行多个进程：一个主进程(master)和几个工作进程(worker)，配置了缓存时还会有缓存加载器进程(cache loader)和缓存管理器进程(cache manager)等。所有进程均是仅含有一个线程，并主要通过“共享内存”的机制实现进程间通信。主进程以 root 用户身份运行，而 worker、cache loader 和 cache manager 均应以非特权用户身份运行。&lt;/p>
+&lt;p>Nginx 特性：&lt;/p>
+&lt;ol>
+&lt;li>模块化设计，较好的扩展性，所有配置均有指定的模块进行处理。&lt;/li>
+&lt;li>高可靠 master &amp;ndash;&amp;gt; worker，主控进程不接收和响应用户请求，主控进程负责解析配置文件并生成多个工作进程，工作进程来响应用户请求
+&lt;ol>
+&lt;li>主控进程读取并验证配置，创建或绑定套接字，启动及终止和维护 worker 进程的个数，无须重启进程让新配置的配置文件进行加载，以及完成平滑版本升级等等&lt;/li>
+&lt;li>工作进程，负责缓存加载的(反向代理时候用)，负责响应用户请求，cache manager 缓存管理&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>低内存消耗，10000 个 keep-alive 模式下的 connection，仅需 2.5MB 内存&lt;/li>
+&lt;li>支持热部署，不停机而更新配置文件，日志文件滚动，升级程序版本&lt;/li>
+&lt;li>支持事件驱动、AIO、mmap&lt;/li>
+&lt;/ol>
+&lt;p>基本功能：&lt;/p>
+&lt;ul>
+&lt;li>静态资源的 web 服务器，能缓存打开的文件描述符&lt;/li>
+&lt;li>http、SMTP、pop3 协议的反向代理服务器&lt;/li>
+&lt;li>缓存加速、负载均衡&lt;/li>
+&lt;li>支持 FastCGI(fpm，LNMP)，uWSGI(Python)等&lt;/li>
+&lt;li>模块化(非 DSO 机制)、过滤器 zip、SSI 及图像的大小调整&lt;/li>
+&lt;li>支持 SSL(https)&lt;/li>
+&lt;/ul>
+&lt;p>扩展功能&lt;/p>
+&lt;ul>
+&lt;li>基于名称和 IP 的虚拟主机&lt;/li>
+&lt;li>支持 keepalive&lt;/li>
+&lt;li>支持平滑升级&lt;/li>
+&lt;li>定制访问日志&lt;/li>
+&lt;li>支持 url 重写&lt;/li>
+&lt;li>支持路径别名&lt;/li>
+&lt;li>支持基于 IP 及用户的访问控制&lt;/li>
+&lt;li>支持速率限制，支持并发数限制&lt;/li>
+&lt;/ul>
+&lt;h2 id="nginx-架构">Nginx 架构&lt;/h2>
+&lt;p>详见 &lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx%20%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90.md">Nginx 源码解析&lt;/a>&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>看似很复杂，其实总结起来 Nginx 主要就是两个功能，这两个功能也是配置文件中的主要内容，各种指令都离不开这两方面。&lt;/p>
+&lt;ol>
+&lt;li>定义接收流量的人口(port 或者 域名等)&lt;/li>
+&lt;li>定义处理流量的规则(转发或者丢弃等)&lt;/li>
+&lt;/ol>
+&lt;p>所以，&lt;strong>Nginx 的本质，就是流量处理&lt;/strong>&lt;/p>
+&lt;h1 id="nginx-部署">Nginx 部署&lt;/h1>
+&lt;h2 id="docker-运行-nginx">docker 运行 Nginx&lt;/h2>
+&lt;p>(可选)需要在宿主机的 /etc/nginx 下准备 nginx 的配置文件。这些基本配置文件可以先启动一个 nginx 容器，将容器内的配置文件全部拷贝到宿主机上即可。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker run -d --name nginx --network host --restart&lt;span style="color:#f92672">=&lt;/span>always &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /etc/nginx:/etc/nginx:ro &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> nginx:stable-alpine
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>也可以使用自己的配置来运行 nginx&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>mkdir -p /opt/nginx/conf/stream.d
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 生成配置文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cat &amp;gt; /opt/nginx/conf/nginx.conf &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">user nginx;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">worker_processes auto;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">error_log /var/log/nginx/error.log warn;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">pid /var/run/nginx.pid;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">events {
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> worker_connections 1024;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">}
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">stream {
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> include /etc/nginx/stream.d/*.conf;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">}
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">http {
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">}
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 运行&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker run -d --name nginx --network host --restart&lt;span style="color:#f92672">=&lt;/span>always &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /opt/nginx/conf/stream.d:/etc/nginx/stream.d:ro &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /opt/nginx/conf/nginx.conf:/etc/nginx/nginx.conf:ro &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> nginx:stable-alpine
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>挂载一些静态文件到容器中以响应客户端的 web 请求&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>export StaticFiles&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;/root/projects/DesistDaydream/javascript-learning/9_browser&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker run -d --name nginx --network host --restart&lt;span style="color:#f92672">=&lt;/span>always &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v &lt;span style="color:#e6db74">${&lt;/span>StaticFiles&lt;span style="color:#e6db74">}&lt;/span>:/usr/share/nginx/html:ro &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> nginx:stable-alpine
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="nginx-关联文件">Nginx 关联文件&lt;/h1>
+&lt;p>&lt;strong>/etc/nginx/*&lt;/strong> # nginx 运行所需配置所在目录&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>./nginx.conf&lt;/strong># nginx 主程序运行所读取的默认配置文件。&lt;/li>
+&lt;/ul>
+&lt;p>配置文件官方介绍：&lt;a href="https://docs.nginx.com/nginx/admin-guide/basic-functionality/managing-configuration-files/">https://docs.nginx.com/nginx/admin-guide/basic-functionality/managing-configuration-files/&lt;/a>&lt;/p>
+&lt;p>修改完配置后，可以使用 nginx -s reload 命令使之生效&lt;/p>
+&lt;p>下面是 nginx 默认的基本配置示例，可以实现一个简单的 web 服务。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">user&lt;/span> &lt;span style="color:#e6db74">nginx&lt;/span>; &lt;span style="color:#75715e"># 指定以nginx用户来运行nginx进程
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">worker_processes&lt;/span> &lt;span style="color:#e6db74">auto&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">error_log&lt;/span> &lt;span style="color:#e6db74">/var/log/nginx/error.log&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">pid&lt;/span> &lt;span style="color:#e6db74">/run/nginx.pid&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">include&lt;/span> /usr/share/nginx/modules/*.conf; &lt;span style="color:#75715e">#包含/usr/share/nginx/modules/目录下以.conf为结尾的所有文件，加载其中的配置
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">events&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">worker_connections&lt;/span> &lt;span style="color:#ae81ff">1024&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">http&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">log_format&lt;/span> &lt;span style="color:#e6db74">main&lt;/span> &lt;span style="color:#e6db74">&amp;#39;&lt;/span>$remote_addr &lt;span style="color:#e6db74">-&lt;/span> $remote_user &lt;span style="color:#e6db74">[&lt;/span>$time_local] &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$request&amp;#34; &lt;span style="color:#e6db74">&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&lt;/span>$status $body_bytes_sent &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$http_referer&amp;#34; &lt;span style="color:#e6db74">&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;&lt;/span>$http_user_agent&amp;#34; &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$http_x_forwarded_for&amp;#34;&amp;#39;;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">access_log&lt;/span> &lt;span style="color:#e6db74">/var/log/nginx/access.log&lt;/span> &lt;span style="color:#e6db74">main&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">sendfile&lt;/span> &lt;span style="color:#66d9ef">on&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tcp_nopush&lt;/span> &lt;span style="color:#66d9ef">on&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tcp_nodelay&lt;/span> &lt;span style="color:#66d9ef">on&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">keepalive_timeout&lt;/span> &lt;span style="color:#ae81ff">65&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">types_hash_max_size&lt;/span> &lt;span style="color:#ae81ff">2048&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">include&lt;/span> &lt;span style="color:#e6db74">/etc/nginx/mime.types&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">default_type&lt;/span> &lt;span style="color:#e6db74">application/octet-stream&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">include&lt;/span> &lt;span style="color:#e6db74">/etc/nginx/conf.d/*.conf&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">listen&lt;/span> &lt;span style="color:#ae81ff">80&lt;/span> &lt;span style="color:#e6db74">default_server&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">listen&lt;/span> &lt;span style="color:#e6db74">[::]:80&lt;/span> &lt;span style="color:#e6db74">default_server&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server_name&lt;/span> &lt;span style="color:#e6db74">_&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">root&lt;/span> &lt;span style="color:#e6db74">/usr/share/nginx/html&lt;/span>; &lt;span style="color:#75715e"># 指定nginx的工作的/目录。i.e.location中/目录的起始位置
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">include&lt;/span> &lt;span style="color:#e6db74">/etc/nginx/default.d/*.conf&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">location&lt;/span> &lt;span style="color:#e6db74">/&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">error_page&lt;/span> &lt;span style="color:#ae81ff">404&lt;/span> &lt;span style="color:#e6db74">/404.html&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">location&lt;/span> = &lt;span style="color:#e6db74">/40x.html&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">error_page&lt;/span> &lt;span style="color:#ae81ff">500&lt;/span> &lt;span style="color:#ae81ff">502&lt;/span> &lt;span style="color:#ae81ff">503&lt;/span> &lt;span style="color:#ae81ff">504&lt;/span> &lt;span style="color:#e6db74">/50x.html&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">location&lt;/span> = &lt;span style="color:#e6db74">/50x.html&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Nginx Unit</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx-Unit/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx-Unit/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://unit.nginx.org/">官网&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote></description></item><item><title>Docs: Nginx 命令行工具</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>让nginx在前台运行，常用于container中&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>nginx -g &amp;lsquo;daemon off;&amp;rsquo;&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul></description></item><item><title>Docs: Nginx 配置详解</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description/></item><item><title>Docs: Nginx 优化</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx-%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx-%E4%BC%98%E5%8C%96/</guid><description>
+&lt;ol>
+&lt;li>性能优化的相关配置
+&lt;ol>
+&lt;li>work_processes NUM; # 常用，指定 work 线程个数，通常应该少于 cpu 物理核心数，设为 auto 为自动判断&lt;/li>
+&lt;li>work_cpu_affinity CpuMask; # 常用，设定 cpu 掩码，用于绑定给 nginx 专用的 cpu 数&lt;/li>
+&lt;li>timer_resolution Num; # 计时器解析度，降低此值，可提高性能&lt;/li>
+&lt;li>worker_priority NUM; # 设定优先级，即 worker 线程的 nice 值&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>事件相关配置
+&lt;ol>
+&lt;li>worker_connections NUM; # 常用，指定每个 worker 线程所能处理的最大并发连接数&lt;/li>
+&lt;li>accept_mutex on|off; # 调度用户请求至 worker 线程时使用的负载均衡锁。on 是让多个 worker 轮流的，序列化地响应新请求&lt;/li>
+&lt;li>lock_file /PATH/FILE; # 指定 accept_mutex 开启后用到的锁文件路径&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>用于调试、定位问题的配置
+&lt;ol>
+&lt;li>daemon on|off； # 是否以守护进程方式运行 nginx，调试时设置为 off&lt;/li>
+&lt;li>master_process on|off； # 是否以 master/worker 模式来运行 ngins，调试时可以设置为 off&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;h3 id="heading">&lt;/h3>
+&lt;h3 id="优化-nginx-数据包头缓存">优化 Nginx 数据包头缓存&lt;/h3>
+&lt;p>1）优化前，使用脚本测试长头部请求是否能获得响应&lt;/p>
+&lt;pre>&lt;code>[root@proxy ~]# cat lnmp_soft/buffer.sh
+#!/bin/bash
+URL=http://192.168.4.5/index.html?
+for i in {1..5000}
+do
+URL=${URL}v$i=$i
+done
+curl $URL //经过5000次循环后，生成一个长的URL地址栏
+[root@proxy ~]# ./buffer.sh
+.. ..
+&amp;lt;center&amp;gt;&amp;lt;h1&amp;gt;414 Request-URI Too Large&amp;lt;/h1&amp;gt;&amp;lt;/center&amp;gt; //提示头部信息过大
+&lt;/code>&lt;/pre>
+&lt;p>2）修改 Nginx 配置文件，增加数据包头部缓存大小&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># vim /usr/local/nginx/conf/nginx.conf
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">...&lt;/span> &lt;span style="color:#e6db74">..&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">http&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">client_header_buffer_size&lt;/span> &lt;span style="color:#ae81ff">1k&lt;/span>; &lt;span style="color:#f92672">//&lt;/span> &lt;span style="color:#e6db74">默认请求包头信息的缓存&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">large_client_header_buffers&lt;/span> &lt;span style="color:#ae81ff">4&lt;/span> &lt;span style="color:#ae81ff">4k&lt;/span>; &lt;span style="color:#f92672">//&lt;/span> &lt;span style="color:#e6db74">大请求包头部信息的缓存个数与容量&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">..&lt;/span> &lt;span style="color:#e6db74">..&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># /usr/local/nginx/sbin/nginx -s reload
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>3）优化后，使用脚本测试长头部请求是否能获得响应&lt;/p>
+&lt;pre>&lt;code>1.[root@proxy ~]# cat buffer.sh
+2.#!/bin/bash
+3.URL=http://192.168.4.5/index.html?
+4.for i in {1..5000}
+5.do
+6. URL=${URL}v$i=$i
+7.done
+8.curl $URL
+9.[root@proxy ~]# ./buffer.sh
+&lt;/code>&lt;/pre>
+&lt;h3 id="浏览器本地缓存静态数据">浏览器本地缓存静态数据&lt;/h3>
+&lt;p>1）使用 Firefox 浏览器查看缓存
+以 Firefox 浏览器为例，在 Firefox 地址栏内输入 about:cache 将显示 Firefox 浏览器的缓存信息，如图所示，点击 List Cache Entries 可以查看详细信息。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bzuh2e/1621231619142-0d5c79d5-689e-48b4-9b82-2e6fd6450a02.webp" alt="">
+2）清空 firefox 本地缓存数据，如图所示。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bzuh2e/1621231619179-e56a8fb4-8a7c-4e06-afe1-6bb66fe30d1b.webp" alt="">
+3）改 Nginx 配置文件，定义对静态页面的缓存时间&lt;/p>
+&lt;pre>&lt;code># vim /usr/local/nginx/conf/nginx.conf
+server {
+listen 80;
+server_name localhost;
+location / {
+root html;
+index index.html index.htm;
+}
+location ~* \.(jpg|jpeg|gif|png|css|js|ico|xml)$ {
+expires 30d; //定义客户端缓存时间为30天
+}
+}
+# cp /usr/share/backgrounds/day.jpg /usr/local/nginx/html
+# /usr/local/nginx/sbin/nginx -s reload
+#请先确保nginx是启动状态，否则运行该命令会报错,报错信息如下：16.#[error] open() &amp;quot;/usr/local/nginx/logs/nginx.pid&amp;quot; failed (2: No such file or directory)
+&lt;/code>&lt;/pre>
+&lt;p>4）优化后，使用 Firefox 浏览器访问图片，再次查看缓存信息&lt;/p>
+&lt;pre>&lt;code># firefox http://192.168.4.5/day.jpg
+&lt;/code>&lt;/pre>
+&lt;p>在 firefox 地址栏内输入 about:cache，查看本地缓存数据，查看是否有图片以及过期时间是否正确。&lt;/p></description></item><item><title>Docs: Nginx 源码解析</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;p>Nginx 的架构设计是高度模块化的，从 Nginx 的源码目录与 Nginx 模块化及其功能的划分是紧密结合的。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@lichenhao:~/projects/someone_else/nginx# tree -d
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── auto
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── contrib
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── docs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── misc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── src
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├── core
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├── event
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │   └── modules
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├── http
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │   ├── modules
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │   │   └── perl
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │   └── v2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├── mail
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├── misc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├── os
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │   ├── unix
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │   └── win32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── stream
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>每个模块必须要具备 &lt;code>ngx_module_t&lt;/code> 这个数据结构，比如 src/core/nginx.c 文件中，在 ngx_module_t 数据结构中，定义了 ngx_core_module 模块&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">ngx_module_t&lt;/span> ngx_core_module &lt;span style="color:#f92672">=&lt;/span> { &lt;span style="color:#75715e">// 定义模块名称为 ngx_core_module
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> NGX_MODULE_V1,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>ngx_core_module_ctx, &lt;span style="color:#75715e">/* module context */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// ngx_core_commands 是该模块的指令，这里一般会定义一个数组，数组中每个元素就是一个指令
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> ngx_core_commands, &lt;span style="color:#75715e">/* module directives */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// NGX_CORE_MODULE 是该模块的类型
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> NGX_CORE_MODULE, &lt;span style="color:#75715e">/* module type */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* init master */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* init module */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* init process */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* init thread */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* exit thread */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* exit process */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* exit master */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NGX_MODULE_V1_PADDING
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>};
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>再看 src/http/ngx_http.c 文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">ngx_module_t&lt;/span> ngx_http_module &lt;span style="color:#f92672">=&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NGX_MODULE_V1,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>ngx_http_module_ctx, &lt;span style="color:#75715e">/* module context */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ngx_http_commands, &lt;span style="color:#75715e">/* module directives */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// ngx_http_module 模块属于 NGX_CORE_MODULE 类型
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> NGX_CORE_MODULE, &lt;span style="color:#75715e">/* module type */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* init master */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* init module */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* init process */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* init thread */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* exit thread */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* exit process */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NULL, &lt;span style="color:#75715e">/* exit master */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NGX_MODULE_V1_PADDING
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>};
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>http 模块属于 NGX_CORE_MODULE 类型如果看 src/stream/ngx_stream.c、src/event/ngx_event.src、src/mail/ngx_mail_module.c 这三个文件，里面都有类似的定义&lt;/p>
+&lt;p>最后看 src/http/modules/ 目录，这里就是都有属于 NGX_HTTP_MODULE 模块的子模块。定义方式类似。&lt;/p>
+&lt;h1 id="总结">总结&lt;/h1>
+&lt;p>所以，从代码结构可以看出来，Nginx 模块定义了如下几大类型，并且每一类模块包含不同的模块&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>NGX_CORE_MODULE&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>NGX_EVENT_MODULE&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>NGX_HTTP_MODULE&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>NGX_MAIL_MODULE&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>NGX_STREAM_MODULE&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;p>与此同时，每种类型的模块下，包含很多子模块，模块类型是抽象的概念，主要是为了帮助模块进行分类。而模块，则是真正处理任务的：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>NGX_CORE_MODULE&lt;/strong>
+&lt;ul>
+&lt;li>ngx_core_module # core 模块，这个比较特殊，core 模块类型下，其实就是包含了一个 core 模块。&lt;/li>
+&lt;li>ngx_event_module # event 模块&lt;/li>
+&lt;li>ngx_http_module # http 模块&lt;/li>
+&lt;li>ngx_mail_module # mail 模块&lt;/li>
+&lt;li>ngx_stream_module # stream 模块&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>NGX_EVENT_MODULE&lt;/strong>
+&lt;ul>
+&lt;li>ngx_event_core_module # event core 模块&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip; 太多了就不一一列举了，详见官网&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>NGX_HTTP_MODULE&lt;/strong>
+&lt;ul>
+&lt;li>ngx_http_core_module # http core 模块&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip; 太多了就不一一列举了，详见官网&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>NGX_MAIL_MODULE&lt;/strong>
+&lt;ul>
+&lt;li>ngx_mail_module # mail core 模块&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip; 太多了就不一一列举了，详见官网&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>NGX_STREAM_MODULE&lt;/strong>
+&lt;ul>
+&lt;li>ngx_stream_module # stream core 模块&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip; 太多了就不一一列举了，详见官网&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>从上面的分类也可以看出来，每个类型的模块都有一个被称为 core 的模块来实现这个类型的功能。这其实就可以组成一个树状的结构：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eygybr/1619798135171-e81a3491-2566-4f50-ab0f-4b0868a5670e.png" alt="image.png">&lt;/p>
+&lt;p>这个图不太好，有机会自己画一个。&lt;/p>
+&lt;p>画成图就是这个样子的：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eygybr/1619768579247-4047676f-2ece-4b9c-bed2-7d53d7f32ae4.png" alt="image.png">&lt;/p>
+&lt;p>就像 &lt;a href="http://nginx.org/en/docs/">官方文档的模块参考&lt;/a> 页面一样，我们可以看到下面这样的命名规则 &lt;code>ngx_XXX_YYY_module&lt;/code>。其中 XXX 就是顶级模块名，YYY 就是属于 XXX 模块的次级模块名。效果如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 包含 core 和 event 模块&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Core functionality
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># http 模块&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ngx_http_core_module
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ngx_http_access_module
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ngx_http_addition_module
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># mail 模块&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ngx_mail_core_module
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ngx_mail_auth_http_module
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># stream 模块&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ngx_stream_core_module
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ngx_stream_access_module
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ngx_stream_geo_module
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Nginx 通过这种架构，将各个模块组织成一条链，当有请求到达时，请求依次经过这条链上的部分或者全部模块，进行处理。每个模块实现特定的功能。&lt;/p>
+&lt;p>而这些模块的运行行为，就是通过配置文件中的 &lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Nginx/Nginx%20%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/Nginx%20%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3.md">&lt;strong>Directive(指令)&lt;/strong>&lt;/a> 实现的。一般每个顶级模块都有一个同名的 顶级指令，比如 http 模块对应 http{} 顶级指令。&lt;/p>
+&lt;p>Nginx 模块的架构，也使得 Nginx 实现了灵活得可扩展性。&lt;/p></description></item></channel></rss>

@@ -1,0 +1,823 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Alertmanager</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/</link><description>Recent content in Alertmanager on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Alertmanager</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/Alertmanager/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/Alertmanager/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://prometheus.io/docs/alerting/latest/alertmanager/">官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Prometheus Alert 介绍详见 Prometheus Server Alert 说明&lt;/p>
+&lt;p>Alertmanager 处理由客户端应用程序（例如 Prometheus 服务器）发送的警报。它负责将重复数据删除，分组和路由到正确的接收者集成，例如电子邮件，PagerDuty 或 OpsGenie。它还负责沉默和禁止警报。&lt;/p>
+&lt;p>&lt;strong>Alertmanager 特性&lt;/strong>&lt;/p>
+&lt;p>Prometheus 发送过来的每一个告警，都会由 Alertmanager 进行重复数据删除、分组、路由到正确的接收者(e.g.邮件、钉钉等)上。&lt;/p>
+&lt;p>Alertmanager 除了提供基本的告警通知能力以外，还主要提供了如：分组、抑制以及静默等告警特性：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/fesx4v/1616068406984-251af31d-3e59-4621-bb62-d5228da42408.jpeg" alt="">
+&lt;strong>分组&lt;/strong>
+分组机制可以将详细的告警信息合并成一个通知。在某些情况下，比如由于系统宕机导致大量的告警被同时触发，在这种情况下分组机制可以将这些被触发的告警合并为一个告警通知，避免一次性接受大量的告警通知，而无法对问题进行快速定位。&lt;/p>
+&lt;p>例如，当集群中有数百个正在运行的服务实例，并且为每一个实例设置了告警规则。假如此时发生了网络故障，可能导致大量的服务实例无法连接到数据库，结果就会有数百个告警被发送到 Alertmanager。&lt;/p>
+&lt;p>而作为用户，可能只希望能够在一个通知中中就能查看哪些服务实例收到影响。这时可以按照服务所在集群或者告警名称对告警进行分组，而将这些告警内聚在一起成为一个通知。&lt;/p>
+&lt;p>告警分组，告警时间，以及告警的接受方式可以通过 Alertmanager 的配置文件进行配置。&lt;/p>
+&lt;p>&lt;strong>抑制&lt;/strong>
+抑制是指当某一告警发出后，可以停止重复发送由此告警引发的其它告警的机制。&lt;/p>
+&lt;p>例如，当集群不可访问时触发了一次告警，通过配置 Alertmanager 可以忽略与该集群有关的其它所有告警。这样可以避免接收到大量与实际问题无关的告警通知。&lt;/p>
+&lt;p>抑制机制同样通过 Alertmanager 的配置文件进行设置。&lt;/p>
+&lt;p>&lt;strong>静默&lt;/strong>
+静默提供了一个简单的机制可以快速根据标签对告警进行静默处理。如果接收到的告警符合静默的配置，Alertmanager 则不会发送告警通知。&lt;/p>
+&lt;p>静默设置需要在 Alertmanager 的 Werb 页面上进行设置。&lt;/p>
+&lt;h2 id="alertmanager-告警分组">Alertmanager 告警分组&lt;/h2>
+&lt;p>每一个告警进入 Alertmanager 后，都会进行分组处理，可以根据规则将多条告警合并为一个通知。这是为了可以让相关的告警可以合并在一起，一次性收集和发送，以便运维人员的故障排查。&lt;/p>
+&lt;h2 id="alertmanager-告警路由">Alertmanager 告警路由&lt;/h2>
+&lt;p>告警路由，顾名思义，路由就是根据“目的接收者”将每个告警发送到指定的接收者上的过程。&lt;/p>
+&lt;p>每一个告警进入到 Alertmanager 都会由顶级的 route 进入路由树，需要注意的是顶级的 route 必须匹配所有告警(即不能有任何的匹配设置 match 和 match_re)，在一个路由树中，将每个被路由的目标称为 &lt;strong>Node(节点)。&lt;/strong>&lt;/p>
+&lt;p>每一个路由都可以定义自己的接受人以及匹配规则。默认情况下，告警进入到顶级 route 后会遍历所有的子节点，直到找到最深的匹配 route，并将告警发送到该 route 定义的 receiver 中。但如果 route 中设置 continue 的值为 false，那么告警在匹配到第一个子节点之后就直接停止。如果 continue 为 true，报警则会继续进行后续子节点的匹配。如果当前告警匹配不到任何的子节点，那该告警将会基于当前路由节点的接收器配置方式进行处理。&lt;/p>
+&lt;p>其中告警的匹配有两种方式可以选择。一种方式基于字符串验证，通过设置 match 规则判断当前告警中是否存在标签 labelname 并且其值等于 labelvalue。第二种方式则基于正则表达式，通过设置 match_re 验证当前告警标签的值是否满足正则表达式的内容。&lt;/p>
+&lt;p>如果警报已经成功发送通知, 如果想设置发送告警通知之前要等待时间，则可以通过 repeat_interval 参数进行设置。&lt;/p>
+&lt;h2 id="alertmanager-告警模板">Alertmanager 告警模板&lt;/h2>
+&lt;p>告警模板的使用方式详见：告警模板详解&lt;/p>
+&lt;p>默认情况下 Alertmanager 使用了系统自带的默认通知模板，模板源码可以从 &lt;a href="https://github.com/prometheus/alertmanager/blob/master/template/default.tmpl">https://github.com/prometheus/alertmanager/blob/master/template/default.tmpl&lt;/a> 获得。Alertmanager 的通知模板基于 Go 的模板系统。Alertmanager 也支持用户定义和使用自己的模板，一般来说有两种方式可以选择。&lt;/p>
+&lt;p>第一种，基于模板字符串。用户可以直接在 Alertmanager 的配置文件中使用模板字符串，例如:&lt;/p>
+&lt;pre>&lt;code>receivers:
+- name: 'slack-notifications'
+slack_configs:
+- channel: '#alerts'
+text: 'https://internal.myorg.net/wiki/alerts/{{ .GroupLabels.app }}/{{ .GroupLabels.alertname }}'
+&lt;/code>&lt;/pre>
+&lt;p>第二种方式，自定义可复用的模板文件。例如，可以创建自定义模板文件 custom-template.tmpl，如下所示：&lt;/p>
+&lt;pre>&lt;code>{{ define &amp;quot;slack.myorg.text&amp;quot; }}https://internal.myorg.net/wiki/alerts/{{ .GroupLabels.app }}/{{ .GroupLabels.alertname }}{{ end}}
+&lt;/code>&lt;/pre>
+&lt;p>通过在 Alertmanager 的全局设置中定义 templates 配置来指定自定义模板的访问路径:&lt;/p>
+&lt;pre>&lt;code># Files from which custom notification template definitions are read.
+# The last component may use a wildcard matcher, e.g. 'templates/*.tmpl'.
+templates:
+[ - &amp;lt;filepath&amp;gt; ... ]
+&lt;/code>&lt;/pre>
+&lt;p>在设置了自定义模板的访问路径后，用户则可以直接在配置中使用该模板：&lt;/p>
+&lt;pre>&lt;code>receivers:
+- name: 'slack-notifications'
+slack_configs:
+- channel: '#alerts'
+text: '{{ template &amp;quot;slack.myorg.text&amp;quot; . }}'
+templates:
+- '/etc/alertmanager/templates/myorg.tmpl'
+&lt;/code>&lt;/pre>
+&lt;h1 id="alertmanager-部署">Alertmanager 部署&lt;/h1>
+&lt;p>与 prometheus 一样，可以通过二进制安装或者 docker 启动&lt;/p>
+&lt;h2 id="使用-docker-的方式运行-alertmanager">使用 docker 的方式运行 Alertmanager&lt;/h2>
+&lt;p>获取配置文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>mkdir -p /etc/monitoring
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker run -d --name alertmanager --rm prom/alertmanager
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker cp alertmanager:/etc/alertmanager /etc/monitoring
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker stop alertmanager
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>运行 Alertmanager&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker run -d --name alertmanager &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --network host &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /etc/localtime:/etc/localtime &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /etc/monitoring/alertmanager:/etc/alertmanager/config_out &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> prom/alertmanager &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --config.file&lt;span style="color:#f92672">=&lt;/span>/etc/alertmanager/config_out/alertmanager.yml
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>部署完成后，Alertmanager 默认监听在 9093 端口上，通过浏览器打开 http://localhost:9093 可以看到如下示例的画面
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/fesx4v/1616068406956-f10fe3df-d57f-4602-a6ab-e4aab90c89f1.jpeg" alt="">
+首页 Alerts 标签上显示了从 Prometheus Server 推送过来的每一条告警，可以通过点击告警信息中的 Silence 来让该告警静音(i.e.不再发送告警邮件)&lt;/p>
+&lt;h2 id="alertmanager-运行时的标志flags说明">Alertmanager 运行时的标志(Flags)说明&lt;/h2>
+&lt;p>alertmanager 程序在启动时，可以使用一些标志来对程序进行一些基本设定，比如数据存储路径、存储时间等等&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;config.file=&amp;quot;/PATH/TO/FILE&amp;quot;&lt;/strong># 指定 alertmanager 基本配置文件。 默认 /etc/alertmanager/alertmanager.yml&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;storage.path=&amp;quot;/PATH&amp;quot;&lt;/strong># 指定存储数据的基础路径。该路径包括告警信息、已经 silences 的告警等信息。&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;data.retention=120h&lt;/strong> # 数据保存时长。&lt;/li>
+&lt;li>&amp;ndash;alerts.gc-interval=30m # Interval between alert GC.&lt;/li>
+&lt;li>&amp;ndash;web.external-url=WEB.EXTERNAL-URL zThe URL under which Alertmanager is externally reachable (for example, if Alertmanager is served via a reverse proxy). Used for generating relative and absolute links back to Alertmanagerzitself. If the URL has a path portion, it will be used to prefix all HTTP endpoints served by Alertmanager. If omitted, relevant URL components will be derived automatically.&lt;/li>
+&lt;li>&amp;ndash;web.route-prefix=WEB.ROUTE-PREFIX zPrefix for the internal routes of web endpoints. Defaults to path of &amp;ndash;web.external-url.&lt;/li>
+&lt;li>&amp;ndash;web.listen-address=&amp;quot;:9093&amp;quot; zAddress to listen on for the web interface and API.&lt;/li>
+&lt;li>&amp;ndash;web.get-concurrency=0 Maximum number of GET requests processed concurrently. If negative or zero, the limit is GOMAXPROC or 8, whichever is larger.&lt;/li>
+&lt;li>&amp;ndash;web.timeout=0 Timeout for HTTP requests. If negative or zero, no timeout is set.&lt;/li>
+&lt;li>&amp;ndash;cluster.listen-address=&amp;ldquo;0.0.0.0:9094&amp;rdquo; zListen address for cluster. Set to empty string to disable HA mode.&lt;/li>
+&lt;li>&amp;ndash;cluster.advertise-address=CLUSTER.ADVERTISE-ADDRESS zExplicit address to advertise in cluster.&lt;/li>
+&lt;li>&amp;ndash;cluster.peer=CLUSTER.PEER &amp;hellip; zInitial peers (may be repeated).&lt;/li>
+&lt;li>&amp;ndash;cluster.peer-timeout=15s zTime to wait between peers to send notifications.&lt;/li>
+&lt;li>&amp;ndash;cluster.gossip-interval=200ms zInterval between sending gossip messages. By lowering this value (more frequent) gossip messages are propagated across the cluster more quickly at the expense of increased bandwidth.&lt;/li>
+&lt;li>&amp;ndash;cluster.pushpull-interval=1m0s zInterval for gossip state syncs. Setting this interval lower (more frequent) will increase convergence speeds across larger clusters at the expense of increased bandwidth usage.&lt;/li>
+&lt;li>&amp;ndash;cluster.tcp-timeout=10s Timeout for establishing a stream connection with a remote node for a full state sync, and for stream read and write operations.&lt;/li>
+&lt;li>&amp;ndash;cluster.probe-timeout=500ms zTimeout to wait for an ack from a probed node before assuming it is unhealthy. This should be set to 99-percentile of RTT (round-trip time) on your network.&lt;/li>
+&lt;li>&amp;ndash;cluster.probe-interval=1s zInterval between random node probes. Setting this lower (more frequent) will cause the cluster to detect failed nodes more quickly at the expense of increased bandwidth usage.&lt;/li>
+&lt;li>&amp;ndash;cluster.settle-timeout=1m0s zMaximum time to wait for cluster connections to settle before evaluating notifications.&lt;/li>
+&lt;li>&amp;ndash;cluster.reconnect-interval=10s zInterval between attempting to reconnect to lost peers.&lt;/li>
+&lt;li>&amp;ndash;cluster.reconnect-timeout=6h0m0s zLength of time to attempt to reconnect to a lost peer.&lt;/li>
+&lt;li>&amp;ndash;log.level=info Only log messages with the given severity or above. One of: [debug, info, warn, error]&lt;/li>
+&lt;li>&amp;ndash;log.format=logfmt Output format of log messages. One of: [logfmt, json]&lt;/li>
+&lt;li>&amp;ndash;version Show application version.&lt;/li>
+&lt;/ul>
+&lt;h1 id="alertmanager-配置">Alertmanager 配置&lt;/h1>
+&lt;p>/etc/alertmanager/alertmanager.conf # alertmanager 基本配置文件默认位置。可以通过 &amp;ndash;config.file 标志指定其他配置文件&lt;/p>
+&lt;p>下面是一个基本的 alertmanager.conf 配置文件示例：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 全局配置环境&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">global&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">resolve_timeout&lt;/span>: &lt;span style="color:#ae81ff">5m&lt;/span> &lt;span style="color:#75715e"># 该参数定义了当Alertmanager持续多长时间未接收到告警后标记告警状态为resolved（已解决）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 配置邮件发送信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_smarthost&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;smtp.163.com:25&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_from&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;ych_1024@163.com&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_auth_username&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;ych_1024@163.com&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_auth_password&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;邮箱密码&amp;gt;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_hello&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;163.com&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_require_tls&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 路由配置环境。所有报警信息进入后的根路由，用来设置报警的分发策略&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">route&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_by&lt;/span>: [&lt;span style="color:#e6db74">&amp;#34;alertname&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;cluster&amp;#34;&lt;/span>] &lt;span style="color:#75715e"># 这里的标签列表是接收到报警信息后的重新分组标签，例如，接收到的报警信息里面有许多具有 cluster=A 和 alertname=LatncyHigh 这样的标签的报警信息将会批量被聚合到一个分组里面&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_wait&lt;/span>: &lt;span style="color:#ae81ff">TIME&lt;/span> &lt;span style="color:#75715e"># 当一个新的报警分组被创建后，需要等待至少TIME时间来初始化通知，这种方式可以确保您能有足够的时间为同一分组来获取多个警报，然后一起触发这个报警信息。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_interval&lt;/span>: &lt;span style="color:#ae81ff">TIME&lt;/span> &lt;span style="color:#75715e"># 重复发送报警的设置(报警未消除的重复报警)。当一个组里的报警有变化时，等待&amp;#39;group_interval&amp;#39;时间来发送新的一组报警信息。默认5分钟。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">repeat_interval&lt;/span>: &lt;span style="color:#ae81ff">TIME&lt;/span> &lt;span style="color:#75715e"># 重复发送报警的设置(报警未消除的重复报警)。一个组里的报警一直没有变化的话，等待&amp;#39;repeat_interval&amp;#39;时间来重新发送他们。默认4小时。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#ae81ff">STRING&lt;/span> &lt;span style="color:#75715e"># 指定默认的receiver名，如果一个报警没有任何一个routes匹配，则发送给默认的receiver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">routes&lt;/span>: &lt;span style="color:#75715e"># 上面所有的配置参数都由所有子路由继承，并且可以在每个子路由上进行覆盖。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#ae81ff">STRING&lt;/span> &lt;span style="color:#75715e"># 指定该子路由要使用的receiver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_wait&lt;/span>: &lt;span style="color:#ae81ff">TIME&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">match&lt;/span>: &lt;span style="color:#75715e"># 指定标签名和值，凡是具有该标签名和值的告警由将路由到指定的receiver上&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 也可以使用 match_re 关键字，来进行正则表达式匹配。LabelValue 可以使用正则来表示&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">LabelName&lt;/span>: &lt;span style="color:#ae81ff">LabelValue&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 接收者配置环境。用于定义分配好路由的告警信息将由谁来接收。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">receivers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;default&amp;#34;&lt;/span> &lt;span style="color:#75715e"># 指定receiver的名字&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">email_configs&lt;/span>: &lt;span style="color:#75715e"># 指定该receiver使用哪种配置&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">to&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;lichenhao@wisetv.com.cn&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">send_resolved&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span> &lt;span style="color:#75715e"># 指定是否发送告警已解决的信息。默认为false,i.e.不发送&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="配置样例">配置样例&lt;/h2>
+&lt;h3 id="默认配置文件">默认配置文件&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">global&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">resolve_timeout&lt;/span>: &lt;span style="color:#ae81ff">5m&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">route&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_by&lt;/span>: [&lt;span style="color:#e6db74">&amp;#34;alertname&amp;#34;&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_wait&lt;/span>: &lt;span style="color:#ae81ff">10s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_interval&lt;/span>: &lt;span style="color:#ae81ff">10s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">repeat_interval&lt;/span>: &lt;span style="color:#ae81ff">1h&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;web.hook&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">receivers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;web.hook&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">webhook_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">url&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;http://127.0.0.1:5001/&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">inhibit_rules&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">source_match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">severity&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;critical&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">target_match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">severity&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;warning&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">equal&lt;/span>: [&lt;span style="color:#e6db74">&amp;#34;alertname&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;dev&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;instance&amp;#34;&lt;/span>]
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="使用腾讯企业邮箱的配置样例">使用腾讯企业邮箱的配置样例&lt;/h3>
+&lt;p>Note：如果要使用腾讯企业邮箱，则需要生成客户端密码，位置如下图
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/fesx4v/1616068406969-84d8a216-cd2b-4438-a0e6-a6a85c64318a.jpeg" alt="">
+下面的配置默认会将所有告警都发送给lichenhao@wisetv.com.cn。其中具有 network_device: interface-state 标签名和值的告警会发送给wangpeng@wisetv.com.cn&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">global&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">resolve_timeout&lt;/span>: &lt;span style="color:#ae81ff">5m&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_smarthost&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;smtp.exmail.qq.com:587&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_from&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;lichenhao@wisetv.com.cn&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_auth_username&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;lichenhao@wisetv.com.cn&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_auth_password&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;bVcyqAh4jnz2hkVg&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_hello&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;qq.com&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">smtp_require_tls&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">route&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_by&lt;/span>: [&lt;span style="color:#e6db74">&amp;#34;alertname&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;cluster&amp;#34;&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_wait&lt;/span>: &lt;span style="color:#ae81ff">30s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_interval&lt;/span>: &lt;span style="color:#ae81ff">5m&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">repeat_interval&lt;/span>: &lt;span style="color:#ae81ff">5m&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#ae81ff">default&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">routes&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;network-group&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_wait&lt;/span>: &lt;span style="color:#ae81ff">10s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">network_device&lt;/span>: &lt;span style="color:#ae81ff">interface-state&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">receivers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;default&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">email_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">to&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;lichenhao@wisetv.com.cn&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">send_resolved&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;network-group&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">email_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">to&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;wangpeng@wisetv.com.cn&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">send_resolved&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">to&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;lichenhao@wisetv.com.cn&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">send_resolved&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="alertmanager-api">Alertmanager API&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/prometheus/alertmanager/blob/main/api/v2/openapi.yaml">GitHub 项目文件，prometheus/alertmanager/api/v2/openapi.yaml&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote></description></item><item><title>Docs: Alertmanager 扩展</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/Alertmanager-%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/Alertmanager-%E6%89%A9%E5%B1%95/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/prymitive/karma">GitHub 项目，prymitive/karma&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/uHSlzuVBb51-qgX92pEnLQ">公众号-k8s 技术圈，超漂亮的 Alertmanager 可视化面板 - karma&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/feiyu563/PrometheusAlert">GitHub 项目，feiyu563/PrometheusAlert&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/kubesphere/notification-manager">GitHub 项目，kubesphere/notification-manager&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/timonwong/prometheus-webhook-dingtalk">GitHub 项目，timonwong/prometheus-webhook-dingtalk&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Alertmanager 自带一个 UI 界面，可以用来查看报警和静默管理，但是还缺乏一个 Dashboard 必要的一些功能，比如报警历史记录等等，karma 这个工具就可以来帮助增强 Alertmanager 的可视化功能。&lt;/p>
+&lt;p>feiyu563/PrometheusAlert 可以提供更多的通知功能，将告警发送到各种地方。&lt;/p>
+&lt;h1 id="notification-manager">notification-manager&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/kubesphere/notification-manager">GitHub 项目，kubesphere/notification-manager&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>功能测试&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>wget https://raw.githubusercontent.com/kubesphere/notification-manager/master/config/ci/alerts.json
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>curl -XPOST http://localhost:19093/api/v2/alerts -d @./alerts.json
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="notificationmanager-crd">NotificationManager CRD&lt;/h2>
+&lt;h3 id="接收器与配置相关字段">接收器与配置相关字段&lt;/h3>
+&lt;p>&lt;strong>receivers: &lt;!-- raw HTML omitted -->&lt;/strong> #&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>globalReceiverSelector: &lt;!-- raw HTML omitted -->&lt;/strong> #
+&lt;ul>
+&lt;li>该字段内容详见[ LabelSelector](/docs/IT学习笔记/10.云原生/2.3.Kubernetes%20 容器编排系统/1.API、Resource(资源)、Object(对象)/API%20 参考/Common%20Definitions(通用定义)/LabelSelector%20 详解.md 容器编排系统/1.API、Resource(资源)、Object(对象)/API 参考/Common Definitions(通用定义)/LabelSelector 详解.md)。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>tenantReceiverSelector: &lt;!-- raw HTML omitted -->&lt;/strong> #
+&lt;ul>
+&lt;li>该字段内容详见[ LabelSelector](/docs/IT学习笔记/10.云原生/2.3.Kubernetes%20 容器编排系统/1.API、Resource(资源)、Object(对象)/API%20 参考/Common%20Definitions(通用定义)/LabelSelector%20 详解.md 容器编排系统/1.API、Resource(资源)、Object(对象)/API 参考/Common Definitions(通用定义)/LabelSelector 详解.md)。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>tenantKey: &lt;!-- raw HTML omitted -->&lt;/strong> #&lt;/li>
+&lt;/ul>
+&lt;p>示例:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">receivers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 具有 type: global 标签的 Receiver 将会被设置为全局 Receiver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">globalReceiverSelector&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">matchLabels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">global&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 具有 type: tenant 标签的 Receiver 将会被设置为租户 Receiver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tenantReceiverSelector&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">matchLabels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">tenant&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># notification-manager 通过 tenantKey 的值识别 Receiver 的租户名称。i.e. 租户类型的 Receiver 通过 key 为 user 的标签值识别租户名称&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tenantKey&lt;/span>: &lt;span style="color:#ae81ff">user&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="通知管理器的-webhook-与-dispatcher-相关字段">通知管理器的 Webhook 与 Dispatcher 相关字段&lt;/h3>
+&lt;p>&lt;strong>args: &amp;lt;[]TYPE&amp;gt;&lt;/strong> # 设定 NotificationManager Webhook 的启动参数。
+&lt;strong>batchMaxSize: &lt;!-- raw HTML omitted -->&lt;/strong> # 从缓存中获取数据时最大的告警数量。&lt;code>默认值：100&lt;/code>
+&lt;strong>batchMaxWait: &lt;!-- raw HTML omitted -->&lt;/strong> # 从缓存中获取数据的等待时间。&lt;code>默认值：1m&lt;/code>。即每隔一分钟获取一次数据&lt;/p>
+&lt;blockquote>
+&lt;p>batchMaxSize 与 batchMaxWait 说明：Notification-Manager 接收到的告警数据首先会被推送到缓存中，再从缓存中批量取出数据并行处理。所以可以通过 &lt;code>batchMaxSize&lt;/code> 与 &lt;code>batchMaxWait&lt;/code> 两个字段来配置每次从缓存中取出多少数据与时间间隔。详见 从&lt;a href="#moaPC">缓存中获取告警&lt;/a>的代码。所以我们会发现，每次 Notification-Manager 收到告警后，将会等待 1 分钟之后才会开始处理这些告警。&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>routePolicy: &lt;!-- raw HTML omitted -->&lt;/strong> # 路由策略，定义将收到的告警信息路由给哪个 Receiver。&lt;code>默认值：All&lt;/code>。&lt;/p>
+&lt;ul>
+&lt;li>All # 通知信息将会被路由到所有通过 Router 匹配到的 Receiver 上，并且同时路由到到默认的全局 Receiver&lt;/li>
+&lt;li>RouterFirst # 通知信息在被路由到 Router 匹配到的 Receiver 上之后，不在路由给默认的全局 Receiver&lt;/li>
+&lt;li>RouterOnly # 通知信息只会被路有道 Router 匹配到的 Receiver 上。&lt;/li>
+&lt;/ul>
+&lt;h3 id="生成通知信息与组织通知信息相关字段">生成通知信息与组织通知信息相关字段&lt;/h3>
+&lt;h3 id="其他字段">其他字段&lt;/h3>
+&lt;h2 id="router-crd">Router CRD&lt;/h2>
+&lt;p>&lt;strong>alertSelector: &lt;!-- raw HTML omitted -->&lt;/strong> # 告警标签选择器。与 K8S 的 LabelSelector 的功能完全一样&lt;/p>
+&lt;ul>
+&lt;li>该字段内容详见[ LabelSelector](/docs/IT学习笔记/10.云原生/2.3.Kubernetes%20 容器编排系统/1.API、Resource(资源)、Object(对象)/API%20 参考/Common%20Definitions(通用定义)/LabelSelector%20 详解.md 容器编排系统/1.API、Resource(资源)、Object(对象)/API 参考/Common Definitions(通用定义)/LabelSelector 详解.md)。注意一点：多个匹配条件之间的关键是 AND。如果想要使用 OR 的逻辑，以根据多个条件匹配多条告警，需要使用多个 Router，详见 &lt;a href="https://github.com/kubesphere/notification-manager/issues/153">Issue #153&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h2 id="receiver-crd">Receiver CRD&lt;/h2>
+&lt;h2 id="通用定义">通用定义&lt;/h2>
+&lt;h2 id="代码分析">代码分析&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/fy8tkv/1652004437657-71dec4c2-c104-4c34-a43c-74ffb8d4545b.png" alt="image.png">&lt;/p>
+&lt;h3 id="入口与监听">入口与监听&lt;/h3>
+&lt;p>程序开始主要做了如下几件事：&lt;/p>
+&lt;ul>
+&lt;li>实例化告警存储器，用以缓存接收到的告警消息。告警存储器称之为 Provider。&lt;/li>
+&lt;li>带着告警存储器实例化 Webhook 并运行，用以接受告警消息后将告警缓存起来(执行 Provider.Push() 方法)&lt;/li>
+&lt;li>带着告警存储器实例化调度员并运行，用以获取缓存中的告警消息(执行 Provider.Pull() 方法)&lt;/li>
+&lt;/ul>
+&lt;p>Cache 默认为 Memory，在内存中存储各个地方推送过来的告警
+代码：&lt;code>cmd/notification-manager/main.go&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">var&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">storeType&lt;/span> = &lt;span style="color:#a6e22e">kingpin&lt;/span>.&lt;span style="color:#a6e22e">Flag&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;store.type&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Type of store which used to cache the alerts&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ).&lt;span style="color:#a6e22e">Default&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;memory&amp;#34;&lt;/span>).&lt;span style="color:#a6e22e">String&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">Main&lt;/span>() &lt;span style="color:#66d9ef">int&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 实例化告警存储器，默认内存
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">alerts&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">store&lt;/span>.&lt;span style="color:#a6e22e">NewAlertStore&lt;/span>(&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">storeType&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 带着存储器实例化一个 Webhook，并启动监听程序，默认监听在 19093
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">webhook&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">wh&lt;/span>.&lt;span style="color:#a6e22e">New&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">alerts&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">srvCh&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> make(&lt;span style="color:#66d9ef">chan&lt;/span> &lt;span style="color:#66d9ef">error&lt;/span>, &lt;span style="color:#ae81ff">1&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">go&lt;/span> &lt;span style="color:#66d9ef">func&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">srvCh&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">webhook&lt;/span>.&lt;span style="color:#a6e22e">Run&lt;/span>(&lt;span style="color:#a6e22e">ctxHttp&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 带着告警存储器实例化一个 Dispatcher，用以从告警存储器中 pull 下来告警后发送出去
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">disp&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">dispatcher&lt;/span>.&lt;span style="color:#a6e22e">New&lt;/span>(&lt;span style="color:#a6e22e">logger&lt;/span>, &lt;span style="color:#a6e22e">ctl&lt;/span>, &lt;span style="color:#a6e22e">alerts&lt;/span>, &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">webhookTimeout&lt;/span>, &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">wkrTimeout&lt;/span>, &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">wkrQueue&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">go&lt;/span> &lt;span style="color:#66d9ef">func&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">dispCh&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">disp&lt;/span>.&lt;span style="color:#a6e22e">Run&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>告警存储器都实现了 Provider 接口
+代码：&lt;code>pkg/store/provider/interface.go&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Provider&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Push&lt;/span>(&lt;span style="color:#a6e22e">alert&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">template&lt;/span>.&lt;span style="color:#a6e22e">Alert&lt;/span>) &lt;span style="color:#66d9ef">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Pull&lt;/span>(&lt;span style="color:#a6e22e">batchSize&lt;/span> &lt;span style="color:#66d9ef">int&lt;/span>, &lt;span style="color:#a6e22e">batchWait&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Duration&lt;/span>) ([]&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">template&lt;/span>.&lt;span style="color:#a6e22e">Alert&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Close&lt;/span>() &lt;span style="color:#66d9ef">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="接收告警并推送到缓存">接收告警并推送到缓存&lt;/h3>
+&lt;p>而想要 Pull 到数据，则需要先通过告警存储器中的 Provider Push 到存储中，首先通过 /api/v2/alerts 端点接收告警
+代码：&lt;code>pkg/webhook/webhook.go&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">New&lt;/span>(&lt;span style="color:#a6e22e">logger&lt;/span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Logger&lt;/span>, &lt;span style="color:#a6e22e">notifierCtl&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">controller&lt;/span>.&lt;span style="color:#a6e22e">Controller&lt;/span>, &lt;span style="color:#a6e22e">alerts&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">store&lt;/span>.&lt;span style="color:#a6e22e">AlertStore&lt;/span>, &lt;span style="color:#a6e22e">o&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Options&lt;/span>) &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Webhook&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">h&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">Webhook&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Options&lt;/span>: &lt;span style="color:#a6e22e">o&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">logger&lt;/span>: &lt;span style="color:#a6e22e">logger&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">h&lt;/span>.&lt;span style="color:#a6e22e">router&lt;/span>.&lt;span style="color:#a6e22e">Post&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/api/v2/alerts&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">h&lt;/span>.&lt;span style="color:#a6e22e">handler&lt;/span>.&lt;span style="color:#a6e22e">Alert&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过 Provider.Push() 方法推送的告警将进入 Channel，由 Dispatcher 的通知阶段代码进行消费 Channel 中的告警信息以发送给 Receiver
+代码：&lt;code>pkg/webhook/v1/handler.go&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">h&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">HttpHandler&lt;/span>) &lt;span style="color:#a6e22e">Alert&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ResponseWriter&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Request&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">data&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">template&lt;/span>.&lt;span style="color:#a6e22e">Data&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">utils&lt;/span>.&lt;span style="color:#a6e22e">JsonDecode&lt;/span>(&lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>, &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">data&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">alert&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">data&lt;/span>.&lt;span style="color:#a6e22e">Alerts&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 推送告警
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">h&lt;/span>.&lt;span style="color:#a6e22e">alerts&lt;/span>.&lt;span style="color:#a6e22e">Push&lt;/span>(&lt;span style="color:#a6e22e">alert&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">_&lt;/span> = &lt;span style="color:#a6e22e">level&lt;/span>.&lt;span style="color:#a6e22e">Error&lt;/span>(&lt;span style="color:#a6e22e">h&lt;/span>.&lt;span style="color:#a6e22e">logger&lt;/span>).&lt;span style="color:#a6e22e">Log&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;push alert error&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;error&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>.&lt;span style="color:#a6e22e">Error&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">h&lt;/span>.&lt;span style="color:#a6e22e">handle&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">response&lt;/span>{&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">StatusOK&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;Notification request accepted&amp;#34;&lt;/span>})
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="从缓存中获取告警">从缓存中获取告警&lt;/h3>
+&lt;p>Dispatcher 中通过 Pull() 方法从存储中获取告警，并通过 Dispatcher.processAlerts() 方法处理他们以便发送。
+代码：&lt;code>pkg/dispatcher/dispatcher.go&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">d&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Dispatcher&lt;/span>) &lt;span style="color:#a6e22e">Run&lt;/span>() &lt;span style="color:#66d9ef">error&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// err is not nil means the store had closed, dispatcher should process remaining alerts, then exit.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// BatchMaxSize 定义了每次从缓存中可以获取的最大告警条数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// BatchMaxWait 定义了每次执行 Pull() 的间隔时间
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 默认情况下，每隔 1 分钟会 PUll 100 条告警以进一步处理
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">alerts&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">alerts&lt;/span>.&lt;span style="color:#a6e22e">Pull&lt;/span>(&lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">notifierCtl&lt;/span>.&lt;span style="color:#a6e22e">GetBatchMaxSize&lt;/span>(), &lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">notifierCtl&lt;/span>.&lt;span style="color:#a6e22e">GetBatchMaxWait&lt;/span>()); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">==&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">go&lt;/span> &lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">processAlerts&lt;/span>(&lt;span style="color:#a6e22e">alerts&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> } &lt;span style="color:#66d9ef">else&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">processAlerts&lt;/span>(&lt;span style="color:#a6e22e">alerts&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Dispatcher.processAlerts() -&amp;gt; Dispatcher.worker() 将会执行&lt;a href="#oxPq5">告警处理阶段&lt;/a>&lt;/p>
+&lt;h3 id="执行告警处理阶段">执行告警处理阶段&lt;/h3>
+&lt;p>代码：&lt;code>pkg/dispatcher/dispatcher.go&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">d&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Dispatcher&lt;/span>) &lt;span style="color:#a6e22e">worker&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">data&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span>{}, &lt;span style="color:#a6e22e">stopCh&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span>{}) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">pipeline&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">stage&lt;/span>.&lt;span style="color:#a6e22e">MultiStage&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Global silence stage
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">pipeline&lt;/span> = append(&lt;span style="color:#a6e22e">pipeline&lt;/span>, &lt;span style="color:#a6e22e">silence&lt;/span>.&lt;span style="color:#a6e22e">NewStage&lt;/span>(&lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">notifierCtl&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Route stage
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">pipeline&lt;/span> = append(&lt;span style="color:#a6e22e">pipeline&lt;/span>, &lt;span style="color:#a6e22e">route&lt;/span>.&lt;span style="color:#a6e22e">NewStage&lt;/span>(&lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">notifierCtl&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Tenant silence stage
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">pipeline&lt;/span> = append(&lt;span style="color:#a6e22e">pipeline&lt;/span>, &lt;span style="color:#a6e22e">filter&lt;/span>.&lt;span style="color:#a6e22e">NewStage&lt;/span>(&lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">notifierCtl&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Aggregation stage
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">pipeline&lt;/span> = append(&lt;span style="color:#a6e22e">pipeline&lt;/span>, &lt;span style="color:#a6e22e">aggregation&lt;/span>.&lt;span style="color:#a6e22e">NewStage&lt;/span>(&lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">notifierCtl&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Notify stage
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">pipeline&lt;/span> = append(&lt;span style="color:#a6e22e">pipeline&lt;/span>, &lt;span style="color:#a6e22e">notify&lt;/span>.&lt;span style="color:#a6e22e">NewStage&lt;/span>(&lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">notifierCtl&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// History stage
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">pipeline&lt;/span> = append(&lt;span style="color:#a6e22e">pipeline&lt;/span>, &lt;span style="color:#a6e22e">history&lt;/span>.&lt;span style="color:#a6e22e">NewStage&lt;/span>(&lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">notifierCtl&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">pipeline&lt;/span>.&lt;span style="color:#a6e22e">Exec&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">d&lt;/span>.&lt;span style="color:#a6e22e">l&lt;/span>, &lt;span style="color:#a6e22e">data&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">stopCh&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span>{}{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过 MultiStage 按顺序执行一系列阶段，最后执行 MultiStage.Exec()，MultiStage 实现了 Stage 接口&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Stage&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Exec&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">l&lt;/span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Logger&lt;/span>, &lt;span style="color:#a6e22e">data&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span>{}) (&lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#66d9ef">interface&lt;/span>{}, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>同时，所有对告警信息需要执行的操作(上图中 Cache 右边的部分)都实现了该接口：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 告警静音 pkg/silence/silence.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">silenceStage&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">notifierCtl&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">controller&lt;/span>.&lt;span style="color:#a6e22e">Controller&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 告警路由 pkg/route/router.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">routeStage&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">notifierCtl&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">controller&lt;/span>.&lt;span style="color:#a6e22e">Controller&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 告警过滤 pkg/filter/filter.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">filterStage&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">notifierCtl&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">controller&lt;/span>.&lt;span style="color:#a6e22e">Controller&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 告警聚合 pkg/aggregation/aggregation.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">aggregationStage&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">notifierCtl&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">controller&lt;/span>.&lt;span style="color:#a6e22e">Controller&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 告警通知 pkg/notify/notify.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">notifyStage&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">notifierCtl&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">controller&lt;/span>.&lt;span style="color:#a6e22e">Controller&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 告警历史 pkg/history/history.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">historyStage&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">notifierCtl&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">controller&lt;/span>.&lt;span style="color:#a6e22e">Controller&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>告警的每个处理阶段，均由上述操作的 Exec() 方法实现&lt;/p>
+&lt;h4 id="告警通知阶段">告警通知阶段&lt;/h4>
+&lt;p>代码：``&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">s&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">notifyStage&lt;/span>) &lt;span style="color:#a6e22e">Exec&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">l&lt;/span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Logger&lt;/span>, &lt;span style="color:#a6e22e">data&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span>{}) (&lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#66d9ef">interface&lt;/span>{}, &lt;span style="color:#66d9ef">error&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">reflect2&lt;/span>.&lt;span style="color:#a6e22e">IsNil&lt;/span>(&lt;span style="color:#a6e22e">data&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">_&lt;/span> = &lt;span style="color:#a6e22e">level&lt;/span>.&lt;span style="color:#a6e22e">Debug&lt;/span>(&lt;span style="color:#a6e22e">l&lt;/span>).&lt;span style="color:#a6e22e">Log&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;Start notify stage&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;seq&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">ctx&lt;/span>.&lt;span style="color:#a6e22e">Value&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;seq&amp;#34;&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">group&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">async&lt;/span>.&lt;span style="color:#a6e22e">NewGroup&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Receiver 是告警的接受者，即推送目标
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// []*template.Data 是需要推送的告警列表
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">alertMap&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">data&lt;/span>.(&lt;span style="color:#66d9ef">map&lt;/span>[&lt;span style="color:#a6e22e">internal&lt;/span>.&lt;span style="color:#a6e22e">Receiver&lt;/span>][]&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">template&lt;/span>.&lt;span style="color:#a6e22e">Data&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">k&lt;/span>, &lt;span style="color:#a6e22e">v&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">alertMap&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">receiver&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">k&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">ds&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">v&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 获取推送目标，比如 钉钉、微信 等
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">nf&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">factories&lt;/span>[&lt;span style="color:#a6e22e">receiver&lt;/span>.&lt;span style="color:#a6e22e">GetType&lt;/span>()](&lt;span style="color:#a6e22e">l&lt;/span>, &lt;span style="color:#a6e22e">receiver&lt;/span>, &lt;span style="color:#a6e22e">s&lt;/span>.&lt;span style="color:#a6e22e">notifierCtl&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">//
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">d&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">ds&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">alert&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">d&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">group&lt;/span>.&lt;span style="color:#a6e22e">Add&lt;/span>(&lt;span style="color:#66d9ef">func&lt;/span>(&lt;span style="color:#a6e22e">stopCh&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span>{}) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 使用对应的 Receiver 的 Notify() 方法发送通知
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">stopCh&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">nf&lt;/span>.&lt;span style="color:#a6e22e">Notify&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">alert&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> })
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">data&lt;/span>, &lt;span style="color:#a6e22e">group&lt;/span>.&lt;span style="color:#a6e22e">Wait&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>所有 Receiver 都实现了 Notifier 接口
+代码：&lt;code>pkg/notify/notifier/interface.go&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Notifier&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Notify&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">data&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">template&lt;/span>.&lt;span style="color:#a6e22e">Data&lt;/span>) &lt;span style="color:#66d9ef">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>代码：&lt;code>pkg/notify/notifier/${RECEIVER}/${RECEIVER}.go&lt;/code>&lt;/p>
+&lt;p>以 钉钉(dingtalk) 为例
+代码：&lt;code>pkg/notify/notifier/dingtalk/dingtalk.go&lt;/code>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">n&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Notifier&lt;/span>) &lt;span style="color:#a6e22e">Notify&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span> &lt;span style="color:#a6e22e">context&lt;/span>.&lt;span style="color:#a6e22e">Context&lt;/span>, &lt;span style="color:#a6e22e">data&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">template&lt;/span>.&lt;span style="color:#a6e22e">Data&lt;/span>) &lt;span style="color:#66d9ef">error&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">group&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">async&lt;/span>.&lt;span style="color:#a6e22e">NewGroup&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">n&lt;/span>.&lt;span style="color:#a6e22e">receiver&lt;/span>.&lt;span style="color:#a6e22e">ChatBot&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">group&lt;/span>.&lt;span style="color:#a6e22e">Add&lt;/span>(&lt;span style="color:#66d9ef">func&lt;/span>(&lt;span style="color:#a6e22e">stopCh&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span>{}) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">stopCh&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">n&lt;/span>.&lt;span style="color:#a6e22e">sendToChatBot&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">data&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> })
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> len(&lt;span style="color:#a6e22e">n&lt;/span>.&lt;span style="color:#a6e22e">receiver&lt;/span>.&lt;span style="color:#a6e22e">ChatIDs&lt;/span>) &amp;gt; &lt;span style="color:#ae81ff">0&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">group&lt;/span>.&lt;span style="color:#a6e22e">Add&lt;/span>(&lt;span style="color:#66d9ef">func&lt;/span>(&lt;span style="color:#a6e22e">stopCh&lt;/span> &lt;span style="color:#66d9ef">chan&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span>{}) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">stopCh&lt;/span> &lt;span style="color:#f92672">&amp;lt;-&lt;/span> &lt;span style="color:#a6e22e">n&lt;/span>.&lt;span style="color:#a6e22e">sendToConversation&lt;/span>(&lt;span style="color:#a6e22e">ctx&lt;/span>, &lt;span style="color:#a6e22e">data&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> })
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">group&lt;/span>.&lt;span style="color:#a6e22e">Wait&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Alertmanager 配置</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/Alertmanager-%E9%85%8D%E7%BD%AE/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/Alertmanager-%E9%85%8D%E7%BD%AE/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://prometheus.io/docs/alerting/latest/configuration/">官方文档，告警-配置&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="alertmanager-配置文件">Alertmanager 配置文件&lt;/h1>
+&lt;p>下文用到的占位符说明：&lt;/p>
+&lt;ul>
+&lt;li>&lt;!-- raw HTML omitted --> # 与正则表达式匹配的持续时间  [0-9]+(ms|[smhdwy])&lt;/li>
+&lt;li>&lt;!-- raw HTML omitted --> # 与正则表达式匹配的字符串  [a-zA-Z_][a-zA-Z0-9_]*&lt;/li>
+&lt;li>&lt;!-- raw HTML omitted --> # 一串 unicode 字符&lt;/li>
+&lt;li>&lt;!-- raw HTML omitted --> # 当前工作目录中的有效路径&lt;/li>
+&lt;li>&lt;!-- raw HTML omitted --> # 可以接受值的布尔值，true 或 false&lt;/li>
+&lt;li>&lt;!-- raw HTML omitted --> # 一个普通的字符串&lt;/li>
+&lt;li>&lt;!-- raw HTML omitted --> # 是秘密的常规字符串，例如密码&lt;/li>
+&lt;li>&amp;lt;tmpl_string&amp;gt; # a string which is template-expanded before usage&lt;/li>
+&lt;li>&amp;lt;tmpl_secret&amp;gt; # a string which is template-expanded before usage that is a secret&lt;/li>
+&lt;/ul>
+&lt;p>下面是一个配置文件的基本结构&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 全局配置，所有内容作用于所有配置环境中,若其余配置环境中不再指定同样的配置，则global中的配置作为默认配置&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">global&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># The default SMTP From header field.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ smtp_from&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;tmpl_string&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># The default SMTP smarthost used for sending emails, including port number.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Port number usually is 25, or 587 for SMTP over TLS (sometimes referred to as STARTTLS).&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Example: smtp.example.org:587&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ smtp_smarthost&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># The default hostname to identify to the SMTP server.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ smtp_hello&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt; | default = &amp;#34;localhost&amp;#34; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># SMTP Auth using CRAM-MD5, LOGIN and PLAIN. If empty, Alertmanager doesn&amp;#39;t authenticate to the SMTP server.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ smtp_auth_username&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># SMTP Auth using LOGIN and PLAIN.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ smtp_auth_password&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;secret&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># SMTP Auth using PLAIN.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ smtp_auth_identity&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># SMTP Auth using CRAM-MD5.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ smtp_auth_secret&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;secret&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># The default SMTP TLS requirement.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Note that Go does not support unencrypted connections to remote SMTP endpoints.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ smtp_require_tls&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;bool&amp;gt; | default = true ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># The API URL to use for Slack notifications.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ slack_api_url&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;secret&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ victorops_api_key&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;secret&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ victorops_api_url&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt; | default = &amp;#34;https://alert.victorops.com/integrations/generic/20131114/alert/&amp;#34; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ pagerduty_url&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt; | default = &amp;#34;https://events.pagerduty.com/v2/enqueue&amp;#34; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ opsgenie_api_key&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;secret&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ opsgenie_api_url&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt; | default = &amp;#34;https://api.opsgenie.com/&amp;#34; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ hipchat_api_url&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt; | default = &amp;#34;https://api.hipchat.com/&amp;#34; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ hipchat_auth_token&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;secret&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ wechat_api_url&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt; | default = &amp;#34;https://qyapi.weixin.qq.com/cgi-bin/&amp;#34; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ wechat_api_secret&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;secret&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ wechat_api_corp_id&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># The default HTTP client configuration&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[ http_config&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;http_config&amp;gt; ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 如果接收到的告警不包括 EndsAt 字段，那么经过 resolve_timeout 时间后，如果没有重复收到告警，则认为该告警已解决。默认5m。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">resolve_timeout&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;DURATION&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 指定告警模板文件的路径。若不指定则使用默认模板。可以使用通配符，e.g. &amp;#39;templates/*.tmpl&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">templates&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> [ - &lt;span style="color:#ae81ff">&amp;lt;filepath&amp;gt; ... ]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 路由树的节点(Alertmanager 的主要配置)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">route&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">详见下文单独章节&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">routes&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">详见下文单独章节&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 告警的接收者列表(Alertmanager 的主要配置)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">receivers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#ae81ff">&amp;lt;receiver&amp;gt; ...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 抑制规则列表&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">inhibit_rules&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> [ - &lt;span style="color:#ae81ff">&amp;lt;inhibit_rule&amp;gt; ... ]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="global-object">global: &lt;!-- raw HTML omitted -->&lt;/h2>
+&lt;p>全局配置，其内的内容作用于所有配置环境中,若其余配置环境中不再指定同样的配置，则 global 中的配置作为默认配置。在这里可以定义告警发送者的信息，比如通过邮件发送告警，那么可以定义全局的 SMTP 配置。&lt;/p>
+&lt;h2 id="templates-object">templates: &amp;lt;[]OBJECT&amp;gt;&lt;/h2>
+&lt;p>用于定义接收人收到的告警的样式。如 HTML 模板、邮件模板等等。&lt;/p>
+&lt;h3 id="配置示例">配置示例&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">templates&lt;/span>: [- &lt;span style="color:#ae81ff">&amp;lt;filepath&amp;gt; ...]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="route-object">route: &lt;!-- raw HTML omitted -->&lt;/h2>
+&lt;p>该字段中，可以配置多个相同接收者的子路由。在一个路由树中，将每个被路由的目标称为 &lt;strong>Node(节点)。&lt;/strong>
+&lt;strong>group_by: &amp;lt;[]STRING&amp;gt;&lt;/strong> # 告警分组策略，凡是具有 []STRING 指定的标签名的告警都分为同一个组。&lt;/p>
+&lt;ul>
+&lt;li>可以使用 &lt;code>group_by: ['...']&lt;/code> 配置禁用聚合功能。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>group_interval: &lt;!-- raw HTML omitted -->&lt;/strong> # 发送告警的间隔时间。&lt;code>默认值：5m&lt;/code>。
+&lt;strong>group_wait: &lt;!-- raw HTML omitted -->&lt;/strong> # 发送告警前，需要等待分组行为的时间。&lt;code>默认值：30s&lt;/code>&lt;/p>
+&lt;ul>
+&lt;li>新收到的告警会进行分组聚合，并以组的形式发送，为了方式大量告警频繁触发告警发送，所以有一个等待期，等到多个告警聚合在一个组时，统一发送&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>matchers: &amp;lt;[]OBJECT&amp;gt;&lt;/strong> # 匹配规则，凡是符合该规则的告警，将会进入当前节点。说白了，只有匹配上了，才会将告警发出去。&lt;/p>
+&lt;blockquote>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>如果多个 Label 是“或”的关系，那就只能配置多个相同接收者的路由，每个路由的 matchers 不同。&lt;/li>
+&lt;li>&lt;code>matchers&lt;/code> 字段代替了在 0.22.0 版本开始被弃用的 &lt;code>match&lt;/code> 与 &lt;code>match_re&lt;/code> 字段&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>recevier: &lt;!-- raw HTML omitted -->&lt;/strong> # 当前路由匹配到的告警的接收者。如果 recevier 是整个路由树的根，则就是默认接收者
+**routes: **&lt;a href="#L0o2z">&lt;strong>&amp;lt;[]OBJECT&amp;gt;&lt;/strong>&lt;/a> # 子路由配置。&lt;code>routes&lt;/code> 字段的中的每个元素其实就是 &lt;code>route: &amp;lt;OBJECT&amp;gt;&lt;/code>。&lt;/p>
+&lt;ul>
+&lt;li>也就是说，&lt;code>routes: &amp;lt;[]OBJECT&amp;gt;&lt;/code> 下每个元素的字段，与 &lt;code>route: &amp;lt;OBJECT&amp;gt;&lt;/code> 下的字段相同，这是一个嵌套循环~~&lt;/li>
+&lt;/ul>
+&lt;h3 id="配置示例-1">配置示例&lt;/h3>
+&lt;p>其中具有标签 instance=dev-phone.* 和 job=snmp-metrics 的告警都会路由给名为 dev-phone-group 的接收者&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">route&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_by&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;namespace&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_interval&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;5m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_wait&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;30s&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;default&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">repeat_interval&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;6h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">routes&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;network-group&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_wait&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10s&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">network_device&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;interface-state&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;dev-phone-group&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_wait&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10s&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">match_re&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">instance&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;dev-phone.*&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;dev-phone-group&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_wait&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10s&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">match_re&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">job&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;snmp-metrics&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="receivers-object">receivers: &amp;lt;[]OBJECT&amp;gt;&lt;/h2>
+&lt;p>&lt;strong>receivers(接收者)&lt;/strong> 是一个抽象的概念，可以是一个邮箱，也可以是微信、Slack、Webhook 等等。receivers 与 route 配置，根据路由规则将告警发送给指定的接收人。&lt;/p>
+&lt;pre>&lt;code># 指定接收者的名称，用于在 route 配置环境中根据路由规则指定具体的接收者。
+name: &amp;lt;STRING&amp;gt;
+# 不同的接收者有不同的配置环境。
+XXXXX_configs:
+- &amp;lt;详见下文对应配置环境&amp;gt;, ...
+&lt;/code>&lt;/pre>
+&lt;p>现阶段 alertmanager 支持的 XXXX_configs 有 email_configs、pagerduty_configs、pushover_configs、slack_configs、opsgenie_configs、webhook_configs、victorops_configs、wechat_configs。&lt;/p>
+&lt;h3 id="email_configs-字段邮件-接收者">email_configs 字段。邮件 接收者&lt;/h3>
+&lt;p>配置示例&lt;/p>
+&lt;pre>&lt;code>receivers:
+- name: &amp;quot;default&amp;quot;
+email_configs:
+- to: &amp;quot;lichenhao@wisetv.com.cn&amp;quot;
+send_resolved: true
+&lt;/code>&lt;/pre>
+&lt;h3 id="webhook_configs-字段webhook-接收者">webhook_configs 字段。webhook 接收者&lt;/h3>
+&lt;p>webhook 类型的接收者是一种通用的接收者，不像其他类型的接收者，只能发送给特定的服务。而 webhook 只需要指定接收消息的 IP:PORT 即可。Alertmanager 会将指定的消息体已 POST 方法发送给对方，不管对方是什么，只要能处理 Alertamanger 发过去的 JSON 结构的数据即可。&lt;/p>
+&lt;pre>&lt;code># Whether or not to notify about resolved alerts.
+[ send_resolved: &amp;lt;boolean&amp;gt; | default = true ]
+# The endpoint to send HTTP POST requests to.
+url: &amp;lt;string&amp;gt;
+# The HTTP client's configuration.
+[ http_config: &amp;lt;http_config&amp;gt; | default = global.http_config ]
+# The maximum number of alerts to include in a single webhook message. Alerts
+# above this threshold are truncated. When leaving this at its default value of
+# 0, all alerts are included.
+[ max_alerts: &amp;lt;int&amp;gt; | default = 0 ]
+&lt;/code>&lt;/pre>
+&lt;h2 id="inhibit_rules-object">inhibit_rules: &lt;!-- raw HTML omitted -->&lt;/h2>
+&lt;p>抑制规则配置&lt;/p>
+&lt;h1 id="配置文件示例">配置文件示例&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">config&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">global&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">resolve_timeout&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;5m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">route&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_by&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;job&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;ssc_pool_type&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_wait&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;30s&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">group_interval&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;5m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">repeat_interval&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;6h&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;webhook&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">routes&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">repeat_interval&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;5m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">alertname&lt;/span>: &lt;span style="color:#ae81ff">Watchdog&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;developer&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">job&lt;/span>: &lt;span style="color:#ae81ff">console-server-exporter&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">receiver&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;developer&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">receivers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;webhook&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">webhook_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">url&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;http://gateway.ssc.svc.cluster.local.:9010/alarmService/api/v1/alerts&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">send_resolved&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">url&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;http://alertmanager-webhook-dingtalk.monitoring.svc.cluster.local.:8060/dingtalk/webhook1/send&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">send_resolved&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;developer&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">webhook_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">url&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;http://alertmanager-webhook-dingtalk.monitoring.svc.cluster.local.:8060/dingtalk/webhook_mention_users/send&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">templates&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;/etc/alertmanager/config/*.tmpl&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Alertmanager 数据结构</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/Alertmanager-%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/Alertmanager-%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://prometheus.io/docs/alerting/latest/clients/">官方文档，告警-客户端&lt;/a>(接收告警的数据结构)&lt;/li>
+&lt;li>&lt;a href="https://prometheus.io/docs/alerting/latest/configuration/#webhook_config">官方文档，告警-配置-webhook_config&lt;/a>(通过 Webhook 推送告警的数据结构)&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="alertmanager-接收告警的数据结构">AlertManager 接收告警的数据结构&lt;/h2>
+&lt;p>这个数据结构，其实就是 Prometheus 推送告警的数据结构~~~详见 &lt;a href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Alerting(%E5%91%8A%E8%AD%A6).md">《Prometheus Alerting》&lt;/a>章节&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>[
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;labels&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;alertname&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;requiredAlertName&amp;gt;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;&amp;lt;labelname&amp;gt;&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;labelvalue&amp;gt;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;annotations&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;&amp;lt;labelname&amp;gt;&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;labelvalue&amp;gt;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;startsAt&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;rfc3339&amp;gt;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;endsAt&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;rfc3339&amp;gt;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;generatorURL&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;generator_url&amp;gt;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>]
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="alertmanager-通过-webhook-推送告警的数据结构">Alertmanager 通过 Webhook 推送告警的数据结构&lt;/h2>
+&lt;p>下面就是 Alertmanager 在 Webhook 配置中，以 POST 请求发送的 JSON 结构的数据格式：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;version&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;4&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;groupKey&amp;#34;&lt;/span>: &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;string&amp;gt;&lt;/span>, &lt;span style="color:#75715e">// key identifying the group of alerts (e.g. to deduplicate)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;truncatedAlerts&amp;#34;&lt;/span>: &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;int&amp;gt;&lt;/span>, &lt;span style="color:#75715e">// how many alerts have been truncated due to &amp;#34;max_alerts&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 当前发送的告警状态，如果是激活的告警则是 firing，如果是已经解决的则是 resolved
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;status&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;resolved|firing&amp;gt;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;receiver&amp;#34;&lt;/span>: &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;string&amp;gt;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 根据 AlertManager 配置中 group_by 字段获取。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 也就是说通过某个标签分组，那么这个标签的名和值都会被写到这个字段中
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;groupLabels&amp;#34;&lt;/span>: &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;object&amp;gt;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;commonLabels&amp;#34;&lt;/span>: &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;object&amp;gt;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;commonAnnotations&amp;#34;&lt;/span>: &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;object&amp;gt;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;externalURL&amp;#34;&lt;/span>: &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;string&amp;gt;&lt;/span>, &lt;span style="color:#75715e">// backlink to the Alertmanager.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;alerts&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;status&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;resolved|firing&amp;gt;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;labels&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;alertname&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;RequiredAlertName&amp;gt;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;&amp;lt;labelname&amp;gt;&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;labelvalue&amp;gt;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">......&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;annotations&amp;#34;&lt;/span>: &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;object&amp;gt;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;startsAt&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;rfc3339&amp;gt;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;endsAt&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;lt;rfc3339&amp;gt;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;generatorURL&amp;#34;&lt;/span>: &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;string&amp;gt;&lt;/span> &lt;span style="color:#75715e">// identifies the entity that caused the alert
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="示例">示例&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;receiver&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;webhook&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;status&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;firing&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;alerts&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;status&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;firing&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;labels&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;instance&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;192.168.0.1:9100&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;job&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;node-exporter&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;severity&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;warning&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;alertname&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;测试告警1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;annotations&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;description&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;测试告警1的告警详情&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;summary&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;测试告警1概要&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;startsAt&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2021-04-24T15:22:27.944457098Z&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;endsAt&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0001-01-01T00:00:00Z&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;generatorURL&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;http://lichenhao:9090/graph?g0.expr=vector%281%29\u0026g0.tab=1&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;fingerprint&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;5adc80257c32889a&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;status&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;firing&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;labels&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;instance&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;192.168.0.1:9100&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;severity&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;warning&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;alertname&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;测试告警2&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;annotations&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;description&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;测试告警2的告警详情&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;summary&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;测试告警2概要&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;startsAt&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2021-04-24T15:22:27.944457098Z&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;endsAt&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0001-01-01T00:00:00Z&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;generatorURL&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;http://lichenhao:9090/graph?g0.expr=vector%281%29\u0026g0.tab=1&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;fingerprint&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;e6532a92e438cdbf&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;groupLabels&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;alertname&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;测试告警组&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;commonLabels&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;instance&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;192.168.0.1:9100&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;severity&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;warning&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;commonAnnotations&amp;#34;&lt;/span>: {},
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;externalURL&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;http://lichenhao:9093&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;version&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;4&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;groupKey&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;{}:{instance=\&amp;#34;192.168.0.1:9100\&amp;#34;}&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;truncatedAlerts&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;receiver&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;webhook&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;status&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;firing&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;alerts&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;status&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;firing&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;labels&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;alertname&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;测试告警3&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;label_2&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;value-1&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;severity&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;critical&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;tenant&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;test&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;annotations&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;additionalProp1&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;string&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;startsAt&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2021-04-24T15:22:27.944457098Z&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;endsAt&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0001-01-01T00:00:00Z&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;generatorURL&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;http://lichenhao:9090/graph?g0.expr=vector%281%29\u0026g0.tab=1&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;fingerprint&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;496f742ac98e2398&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;groupLabels&amp;#34;&lt;/span>: {},
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;commonLabels&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;alertname&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;测试告警3&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;label_2&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;value-1&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;severity&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;critical&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;tenant&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;test&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;commonAnnotations&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;additionalProp1&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;string&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;externalURL&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;http://lichenhao:9093&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;version&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;4&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;groupKey&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;{}:{}&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;truncatedAlerts&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: 告警模板详解</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/%E5%91%8A%E8%AD%A6%E6%A8%A1%E6%9D%BF%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Alertmanager/%E5%91%8A%E8%AD%A6%E6%A8%A1%E6%9D%BF%E8%AF%A6%E8%A7%A3/</guid><description/></item></channel></rss>

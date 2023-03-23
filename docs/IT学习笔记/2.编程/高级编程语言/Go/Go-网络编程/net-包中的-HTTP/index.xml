@@ -1,0 +1,562 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – net 包中的 HTTP</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/net-%E5%8C%85%E4%B8%AD%E7%9A%84-HTTP/</link><description>Recent content in net 包中的 HTTP on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/net-%E5%8C%85%E4%B8%AD%E7%9A%84-HTTP/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: HTTP 重试</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/net-%E5%8C%85%E4%B8%AD%E7%9A%84-HTTP/HTTP-%E9%87%8D%E8%AF%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/net-%E5%8C%85%E4%B8%AD%E7%9A%84-HTTP/HTTP-%E9%87%8D%E8%AF%95/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/D2mLZI9NXMjgQwLOReQCgg">公众号-luozhiyun，在 Go 中如何正确重试请求&lt;/a>(原文)
+&lt;ul>
+&lt;li>&lt;a href="https://www.luozhiyun.com/archives/677">https://www.luozhiyun.com/archives/677&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>我们平时在开发中肯定避不开的一个问题是如何在不可靠的网络服务中实现可靠的网络通信，其中 http 请求重试是经常用的技术。但是 Go 标准库 net/http 实际上是没有重试这个功能的，所以本篇文章主要讲解如何在 Go 中实现请求重试。&lt;/p>
+&lt;h2 id="概述-1">概述&lt;/h2>
+&lt;p>一般而言，对于网络通信失败的处理分为以下几步：&lt;/p>
+&lt;ol>
+&lt;li>感知错误。通过不同的错误码来识别不同的错误，在 HTTP 中 status code 可以用来识别不同类型的错误；&lt;/li>
+&lt;li>重试决策。这一步主要用来减少不必要的重试，比如 HTTP 的 4xx 的错误，通常 4xx 表示的是客户端的错误，这时候客户端不应该进行重试操作，或者在业务中自定义的一些错误也不应该被重试。根据这些规则的判断可以有效的减少不必要的重试次数，提升响应速度；&lt;/li>
+&lt;li>重试策略。重试策略就包含了重试间隔时间，重试次数等。如果次数不够，可能并不能有效的覆盖这个短时间故障的时间段，如果重试次数过多，或者重试间隔太小，又可能造成大量的资源(CPU、内存、线程、网络)浪费。这个我们下面再说；&lt;/li>
+&lt;li>对冲策略。对冲是指在不等待响应的情况主动发送单次调用的多个请求，然后取首个返回的回包。这个概念是 grpc 中的概念，我把它也借用过来；&lt;/li>
+&lt;li>熔断降级；如果重试之后还是不行，说明这个故障不是短时间的故障，而是长时间的故障。那么可以对服务进行熔断降级，后面的请求不再重试，这段时间做降级处理，减少没必要的请求，等服务端恢复了之后再进行请求，这方面的实现很多 &lt;a href="https://go-zero.dev/cn/docs/blog/governance/breaker-algorithms/">go-zero&lt;/a> 、 &lt;a href="https://sentinelguard.io/zh-cn/docs/golang/circuit-breaking.html">sentinel&lt;/a> 、&lt;a href="https://github.com/afex/hystrix-go">hystrix-go&lt;/a>，也蛮有意思的；&lt;/li>
+&lt;/ol>
+&lt;h2 id="重试策略">重试策略&lt;/h2>
+&lt;p>重试策略可以分为很多种，一方面要考虑到本次请求时长过长而影响到的业务忍受度，另一方面要考虑到重试会对下游服务产生过多的请求而带来的影响，总之就是一个 trade-off 的问题。&lt;/p>
+&lt;p>所以对于重试算法，一般是在重试之间加一个 gap 时间，感兴趣的朋友也可以去看看&lt;a href="https://aws.amazon.com/cn/blogs/architecture/exponential-backoff-and-jitter/">这篇文章&lt;/a>。结合我们自己平时的实践加上这篇文章的算法一般可以总结出以下几条规则：&lt;/p>
+&lt;ul>
+&lt;li>线性间隔（Linear Backoff）：每次重试间隔时间是固定的进行重试，如每 1s 重试一次；&lt;/li>
+&lt;li>线性间隔+随机时间（Linear Jitter Backoff）：有时候每次重试间隔时间一致可能会导致多个请求在同一时间请求，那么我们可以加入一个随机时间，在线性间隔时间的基础上波动一个百分比的时间；&lt;/li>
+&lt;li>指数间隔（Exponential Backoff）：每次间隔时间是 2 指数型的递增，如等 3s 9s 27s 后重试；&lt;/li>
+&lt;li>指数间隔+随机时间（Exponential Jitter Backoff）：这个就和第二个类似了，在指数递增的基础上添加一个波动时间；&lt;/li>
+&lt;/ul>
+&lt;p>上面有两种策略都加入了&lt;strong>扰动（jitter）&lt;/strong>，目的是防止**惊群问题 （Thundering Herd Problem）**的发生。&lt;/p>
+&lt;blockquote>
+&lt;p>In &lt;a href="https://en.wikipedia.org/wiki/Computer_science">computer science&lt;/a>, the &lt;strong>thundering herd problem&lt;/strong> occurs when a large number of processes or threads waiting for an event are awoken when that event occurs, but only one process is able to handle the event. When the processes wake up, they will each try to handle the event, but only one will win. All processes will compete for resources, possibly freezing the computer, until the herd is calmed down again&lt;/p>
+&lt;/blockquote>
+&lt;p>所谓惊群问题当许多进程都在等待被同一事件唤醒的时候，当事件发生后最后只有一个进程能获得处理。其余进程又造成阻塞，这会造成上下文切换的浪费。所以加入一个随机时间来避免同一时间同时请求服务端还是很有必要的。&lt;/p>
+&lt;h3 id="使用-nethttp-重试所带来的问题">使用 net/http 重试所带来的问题&lt;/h3>
+&lt;p>重试这个操作其实对于 Go 来说其实还不能直接加一个 for 循环根据次数来进行，对于 Get 请求重试的时候没有请求体，可以直接进行重试，但是对于 Post 请求来说需要把请求体放到&lt;code>Reader&lt;/code> 里面，如下：&lt;/p>
+&lt;pre>&lt;code>req, _ := http.NewRequest(&amp;quot;POST&amp;quot;, &amp;quot;localhost&amp;quot;, strings.NewReader(&amp;quot;hello&amp;quot;))
+&lt;/code>&lt;/pre>
+&lt;p>服务端收到请求之后就会从这个&lt;code>Reader&lt;/code>中调用&lt;code>Read()&lt;/code>函数去读取数据，通常情况当服务端去读取数据的时候，&lt;code>offset&lt;/code>会随之改变，下一次再读的时候会从&lt;code>offset&lt;/code>位置继续向后读取。所以如果直接重试，会出现读不到 &lt;code>Reader&lt;/code>的情况。&lt;/p>
+&lt;p>我们可以先弄一个例子：&lt;/p>
+&lt;pre>&lt;code>func main() {
+go func() {
+http.HandleFunc(&amp;quot;/&amp;quot;, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+time.Sleep(time.Millisecond * 20)
+body, _ := ioutil.ReadAll(r.Body)
+fmt.Printf(&amp;quot;received body with length %v containing: %v\n&amp;quot;, len(body), string(body))
+w.WriteHeader(http.StatusOK)
+}))
+http.ListenAndServe(&amp;quot;:8090&amp;quot;, nil)
+}()
+fmt.Print(&amp;quot;Try with bare strings.Reader\n&amp;quot;)
+retryDo(req)
+}
+func retryDo() {
+originalBody := []byte(&amp;quot;abcdefghigklmnopqrst&amp;quot;)
+reader := strings.NewReader(string(originalBody))
+req, _ := http.NewRequest(&amp;quot;POST&amp;quot;, &amp;quot;http://localhost:8090/&amp;quot;, reader)
+client := http.Client{
+Timeout: time.Millisecond * 10,
+}
+for {
+_, err := client.Do(req)
+if err != nil {
+fmt.Printf(&amp;quot;error sending the first time: %v\n&amp;quot;, err)
+}
+time.Sleep(1000)
+}
+}
+error sending the first time: Post &amp;quot;http://localhost:8090/&amp;quot;: context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+error sending the first time: Post &amp;quot;http://localhost:8090/&amp;quot;: http: ContentLength=20 with Body length 0
+error sending the first time: Post &amp;quot;http://localhost:8090/&amp;quot;: http: ContentLength=20 with Body length 0
+received body with length 20 containing: abcdefghigklmnopqrst
+error sending the first time: Post &amp;quot;http://localhost:8090/&amp;quot;: http: ContentLength=20 with Body length 0
+....
+&lt;/code>&lt;/pre>
+&lt;p>在上面这个例子中，在客户端设值了 10ms 的超时时间。在服务端模拟请求处理超时情况，先 sleep 20ms，然后再读请求数据，这样必然会超时。&lt;/p>
+&lt;p>当再次请求的时候，发现 client 请求的 Body 数据并不是我们预期的 20 个长度，而是 0，导致了 err。因此需要将 Body 这个&lt;code>Reader&lt;/code> 进行重置，如下：&lt;/p>
+&lt;pre>&lt;code>func resetBody(request *http.Request, originalBody []byte) {
+request.Body = io.NopCloser(bytes.NewBuffer(originalBody))
+request.GetBody = func() (io.ReadCloser, error) {
+return io.NopCloser(bytes.NewBuffer(originalBody)), nil
+}
+}
+&lt;/code>&lt;/pre>
+&lt;p>上面这段代码中，我们使用 io.NopCloser 对请求的 Body 数据进行了重置，避免下次请求的时候出现非预期的异常。&lt;/p>
+&lt;p>那么相对于上面简陋的例子，还可以完善一下，加上我们上面说的 StatusCode 重试判断、重试策略、重试次数等等，可以写成这样：&lt;/p>
+&lt;pre>&lt;code>func retryDo(req *http.Request, maxRetries int, timeout time.Duration,
+backoffStrategy BackoffStrategy) (*http.Response, error) {
+var (
+originalBody []byte
+err error
+)
+if req != nil &amp;amp;&amp;amp; req.Body != nil {
+originalBody, err = copyBody(req.Body)
+resetBody(req, originalBody)
+}
+if err != nil {
+return nil, err
+}
+AttemptLimit := maxRetries
+if AttemptLimit &amp;lt;= 0 {
+AttemptLimit = 1
+}
+client := http.Client{
+Timeout: timeout,
+}
+var resp *http.Response
+for i := 1; i &amp;lt;= AttemptLimit; i++ {
+resp, err = client.Do(req)
+if err != nil {
+fmt.Printf(&amp;quot;error sending the first time: %v\n&amp;quot;, err)
+}
+if err == nil &amp;amp;&amp;amp; resp.StatusCode &amp;lt; 500 {
+return resp, err
+}
+if resp != nil {
+resp.Body.Close()
+}
+if req.Body != nil {
+resetBody(req, originalBody)
+}
+time.Sleep(backoffStrategy(i) + 1*time.Microsecond)
+}
+return resp, req.Context().Err()
+}
+func copyBody(src io.ReadCloser) ([]byte, error) {
+b, err := ioutil.ReadAll(src)
+if err != nil {
+return nil, ErrReadingRequestBody
+}
+src.Close()
+return b, nil
+}
+func resetBody(request *http.Request, originalBody []byte) {
+request.Body = io.NopCloser(bytes.NewBuffer(originalBody))
+request.GetBody = func() (io.ReadCloser, error) {
+return io.NopCloser(bytes.NewBuffer(originalBody)), nil
+}
+}
+&lt;/code>&lt;/pre>
+&lt;h2 id="对冲策略">对冲策略&lt;/h2>
+&lt;p>上面讲的是重试的概念，那么有时候我们接口只是偶然会出问题，并且我们的下游服务并不在乎多请求几次，那么我们可以借用 grpc 里面的概念：&lt;strong>对冲策略（Hedged requests）&lt;/strong>。&lt;/p>
+&lt;p>&lt;strong>对冲是指在不等待响应的情况主动发送单次调用的多个请求&lt;/strong>，然后取首个返回的回包。对冲和重试的区别点主要在：对冲在超过指定时间没有响应就会直接发起请求，而重试则必须要服务端响应后才会发起请求。所以对冲更像是比较激进的重试策略。&lt;/p>
+&lt;p>使用对冲的时候需要注意一点是，因为下游服务可能会做负载均衡策略，所以要求请求的下游服务一般是要求幂等的，能够在多次并发请求中是安全的，并且是符合预期的。&lt;/p>
+&lt;p>对冲请求一般是用来处理“长尾”请求的，关于”长尾“请求的概念可以看这篇文章：&lt;a href="https://segmentfault.com/a/1190000039978117">https://segmentfault.com/a/1190000039978117&lt;/a>&lt;/p>
+&lt;h3 id="并发模式的处理">并发模式的处理&lt;/h3>
+&lt;p>因为对冲重试加上了并发的概念，要用到 goroutine 来并发请求，所以我们可以把数据封装到 channel 里面来进行消息的异步处理。&lt;/p>
+&lt;p>并且由于是多个 goroutine 处理消息，我们需要在每个 goroutine 处理完毕，但是都失败的情况下返回 err，不能直接由于 channel 等待卡住主流程，这一点十分重要。&lt;/p>
+&lt;p>但是由于在 Go 中是无法获取每个 goroutine 的执行结果的，我们又只关注正确处理结果，需要忽略错误，所以需要配合 WaitGroup 来实现流程控制，示例如下：&lt;/p>
+&lt;pre>&lt;code>func main() {
+totalSentRequests := &amp;amp;sync.WaitGroup{}
+allRequestsBackCh := make(chan struct{})
+multiplexCh := make(chan struct {
+result string
+retry int
+})
+go func() {
+totalSentRequests.Wait()
+close(allRequestsBackCh)
+}()
+for i := 1; i &amp;lt;= 10; i++ {
+totalSentRequests.Add(1)
+go func() {
+defer totalSentRequests.Done()
+time.Sleep(500 * time.Microsecond)
+if random.Intn(500)%2 == 0 {
+multiplexCh &amp;lt;- struct {
+result string
+retry int
+}{&amp;quot;finsh success&amp;quot;, i}
+}
+}()
+}
+select {
+case &amp;lt;-multiplexCh:
+fmt.Println(&amp;quot;finish success&amp;quot;)
+case &amp;lt;-allRequestsBackCh:
+fmt.Println(&amp;quot;all req finish，but all fail&amp;quot;)
+}
+}
+&lt;/code>&lt;/pre>
+&lt;p>从上面这段代码看为了进行流程控制，多用了两个 channel ：totalSentRequests 、allRequestsBackCh，多用了一个 goroutine 异步关停 allRequestsBackCh，才实现的流程控制，实在太过于麻烦，有新的实现方案的同学不妨和我探讨一下。&lt;/p>
+&lt;p>除了上面的并发请求控制的问题，对于对冲重试来说，还需要注意的是，由于请求不是串行的，所以 http.Request 的上下文会变，所以每次请求前需要 clone 一次 context，保证每个不同请求的 context 是独立的。但是每次 clone 之后 &lt;code>Reader&lt;/code> 的&lt;code>offset&lt;/code>位置又变了，所以我们还需要进行重新 &lt;code>reset&lt;/code>:&lt;/p>
+&lt;pre>&lt;code>func main() {
+req, _ := http.NewRequest(&amp;quot;POST&amp;quot;, &amp;quot;localhost&amp;quot;, strings.NewReader(&amp;quot;hello&amp;quot;))
+req2 := req.Clone(req.Context())
+contents, _ := io.ReadAll(req.Body)
+contents2, _ := io.ReadAll(req2.Body)
+fmt.Printf(&amp;quot;First read: %v\n&amp;quot;, string(contents))
+fmt.Printf(&amp;quot;Second read: %v\n&amp;quot;, string(contents2))
+}
+First read: hello
+Second read:
+&lt;/code>&lt;/pre>
+&lt;p>所以结合一下上面的例子，我们可以将对冲重试的代码变为：&lt;/p>
+&lt;pre>&lt;code>func retryHedged(req *http.Request, maxRetries int, timeout time.Duration,
+backoffStrategy BackoffStrategy) (*http.Response, error) {
+var (
+originalBody []byte
+err error
+)
+if req != nil &amp;amp;&amp;amp; req.Body != nil {
+originalBody, err = copyBody(req.Body)
+}
+if err != nil {
+return nil, err
+}
+AttemptLimit := maxRetries
+if AttemptLimit &amp;lt;= 0 {
+AttemptLimit = 1
+}
+client := http.Client{
+Timeout: timeout,
+}
+copyRequest := func() (request *http.Request) {
+request = req.Clone(req.Context())
+if request.Body != nil {
+resetBody(request, originalBody)
+}
+return
+}
+multiplexCh := make(chan struct {
+resp *http.Response
+err error
+retry int
+})
+totalSentRequests := &amp;amp;sync.WaitGroup{}
+allRequestsBackCh := make(chan struct{})
+go func() {
+totalSentRequests.Wait()
+close(allRequestsBackCh)
+}()
+var resp *http.Response
+for i := 1; i &amp;lt;= AttemptLimit; i++ {
+totalSentRequests.Add(1)
+go func() {
+defer totalSentRequests.Done()
+req = copyRequest()
+resp, err = client.Do(req)
+if err != nil {
+fmt.Printf(&amp;quot;error sending the first time: %v\n&amp;quot;, err)
+}
+if err == nil &amp;amp;&amp;amp; resp.StatusCode &amp;lt; 500 {
+multiplexCh &amp;lt;- struct {
+resp *http.Response
+err error
+retry int
+}{resp: resp, err: err, retry: i}
+return
+}
+if resp != nil {
+resp.Body.Close()
+}
+if req.Body != nil {
+resetBody(req, originalBody)
+}
+time.Sleep(backoffStrategy(i) + 1*time.Microsecond)
+}()
+}
+select {
+case res := &amp;lt;-multiplexCh:
+return res.resp, res.err
+case &amp;lt;-allRequestsBackCh:
+return nil, errors.New(&amp;quot;all req finish，but all fail&amp;quot;)
+}
+}
+&lt;/code>&lt;/pre>
+&lt;h2 id="熔断--降级">熔断 &amp;amp; 降级&lt;/h2>
+&lt;p>因为在我们使用 http 调用的时候，调用的外部服务很多时候其实并不可靠，很有可能因为外部的服务问题导致自身服务接口调用等待，从而调用时间过长，产生大量的调用积压，慢慢耗尽服务资源，最终导致服务调用雪崩的发生，所以在服务中使用熔断降级是非常有必要的一件事。&lt;/p>
+&lt;p>其实熔断降级的概念总体上来说，实现都差不多。核心思想就是通过全局的计数器，用来统计调用次数、成功/失败次数。通过统计的计数器来判断熔断器的开关，熔断器的状态由三种状态表示：closed、open、half open，下面借用了 sentinel 的图来表示三者的关系：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/199a3baf-f67d-407b-9e0b-ba4bf6fc022f/20220528153628.png" alt="">&lt;/p>
+&lt;p>首先初始状态是&lt;code>closed&lt;/code>，每次调用都会经过计数器统计总次数和成功/失败次数，然后在达到一定阈值或条件之后熔断器会切换到 &lt;code>open&lt;/code>状态，发起的请求会被拒绝。&lt;/p>
+&lt;p>熔断器规则中会配置一个熔断超时重试的时间，经过熔断超时重试时长后熔断器会将状态置为 &lt;code>half-open&lt;/code> 状态。这个状态对于 sentinel 来说会发起定时探测，对于 go-zero 来说会允许通过一定比例的请求，不管是主动定时探测，还是被动通过的请求调用，只要请求的结果返回正常，那么就需要重置计数器恢复到 &lt;code>closed&lt;/code> 状态。&lt;/p>
+&lt;p>一般而言会支持两种熔断策略：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>错误比率&lt;/strong>：熔断时间窗口内的请求数阈值错误率大于错误率阈值，从而触发熔断。&lt;/li>
+&lt;li>&lt;strong>平均 RT（响应时间）&lt;/strong>：熔断时间窗口内的请求数阈值大于平均 RT 阈值，从而触发熔断。&lt;/li>
+&lt;/ul>
+&lt;p>比如我们使用 hystrix-go 来处理我们的服务接口的熔断，可以结合我们上面说的重试从而进一步保障我们的服务。&lt;/p>
+&lt;pre>&lt;code>hystrix.ConfigureCommand(&amp;quot;my_service&amp;quot;, hystrix.CommandConfig{
+ErrorPercentThreshold: 30,
+})
+_ = hystrix.Do(&amp;quot;my_service&amp;quot;, func() error {
+req, _ := http.NewRequest(&amp;quot;POST&amp;quot;, &amp;quot;http://localhost:8090/&amp;quot;, strings.NewReader(&amp;quot;test&amp;quot;))
+_, err := retryDo(req, 5, 20*time.Millisecond, ExponentialBackoff)
+if err != nil {
+fmt.Println(&amp;quot;get error:%v&amp;quot;,err)
+return err
+}
+return nil
+}, func(err error) error {
+fmt.Printf(&amp;quot;handle error:%v\n&amp;quot;, err)
+return nil
+})
+&lt;/code>&lt;/pre>
+&lt;p>上面这个例子中就利用 hystrix-go 设置了最大错误百分比等于 30，超过这个阈值就会进行熔断。&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>这篇文章从接口调用出发，探究了重试的几个要点，讲解了重试的几种策略；然后在实践环节中讲解了直接使用 &lt;code>net/http&lt;/code>重试会有什么问题，对于对冲策略使用 channel 加上 waitgroup 来实现并发请求控制；最后使用 &lt;code>hystrix-go&lt;/code> 来对故障服务进行熔断，防止请求堆积引起资源耗尽的问题。&lt;/p>
+&lt;h2 id="reference">Reference&lt;/h2>
+&lt;p>&lt;a href="https://github.com/sethgrid/pester">https://github.com/sethgrid/pester&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://juejin.cn/post/6844904105354199047">https://juejin.cn/post/6844904105354199047&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://github.com/ma6174/blog/issues/11">https://github.com/ma6174/blog/issues/11&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://aws.amazon.com/cn/blogs/architecture/exponential-backoff-and-jitter/">https://aws.amazon.com/cn/blogs/architecture/exponential-backoff-and-jitter/&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://medium.com/@trongdan_tran/circuit-breaker-and-retry-64830e71d0f6">https://medium.com/@trongdan_tran/circuit-breaker-and-retry-64830e71d0f6&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://www.lixueduan.com/post/grpc/09-retry/">https://www.lixueduan.com/post/grpc/09-retry/&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://en.wikipedia.org/wiki/Thundering_herd_problem">https://en.wikipedia.org/wiki/Thundering_herd_problem&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://go-zero.dev/cn/docs/blog/governance/breaker-algorithms/">https://go-zero.dev/cn/docs/blog/governance/breaker-algorithms/&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://sre.google/sre-book/handling-overload/#eq2101">https://sre.google/sre-book/handling-overload/#eq2101&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://sentinelguard.io/zh-cn/docs/golang/circuit-breaking.html">https://sentinelguard.io/zh-cn/docs/golang/circuit-breaking.html&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://github.com/afex/hystrix-go">https://github.com/afex/hystrix-go&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://segmentfault.com/a/1190000039978117">https://segmentfault.com/a/1190000039978117&lt;/a>&lt;/p></description></item><item><title>Docs: net 包中的 HTTP</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/net-%E5%8C%85%E4%B8%AD%E7%9A%84-HTTP/net-%E5%8C%85%E4%B8%AD%E7%9A%84-HTTP/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/net-%E5%8C%85%E4%B8%AD%E7%9A%84-HTTP/net-%E5%8C%85%E4%B8%AD%E7%9A%84-HTTP/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/DesistDaydream/go-net">GitHub 项目，DesistDaydream/go-net&lt;/a>(学习代码)&lt;/li>
+&lt;li>&lt;a href="https://github.com/astaxie/build-web-application-with-golang">GoWeb 编程&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.kancloud.cn/kancloud/web-application-with-golang">看云 GoWeb 编程&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>go 使用 net/http 标准库来实现基本的 web 功能&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>form(表单)&lt;/strong> # 描述网页表单的处理&lt;/li>
+&lt;li>&lt;strong>middleware(中间件)&lt;/strong> # 常用来处理认证等行为&lt;/li>
+&lt;/ul>
+&lt;h2 id="一般的上网过程概述">一般的上网过程概述&lt;/h2>
+&lt;p>浏览器本身是一个客户端，当你输入 URL 的时候，首先浏览器会去请求 DNS 服务器，通过 DNS 获取相应的域名对应的 IP，然后通过 IP 地址找到 IP 对应的服务器后，要求建立 TCP 连接，等浏览器发送完 HTTP Request（请求）包后，服务器接收到请求包之后才开始处理请求包，服务器调用自身服务，返回 HTTP Response（响应）包；客户端收到来自服务器的响应后开始渲染这个 Response 包里的主体（body），等收到全部的内容随后断开与该服务器之间的 TCP 连接&lt;/p>
+&lt;h1 id="hello-world">Hello World&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// HelloWorld 处理客户端请求 /hello 时的具体逻辑
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">HelloWorld&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ResponseWriter&lt;/span>, &lt;span style="color:#a6e22e">req&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Request&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 将 Hello DesistDaydream! 这一串字符写入到 Response 中，并响应给客户端
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;Hello DesistDaydream!&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 设置访问的路由,一般也称为 Handler(处理器)，用来处理 http 请求。比如这里就是处理一个访问 /hello 的 hettp 请求。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 当客户端发起 http 请求，访问 http://IP:8080/hello ，由 HelloWorld 函数处理该请求。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">HandleFunc&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/hello&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">HelloWorld&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 设置监听的端口
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ListenAndServe&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;:8080&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="nethttp-包解析">net/http 包解析&lt;/h1>
+&lt;p>以 1.16 版本为例
+&lt;a href="https://github.com/golang/go/blob/release-branch.go1.16/src/net/http/client.go#L57">http.Client{}&lt;/a> 结构体 # HTTP 客户端，作用在该结构体的方法，就是用来发起 HTTP 请求的方法，比如 GET、POST 等
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xi368g/1626314106732-1e5da8f4-21b9-485f-988c-c99837e21513.png" alt="image.png">&lt;/p>
+&lt;p>&lt;a href="https://cs.opensource.google/go/go/+/refs/tags/go1.16.6:src/net/http/client.go;l=590">do()&lt;/a> 方法 # do 是用来发送 HTTP 请求并返回 HTTP 响应的最本质方法。像 Get()、Post() 等方法，最终还是调用的 do()&lt;/p>
+&lt;h1 id="使用-go-发起-http-request-并处理-response-body-的基本示例">使用 Go 发起 HTTP Request 并处理 Response Body 的基本示例&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;bufio&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 设置一些会用到的全局变量，省的每次都要重新初始化
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">var&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">req&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Request&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">resp&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Response&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#66d9ef">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Client1 直接使用 http.Get() 来发起请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">Client1&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// net/http 标准库中还可以实现作为客户端发送 http 请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// Get() 向指定的服务器发送一个 HTTP GET 请求，并返回一个 Response
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Get&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;http://172.38.40.250:8080/index&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> panic(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 关闭连接
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">defer&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>.&lt;span style="color:#a6e22e">Close&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 输出服务端响应的的状态码
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Response status:&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Status&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 处理 Response 中的 Body，并输出响应体的字符串格式内容
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">ioutil&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(string(&lt;span style="color:#a6e22e">body&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Client2 先构建一个 Request，再根据这个 Request 发起请求，这种方式常用来自定义请求内容
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">Client2&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 构建 Request
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">req&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">NewRequest&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;http://172.38.40.250:8080/index&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 为构建的 Request 设定请求头信息，可以多次使用 Set() 来设定多个 Header 信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">Header&lt;/span>.&lt;span style="color:#a6e22e">Set&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Content-type&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;application/json;charset=utf-8&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 查看一下将要发起的请求内容
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Printf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;本次 HTTP Request 为：%v\n请求方法为：%v\n请求头为：%v\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">req&lt;/span>, &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">Method&lt;/span>, &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">Header&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 根据新构建的 req 来发起请求，并获取响应信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 这里的 http.Client{} 中可以设置一些发起 HTTP 请求时的一些信息，比如 TLS 等
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">client&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Client&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">client&lt;/span>.&lt;span style="color:#a6e22e">Do&lt;/span>(&lt;span style="color:#a6e22e">req&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> panic(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 关闭连接
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">defer&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>.&lt;span style="color:#a6e22e">Close&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 处理响应，并输出 Response Body
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">ioutil&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(string(&lt;span style="color:#a6e22e">body&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Client1&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Client2&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="go-http-getpost-json-的服务端客户端示例包含序列化反序列化httpswwwcnblogscomjunneyangp6211190html">&lt;a href="https://www.cnblogs.com/junneyang/p/6211190.html">Go HTTP GET/POST JSON 的服务端、客户端示例，包含序列化、反序列化&lt;/a>&lt;/h1>
+&lt;h2 id="服务端代码示例">服务端代码示例：&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">handler&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;encoding/json&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;io/ioutil&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Message 是一条消息应该具有的基本属性
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Message&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Name&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;name&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Body&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;body&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Time&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;time&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// NewMessage 实例化 Message
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">NewMessage&lt;/span>() &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Message&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">Message&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Name&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;DesistDaydream&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Body&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;Hello World&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Time&lt;/span>: &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Now&lt;/span>().&lt;span style="color:#a6e22e">Format&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;2006-01-02 15:04:05&amp;#34;&lt;/span>),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// ResponseJSON 将会响应 JSON 格式数据
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">ResponseJSON&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ResponseWriter&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Request&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Printf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;当前客户端的请求 %v 页面的 Method 为：%v\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">RequestURI&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">Method&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 初始化结构体，用于存储和响应 JSON 数据
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">NewMessage&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 声明两个常用的变量
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#66d9ef">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">jsonData&lt;/span> []&lt;span style="color:#66d9ef">byte&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 根据不同请求方法，执行不同的行为
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">switch&lt;/span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">Method&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">case&lt;/span> &lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 将 struct 中的数据转换为 JSON 格式
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">jsonData&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">json&lt;/span>.&lt;span style="color:#a6e22e">Marshal&lt;/span>(&lt;span style="color:#a6e22e">m&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 响应 JSON 格式的默认值
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, string(&lt;span style="color:#a6e22e">jsonData&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">default&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 模拟下面这样的 curl 请求，程序将会根据 Request Body 中的内容替换 Message 结构体数据中的值，并返回结构体中的数据
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 这就好比请求一个需要 TOKEN 的 API，我们只有使用正确的 TOKEN，才可以获取想要的信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// curl -XPOST http://172.38.40.250:8080/json -d &amp;#39;{&amp;#34;name&amp;#34;:&amp;#34;lichenhao&amp;#34;}&amp;#39;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">//
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 读取 Request 的 Body
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">RequestBody&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">io&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Printf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;请求体为：%v\n&amp;#34;&lt;/span>, string(&lt;span style="color:#a6e22e">RequestBody&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 将 Request Body 的 JSON 格式转换为 struct 类型，并将 struct 中的值替换为 JSON 中的值
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 注意，struct 中仅传入一个 key 的值，则 struct 中也只有一个属性的值被替代，其他属性的值保持不变
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">json&lt;/span>.&lt;span style="color:#a6e22e">Unmarshal&lt;/span>(&lt;span style="color:#a6e22e">RequestBody&lt;/span>, &lt;span style="color:#a6e22e">m&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;请检查 Body，格式不正确或数据类型不对&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Printf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;请求体转换为 struct 后的值为：%v\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">m&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 根据传入的 请求体 的值，判断认证是否成功
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 比如现在假设，只有传入 {&amp;#34;name&amp;#34;:&amp;#34;DesistDaydream&amp;#34;} 这个请求体时，才会响应结构体的数据给给客户端。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">switch&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">case&lt;/span> &lt;span style="color:#e6db74">&amp;#34;DesistDaydream&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 认证正确，将 struct 类型数据转换为 JSON 格式数据并响应给客户端
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">jsonData&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">json&lt;/span>.&lt;span style="color:#a6e22e">Marshal&lt;/span>(&lt;span style="color:#a6e22e">m&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;序列化出错，请始终其他数据格式的 Body&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprint&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, string(&lt;span style="color:#a6e22e">jsonData&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">default&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Fprintf&lt;/span>(&lt;span style="color:#a6e22e">w&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;你好 %v,认证失败，请重试\n&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 设置访问的路由
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">HandleFunc&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/json&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">handler&lt;/span>.&lt;span style="color:#a6e22e">ResponseJSON&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 设置监听的端口
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;开始监听8080端口&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ListenAndServe&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;:8080&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Fatal&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;ListenAndServe: &amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="客户端代码示例">客户端代码示例：&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;bufio&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;bytes&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;encoding/json&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fmt&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;io/ioutil&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// Message 是一条消息应该具有的基本属性
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Message&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Name&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;name&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Body&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;body&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">Time&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;time&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 第一种请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 模拟从外部读取 json 格式文件，将 json 与 struct 绑定，然后再发送请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">NewMessage&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 这里假定 struct 的值时从外部文件获取的
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">Name&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;DesistDaydream&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span> = &lt;span style="color:#e6db74">&amp;#34;你好&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">m&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span> = &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Now&lt;/span>().&lt;span style="color:#a6e22e">Format&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;2006-01-02 15:04:05&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 将 struct 转换为 json
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">jsonData&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">json&lt;/span>.&lt;span style="color:#a6e22e">Marshal&lt;/span>(&lt;span style="color:#a6e22e">m&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(&lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 构建 Request
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">req&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">NewRequest&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;POST&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;http://172.38.40.250:8080/json&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">bytes&lt;/span>.&lt;span style="color:#a6e22e">NewBuffer&lt;/span>(&lt;span style="color:#a6e22e">jsonData&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">Header&lt;/span>.&lt;span style="color:#a6e22e">Set&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Content-type&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;application/json;charset=utf-8&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 处理响应信息并输出
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> (&lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Client&lt;/span>{}).&lt;span style="color:#a6e22e">Do&lt;/span>(&lt;span style="color:#a6e22e">req&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">ioutil&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(string(&lt;span style="color:#a6e22e">body&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 第二种请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 手动指定 json 数据，并发起请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 下面的代码等效于使用 crul 命令发起请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// curl -XPOST http://172.38.40.250:8080/json -d &amp;#39;{&amp;#34;name&amp;#34;:&amp;#34;lichenhao&amp;#34;}&amp;#39;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 创建一个 json 数据
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">jsonReqBody&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> []byte(&lt;span style="color:#e6db74">`{&amp;#34;name&amp;#34;:&amp;#34;lichenhao&amp;#34;}`&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 构建 Request
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">req&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> = &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">NewRequest&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;POST&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;http://172.38.40.250:8080/json&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">bytes&lt;/span>.&lt;span style="color:#a6e22e">NewBuffer&lt;/span>(&lt;span style="color:#a6e22e">jsonReqBody&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">req&lt;/span>.&lt;span style="color:#a6e22e">Header&lt;/span>.&lt;span style="color:#a6e22e">Set&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;Content-type&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;application/json&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 处理响应信息并输出
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">resp&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> = (&lt;span style="color:#f92672">&amp;amp;&lt;/span>&lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">Client&lt;/span>{}).&lt;span style="color:#a6e22e">Do&lt;/span>(&lt;span style="color:#a6e22e">req&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">body&lt;/span>, &lt;span style="color:#a6e22e">_&lt;/span> = &lt;span style="color:#a6e22e">ioutil&lt;/span>.&lt;span style="color:#a6e22e">ReadAll&lt;/span>(&lt;span style="color:#a6e22e">resp&lt;/span>.&lt;span style="color:#a6e22e">Body&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Println&lt;/span>(string(&lt;span style="color:#a6e22e">body&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>

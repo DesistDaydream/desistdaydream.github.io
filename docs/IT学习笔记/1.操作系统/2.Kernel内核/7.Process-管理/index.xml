@@ -1,0 +1,376 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Process 管理</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/</link><description>Recent content in Process 管理 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 7.Process 管理</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/Process-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/Process-%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://blog.csdn.net/ljianhui/article/details/46718835">原文连接&lt;/a>，本文为 IBM RedBook 的 &lt;a href="http://users.polytech.unice.fr/~bilavarn/fichier/elec5_linux/linux_perf_and_tuning_IBM.pdf">Linux Performanceand Tuning Guidelines&lt;/a> 的 1.1 节的翻译&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/fzLcAkYwKhj-9hgoVkTzaw">阿里技术，CPU 飙高，系统性能问题如何排查？&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>进程管理是操作系统的最重要的功能之一。有效率的进程管理能保证一个程序平稳而高效地运行。它包括进程调度、中断处理、信号、进程优先级、上下文切换、进程状态、进度内存等。&lt;/p>
+&lt;p>&lt;strong>Process(进程)&lt;/strong> 实际是运行在 CPU 中的一个&lt;strong>Program(应用程序) 的实体&lt;/strong>。在 Linux 系统中，能够同时运行多个进程，Linux 通过在短的时间间隔内轮流运行这些进程而实现“多任务”。这一短的时间间隔称为“时间片”，让进程轮流运行的方法称为“进程调度” ，完成调度的程序称为调度程序。&lt;/p>
+&lt;p>进程调度控制进程对 CPU 的访问。当需要选择下一个进程运行时，由调度程序选择最值得运行的进程。可运行进程实际上是仅等待 CPU 资源的进程，如果某个进程在等待其它资源，则该进程是不可运行进程。Linux 使用了比较简单的基于优先级的进程调度算法选择新的进程。&lt;/p>
+&lt;p>通过多任务机制，每个进程可认为只有自己独占计算机，从而简化程序的编写。每个进程有自己单独的地址空间，并且只能由这一进程访问，这样，操作系统避免了进程之间的互相干扰以及“坏”程序对系统可能造成的危害。 为了完成某特定任务，有时需要综合两个程序的功能，例如一个程序输出文本，而另一个程序对文本进行排序。为此，操作系统还提供进程间的通讯机制来帮助完成这样的任务。Linux 中常见的进程间通讯机制有信号、管道、共享内存、信号量和套接字等。&lt;/p>
+&lt;p>内核通过 SCI 提供了一个 API 来创建一个新进程(fork、exec 或 Portable Operating System Interface [POSⅨ] 函数)、停止进程(kill、exit)、并在它们之间进行通信和同步(signal 或者 POSⅨ 机制)。&lt;/p>
+&lt;p>计算机实际上可以做的事情实质上非常简单，比如计算两个数的和，再比如在内存中寻找到某个地址等等。这些最基础的计算机动作被称为指令(instruction)。所谓的程序(program)，就是这样一系列指令的所构成的集合。通过程序，我们可以让计算机完成复杂的操作。程序大多数时候被存储为可执行的文件。这样一个可执行文件就像是一个菜谱，计算机可以按照菜谱作出可口的饭菜。&lt;/p>
+&lt;p>Program(程序) 和 Process(进程) 的区别是什么呢?&lt;/p>
+&lt;ol>
+&lt;li>在很久很久以前，计算机刚出现的时候，是没有操作系统的，那时候一台机器只是运行一个程序，得出数据，后来人们为了同时运行多个程序从而研究出了操作系统，在操作系统之上可以运行多个程序&lt;/li>
+&lt;li>进程是程序的一个具体实现。类似于按照食谱，真正去做菜的过程。同一个程序可以执行多次，每次都可以在内存中开辟独立的空间来装载，从而产生多个进程。不同的进程还可以拥有各自独立的 IO 接口。&lt;/li>
+&lt;/ol>
+&lt;p>操作系统的一个重要功能就是为进程提供方便，比如说为进程分配内存空间，管理进程的相关信息等等，就好像是为我们准备好了一个精美的厨房。&lt;/p>
+&lt;h2 id="进程的生命周期">进程的生命周期&lt;/h2>
+&lt;p>每一个进程都有其生命周期，例如创建、运行、终止和消除。这些阶段会在系统启动和运行中重复无数次。因此，进程的生命周期对于其性能的分析是非常重要的。下图展示了经典的进程生命周期。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ld23ik/1616167507353-2f676d82-88da-483c-a939-399f284d6425.jpeg" alt="">
+不会关闭的常驻进程可以称为 &lt;strong>Daemon Process(守护进程，简称 Daemon)&lt;/strong>&lt;/p>
+&lt;blockquote>
+&lt;p>一般 daemon 的名称都会在进程名后加一个字母 d 作为 daemon 的 process，比如 vsftp 的 daemon 就是 vsftpd。&lt;/p>
+&lt;/blockquote>
+&lt;p>当一个进程创建一个新的进程，创建进程(父进程)的进程调用 一个 fork() 系统调用。当 fork() 系统调用被调用，它得到该新创建进程（子进程）的进程描述并调用一个新的进程 id。它复制该值到父进程进程描述到子进程中。此时整个的父进程的地址空间是没有被复制的；父子进程共享相同的地址空间。&lt;/p>
+&lt;p>exec() 系统调用复制新的程序到子进程的地址空间。因为父子进程共享地址空间，写入一个新的程序的数据会引起一个分页错误。在这种情况下，内存会分配新的物理内存页给子进程。&lt;/p>
+&lt;p>这个推迟的操作叫作写时复制。子进程通常运行他们自己的程序而不是与父进程运行相同的程序。这个操作避免了不必要的开销，因为复制整个地址空间是一个非常缓慢和效率低下的操作，它需要使用大量的处理器时间和资源。&lt;/p>
+&lt;p>当程序已经执行完成，子进程通过调用 exit()系统调用终止。exit()系统调用释放进程大部分的数据并通过发送一个信号通知其父进程。此时，子进程是一个被叫作僵尸进程的进程（参阅 page 7 的“Zombie processes”）。&lt;/p>
+&lt;p>子进程不会被完全移除直到其父进程知道其子进程的调用 wait()系统调用而终止。当父进程被通知子进程终止，它移除子进程的所有数据结构并释放它的进程描述。&lt;/p>
+&lt;h2 id="父进程与子进程">父进程与子进程&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ld23ik/1616167507409-d531245f-abbe-4a2a-b575-d2ae72c6949f.jpeg" alt="">&lt;/p>
+&lt;ul>
+&lt;li>用颜色的线标示的两列，左侧的为进程号(PID)右侧的为父进程号(PPID)&lt;/li>
+&lt;li>子进程与父进程的环境变量相同&lt;/li>
+&lt;li>老进程成为新进程的父进程(parent process)，而相应的，新进程就是老的进程的子进程(child process)。一个进程除了有一个 PID 之外，还会有一个 PPID(parent PID)来存储的父进程 PID。如果我们循着 PPID 不断向上追溯的话，总会发现其源头是 init 进程。所以说，所有的进程也构成一个以 init 为根的树状结构。&lt;/li>
+&lt;li>如上图所示，我们查询当前 shell 下的进程：
+&lt;ul>
+&lt;li>我们可以看到，第二个进程 ps 是第一个进程 bash 的子进程。&lt;/li>
+&lt;li>还可以用 &lt;code>pstree&lt;/code> 命令来显示整个进程树。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>fork() 通常作为一个函数被调用。这个函数会有两次返回，将子进程的 PID 返回给父进程，0 返回给子进程。实际上，子进程总可以查询自己的 PPID 来知道自己的父进程是谁，这样，一对父进程和子进程就可以随时查询对方。&lt;/li>
+&lt;li>通常在调用 fork 函数之后，程序会设计一个 if 选择结构。当 PID 等于 0 时，说明该进程为子进程，那么让它执行某些指令,比如说使用 exec 库函数(library function)读取另一个程序文件，并在当前的进程空间执行 (这实际上是我们使用 fork 的一大目的: 为某一程序创建进程)；而当 PID 为一个正整数时，说明为父进程，则执行另外一些指令。由此，就可以在子进程建立之后，让它执行与父进程不同的功能。&lt;/li>
+&lt;/ul>
+&lt;h3 id="子进程的-termination终结">子进程的 termination(终结)&lt;/h3>
+&lt;p>当子进程终结时，它会通知父进程，并清空自己所占据的内存，并在内核里留下自己的退出信息(exit code，如果顺利运行，为 0；如果有错误或异常状况，为&amp;gt;0 的整数)。在这个信息里，会解释该进程为什么退出。父进程在得知子进程终结时，有责任对该子进程使用 wait 系统调用。这个 wait 函数能从内核中取出子进程的退出信息，并清空该信息在内核中所占据的空间。但是，如果父进程早于子进程终结，子进程就会成为一个孤儿(orphand)进程。孤儿进程会被过继给 init 进程，init 进程也就成了该进程的父进程。init 进程负责该子进程终结时调用 wait 函数。&lt;/p>
+&lt;p>当然，一个糟糕的程序也完全可能造成子进程的退出信息滞留在内核中的状况（父进程不对子进程调用 wait 函数），这样的情况下，子进程成为僵尸(zombie)进程。当大量僵尸进程积累时，内存空间会被挤占。&lt;/p>
+&lt;h2 id="thread线程">Thread(线程)&lt;/h2>
+&lt;p>一个线程是一个单独的进程生成的一个执行单元。它与其他的线程并行地运行在同一个进程中。各个线程可以共享进程的资源，例如内存、地址空间、打开的文件等等。它们能访问相同的程序数据集。线程也被叫作轻量级的进程（Light Weight Process，LWP）。因为它们共享资源，所以每个线程不应该在同一时间改变它们共享的资源。互斥的实现、锁、序列化等是用户程序的责任。&lt;/p>
+&lt;p>从性能的角度来说，创建线程的开销比创建进程少，因数创建一个线程时不需要复制资源。另一方面，进程和线程拥在调度算法上有相似的特性。&lt;strong>内核以相似的方式处理它们&lt;/strong>。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ld23ik/1616167507380-b6ae3b1e-b47c-454c-b3c7-9942dde4f480.jpeg" alt="">
+所以，一个进程创建的线程，也是可以运行在多个 CPU 上的。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ld23ik/1616645843002-c07df4a7-3d7a-4969-8203-4bc20169721a.png" alt="image.png">
+在现在的 Linux 实现中，线程支持 UNIX 的可移植操作系统接口（POSIX）标准库。在 Linux 操作系统中有几种可用的线程实现。以下是广泛使用的线程库：&lt;/p>
+&lt;p>Linux Threads 自从 Linux 内核 2.0 起就已经被作为默认的线程实现。Linux Threads 的一些实现并不符合 POSIX 标准。Native POSIX Thread Library（NPTL）正在取代 Linux Threads。Linux Threads 在将来的 Linux 企业发行版中将不被支持。&lt;/p>
+&lt;p>Native POSIX Thread Libary（NPTL）&lt;/p>
+&lt;p>NPTL 最初是由红帽公司开发的。NPTL 与 POSIX 更加兼容。通过 Linux 内核 2.6 的高级特性，例如，新的 clone()系统调用、信号处理的实现等等，它具有比 LinuxThreads 更高的性能和伸缩性。&lt;/p>
+&lt;p>NPTL 与 LinuxThreads 有一些不兼容。一个依赖于 LinuxThreads 的应用可能不能在 NPTL 实现中工作。&lt;/p>
+&lt;p>Next Generation POSIX Thread（NGPT）&lt;/p>
+&lt;p>NGPT 是一个 IBM 开发的 POSIX 线程库。现在处于维护阶段并且在未来也没有开发计划。&lt;/p>
+&lt;p>使用 LD_ASSUME_KERNEL 环境变量，你可以选择在应用中使用哪一个线程库。&lt;/p>
+&lt;h2 id="linux-内核代码中的-process">Linux 内核代码中的 Process&lt;/h2>
+&lt;p>在 Linux 中，&lt;strong>Process(进程) 属于&lt;/strong> &lt;strong>Task(任务)&lt;/strong> 的一种类型，都被 task_struct 结构管理，该结构同时被叫作进程描述。一个进程描述包含一个运行进程所有的必要信息，例如进程标识、进程属性和构建进程的资源。如果你了解该进程构造，你就能理解对于进程的运行和性能来说，什么是重要的。&lt;/p>
+&lt;p>v5.14 代码：&lt;a href="https://github.com/torvalds/linux/blob/v5.14/include/linux/sched.h#L661">include/linux/sched.h&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">struct&lt;/span> task_struct {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#ifdef CONFIG_THREAD_INFO_IN_TASK
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">/*
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> * For reasons of header soup (see current_thread_info()), this
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> * must be the first element of task_struct.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">struct&lt;/span> thread_info thread_info;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#endif
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> ......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 进程状态
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">unsigned&lt;/span> &lt;span style="color:#66d9ef">int&lt;/span> __state;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 进程唯一标识符
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">pid_t&lt;/span> pid;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">pid_t&lt;/span> tgid;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 进程名称，上限 16 字符
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">char&lt;/span> comm[TASK_COMM_LEN];
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 打开的文件
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> files_struct &lt;span style="color:#f92672">*&lt;/span>files;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>下图展示了进程结构相关的进程信息概述。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ld23ik/1616167507336-aaeec645-b9df-41c3-99ab-6bf39aed4f42.jpeg" alt="">
+其实从这里能看出来，从某种角度来看，**对于内核来说并没有线程这个概念。Linux 把所有的线程都当做进程来实现，内核也没有特别的调度算法来处理线程。**线程仅仅被视为一个与其他进程共享某些资源的进程，和进程一样，每个线程也都是有自己的 &lt;code>task_struct&lt;/code>，所以在内核中，线程看起来就是一个普通的进程。线程也被称作轻量级进程，一个进程可以有多个线程，线程拥有自己独立的栈，切换也由操作系统调度。在 Linux 上可以通过 &lt;code>pthread_create()&lt;/code> 方法或者 &lt;code>clone()&lt;/code> 系统调用创建；&lt;/p>
+&lt;h1 id="进程优先级和-nice-值">进程优先级和 nice 值&lt;/h1>
+&lt;p>进程优先级是一个数值，它通过动态的优先级和静态的优先级来决定进程被 CPU 处理的顺序。一个拥有更高进程优先级的进程拥有更大的机率得到处理器的处理。&lt;/p>
+&lt;p>内核根据进程的行为和特性使用试探算法，动态地调整调高或调低动态优先级。一个用户进程可以通过使用进程的 nice 值间接改变静态优先级。一个拥有更高静态优先级的进程将会拥有更长的时间片（进程能在处理上运行多长时间）。&lt;/p>
+&lt;p>Linux 支持从 19（最低优先级）到-20（最高优先级）的 nice 值。默认值为 0。把程序的 nice 值修改为负数（使进程的优先级更高），需要以 root 身份登陆或使用 su 命令以 root 身份执行。&lt;/p>
+&lt;h1 id="上下文切换">上下文切换&lt;/h1>
+&lt;p>在进程运行过程中，进程的运行信息被保存于处理器的寄存器和它的缓存中。正在执行的进程加载到寄存器中的数据集被称为上下文。为了切换进程，运行中进程的上下文将会被保存，接下来的运行进程的上下文将被被恢复到寄存器中。进程描述和内核模式堆栈的区域将会用来保存上下文。这个切换被称为上下文切换。过多的上下文切换是不受欢迎的，因为处理器每次都必须清空刷新寄存器和缓存，为新的进程制造空间。它可能会引起性能问题。&lt;/p>
+&lt;p>下图说明了上下文切换如何工作。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ld23ik/1616167507475-6f5a9385-f033-4c00-8344-2953197b973c.jpeg" alt="">&lt;/p>
+&lt;h1 id="中断处理">中断处理&lt;/h1>
+&lt;p>中断处理是优先级最高的任务之一。中断通常由 I/O 设备产生，例如网络接口卡、键盘、磁盘控制器、串行适配器等等。中断处理器通过一个事件通知内核（例如，键盘输入、以太网帧到达等等）。它让内核中断进程的执行，并尽可能快地执行中断处理，因为一些设备需要快速的响应。它是系统稳定的关键。当一个中断信号到达内核，内核必须切换当前的进程到一个新的中断处理进程。这意味着中断引起了上下文切换，因此大量的中断将会引起性能的下降。&lt;/p>
+&lt;p>在 Linux 的实现中，有两种类型的中断。硬中断是由请求响应的设备发出的（磁盘 I/O 中断、网络适配器中断、键盘中断、鼠标中断）。软中断被用于处理可以延迟的任务（TCP/IP 操作，SCSI 协议操作等等）。你可以在 &lt;code>/proc/interrupts&lt;/code> 文件中查看硬中断的相关信息。&lt;/p>
+&lt;p>在多处理器的环境中，中断被每一个处理器处理。绑定中断到单个的物理处理中能提高系统的性能。更多的细节，请参阅 4.4.2，“CPU 的中断处理亲和力”。&lt;/p>
+&lt;h1 id="进程的状态">进程的状态&lt;/h1>
+&lt;p>每一个进程拥有自己的状态，状态表示了进程当前在发生什么。LINUX 2.6 以后的内核中，在进程的执行期间进程的状态会发生改变，进程一般存在 7 种基础状态：D-不可中断睡眠、R-可执行、S-可中断睡眠、T-暂停态、t-跟踪态、X-死亡态、Z-僵尸态，这几种状态在 ps 命令的 man 手册中有对应解释。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>D&lt;/strong>＃不间断的睡眠（通常是 IO）&lt;/li>
+&lt;li>&lt;strong>R&lt;/strong> ＃正在运行或可运行（在运行队列上）&lt;/li>
+&lt;li>&lt;strong>S&lt;/strong> ＃可中断的睡眠（等待事件完成）&lt;/li>
+&lt;li>&lt;strong>T&lt;/strong> ＃被作业控制信号停止&lt;/li>
+&lt;li>&lt;strong>t&lt;/strong>＃在跟踪过程中被调试器停止&lt;/li>
+&lt;li>&lt;strong>X&lt;/strong> ＃已死（永远都不会出现）&lt;/li>
+&lt;li>&lt;strong>Z&lt;/strong> ＃已终止运行（“僵尸”）的进程，已终止但未由其父进程获得&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ld23ik/1616167507456-ca89ed8d-d8a1-4cd6-96ab-c78372840f4a.jpeg" alt="">&lt;/p>
+&lt;h2 id="d-task_uninterruptible不可中断睡眠态">D (TASK_UNINTERRUPTIBLE)，不可中断睡眠态&lt;/h2>
+&lt;p>顾名思义，位于这种状态的进程处于睡眠中，并且不允许被其他进程或中断(异步信号)打断。因此这种状态的进程，是无法使用 kill -9 杀死的(kill 也是一种信号)，除非重启系统(没错，就是这么头硬)。不过这种状态一般由 I/O 等待(比如磁盘 I/O、网络 I/O、外设 I/O 等)引起，出现时间非常短暂，大多很难被 PS 或者 TOP 命令捕获(除非 I/O HANG 死)。SLEEP 态进程不会占用任何 CPU 资源。&lt;/p>
+&lt;h2 id="r-task_running可执行态">R (TASK_RUNNING)，可执行态&lt;/h2>
+&lt;p>这种状态的进程都位于 CPU 的可执行队列中，正在运行或者正在等待运行，即不是在上班就是在上班的路上。&lt;/p>
+&lt;p>在此状态下，表示进程正在 CPU 中运行或在队列中等待运行（运行队列）。&lt;/p>
+&lt;h2 id="s-task_interruptible可中断睡眠态">S (TASK_INTERRUPTIBLE)，可中断睡眠态&lt;/h2>
+&lt;p>不同于 D，这种状态的进程虽然也处于睡眠中，但是是允许被中断的。这种进程一般在等待某事件的发生（比如 socket 连接、信号量等），而被挂起。一旦这些时间完成，进程将被唤醒转为 R 态。如果不在高负载时期，系统中大部分进程都处于 S 态。SLEEP 态进程不会占用任何 CPU 资源。&lt;/p>
+&lt;p>在此状态下，进程被暂停并等待一个某些条件状态的到达。如果一个进程处于 TASK_INTERRUPTIBLE 状态并接收到一个停止的信号，进程的状态将会被改变并中断操作。一个典型的 TASK_INTERRUPTIBLE 状态的进程的例子是一个进程等待键盘中断。&lt;/p>
+&lt;h2 id="t--t-task_stopped--task_traced暂停-or-跟踪态">T &amp;amp; t (TASK_STOPPED &amp;amp; TASK_TRACED)，暂停 or 跟踪态&lt;/h2>
+&lt;p>这种两种状态的进程都处于运行停止的状态。不同之处是暂停态一般由于收到 SIGSTOP、SIGTSTP、SIGTTIN、SIGTTOUT 四种信号被停止，而跟踪态是由于进程被另一个进程跟踪引起(比如 gdb 断点）。暂停态进程会释放所有占用资源。&lt;/p>
+&lt;p>TASK_STOPPED 在此状态下的进程被某些信号（如 SIGINT，SIGSTOP）暂停。进程正在等待通过一个信号恢复运行，例如 SIGCONT。&lt;/p>
+&lt;h2 id="z-exit_zombietask_zombie-僵尸态">Z (EXIT_ZOMBIE/TASK_ZOMBIE), 僵尸态&lt;/h2>
+&lt;p>这种状态的进程实际上已经结束了，但是父进程还没有回收它的资源（比如进程的描述符、PID 等）。僵尸态进程会释放除进程入口之外的所有资源。&lt;/p>
+&lt;p>当一个进程调用 exit()系统调用退出后，它的父进程应该知道该进程的终止。处于 TASK_ZOMBIE 状态的进程会等待其父进程通知其释放所有的数据结构。&lt;/p>
+&lt;p>当一个进程接收到一个信号而终止，它在结束自己之前，通常需要一些时间来结束所有的任务（例如关闭打开的文件）。在这个通常非常短暂的时间内，该进程就是一个僵尸进程。&lt;/p>
+&lt;p>进程已经完成所有的关闭任务后，它会向父进程报告其即将终止。有些时候，一个僵尸进程不能把自己终止，这将会引导它的状态显示为 z（zombie）。&lt;/p>
+&lt;p>使用 kill 命令来关闭这样的一个进程是不可能的，因为该进程已经被认为已经死掉了。如果你不能清除僵尸进程，你可以结束其父进程，然后僵尸进程也随之消失。但是，如果父进程为 init 进程，你不能结束它。init 进程是一个非常重要的进程，因此可能需要重启系统来清除僵尸进程。&lt;/p>
+&lt;h2 id="x-exit_dead-死亡态">X (EXIT_DEAD), 死亡态&lt;/h2>
+&lt;p>进程的真正结束态，这种状态一般在正常系统中捕获不到。&lt;/p>
+&lt;h1 id="进程内存段">进程内存段&lt;/h1>
+&lt;p>进程使用其自身的内存区域来执行工作。工作的变化根据情况和进程的使用而决定。进程可以拥有不同的工作量特性和不同的数据大小需求。进程必须处理各种数据大小。为了满足需求，Linux 内核为每个进程使用动态申请内存的机制。进程内存分配的数据结构如图 1-7 所示。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ld23ik/1616167507458-2bbc9553-910c-4d66-9ad1-8f45893277da.jpeg" alt="">&lt;/p>
+&lt;p>图 1-7 进程地址空间&lt;/p>
+&lt;p>进程内存区由以下几部分组成：&lt;/p>
+&lt;p>Text 段&lt;/p>
+&lt;p>该区域用于存储运行代码。&lt;/p>
+&lt;p>Data 段&lt;/p>
+&lt;p>数据段包括三个区域。&lt;/p>
+&lt;p>– Data：该区域存储已被初始化的数据，如静态变量。&lt;/p>
+&lt;p>– BSS：该区域存储初始化为 0 的数据。数据被初始化为 0。&lt;/p>
+&lt;p>– Heap：该区域用于根据需求使用 malloc()动态申请的内存。堆向高地址方向增长。&lt;/p>
+&lt;p>Stack 段&lt;/p>
+&lt;p>该区域用于存储局部变量、函数参数和返回函数的地址。栈向低地址方向增长。&lt;/p>
+&lt;p>用户进程的地址空间内存分布可以使用 pmap 命令来查看。你可以使用 ps 命令来查看内存段的大小。可以参阅 2.3.10 的“pmap”，“ps 和 pstree”。&lt;/p>
+&lt;h1 id="进程的-exit-code退出码">进程的 exit code(退出码)&lt;/h1>
+&lt;p>在 Linux 系统中，程序可以在执行终止后传递值给其父进程，这个值被称为 &lt;strong>exit code(退出码)&lt;/strong> 或 **exit status(退出状态)**或 &lt;strong>reture status(返回码)&lt;/strong>。在 POSIX 系统中，惯例做法是当程序成功执行时 &lt;strong>exit code 为 0&lt;/strong>，当程序执行失败时 &lt;strong>exit code 非 0&lt;/strong>。&lt;/p>
+&lt;p>传递状态码为何重要？如果你在命令行脚本上下文中查看状态码，答案显而易见。任何有用的脚本，它将不可避免地要么被其他脚本所使用，要么被 bash 单行脚本包裹所使用。特别是脚本被用来与自动化工具 SaltStack 或者监测工具 Nagios 配合使用。这些工具会执行脚本并检查它的状态，来确定脚本是否执行成功。&lt;/p>
+&lt;p>其中最重要的原因是，即使你不定义状态码，它仍然存在于你的脚本中。如果你不定义恰当的退出码，执行失败的脚本可能会返回成功的状态，这样会导致问题，问题大小取决于你的脚本做了什么。&lt;/p>
+&lt;p>Linux 提供了一个专门的变量$?来保存上个已执行命令的退出状态码。&lt;/p>
+&lt;p>对于需要进行检查的命令，必须在其运行完毕后立刻查看或使用$?变量，它的值会变成由 shell 所执行的最后一条命令的退出状态码。&lt;/p>
+&lt;p>一个成功结束的命令的退出状态码是 0，如果一个命令结束时有错误，退出状态码就是一个正数值（1-255）。&lt;/p>
+&lt;p>Linux 上执行 exit 可使 shell 以指定的状态值退出。若不设置状态值参数，则 shell 以预设值退出。状态值 0 代表执行成功，其他值代表执行失败。exit 也可用在 script，离开正在执行的 script，回到 shell。&lt;/p>
+&lt;p>Linux 错误退出状态码没有什么标准可循，但有一些可用的参考。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ld23ik/1616167507500-9f1aab01-171b-4ece-a6fa-9f576852a403.webp" alt="">&lt;/p>
+&lt;p>关于具体的服务，相应的退出码，由开发者代码决定。&lt;/p>
+&lt;p>&lt;strong>Linux 进程退出码&lt;/strong>&lt;/p>
+&lt;p>&lt;a href="https://jin-yang.github.io/post/linux-process-exit-code-introduce.html">https://jin-yang.github.io/post/linux-process-exit-code-introduce.html&lt;/a>&lt;/p>
+&lt;p>&lt;strong>Linux 退出状态码及 exit 命令&lt;/strong>&lt;/p>
+&lt;p>&lt;a href="https://www.cnblogs.com/01-single/p/7206664.html">https://www.cnblogs.com/01-single/p/7206664.html&lt;/a>&lt;/p>
+&lt;p>&lt;strong>理解 Exit Code 并学会如何在 Bash 脚本中使用&lt;/strong>&lt;/p>
+&lt;p>&lt;a href="http://blog.jayxhj.com/2016/02/understanding-exit-codes-and-how-to-use-them-in-bash-scripts">http://blog.jayxhj.com/2016/02/understanding-exit-codes-and-how-to-use-them-in-bash-scripts&lt;/a>&lt;/p>
+&lt;p>&lt;strong>Appendix E. Exit Codes With Special Meanings&lt;/strong>&lt;/p>
+&lt;p>&lt;a href="http://www.tldp.org/LDP/abs/html/exitcodes.html">http://www.tldp.org/LDP/abs/html/exitcodes.html&lt;/a>&lt;/p>
+&lt;p>&lt;strong>What is the authoritative list of Docker Run exit codes?&lt;/strong>&lt;/p>
+&lt;p>&lt;a href="https://stackoverflow.com/questions/31297616/what-is-the-authoritative-list-of-docker-run-exit-codes">https://stackoverflow.com/questions/31297616/what-is-the-authoritative-list-of-docker-run-exit-codes&lt;/a>&lt;/p>
+&lt;p>&lt;strong>Identifying Exit Codes and their meanings&lt;/strong>&lt;/p>
+&lt;p>&lt;a href="https://support.circleci.com/hc/en-us/articles/360002341673-Identifying-Exit-Codes-and-their-meanings">https://support.circleci.com/hc/en-us/articles/360002341673-Identifying-Exit-Codes-and-their-meanings&lt;/a>&lt;/p>
+&lt;p>&lt;strong>OpenShift Exit Status Codes&lt;/strong>&lt;/p>
+&lt;p>&lt;a href="https://access.redhat.com/documentation/en-US/OpenShift_Online/2.0/html/Cartridge_Specification_Guide/Exit_Status_Codes.html">https://access.redhat.com/documentation/en-US/OpenShift_Online/2.0/html/Cartridge_Specification_Guide/Exit_Status_Codes.html&lt;/a>&lt;/p></description></item><item><title>Docs: D-Bus</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/D-Bus/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/D-Bus/</guid><description>
+&lt;p>&lt;strong>D-Bus&lt;/strong> 是一个 &lt;strong>IPC&lt;/strong> 及 &lt;strong>RPC&lt;/strong> 机制，可以让多个不同的计算机进程在同一台电脑上同时进行通信。&lt;/p></description></item><item><title>Docs: Inter Process Communication(进程间通信)</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/Inter-Process-Communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/Inter-Process-Communication%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1/</guid><description/></item><item><title>Docs: 进程、线程、线程池</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/%E8%BF%9B%E7%A8%8B%E7%BA%BF%E7%A8%8B%E7%BA%BF%E7%A8%8B%E6%B1%A0/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/%E8%BF%9B%E7%A8%8B%E7%BA%BF%E7%A8%8B%E7%BA%BF%E7%A8%8B%E6%B1%A0/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/qE3zs4JMDj1qHvlb3rydOQ">公众号-码农的荒岛求生，看完这篇文章还不懂高并发中的线程与线程池你来打我&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="一切要从-cpu-说起">一切要从 CPU 说起&lt;/h1>
+&lt;p>你可能会有疑问，讲多线程为什么要从 CPU 说起呢？原因很简单，&lt;strong>在这里没有那些时髦的概念，你可以更加清晰的看清问题的本质&lt;/strong>。&lt;/p>
+&lt;p>CPU 并不知道线程、进程之类的概念。&lt;/p>
+&lt;p>CPU 只知道两件事:&lt;/p>
+&lt;ol>
+&lt;li>从内存中取出指令&lt;/li>
+&lt;li>执行指令，然后回到 1&lt;/li>
+&lt;/ol>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>你看，在这里 CPU 确实是不知道什么进程、线程之类的概念。&lt;/p>
+&lt;p>接下来的问题就是 CPU 从哪里取出指令呢？答案是来自一个被称为 Program Counter(简称 PC) 的寄存器，也就是我们熟知的程序计数器，在这里大家不要把寄存器想的太神秘，你可以简单的把寄存器理解为内存，只不过存取速度更快而已。&lt;/p>
+&lt;p>PC 寄存器中存放的是什么呢？这里存放的是指令在内存中的地址，什么指令呢？是 CPU 将要执行的下一条指令。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>那么是谁来设置 PC 寄存器中的指令地址呢？&lt;/p>
+&lt;p>原来 PC 寄存器中的地址默认是自动加 1 的，这当然是有道理的，因为大部分情况下 CPU 都是一条接一条顺序执行，当遇到 if、else 时，这种顺序执行就被打破了，CPU 在执行这类指令时会根据计算结果来动态改变 PC 寄存器中的值，这样 CPU 就可以正确的跳转到需要执行的指令了。&lt;/p>
+&lt;p>聪明的你一定会问，那么 PC 中的初始值是怎么被设置的呢？&lt;/p>
+&lt;p>在回答这个问题之前我们需要知道 CPU 执行的指令来自哪里？是来自内存，废话，内存中的指令是从磁盘中保存的可执行程序加载过来的，磁盘中可执行程序是编译器生成的，编译器又是从哪里生成的机器指令呢？答案就是&lt;strong>我们定义的函数&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>注意是函数，&lt;strong>函数被编译后才会形成 CPU 执行的指令&lt;/strong>，那么很自然的，我们该如何让 CPU 执行一个函数呢？显然我们只需要找到函数被编译后形成的第一条指令就可以了，第一条指令就是函数入口。&lt;/p>
+&lt;p>现在你应该知道了吧，我们想要 CPU 执行一个函数，那么&lt;strong>只需要把该函数对应的第一条机器指令的地址写入 PC 寄存器就可以了&lt;/strong>，这样我们写的函数就开始被 CPU 执行起来啦。&lt;/p>
+&lt;p>你可能会有疑问，这和线程有什么关系呢？&lt;/p>
+&lt;h1 id="从-cpu-到操作系统">从 CPU 到操作系统&lt;/h1>
+&lt;p>上一小节中我们明白了 CPU 的工作原理，我们想让 CPU 执行某个函数，那么只需要把函数对应的第一条机器执行装入 PC 寄存器就可以了，&lt;strong>这样即使没有操作系统我们也可以让 CPU 执行程序&lt;/strong>，虽然可行但这是一个非常繁琐的过程，我们需要：&lt;/p>
+&lt;ul>
+&lt;li>在内存中找到一块大小合适的区域装入程序&lt;/li>
+&lt;li>找到函数入口，设置好 PC 寄存器让 CPU 开始执行程序&lt;/li>
+&lt;/ul>
+&lt;p>这两个步骤绝不是那么容易的事情，如果每次在执行程序时程序员自己手动实现上述两个过程会疯掉的，因此聪明的程序员就会想干脆直接写个程序来自动完成上面两个步骤吧。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>机器指令需要加载到内存中执行，因此需要记录下内存的起始地址和长度；同时要找到函数的入口地址并写到 PC 寄存器中，想一想这是不是需要一个数据结构来记录下这些信息：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">struct&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">***&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">void&lt;/span>&lt;span style="color:#f92672">*&lt;/span> start_addr;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">int&lt;/span> len;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">void&lt;/span>&lt;span style="color:#f92672">*&lt;/span> start_point;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">   &lt;/span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>};
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>接下来就是起名字时刻。&lt;/p>
+&lt;p>这个数据结构总要有个名字吧，这个结构体用来记录什么信息呢？记录的是程序在被加载到内存中的运行状态，程序从磁盘加载到内存跑起来叫什么好呢？干脆就叫**进程 (Process)**好了，我们的指导原则就是一定要听上去比较神秘，总之大家都不容易弄懂就对了，我将其称为 “&lt;strong>弄不懂原则&lt;/strong>”。&lt;/p>
+&lt;p>就这样进程诞生了。&lt;/p>
+&lt;p>CPU 执行的第一个函数也起个名字，第一个要被执行的函数听起来比较重要，干脆就叫&lt;strong>main 函数&lt;/strong>吧。&lt;/p>
+&lt;p>完成上述两个步骤的程序也要起个名字，根据 “弄不懂原则” 这个 “简单” 的程序就叫&lt;strong>操作系统&lt;/strong>(Operating System) 好啦。&lt;/p>
+&lt;p>就这样操作系统诞生了，程序员要想运行程序再也不用自己手动加载一遍了。&lt;/p>
+&lt;p>现在进程和操作系统都有了，一切看上去都很完美。&lt;/p>
+&lt;h1 id="从单核到多核如何充分利用多核">从单核到多核，如何充分利用多核&lt;/h1>
+&lt;p>人类的一大特点就是生命不息折腾不止，从单核折腾到了多核。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>这时，假设我们想写一个程序并且要分利用多核该怎么办呢？&lt;/p>
+&lt;p>有的同学可能会说不是有进程吗，多开几个进程不就可以了？听上去似乎很有道理，但是主要存在这样几个问题：&lt;/p>
+&lt;ul>
+&lt;li>进程是需要占用内存空间的 (从上一节能看到这一点)，如果多个进程基于同一个可执行程序，那么这些进程其内存区域中的内容几乎完全相同，这显然会造成内存的浪费&lt;/li>
+&lt;li>计算机处理的任务可能是比较复杂的，这就涉及到了进程间通信，由于各个进程处于不同的内存地址空间，进程间通信天然需要借助操作系统，这就在增大编程难度的同时也增加了系统开销&lt;/li>
+&lt;/ul>
+&lt;p>该怎么办呢？&lt;/p>
+&lt;h1 id="从进程到线程">从进程到线程&lt;/h1>
+&lt;p>让我再来仔细的想一想这个问题，所谓进程无非就是内存中的一段区域，这段区域中保存了&lt;strong>CPU 执行的机器指令以及函数运行时的堆栈信息&lt;/strong>，要想让进程运行，就把 main 函数的第一条机器指令地址写入 PC 寄存器，这样进程就运行起来了。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>进程的缺点在于只有一个入口函数，也就是 main 函数，因此进程中的机器指令&lt;strong>只能被一个 CPU 执行&lt;/strong>，那么有没有办法让多个 CPU 来执行同一个进程中的机器指令呢？&lt;/p>
+&lt;p>聪明的你应该能想到，既然我们可以把 main 函数的第一条指令地址写入 PC 寄存器，那么其它函数和 main 函数又有什么区别呢？&lt;/p>
+&lt;p>答案是没什么区别，main 函数的特殊之处无非就在于是 CPU 执行的第一个函数，除此之外再无特别之处，&lt;strong>我们可以把 PC 寄存器指向 main 函数，就可以把 PC 寄存器指向任何一个函数&lt;/strong>。&lt;/p>
+&lt;p>&lt;strong>当我们把 PC 寄存器指向非 main 函数时，线程就诞生了&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>至此我们解放了思想，一个进程内可以有多个入口函数，&lt;strong>也就是说属于同一个进程中的机器指令可以被多个 CPU 同时执行&lt;/strong>。&lt;/p>
+&lt;p>注意，这是一个和进程不同的概念，创建进程时我们需要在内存中找到一块合适的区域以装入进程，然后把 CPU 的 PC 寄存器指向 main 函数，也就是说进程中只有一个&lt;strong>执行流&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>但是现在不一样了，多个 CPU 可以在同一个屋檐下 (进程占用的内存区域) 同时执行属于该进程的多个入口函数，也就是说现在一个进程内可以有&lt;strong>多个执行流&lt;/strong>了。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>总是叫执行流好像有点太容易理解了，再次祭出” 弄不懂原则 “，起个不容易懂的名字，就叫线程吧。&lt;/p>
+&lt;p>这就是线程的由来。&lt;/p>
+&lt;p>操作系统为每个进程维护了一堆信息，用来记录进程所处的内存空间等，这堆信息记为数据集 A。&lt;/p>
+&lt;p>同样的，操作系统也需要为线程维护一堆信息，用来记录线程的入口函数或者栈信息等，这堆数据记为数据集 B。&lt;/p>
+&lt;p>显然数据集 B 要比数据 A 的量要少，同时不像进程，创建一个线程时无需去内存中找一段内存空间，&lt;strong>因为线程是运行在所处进程的地址空间的&lt;/strong>，这块地址空间在程序启动时已经创建完毕，同时线程是程序在运行期间创建的 (进程启动后)，因此当线程开始运行的时候这块地址空间就已经存在了，线程可以直接使用。这就是为什么各种教材上提的创建线程要比创建进程快的原因 (当然还有其它原因)。&lt;/p>
+&lt;p>值得注意的是，有了线程这个概念后，我们只需要进程开启后创建多个线程就可以让所有 CPU 都忙起来，&lt;strong>这就是所谓高性能、高并发的根本所在&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>很简单，只需要创建出数量&lt;strong>合适&lt;/strong>的线程就可以了。&lt;/p>
+&lt;p>另外值得注意的一点是，由于各个线程共享进程的内存地址空间，因此线程之间的通信无需借助操作系统，这给程序员带来极大方便的同时也带来了无尽的麻烦，多线程遇到的多数问题都出自于线程间通信简直太方便了以至于非常容易出错。&lt;strong>出错的根源在于 CPU 执行指令时根本没有线程的概念，&lt;strong>多线程编程面临的&lt;/strong>互斥&lt;/strong>与&lt;strong>同步&lt;/strong>问题需要程序员自己解决，关于互斥与同步问题限于篇幅就不详细展开了，大部分的操作系统资料都有详细讲解。&lt;/p>
+&lt;p>最后需要提醒的是，虽然前面关于线程讲解使用的图中用了多个 CPU，但不是说一定要有多核才能使用多线程，在单核的情况下一样可以创建出多个线程，&lt;strong>原因在于线程是操作系统层面的实现，和有多少个核心是没有关系的&lt;/strong>，CPU 在执行机器指令时也意识不到执行的机器指令属于哪个线程。即使在只有一个 CPU 的情况下，操作系统也可以通过线程调度让各个线程 “同时” 向前推进，方法就是将 CPU 的时间片在各个线程之间来回分配，这样多个线程看起来就是 “同时” 运行了，但实际上任意时刻还是只有一个线程在运行。&lt;/p>
+&lt;h1 id="线程与内存">线程与内存&lt;/h1>
+&lt;p>在前面的讨论中我们知道了线程和 CPU 的关系，也就是把 CPU 的 PC 寄存器指向线程的入口函数，这样线程就可以运行起来了，这就是为什么我们创建线程时必须指定一个入口函数的原因。无论使用任何编程语言，创建一个线程大体相同：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-makefile" data-lang="makefile">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">//&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">设置线程入口函数DoSomething&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">thread = CreateThread(DoSomething);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">//&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">让线程运行起来&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">thread.Run();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>那么线程和内存又有什么关联呢？&lt;/p>
+&lt;p>我们知道函数在被执行的时产生的数据包括&lt;strong>函数参数&lt;/strong>、&lt;strong>局部变量&lt;/strong>、&lt;strong>返回地址&lt;/strong>等信息，这些信息是保存在栈中的，线程这个概念还没有出现时进程中只有一个执行流，因此只有一个栈，这个栈的栈底就是进程的入口函数，也就是 main 函数，假设 main 函数调用了 funA，funcA 又调用了 funcB，如图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>那么有了线程以后了呢？&lt;/p>
+&lt;p>有了线程以后一个进程中就存在多个执行入口，即同时存在多个执行流，那么只有一个执行流的进程需要一个栈来保存运行时信息，那么很显然有多个执行流时就需要有多个栈来保存各个执行流的信息，也就是说&lt;strong>操作系统要为每个线程在进程的地址空间中分配一个栈&lt;/strong>，即每个线程都有独属于自己的栈，能意识到这一点是极其关键的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>同时我们也可以看到，创建线程是要消耗进程内存空间的，这一点也值得注意。&lt;/p>
+&lt;h1 id="线程的使用">线程的使用&lt;/h1>
+&lt;p>现在有了线程的概念，那么接下来作为程序员我们该如何使用线程呢？&lt;/p>
+&lt;p>从生命周期的角度讲，线程要处理的任务有两类：长任务和短任务。&lt;/p>
+&lt;p>&lt;strong>1，长任务，long-lived tasks&lt;/strong>&lt;/p>
+&lt;p>顾名思义，就是任务存活的时间很长，比如以我们常用的 word 为例，我们在 word 中编辑的文字需要保存在磁盘上，往磁盘上写数据就是一个任务，那么这时一个比较好的方法就是专门创建一个写磁盘的线程，该写线程的生命周期和 word 进程是一样的，只要打开 word 就要创建出该写线程，当用户关闭 word 时该线程才会被销毁，这就是长任务。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>这种场景非常适合创建专用的线程来处理某些特定任务，这种情况比较简单。&lt;/p>
+&lt;p>有长任务，相应的就有短任务。&lt;/p>
+&lt;p>&lt;strong>2，短任务，short-lived tasks&lt;/strong>&lt;/p>
+&lt;p>这个概念也很简单，那就是任务的处理时间很短，比如一次网络请求、一次数据库查询等，这种任务可以在短时间内快速处理完成。因此短任务多见于各种 Server，像 web server、database server、file server、mail server 等，这也是互联网行业的同学最常见的场景，这种场景是我们要重点讨论的。&lt;/p>
+&lt;p>这种场景有两个特点：一个是&lt;strong>任务处理所需时间短&lt;/strong>；另一个是&lt;strong>任务数量巨大&lt;/strong>。&lt;/p>
+&lt;p>如果让你来处理这种类型的任务该怎么办呢？&lt;/p>
+&lt;p>你可能会想，这很简单啊，当 server 接收到一个请求后就创建一个线程来处理任务，处理完成后销毁该线程即可，So easy。&lt;/p>
+&lt;p>这种方法通常被称为 thread-per-request，也就是说来一个请求就创建一个线程：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>如果是长任务，那么这种方法可以工作的很好，但是对于大量的短任务这种方法虽然实现简单但是有这样几个缺点：&lt;/p>
+&lt;ol>
+&lt;li>从前几节我们能看到，线程是操作系统中的概念 (这里不讨论用户态线程实现、协程之类)，因此创建线程天然需要借助操作系统来完成，操作系统创建和销毁线程是需要消耗时间的&lt;/li>
+&lt;li>每个线程需要有自己独立的栈，因此当创建大量线程时会消耗过多的内存等系统资源&lt;/li>
+&lt;/ol>
+&lt;p>这就好比你是一个工厂老板 (想想都很开心有没有)，手里有很多订单，每来一批订单就要招一批工人，生产的产品非常简单，工人们很快就能处理完，处理完这批订单后就把这些千辛万苦招过来的工人辞退掉，当有新的订单时你再千辛万苦的招一遍工人，干活儿 5 分钟招人 10 小时，如果你不是励志要让企业倒闭的话大概是不会这么做到的，因此一个更好的策略就是招一批人后就地养着，有订单时处理订单，没有订单时大家可以闲呆着。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>这就是线程池的由来。&lt;/p>
+&lt;h1 id="从多线程到线程池">从多线程到线程池&lt;/h1>
+&lt;p>线程池的概念是非常简单的，无非就是创建一批线程，之后就不再释放了，有任务就提交给这些线程处理，因此无需频繁的创建、销毁线程，同时由于线程池中的线程个数通常是固定的，也不会消耗过多的内存，因此这里的思想就是&lt;strong>复用、可控&lt;/strong>。&lt;/p>
+&lt;h1 id="线程池是如何工作的">线程池是如何工作的&lt;/h1>
+&lt;p>可能有的同学会问，该怎么给线程池提交任务呢？这些任务又是怎么给到线程池中线程呢？&lt;/p>
+&lt;p>很显然，数据结构中的队列天然适合这种场景，提交任务的就是生产者，消费任务的线程就是消费者，实际上这就是经典的&lt;strong>生产者 - 消费者问题&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>现在你应该知道为什么操作系统课程要讲、面试要问这个问题了吧，因为如果你对生产者 - 消费者问题不理解的话，本质上你是无法正确的写出线程池的。&lt;/p>
+&lt;p>限于篇幅在这里博主不打算详细的讲解生产者消费者问题，参考操作系统相关资料就能获取答案。这里博主打算讲一讲一般提交给线程池的任务是什么样子的。&lt;/p>
+&lt;p>一般来说提交给线程池的任务包含两部分：1) &lt;strong>需要被处理的数据&lt;/strong>；2) &lt;strong>处理数据的函数&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">struct&lt;/span> &lt;span style="color:#a6e22e">task&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">void&lt;/span>&lt;span style="color:#f92672">*&lt;/span> data;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> handler handle;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>(注意，你也可以把代码中的 struct 理解成 class，也就是对象。)&lt;/p>
+&lt;p>线程池中的线程会阻塞在队列上，当生产者向队列中写入数据后，线程池中的某个线程会被唤醒，该线程从队列中取出上述结构体 (或者对象)，以结构体(或者对象) 中的数据为参数并调用处理函数：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">while&lt;/span>(true) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">struct&lt;/span> &lt;span style="color:#a6e22e">task&lt;/span> &lt;span style="color:#f92672">=&lt;/span> GetFromQueue();
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> task&lt;span style="color:#f92672">-&amp;gt;&lt;/span>handle(task&lt;span style="color:#f92672">-&amp;gt;&lt;/span>data);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>以上就是线程池最&lt;strong>核心&lt;/strong>的部分。&lt;/p>
+&lt;p>理解这些你就能明白线程池是如何工作的了。&lt;/p>
+&lt;h1 id="线程池中线程的数量">线程池中线程的数量&lt;/h1>
+&lt;p>现在线程池有了，那么线程池中线程的数量该是多少呢？&lt;/p>
+&lt;p>在接着往下看前先自己想一想这个问题。&lt;/p>
+&lt;p>如果你能看到这里说明还没有睡着。&lt;/p>
+&lt;p>要知道线程池的线程过少就不能充分利用 CPU，线程创建的过多反而会造成系统性能下降，内存占用过多，线程切换造成的消耗等等。因此线程的数量既不能太多也不能太少，那到底该是多少呢？&lt;/p>
+&lt;p>回答这个问题，你需要知道线程池处理的任务有哪几类，有的同学可能会说你不是说有两类吗？长任务和短任务，这个是从生命周期的角度来看的，那么从处理任务所需要的资源角度看也有两种类型，这就是没事儿找抽型和。。啊不，是 CPU 密集型和 I/O 密集型。&lt;/p>
+&lt;p>&lt;strong>1，CPU 密集型&lt;/strong>&lt;/p>
+&lt;p>所谓 CPU 密集型就是说处理任务不需要依赖外部 I/O，比如科学计算、矩阵运算等等。在这种情况下只要线程的数量和核数基本相同就可以充分利用 CPU 资源。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>&lt;strong>2，I/O 密集型&lt;/strong>&lt;/p>
+&lt;p>这一类任务可能计算部分所占用时间不多，大部分时间都用在了比如磁盘 I/O、网络 I/O 等。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/f780a9b2-0f84-4c95-a1f4-202b80d8bc41/640" alt="">&lt;/p>
+&lt;p>这种情况下就稍微复杂一些了，你需要利用性能测试工具评估出用在 I/O 等待上的时间，这里记为 WT(wait time)，以及 CPU 计算所需要的时间，这里记为 CT(computing time)，那么对于一个 N 核的系统，合适的线程数大概是 N * (1 + WT/CT)，假设 I/O 等待时间和计算时间相同，那么你大概需要 2N 个线程才能充分利用 CPU 资源，注意这只是一个理论值，具体设置多少需要根据真实的业务场景进行测试。&lt;/p>
+&lt;p>当然充分利用 CPU 不是唯一需要考虑的点，随着线程数量的增多，内存占用、系统调度、打开的文件数量、打开的 socker 数量以及打开的数据库链接等等是都需要考虑的。&lt;/p>
+&lt;p>因此这里没有万能公式，要&lt;strong>具体情况具体分析&lt;/strong>。&lt;/p>
+&lt;h1 id="线程池不是万能的">线程池不是万能的&lt;/h1>
+&lt;p>线程池仅仅是多线程的一种使用形式，因此多线程面临的问题线程池同样不能避免，像死锁问题、race condition 问题等等，关于这一部分同样可以参考操作系统相关资料就能得到答案，所以基础很重要呀老铁们。&lt;/p>
+&lt;h1 id="线程池使用的最佳实践">线程池使用的最佳实践&lt;/h1>
+&lt;p>线程池是程序员手中强大的武器，互联网公司的各个 server 上几乎都能见到线程池的身影，使用线程池前你需要考虑：&lt;/p>
+&lt;ul>
+&lt;li>充分理解你的任务，是长任务还是短任务、是 CPU 密集型还是 I/O 密集型，如果两种都有，那么一种可能更好的办法是把这两类任务放到不同的线程池中，这样也许可以更好的确定线程数量&lt;/li>
+&lt;li>如果线程池中的任务有 I/O 操作，那么务必对此任务设置超时，否则处理该任务的线程可能会一直阻塞下去&lt;/li>
+&lt;li>线程池中的任务最好不要&lt;strong>同步&lt;/strong>等待其它任务的结果&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>总结&lt;/strong>&lt;/p>
+&lt;p>本节我们从 CPU 开始一路来到常用的线程池，从底层到上层、从硬件到软件。注意，这里通篇没有出现任何特定的编程语言，线程不是语言层面的概念 (依然不考虑用户态线程)，但是当你真正理解了线程后，相信你可以在任何一门语言下用好多线程，你需要理解的是道，此后才是术。&lt;/p>
+&lt;p>希望这篇文章对大家理解线程以及线程池有所帮助。&lt;/p>
+&lt;p>接下的一篇将是与线程池密切配合实现高性能、高并发的又一关键技术：I/O 与 I/O 多路复用，敬请期待。&lt;/p></description></item><item><title>Docs: 判断Linux进程在哪个CPU核运行的4个方法 - 嵌入式Linux中文站</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/%E5%88%A4%E6%96%ADLinux%E8%BF%9B%E7%A8%8B%E5%9C%A8%E5%93%AA%E4%B8%AACPU%E6%A0%B8%E8%BF%90%E8%A1%8C%E7%9A%844%E4%B8%AA%E6%96%B9%E6%B3%95-%E5%B5%8C%E5%85%A5%E5%BC%8FLinux%E4%B8%AD%E6%96%87%E7%AB%99/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/7.Process-%E7%AE%A1%E7%90%86/%E5%88%A4%E6%96%ADLinux%E8%BF%9B%E7%A8%8B%E5%9C%A8%E5%93%AA%E4%B8%AACPU%E6%A0%B8%E8%BF%90%E8%A1%8C%E7%9A%844%E4%B8%AA%E6%96%B9%E6%B3%95-%E5%B5%8C%E5%85%A5%E5%BC%8FLinux%E4%B8%AD%E6%96%87%E7%AB%99/</guid><description>
+&lt;p>问题：我有个 Linux 进程运行在多核处理器系统上。怎样才能找出哪个 CPU 内核正在运行该进程？&lt;/p>
+&lt;p>当你在 多核 NUMA 处理器上运行需要较高性能的 HPC（高性能计算）程序或非常消耗网络资源的程序时，CPU/memory 的亲和力是限度其发挥最大性能的重要因素之一。在同一 NUMA 节点上调度最相关的进程可以减少缓慢的远程内存访问。像英特尔 Sandy Bridge 处理器，该处理器有一个集成的 PCIe 控制器，你可以在同一 NUMA 节点上调度网络 I/O 负载（如网卡）来突破 PCI 到 CPU 亲和力限制。&lt;/p>
+&lt;p>作为性能优化和故障排除的一部分，你可能想知道特定的进程被调度到哪个 CPU 内核（或 NUMA 节点）上运行。&lt;/p>
+&lt;p>这里有几种方法可以&lt;strong>找出哪个 CPU 内核被调度来运行给定的 Linux 进程或线程&lt;/strong>。&lt;/p>
+&lt;h2 id="方法一">方法一&lt;/h2>
+&lt;p>如果一个进程使用 taskset 命令明确的被固定（pinned）到 CPU 的特定内核上，你可以使用 taskset 命令找出被固定的 CPU 内核：&lt;/p>
+&lt;p>$ taskset -c -p&lt;/p>
+&lt;p>例如, 如果你对 PID 5357 这个进程有兴趣:&lt;/p>
+&lt;p>$ taskset -c -p 5357&lt;/p>
+&lt;p>pid 5357&amp;rsquo;s current affinity list: 5&lt;/p>
+&lt;p>输出显示这个过程被固定在 CPU 内核 5 上。&lt;/p>
+&lt;p>但是，如果你没有明确固定进程到任何 CPU 内核，你会得到类似下面的亲和力列表。&lt;/p>
+&lt;p>pid 5357&amp;rsquo;s current affinity list: 0-11&lt;/p>
+&lt;p>输出表明该进程可能会被安排在从 0 到 11 中的任何一个 CPU 内核。在这种情况下，taskset 不能识别该进程当前被分配给哪个 CPU 内核，你应该使用如下所述的方法。&lt;/p>
+&lt;h2 id="方法二">方法二&lt;/h2>
+&lt;p>ps 命令可以告诉你每个进程/线程目前分配到的 （在“PSR”列）CPU ID。&lt;/p>
+&lt;p>$ ps -o pid,psr,comm -p&lt;/p>
+&lt;p>PID PSR COMMAND&lt;/p>
+&lt;p>5357 10 prog&lt;/p>
+&lt;p>输出表示进程的 PID 为 5357（名为”prog”）目前在 CPU 内核 10 上运行着。如果该过程没有被固定，PSR 列会根据内核可能调度该进程到不同内核而改变显示。&lt;/p>
+&lt;h2 id="方法三">方法三&lt;/h2>
+&lt;p>top 命令也可以显示 CPU 被分配给哪个进程。首先，在 top 命令中使用 P 选项。然后按“f”键，显示中会出现 “Last used CPU” 列。目前使用的 CPU 内核将出现在 “P”（或“PSR”）列下。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>top -p &lt;span style="color:#ae81ff">5357&lt;/span> -H
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/hsfm16/1616167411830-a73b375d-c071-4953-a44d-eb0390f44258.jpeg" alt="">
+相比于 ps 命令，使用 top 命令的好处是，你可以连续监视随着时间的改变， CPU 是如何分配的。&lt;/p>
+&lt;h2 id="方法四">方法四&lt;/h2>
+&lt;p>另一种来检查一个进程/线程当前使用的是哪个 CPU 内核的方法是使用 htop 命令。&lt;/p>
+&lt;p>从命令行启动 htop。按 键，进入”Columns”，在”Available Columns”下会添加 PROCESSOR。&lt;/p>
+&lt;p>每个进程当前使用的 CPU ID 将出现在“CPU”列中。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/hsfm16/1616167411836-ec26f183-e19b-4050-a5bb-5c4b033215cd.jpeg" alt="">&lt;/p>
+&lt;p>请注意，所有以前使用的命令 taskset，ps 和 top 分配 CPU 内核的 IDs 为 0，1，2，…，N-1。然而，htop 分配 CPU 内核 IDs 从 1 开始（直到 N）。&lt;/p></description></item></channel></rss>

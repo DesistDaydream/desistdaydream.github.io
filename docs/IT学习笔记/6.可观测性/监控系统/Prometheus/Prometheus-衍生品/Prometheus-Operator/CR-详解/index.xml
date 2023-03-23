@@ -1,0 +1,357 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – CR 详解</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus-%E8%A1%8D%E7%94%9F%E5%93%81/Prometheus-Operator/CR-%E8%AF%A6%E8%A7%A3/</link><description>Recent content in CR 详解 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus-%E8%A1%8D%E7%94%9F%E5%93%81/Prometheus-Operator/CR-%E8%AF%A6%E8%A7%A3/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Prometheus</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus-%E8%A1%8D%E7%94%9F%E5%93%81/Prometheus-Operator/CR-%E8%AF%A6%E8%A7%A3/Prometheus/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus-%E8%A1%8D%E7%94%9F%E5%93%81/Prometheus-Operator/CR-%E8%AF%A6%E8%A7%A3/Prometheus/</guid><description/></item><item><title>Docs: Pod Monitor</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus-%E8%A1%8D%E7%94%9F%E5%93%81/Prometheus-Operator/CR-%E8%AF%A6%E8%A7%A3/Pod-Monitor/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus-%E8%A1%8D%E7%94%9F%E5%93%81/Prometheus-Operator/CR-%E8%AF%A6%E8%A7%A3/Pod-Monitor/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/design.md#podmonitor">https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/design.md#podmonitor&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Pod Monitor 与 Service Monitor 一样，都是用来生成 Prometheus 配置文件中 scrape 配置段中的内容。&lt;/p>
+&lt;p>不同点在于 PM 直接与 pod 关联，根据标签选择来定义要监控的 pod，而不再需要通过 service 来暴露 pod 中的端口。&lt;/p>
+&lt;h1 id="podmonitor-yaml-详解">PodMonitor yaml 详解&lt;/h1>
+&lt;pre>&lt;code>apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+name: rabbitmq
+spec:
+# 指定从 pod 中哪个端口采集指标，需要在 pod 的 .spec.containers.ports 字段中指定 containerPort 和 name。
+podMetricsEndpoints:
+- interval: 15s
+port: prometheus # 需要与 .spec.containers.ports.name 相同，则会将端口加入 scrape 配置中
+# 指定要匹配的 pod 的 label，具有相同 label 的将会加入监控配置。
+selector:
+matchLabels:
+app.kubernetes.io/component: rabbitmq
+# 指定要从哪个 namespace 中关联 pod。any: true 为匹配所有 ns 下的 pod
+namespaceSelector:
+any: true
+&lt;/code>&lt;/pre>
+&lt;h1 id="pod-monitor-样例">Pod Monitor 样例&lt;/h1>
+&lt;pre>&lt;code>apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+name: rabbitmq
+spec:
+podMetricsEndpoints:
+- interval: 15s
+port: prometheus
+selector:
+matchLabels:
+app.kubernetes.io/component: rabbitmq
+namespaceSelector:
+any: true
+&lt;/code>&lt;/pre></description></item><item><title>Docs: Service Monitor</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus-%E8%A1%8D%E7%94%9F%E5%93%81/Prometheus-Operator/CR-%E8%AF%A6%E8%A7%A3/Service-Monitor/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus-%E8%A1%8D%E7%94%9F%E5%93%81/Prometheus-Operator/CR-%E8%AF%A6%E8%A7%A3/Service-Monitor/</guid><description>
+&lt;h1 id="service-monitor-介绍">Service Monitor 介绍&lt;/h1>
+&lt;p>注意：ServiceMonitor 资源本身无法直接为目标 job 添加 label，所有 label 只能从关联的 Service 中获取，然后再通过 ServiceMonitor 资源的 spec.endpoints.relabelings 字段(就是使用 Prometheus 的 relabel 功能)，将获取到的 label 改为自己想要的&lt;/p>
+&lt;p>operator 根据 ServiceMonitor 的定义自动生成 Prometheus 配置文件中的 scrape 配置段中的内容。创建一个 SM，就代表要给 prometheus 配置中 scrape 配置段中加入内容。&lt;/p>
+&lt;p>ServiceMonitor 资源描述了 Prometheus Server 的 Target 列表，Operator 会监听这个资源的变化来动态的更新 Prometheus Server 的 Scrape Targets 并让 Prometheus Server 去 reload 配置。而该资源主要通过 Selector 根据 Labels 选取对应 Service 的 endpoints，并让 Prometheus Server 通过 Service 进行拉取 Metrics,Metrics 信息要在 http 的 url 输出符合 metrics 格式的信息,ServiceMonitor 也可以定义目标的 metrics 的 url.&lt;/p>
+&lt;h2 id="servicemonitor-是如何自动生成-prometheus-server-配置文件的-scrape-段的呢">ServiceMonitor 是如何自动生成 Prometheus Server 配置文件的 scrape 段的呢？&lt;/h2>
+&lt;p>ServiceMonitor 关联好 service 后，选取 service 对应的 endpoints 作为 target。然后自动生成的 scrape 配置中，job 的名字是以关联的 service 名来命名；targets 就是该 service 所关联的每一个 endpoint；每个 target 的 instance 一般情况都是 endpoint 的 IP:PORT&lt;/p>
+&lt;p>下面是一个获取 k8s 系统资源 controller-manager 的 metrics 的样例&lt;/p>
+&lt;pre>&lt;code>apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+labels:
+k8s-app: kube-controller-manager
+name: kube-controller-manager
+namespace: monitor
+spec:
+# 指定从哪个namesapce中关联service。默认情况是从prometheus资源所在的namespace中关联service
+namespaceSelector:
+matchNames:
+- kube-system
+# 如果想要关联所有namespace中的service，则不用进行matchNames，使用any: true即可
+# any: true
+# 指定要匹配的service的label
+selector:
+matchLabels:
+k8s-app: kube-controller-manager
+# 选择endpoints中指定的端口获取metrics
+endpoints:
+- port: http-metrics
+path: &amp;quot;/snmp&amp;quot; # 指定从该endpoints的哪个路径获取metrics，默认路径为/metrics
+&lt;/code>&lt;/pre>
+&lt;p>声明完成后，还需要修改 prometheus 的 yaml 文件，以便让其可以匹配指定的 ServiceMonitor，否则默认 prometheus 资源是不匹配任何 ServiceMonitor 的，在 spec 键下添加字段如下：&lt;/p>
+&lt;pre>&lt;code># 指定prometheus匹配哪个名称空间的ServiceMonitor。{}表示匹配所有名称空间的ServiceMonitor
+serviceMonitorNamespaceSelector: {}
+# 指定prometheus选择ServiceMonitor时的label。{}表示匹配所有label的ServiceMonitor。
+serviceMonitorSelector: {}
+&lt;/code>&lt;/pre>
+&lt;p>现在 prometheus 已经与 ServiceMonitor 关联上了，等待 operator 将 ServiceMonitor 获取的配置处理之后，添加进 prometheus 并更新配置。则可以在配置文件的 scrape_configs 字段看到新的配置，说明 prometheus 已经正确获取了 ServiceMonitor 传递的信息。&lt;/p>
+&lt;p>但是此时会有一个问题就是，prometheus 已经有了 scrape 的配置，知道了 target，但是在 kubernetes 中，prometheus 作为一个 pod，target 也是一个 pod，这就等于是一个 pod 要去 get 另一个 pod 的信息，这明显是 RBAC 和 SA 相关的事宜(概念详见 7.AuthenticationAndAuthorization.note)，并且现在也还没进行任何 RBAC 相关的配置，所以虽然 prometheus 有配置，但是无法获取 target 上的任何 metrics 信息。如果查看 prometheus 的日志，会看到如下类似的报错&lt;/p>
+&lt;pre>&lt;code>level=error ts=2019-09-19T15:44:30.735Z caller=klog.go:94 component=k8s_client_runtime func=ErrorDepth msg=&amp;quot;/app/discovery/kubernetes/kubernetes.go:265: Failed to list *v1.Pod: pods is forbidden: User \&amp;quot;system:serviceaccount:monitor:default\&amp;quot; cannot list resource \&amp;quot;pods\&amp;quot; in API group \&amp;quot;\&amp;quot; in the namespace \&amp;quot;kube-system\&amp;quot;&amp;quot;
+level=error ts=2019-09-19T15:44:30.735Z caller=klog.go:94 component=k8s_client_runtime func=ErrorDepth msg=&amp;quot;/app/discovery/kubernetes/kubernetes.go:264: Failed to list *v1.Service: services is forbidden: User \&amp;quot;system:serviceaccount:monitor:default\&amp;quot; cannot list resource \&amp;quot;services\&amp;quot; in API group \&amp;quot;\&amp;quot; in the namespace \&amp;quot;kube-system\&amp;quot;&amp;quot;
+level=error ts=2019-09-19T15:44:31.735Z caller=klog.go:94 component=k8s_client_runtime func=ErrorDepth msg=&amp;quot;/app/discovery/kubernetes/kubernetes.go:263: Failed to list *v1.Endpoints: endpoints is forbidden: User \&amp;quot;system:serviceaccount:monitor:default\&amp;quot; cannot list resource \&amp;quot;endpoints\&amp;quot; in API group \&amp;quot;\&amp;quot; in the namespace \&amp;quot;kube-system\&amp;quot;&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>报错解读：endpoints is forbidden: User &amp;ldquo;system:serviceaccount:monitor:default&amp;rdquo; cannot list resource &amp;ldquo;endpoints&amp;rdquo; in API group &amp;quot;&amp;quot; in the namespace &amp;ldquo;nginx-ingress&amp;rdquo;&amp;quot;&lt;/p>
+&lt;p>这一段的大意就是在 monitor 这个 namespace 下的 default 这个用户(i.e.ServiceAccount)，不能对 kube-system 这个 namespace 里的 endpoints 资源使用 list 命令。也就是说 prometheus 这个 pod 里的进程，想要对 endpoints 执行 list 命令，但是被禁止了&lt;/p>
+&lt;p>其原因就是由于 prometheus 资源的 pod 默认使用的是其所在 namespace 下的 default 这个 ServiceAccount，这个 SA 不具备任何可以操作 pod 的权限，所以需要自己创建一个 SA 和具有特定操作权限的 ClusterRole，再将二者绑定，则 prometheus 的 pod 就可以获取其余 pod 上的信息了，示例如下：&lt;/p>
+&lt;pre>&lt;code>apiVersion: v1
+kind: ServiceAccount
+metadata:
+name: prometheus
+namespace: monitor
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+name: prometheus
+rules:
+- apiGroups: [&amp;quot;&amp;quot;]
+resources:
+- nodes
+- services
+- endpoints
+- pods
+verbs: [&amp;quot;get&amp;quot;, &amp;quot;list&amp;quot;, &amp;quot;watch&amp;quot;]
+- apiGroups: [&amp;quot;&amp;quot;]
+resources:
+- configmaps
+verbs: [&amp;quot;get&amp;quot;]
+- nonResourceURLs: [&amp;quot;/metrics&amp;quot;]
+verbs: [&amp;quot;get&amp;quot;]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+name: prometheus
+roleRef:
+apiGroup: rbac.authorization.k8s.io
+kind: ClusterRole
+name: prometheus
+subjects:
+- kind: ServiceAccount
+name: prometheus
+namespace: monitor
+&lt;/code>&lt;/pre>
+&lt;p>然后此时又要修改 prometheus 的 yaml 文件了，因为要让 prometheus 使用自己创建的 SA，所以还需要在 spec 键下中加入如下内容&lt;/p>
+&lt;pre>&lt;code>serviceAccountName: prometheus
+&lt;/code>&lt;/pre>
+&lt;p>这时 operator 才算真正完成了相关任务，此时查看 prometheus，可以看到采集到 kube-controller-manager 的 metrics 了&lt;/p>
+&lt;h1 id="servicemonitor-crd-manifest-详解">ServiceMonitor CRD Manifest 详解&lt;/h1>
+&lt;h1 id="servicemonitor-样例">ServiceMonitor 样例&lt;/h1>
+&lt;h2 id="snmp_exporter-样例">snmp_exporter 样例&lt;/h2>
+&lt;pre>&lt;code>apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+name: snmp-metrics
+namespace: monitoring
+labels:
+prometheus: snmp-metrics
+spec:
+jobLabel: snmp
+selector:
+matchLabels:
+prometheus: snmp-metrics
+endpoints:
+- interval: 30s
+scrapeTimeout: 120s
+port: snmp
+params:
+module:
+- if_mib
+target:
+- 10.10.100.254
+targetPort: 9116
+path: &amp;quot;/snmp&amp;quot;
+relabelings:
+- action: replace
+sourceLabels:
+- __param_target
+targetLabel: instance
+---
+kind: Service
+apiVersion: v1
+metadata:
+name: snmp-metrics
+namespace: monitoring
+labels:
+prometheus: snmp-metrics
+spec:
+ports:
+- port: 9116
+nodePort: 30006
+name: snmp
+type: NodePort
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+name: snmp-metrics
+namespace: monitoring
+labels:
+prometheus: snmp-metrics
+subsets:
+- addresses:
+- ip: 10.10.100.12
+hostname: storage-1
+ports:
+- port: 9116
+name: snmp
+&lt;/code>&lt;/pre></description></item><item><title>Docs: 各 CRD 的 yaml 样例</title><link>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus-%E8%A1%8D%E7%94%9F%E5%93%81/Prometheus-Operator/CR-%E8%AF%A6%E8%A7%A3/%E5%90%84-CRD-%E7%9A%84-yaml-%E6%A0%B7%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/IT%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus-%E8%A1%8D%E7%94%9F%E5%93%81/Prometheus-Operator/CR-%E8%AF%A6%E8%A7%A3/%E5%90%84-CRD-%E7%9A%84-yaml-%E6%A0%B7%E4%BE%8B/</guid><description>
+&lt;h1 id="应用实例">应用实例&lt;/h1>
+&lt;h2 id="prometheus-使用-storageclass-实现持久存储">prometheus 使用 storageclass 实现持久存储&lt;/h2>
+&lt;p>可以在 prometheus 这个 CRD 的定义中找到关于 storage 的字段&lt;a href="https://github.com/coreos/kube-prometheus/blob/master/manifests/0prometheus-operator-0prometheusCustomResourceDefinition.yaml#L3633">https://github.com/coreos/kube-prometheus/blob/master/manifests/0prometheus-operator-0prometheusCustomResourceDefinition.yaml#L3633&lt;/a>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yifyaq/1616068754603-7b67500b-0560-447e-a3c4-bedcdf7e8d28.png" alt="">&lt;/p>
+&lt;p>注解中写到如果不指定 storage 的话，则默认使用 emptydir 类型作为存放监控数据的 volume 类型&lt;/p>
+&lt;p>如果想要修改成持久存储，则只需要在声明 prometheus 资源的 yaml 文件中加入如下 storage 字段即可，下面的实例是让 prometheus 使用名为 managed-nfs-storage 的 StorageClass&lt;/p>
+&lt;pre>&lt;code> storage:
+volumeClaimTemplate:
+spec:
+storageClassName: managed-nfs-storage
+resources:
+requests:
+storage: 10Gi
+&lt;/code>&lt;/pre>
+&lt;p>当加入该字段后，prometheus 资源生成的 statefulset 就会多出来一个字段，如图所示。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yifyaq/1616068754580-603a0098-31fc-47b1-b008-911c582efdef.png" alt="">&lt;/p>
+&lt;h2 id="prometheus-使用-hostpath-实现持久存储">prometheus 使用 hostPath 实现持久存储&lt;/h2>
+&lt;p>如下示例，使用本地 pod 所在节点的本地目录/root/prometheus-k8s-db 来作为数据存储目录&lt;/p>
+&lt;p>注意，最好使用 nodeSelector 让 pod 始终调度到同一个节点。&lt;/p>
+&lt;pre>&lt;code>apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+name: test
+spec:
+replicas: 2
+containers:
+- name: prometheus
+volumeMounts:
+- mountPath: /prometheus
+name: prometheus-k8s-db
+volumes:
+- name: prometheus-k8s-db
+hostPath:
+path: /root/prometheus-k8s-db
+nodeSelector:
+monitor: prometheus
+&lt;/code>&lt;/pre>
+&lt;h2 id="修改-prometheus-的启动参数">修改 prometheus 的启动参数&lt;/h2>
+&lt;p>可以在 prometheus 这个 CRD 的定义中找到关于 container 的字段&lt;a href="https://github.com/coreos/kube-prometheus/blob/master/manifests/0prometheus-operator-0prometheusCustomResourceDefinition.yaml#L806">https://github.com/coreos/kube-prometheus/blob/master/manifests/0prometheus-operator-0prometheusCustomResourceDefinition.yaml#L806&lt;/a>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yifyaq/1616068754607-380f9402-777a-46f0-a081-4e61120fb81b.png" alt="">&lt;/p>
+&lt;p>注解中写到 container 字段可以在生成 statefulset 的时候注入额外的 container 或者修改自动生成的 container(比如修改 args、volumemount 字段等)，&lt;/p>
+&lt;p>注意：&lt;/p>
+&lt;ol>
+&lt;li>在修改已经存在的容器时，需要指定要修改的 container 的 name&lt;/li>
+&lt;li>如果要修改某个字段，需要全部重新填写(e.g.修改 arg 字段，默认有 7 个 arg，如果只是修改其中一个，那么在修改 yaml 的时候，所有的 arg 都要填上，否则，最后生成的 statefulset 就会只有 1 个 arg)。&lt;/li>
+&lt;/ol>
+&lt;p>下面是修改 storage.tsdb.retention.time 这个参数以便让 prometheus 可以保存数据更久的时间的样例(默认是 24 小时，我现在想保存 7 天)&lt;/p>
+&lt;pre>&lt;code> containers:
+- args:
+- --web.console.templates=/etc/prometheus/consoles
+- --web.console.libraries=/etc/prometheus/console_libraries
+- --config.file=/etc/prometheus/config_out/prometheus.env.yaml
+- --storage.tsdb.path=/prometheus
+- --storage.tsdb.retention.time=7d
+- --web.enable-lifecycle
+- --storage.tsdb.no-lockfile
+- --web.route-prefix=/
+name: prometheus
+&lt;/code>&lt;/pre>
+&lt;p>加入上述字段后，在 prometheus 资源生成的 statefulset 就会多出来上述内容
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yifyaq/1616068754606-245c3379-04db-42b6-84d9-cd03b06bd28f.png" alt="">&lt;/p>
+&lt;h2 id="监控集群外部设备">监控集群外部设备&lt;/h2>
+&lt;p>创建一个关联外部设备的同名的 service 和 endpoint，然后再创建关联该 service 的 servicemonitor 即可，service 样例详见 service 后端绑定集群外部设备.note，下面是 servicemonitor 的样例&lt;/p>
+&lt;p>其中 sourceLabel 和 targetLabel 可以将默认的 instance 名修改为 endpoint 的 nodeName，默认的是 IP:PORT 格式，可以在定义 endpoint 的时候，给每个 ip 配上一个 nodeName&lt;/p>
+&lt;pre>&lt;code>apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+name: external-metrics
+namespace: monitoring
+labels:
+prometheus: external-metrics
+spec:
+endpoints:
+- interval: 15s
+relabelings:
+- action: replace
+regex: (.*)
+replacment: $1
+sourceLabels:
+- __meta_kubernetes_endpoint_hostname
+targetLabel: instance
+selector:
+matchLabels:
+prometheus: external-metrics
+---
+apiVersion: v1
+kind: Service
+metadata:
+name: external-metrics
+namespace: monitoring
+labels:
+prometheus: external-metrics
+spec:
+ports:
+- port: 9100
+nodePort: 30005 #测试用，暴露出来看看能不能获取到metric的信息
+type: NodePort
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+name: external-metrics
+namespace: monitoring
+labels:
+prometheus: external-metrics
+subsets:
+- addresses:
+- ip: 10.10.100.101
+hostname: lch-test
+- ip: 10.10.100.171
+hostname: nfs-storage
+ports:
+- port: 9100
+&lt;/code>&lt;/pre>
+&lt;h1 id="prometheus-资源的配置样例">prometheus 资源的配置样例&lt;/h1>
+&lt;pre>&lt;code>apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+labels:
+app: k8s-prometheus
+name: monitor-bj-net-k8s-prometheus
+namespace: monitoring
+spec:
+alerting:
+alertmanagers:
+- apiVersion: v2
+name: monitor-bj-net-k8s-alertmanager
+namespace: monitoring
+pathPrefix: /
+port: web
+externalUrl: http://prometheus.desistdaydream.ltd/
+image: quay.io/prometheus/prometheus:v2.22.1
+logFormat: logfmt
+logLevel: info
+portName: web
+replicas: 1
+resources:
+limits:
+cpu: &amp;quot;2&amp;quot;
+memory: 2Gi
+requests:
+cpu: 500m
+memory: 400Mi
+retention: 10d
+routePrefix: /
+ruleSelector:
+matchLabels:
+app: k8s
+release: monitor-bj-net
+securityContext:
+fsGroup: 2000
+runAsGroup: 2000
+runAsNonRoot: true
+runAsUser: 1000
+serviceAccountName: monitor-bj-net-k8s-prometheus
+storage:
+volumeClaimTemplate:
+metadata:
+name: prometheus
+spec:
+resources:
+requests:
+storage: 10Gi
+storageClassName: managed-nfs-storage
+version: v2.22.1
+&lt;/code>&lt;/pre></description></item></channel></rss>
