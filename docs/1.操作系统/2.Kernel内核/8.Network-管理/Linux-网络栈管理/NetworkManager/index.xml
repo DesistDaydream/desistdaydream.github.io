@@ -1,0 +1,656 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – NetworkManager</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/</link><description>Recent content in NetworkManager on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: NetworkManager</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/NetworkManager/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/NetworkManager/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/NetworkManager/NetworkManager">GitHub 项目，NetworkManager/NetworkManager&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://gitlab.freedesktop.org/NetworkManager/NetworkManager">GitLab 项目，freedesktop-NetworkManager/NetworkManager&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/NetworkManager.conf.html">Manual(手册),NetworkManager.conf(5)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://networkmanager.dev/">官网&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>NetworkManager daemon&lt;/strong> 是管理网络的守护进程。该守护进程尝试通过管理主网络连接和其他网络接口（如以太网，WiFi 和移动宽带设备），使网络配置和操作尽可能轻松自动。 除非禁用该行为，否则 NetworkManager 将在该设备的连接可用时连接任何网络设备。 有关网络的信息通过 D-Bus 接口导出到任何感兴趣的应用程序，提供丰富的 API，用于检查和控制网络设置和操作。&lt;/p>
+&lt;h1 id="connection">Connection&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/nm-settings-nmcli.html">Manual(手册),nm-settings-nmcli(5)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/nm-settings-dbus.html">Manual(手册),nm-settings-dbus(5)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/nm-settings-keyfile.html">Manual(手册),nm-settings-keyfile(5)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/nm-settings-ifcfg-rh.html">Manual(手册),nm-settings-ifcfg-rh(5)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>NetworkManager 将所有网络配置抽象成 &lt;strong>Connection(连接)&lt;/strong>，这些 Connection 的配置中包含网络配置(比如 IP 地址、网关等)。当 NetworkManager 激活网络设备上的 Connection 时，将为这个网络设备应用配置文件中的内容，并建立活动的网络连接。所以，可以创建多个 Connection 来关联到一个网络设备上；这样，它们就可以灵活地具有用于不同网络需求的各种网络配置。&lt;/p>
+&lt;p>&lt;strong>用白话说就是：Connection 就是“网络配置”，网络设备(device)关联并使用“网络配置”来实现联网。而 NetworkManager 就是管理这些 Connection 的。Connection 可以表示一个概念，也可以表示一个配置文件。&lt;/strong>&lt;/p>
+&lt;h2 id="connection-插件">Connection 插件&lt;/h2>
+&lt;p>NetworkManager 通过 &lt;strong>Plugins(插件)&lt;/strong> 的方式来管理 Connection 配置文件。在不同的 Linux 发行版中，所使用的插件各不相同，但是默认情况下，NetworkManager 使始终启用名为 &lt;strong>keyfile&lt;/strong> 的插件，这是一个通用插件，当其他插件无法支持某些类型的 Connection 配置时，keyfile 插件将会自动提供支持。keyfile 插件会将 Connection 文件保存到 /etc/NetworkManager/system-connections/、/usr/lib/NetworkManager/system-connections/、/run/NetworkManager/system-connections/ 这三个目录中。&lt;/p>
+&lt;p>可以在 /etc/NetworkManager/NetworkManager.conf 文件中配置想要使用的插件，插件用于读写系统范围的连接配置文件。当指定多个插件时，将从所有列出的插件中读取 Connections。写入 Connections 时，会要求插件按照此处列出的顺序保存连接；如果第一个插件无法写出该连接类型（或无法写出任何连接），则尝试下一个插件。如果没有插件可以保存连接，则会向用户返回错误。&lt;/p>
+&lt;p>可用插件的数量是特定于发行版的。所有可用的插件详见 &lt;a href="https://networkmanager.dev/docs/api/latest/NetworkManager.conf.html#settings-plugins">Manual(手册) 中 Plugins 章节&lt;/a>&lt;/p>
+&lt;p>&lt;strong>keyfile&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>keyfile 插件是支持 NetworkManager 拥有的所有连接类型和功能的&lt;strong>通用插件&lt;/strong>。它以 .ini 格式在 /etc/NetworkManager/system-connections 文件中写入连接配置。
+&lt;ul>
+&lt;li>有关文件格式的详细信息，请参阅 nm-settings-keyfile(5)。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>keyfile 插件存储的连接文件可能包含纯文本形式的 passwords、secrets、private keys，因此它将仅对 root 用户可读，并且插件将忽略除 root 用户或组之外的任何用户或组可读或可写的文件。
+&lt;ul>
+&lt;li>有关如何避免以纯文本形式存储密码，请参阅 nm-settings(5) 中的“秘密标志类型”。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>此插件始终处于活动状态，并将自动用于存储其他插件不支持的连接。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>ifcfg-rh&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>此插件用于 Fedora 和 Red Hat Enterprise Linux 发行版，用于从标准 /etc/sysconfig/network-scripts/ifcfg-* 文件读取和写入配置。它目前支持读取 Ethernet, Wi-Fi, InfiniBand, VLAN, Bond, Bridge, Team 这几种类型的连接。启用 ifcfg-rh 隐式启用 ibft 插件(如果可用)。这可以通过添加 no-ibft 来禁用。&lt;/li>
+&lt;li>有关 ifcfg 文件格式的更多信息，请参见 /usr/share/doc/initscripts/sysconfig.txt 和 nm-settings-ifcfg-rh(5)。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>ifupdown&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>This plugin is used on the Debian and Ubuntu distributions, and reads Ethernet and Wi-Fi connections from /etc/network/interfaces.&lt;/li>
+&lt;li>This plugin is read-only; any connections (of any type) added from within NetworkManager when you are using this plugin will be saved using the keyfile plugin instead.&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>ibft, no-ibft&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>These plugins are deprecated and their selection has no effect. This is now handled by nm-initrd-generator.&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>ifcfg-suse, ifnet&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>These plugins are deprecated and their selection has no effect. The keyfile plugin should be used instead.&lt;/li>
+&lt;/ul>
+&lt;h2 id="connection-d-bus">Connection D-Bus&lt;/h2>
+&lt;p>NetworkManager 还会将这些 Connection 配置导出到 D-Bus 上，比如，通过 &lt;strong>busctl&lt;/strong> 命令，可也获取 Connection 中的内容：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@ansible dispatcher.d&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># busctl get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager/Devices/2 org.freedesktop.NetworkManager.Device Interface&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>s &lt;span style="color:#e6db74">&amp;#34;ens33&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>所以，真正的底层实现，是通过 D-bus 中的网络设备配置文件来实现的&lt;/p>
+&lt;h2 id="connection-关联文件">Connection 关联文件&lt;/h2>
+&lt;p>默认情况下，由 &lt;strong>keyfile 插件&lt;/strong>管理 &lt;strong>INI 格式&lt;/strong>的 Connection 配置文件。并默认保存在 /etc/NetworkManager/system-connections/ 目录中。&lt;/p>
+&lt;blockquote>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>在 RedHad 相关的发行版中，NetworkManager 会运行名为 ifcfg-rh 的插件，插件会将 /etc/NetworkManager/system-connections/ 目录中的 Connection 配置文件翻译成老式配置文件格式，并保存在 /etc/sysconfig/network-scripts/ 目录中&lt;/li>
+&lt;li>&lt;strong>所以，在 RedHad 中，是无法从 /etc/NetworkManager/system-connections/ 目录中找到连接配置文件&lt;/strong>&lt;/li>
+&lt;li>若想禁用 ifcfg-rh 插件，只需要在 /etc/NetworkManager/NetworkManager.conf 文件中的 main 部分添加 plugins=keyfile 即可&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在 D-Bus API 上的 Connection 配置中，将 INI 中的 &lt;strong>Sections(部分) 称为 Settings(设置)&lt;/strong>，Setting 即是 &lt;strong>Properties(属性)&lt;/strong> 的集合。所以，很多文档，都将 Connection 表示为一组特定的、封装好的、独立的 &lt;strong>Settings(集合)&lt;/strong> 集合。Connection 由一个或多个 Settings 组成。&lt;/p>
+&lt;p>&lt;strong>Settings&lt;/strong>用于描述一个 Connection。每个 Setting 都具有一个或多个 &lt;code>**Property(属性)**&lt;/code> 。Setting 与 Property 中间以点 &lt;code>.&lt;/code> 连接。每个 Setting.Property 都会有一个值。&lt;/p>
+&lt;p>一个 Connection 有哪些 Settings，Setting 又有哪些 Property，以及这些 Property 都有什么作用，详见&lt;a href="https://www.yuque.com/go/doc/33221861">Connection 配置文件详解&lt;/a>&lt;/p>
+&lt;p>下面的命令，可以从 D-Bus API 中获取配置文件所在路径&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># CentOS 中使用 ifcfg-rh 插件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># busctl get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager/Settings/4 org.freedesktop.NetworkManager.Settings.Connection Filename&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>s &lt;span style="color:#e6db74">&amp;#34;/etc/sysconfig/network-scripts/ifcfg-enp25s0f3&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># CentOS 中不使用 ifcfg-rh 插件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># busctl get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager/Settings/4 org.freedesktop.NetworkManager.Settings.Connection Filename&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>s &lt;span style="color:#e6db74">&amp;#34;/etc/NetworkManager/system-connections/eth1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到，使用不同的插件，配置文件所在路径是不同的&lt;/p>
+&lt;p>&lt;strong>用白话说：如果说 Connection 是一个配置文件的话，Setting 就是配置文件中的 &lt;code>context(配置段，或称为&amp;quot;配置环境&amp;quot;)&lt;/code>，&lt;code>Property(属性)&lt;/code> 是该配置环境下的 &lt;code>keyword(关键字,或称为&amp;quot;键&amp;quot;、&amp;quot;字段&amp;quot;)&lt;/code>&lt;/strong>。所以，一般情况下，Connection 也可以描述为由一个或多个 Property(属性) 组成。我们都把 Setting.Property 简称为 属性。&lt;strong>其实 Setting 就是很多产品的配置文件中的 Context&lt;/strong>。&lt;/p>
+&lt;h3 id="配置文件示例">配置文件示例&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat /etc/NetworkManager/system-connections/ens3.nmconnection&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>connection&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>id&lt;span style="color:#f92672">=&lt;/span>ens3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uuid&lt;span style="color:#f92672">=&lt;/span>8f8541bc-4893-418b-98d4-fbc7433747cf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>type&lt;span style="color:#f92672">=&lt;/span>ethernet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>interface-name&lt;span style="color:#f92672">=&lt;/span>ens3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>permissions&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>ethernet&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>mac-address-blacklist&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>ipv4&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>address1&lt;span style="color:#f92672">=&lt;/span>172.19.42.248/24,172.19.42.1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dns-search&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>method&lt;span style="color:#f92672">=&lt;/span>manual
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>ipv6&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>addr-gen-mode&lt;span style="color:#f92672">=&lt;/span>stable-privacy
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dns-search&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>method&lt;span style="color:#f92672">=&lt;/span>auto
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>proxy&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果通过 nmcli 命令查看这个 Connection，格式如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># nmcli connection show eth0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>connection.id: ens3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>connection.uuid: 8f8541bc-4893-418b-98d4-fbc7433747cf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>connection.type: 802-3-ethernet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>connection.interface-name: eth0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.........
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ipv4.method: manual
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ipv4.dns: 223.5.5.5
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ipv4.addresses: 172.19.42.248/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ipv4.gateway: 172.19.42.1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.......
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>第一列中的 connection 与 ipv4 就是 Setting。其中 id、uuid、type、interface-name 都是 connection 这个 Setting 的 Property，而 method、dns 等等都是 ipv4 这个 Setting 的 Property。第二列就是同一行 Property 对应的值。&lt;/p>
+&lt;h2 id="networkmanager-api">NetworkManager API&lt;/h2>
+&lt;p>NetworkManager 提供了一个 API，用来管理 Connection、检查网络配置等。&lt;a href="https://www.yuque.com/go/doc/33221856">nmcli 这个命令行工具&lt;/a>是官方提供的用于使用 API 的客户端应用程序。&lt;/p>
+&lt;blockquote>
+&lt;p>也可以手动管理 Connection 文件，就跟出现 NetworkManager 之前一样，手动配置 /etc/sysconfig/network-scripts 目录下的网络设备配置文件，然后重启 deamon 进程以便加载这些文件即可。&lt;/p>
+&lt;/blockquote>
+&lt;p>注意：&lt;/p>
+&lt;ol>
+&lt;li>一个网络设备(device)可以关联多个 connection，但是同一时间只能有一个与该网络设备(device)关联 connection 处于 active 状态。这就可以让一个网卡(device)同时具备多个配置，可以随时切换。&lt;/li>
+&lt;li>NetworkManager 默认不会识别到配置文件的更改 并会继续使用旧的配置数据。如果更改 /etc/NetworkManager/system-connections/ 目录下的配置文件，那么需要让 NetworkManager 再次读取已经改动过的配置文件，如果想要确保这件事，需要执行如下几条命令
+&lt;ol>
+&lt;li>nmcli connection reload # 让 Connection 重新加载以读取配置文件&lt;/li>
+&lt;li>nmcli connection up ConnectionName # 再次启动指定的 Connection，这里的 up 也有 restart 的意思&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;h1 id="networkmanager-关联文件">NetworkManager 关联文件&lt;/h1>
+&lt;p>&lt;strong>/etc/NetworkManager/*&lt;/strong> #&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>./conf.d/*&lt;/strong> # 类似 include 功能，是 NetworkManager.conf 文件的内容片段。&lt;/li>
+&lt;li>&lt;strong>./NetworkManager.conf&lt;/strong> # NetworkManager 程序的运行时配置文件&lt;/li>
+&lt;li>&lt;strong>./system-connections/*&lt;/strong> # 每个 Connection 的配置文件保存路径。
+&lt;ul>
+&lt;li>在 RedHad 中，该路径被修改到 /etc/sysconfig/network-scripts/ 上去了。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>/run/NetworkManager/*&lt;/strong> #&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>./system-connections/*&lt;/strong> # 自动生成的 Connection 的配置文件保存路径。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>/usr/lib/NetworkManager/*&lt;/strong> #&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>./system-connections/*&lt;/strong> #&lt;/li>
+&lt;/ul>
+&lt;h1 id="常见问题">常见问题&lt;/h1>
+&lt;h2 id="lacp-在-networkmanager-管理的-bonding-不工作">LACP 在 NetworkManager 管理的 Bonding 不工作&lt;/h2>
+&lt;p>&lt;a href="https://github.com/systemd/systemd/issues/15208">https://github.com/systemd/systemd/issues/15208&lt;/a>&lt;/p>
+&lt;p>当 systemd 版本在 242、243、245 时，NetworkManager 对于 802.3ad 模式的 Bonding 在发送 LACP 包是可能会产生异常&lt;/p>
+&lt;p>如果通过 NetworkManager 创建的 Bond 网络设备失效，有如下几种可用的解决方式：&lt;/p>
+&lt;ul>
+&lt;li>通过 ip 命令先删除网络设备，再通过 ip 命令添加即可。
+&lt;ul>
+&lt;li>ip link set bond1 down&lt;/li>
+&lt;li>ip link del bond1&lt;/li>
+&lt;li>ip link add bond1 type bond mod 802.3ad&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul></description></item><item><title>Docs: Connection 配置详解</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/Connection-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/Connection-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/nm-settings-nmcli.html">Manual(手册),nm-settings-nmcli(5)&lt;/a> # 这个 man 手册中，可以看到每个 Setting 中都有哪些 Property 以及这些 Property 的作用。&lt;/li>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/nm-settings-dbus.html">Manual(手册),nm-settings-dbus(5)&lt;/a> # 这里有 Property 的默认值&lt;/li>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/nm-settings-keyfile.html">Manual(手册),nm-settings-keyfile(5)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/nm-settings-ifcfg-rh.html">Manual(手册),nm-settings-ifcfg-rh(5)&lt;/a>&lt;/li>
+&lt;li>在 &lt;a href="https://developer-old.gnome.org/NetworkManager/">GNOME 开发者中心官网&lt;/a>中，也可以查到 Manual&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Connection 配置文件默认由 keyfile 插件管理，是类似 &lt;strong>INI 格式&lt;/strong>的。同时配置文件还会保存在 D-Bus 中。&lt;/p>
+&lt;p>在 D-Bus 中，NetworkManager 将 INI 中的 Sections(部分) 称为 &lt;strong>Settings(设置)&lt;/strong>，Setting 多个是 &lt;strong>Properties(属性)&lt;/strong> 的集合。所以，很多文档，都将 Connection 表示为一组特定的、封装好的、独立的 &lt;strong>Settings(集合)&lt;/strong>。Connection 由一个或多个 Settings 组成。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 我启动了一个 连接&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># nmcli con up bridge-slave-bond0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Connection successfully activated &lt;span style="color:#f92672">(&lt;/span>master waiting &lt;span style="color:#66d9ef">for&lt;/span> slaves&lt;span style="color:#f92672">)&lt;/span> &lt;span style="color:#f92672">(&lt;/span>D-Bus active path: /org/freedesktop/NetworkManager/ActiveConnection/16&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 从 D-Bus 的路径中可以看到这些信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># busctl get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager/ActiveConnection/16 org.freedesktop.NetworkManager.Connection.Active&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Connection Default6 Dhcp4Config Id Ip6Config SpecificObject StateFlags Uuid
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Default Devices Dhcp6Config Ip4Config Master State Type Vpn
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 上面的信息是按 TAB 补全出来的&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># busctl get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager/ActiveConnection/16 org.freedesktop.NetworkManager.Connection.Active Id&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>s &lt;span style="color:#e6db74">&amp;#34;bridge-slave-bond0&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>在&lt;a href="https://www.yuque.com/go/doc/33221856">nmcli&lt;/a> 命令中使用 SETTING.PROPERTY 时，如果 SETTING 和 PROPERTY 是 唯一的，则可以使用 &lt;code>Alias(别名)&lt;/code>。
+&lt;ul>
+&lt;li>比如 connection.typ 的别名为 type。其实就是缩写，简化操作。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>802-3-ethernet 类型就是一般物理网卡，通常使用 ethernet 别名表示。不管 ethernet 是作为 SETTING 还是作为 VALUE，都可以使用别名。但是在 -f 选项中，不能使用别名。&lt;/li>
+&lt;li>&lt;strong>在 RedHad 中，是无法从 /etc/NetworkManager/system-connections/ 目录中找到连接配置文件，这是因为 RedHad 系发行版使用的是 ifcfg-rh 插件&lt;/strong>&lt;/li>
+&lt;li>配置文件可以通过命令行修改，比如 &lt;code>nmcli con add connection.type XXX&lt;/code>，其中 connection 就是 connection 这个 SETTING，type 就是 该 SETTING 下的一个属性
+&lt;ul>
+&lt;li>所以，命令行中的 &lt;strong>SETTING.PROPERTY&lt;/strong> 与配置文件是&lt;strong>一一对应的&lt;/strong>。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="connection-setting">connection SETTING&lt;/h1>
+&lt;p>通用的 connection 配置设置&lt;/p>
+&lt;p>&lt;strong>autoconnect=&amp;lt;BOOLEAN&amp;gt;&lt;/strong> # 别名 autoconnect。该连接是否自动连接。&lt;/p>
+&lt;p>&lt;strong>id=&amp;lt;STRING&amp;gt;&lt;/strong> # 别名 con-name。该连接的名称。若不指定，则会默认生成一个&lt;/p>
+&lt;p>&lt;strong>interface-name STRING&lt;/strong> # 别名 ifname。该连接绑定的网络设备名称。&lt;/p>
+&lt;p>&lt;strong>master=&amp;lt;STRING&amp;gt;&lt;/strong> # 别名 master。该连接的主设备的 name 或 UUID。具有 master 属性的连接将会降级为从设备.常用于向 bond 或者 brdige 设备中添加从设备时使用。&lt;/p>
+&lt;ul>
+&lt;li>在使用 nmcli 命令时如果使用 master 别名，则会自动为连接添加 slave-type 属性，属性根据主设备的类型决定。如果不使用别名，则需要显式得使用 connection.slave-type 来指定该连接的从属类型。&lt;/li>
+&lt;li>若主设备状态 down，则该从设备状态变为 lowerlayerdown&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>type=&amp;lt;STRING&amp;gt;&lt;/strong> # 别名 type。连接类型，常用的有 ethernet、bridge、bridge-slave、bond、bond-slave、tun 等等。其实就是要添加的连接的网络设备的类型。&lt;strong>必选，每个连接必须有一个 type&lt;/strong>&lt;/p>
+&lt;h1 id="ipv4-setting">ipv4 SETTING、&lt;/h1>
+&lt;p>用于配置一个 connection 的 IPv4 信息&lt;/p>
+&lt;p>&lt;strong>address=&amp;lt;[]UNIT32&amp;gt;&lt;/strong> # 别名 ip4。指定该连接的 IP 地址。可以使用 192.168.0.0/24 这种格式&lt;/p>
+&lt;ul>
+&lt;li>若有多个 IP 地址，则&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>dns=&amp;lt;[]UINT32&amp;gt;&lt;/strong> # DNS 服务端 IP 地址列表。多个地址以 &lt;code>;&lt;/code> 分割。&lt;/p>
+&lt;p>&lt;strong>dns-search=&amp;lt;STRING&amp;gt;&lt;/strong> # 待补充&lt;/p>
+&lt;p>&lt;strong>gateway=&amp;lt;IP&amp;gt;&lt;/strong> # 别名 gw4。指定该连接的网关地址。&lt;/p>
+&lt;p>&lt;strong>method=&amp;lt;METHOD&amp;gt;&lt;/strong> # 该连接的 ipv4 获取方法。即通过 dhcp 获取还是手动指定等等&lt;/p>
+&lt;ul>
+&lt;li>auto # ipv4 地址可以自动获取(通过 dhcp、pp 等)。默认值&lt;/li>
+&lt;li>disabled # 在此连接上不使用 ipv4。Note：如果在配置文件中不指定 ipv4 信息，那么在 reload 时，连接的 ipv4.method 也会变成该值&lt;/li>
+&lt;li>link-local # 为该连接分配在 169.254/16 范围的本地地址&lt;/li>
+&lt;li>manual # 手动指定 IP。如果使用此方法，则必须指定 ipv4.address 属性。&lt;/li>
+&lt;li>shared # 表示此连接将提过对其他计算机的网络访问权限，为接口分配一个 10.42.x.1/24 的地址，并启动 dhcp 和 dns 转发服务，并且该接口为 Nat-ed 到当前的默认网络连接&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>routes=&amp;lt;ROUTEs&amp;gt;&lt;/strong> # 设定作用在该连接上的路由条目，多个条目以逗号分割&lt;/p>
+&lt;p>&lt;strong>routing-rule=&amp;lt;RULEs&amp;gt;&lt;/strong> # 设定路由策略。&lt;/p>
+&lt;h1 id="ipv6-setting">ipv6 SETTING&lt;/h1>
+&lt;p>用于配置一个 connection 的 IPv6 信息&lt;/p>
+&lt;p>&lt;strong>method=&amp;lt;METHOD&amp;gt;&lt;/strong> # 与 ipv4.method 基本相同&lt;/p>
+&lt;h1 id="bond-setting">bond SETTING&lt;/h1>
+&lt;p>&lt;strong>options=&amp;lt;map[STRING]STRING&amp;gt;&lt;/strong> # bond 选项。以逗号分隔的键值对，每个键值对都对应 bond 的一个选项和其值。&lt;code>默认值：{'mode':'balance-rr'}&lt;/code>&lt;/p>
+&lt;h1 id="vlan-setting">vlan SETTING&lt;/h1>
+&lt;p>&lt;strong>id=&amp;lt;NUM&amp;gt;&lt;/strong> # 别名 id。此连接关联的网络设备的 VLAN 标识符。有效范围是 0 到 4094&lt;/p>
+&lt;p>&lt;strong>parent=&amp;lt;STRING&amp;gt;&lt;/strong> # 别名 dev。VLAN 网络设备的父设备的 name 或 UUID。即指定在哪个网络设备上附加 VLAN 标识符。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># nmcli con add type vlan con-name vlan2-eth0 dev eth0 id 2 ipv4.method disabled ipv6.method disabled&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Connection &lt;span style="color:#e6db74">&amp;#39;vlan2-eth0&amp;#39;&lt;/span> &lt;span style="color:#f92672">(&lt;/span>b54bd8d9-de8a-4e26-a579-8e9ff95f126f&lt;span style="color:#f92672">)&lt;/span> successfully added.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># nmcli c s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME UUID TYPE DEVICE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>....
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>vlan2-eth0 0a557c85-f98a-44c3-a2a5-31645efb98b9 vlan eth0.2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ip a s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>....
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>165: eth0.2@eth0: &amp;lt;BROADCAST,MULTICAST,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#ae81ff">1500&lt;/span> qdisc noqueue state UP group default qlen &lt;span style="color:#ae81ff">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether 52:54:00:6a:86:89 brd ff:ff:ff:ff:ff:ff
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="802-3-ethernet-setting">802-3-ethernet SETTING&lt;/h1>
+&lt;p>别名 ethernet&lt;/p>
+&lt;p>有线以太网的配置&lt;/p>
+&lt;p>&lt;strong>mtu=&amp;lt;UINT32&amp;gt;&lt;/strong> # 别名 mtu。连接关联的物理设备的 MTU 的值。&lt;code>默认值：auto&lt;/code>&lt;/p>
+&lt;h1 id="redhad-中-connection-与-老式配置-对应关系">RedHad 中 Connection 与 老式配置 对应关系&lt;/h1>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qpdcnf/1624352815778-2fd45e29-fc7b-495f-90e7-0bc0c2691a27.png" alt="image.png">&lt;/p>
+&lt;h2 id="看一下老式配置的内容">看一下老式配置的内容&lt;/h2>
+&lt;p>DEVICE=eth0 # 指明与此配置文件相关联的网络设备名称&lt;/p>
+&lt;p>TYPE=Ethernet # 指明该网络设备的类型&lt;/p>
+&lt;p>BOOTPROTO=none # 指明设备获取 ip 的方法，有 atuo、none、disabled 等&lt;/p>
+&lt;ul>
+&lt;li>auto # 自动获取 ip(通过 dhcp 等方法)&lt;/li>
+&lt;li>none # 没有方法，也就是说手动指定 IP。可以手动指定 IPADDR、PREFIX、GATEWAY 等&lt;/li>
+&lt;li>disabled # 不获取 ip，如果不指定 IPADDR、NETMASK、GATEWAY 的话，默认就是 disabled&lt;/li>
+&lt;/ul>
+&lt;p>IPADDR=192.168.10.22 # 指定该设备 IP&lt;/p>
+&lt;p>NETMASK=255.255.255.0 # 指定该设备的掩码&lt;/p>
+&lt;ul>
+&lt;li>PREFIX=24 # 也可是使用这种方式来表示掩码&lt;/li>
+&lt;/ul>
+&lt;p>GATEWAY=192.168.10.2 # 指定该设备的网关&lt;/p>
+&lt;p>DEFROUTE=yes # 该网卡的路由是否设置为默认路由&lt;/p>
+&lt;p>ONBOOT=yes|no # 启动网卡时是否自动加载该配置文件&lt;/p>
+&lt;p>USERCTL={yes|no} # 非 root 用户是否可以控制该设备&lt;/p>
+&lt;p>PROXY_METHOD=none&lt;/p>
+&lt;p>BROWSER_ONLY=no&lt;/p>
+&lt;p>IPV4_FAILURE_FATAL=no&lt;/p>
+&lt;p>IPV6INIT=yes&lt;/p>
+&lt;p>IPV6_AUTOCONF=yes&lt;/p>
+&lt;p>IPV6_DEFROUTE=yes&lt;/p>
+&lt;p>IPV6_FAILURE_FATAL=no&lt;/p>
+&lt;p>IPV6_ADDR_GEN_MODE=stable-privacy&lt;/p>
+&lt;p>NAME=eth0 # 用于 NetworkManager 服务中，作为连接名字。&lt;/p>
+&lt;p>UUID=74b13ff5-697f-43cf-abdc-27389b57ecbe&lt;/p>
+&lt;p>ZONE=public&lt;/p>
+&lt;h1 id="keyfile-配置文件示例">keyfile 配置文件示例&lt;/h1>
+&lt;h2 id="一个以太网的配置">一个以太网的配置&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>connection&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>id&lt;span style="color:#f92672">=&lt;/span>Main eth0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uuid&lt;span style="color:#f92672">=&lt;/span>27afa607-ee36-43f0-b8c3-9d245cdc4bb3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>type&lt;span style="color:#f92672">=&lt;/span>802-3-ethernet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>autoconnect&lt;span style="color:#f92672">=&lt;/span>true
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>ipv4&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>method&lt;span style="color:#f92672">=&lt;/span>auto
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>802-3-ethernet&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>mac-address&lt;span style="color:#f92672">=&lt;/span>00:23:5a:47:1f:71
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="简单的桥设备配置">简单的桥设备配置&lt;/h2>
+&lt;p>桥设备&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>connection&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>id&lt;span style="color:#f92672">=&lt;/span>MainBridge
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uuid&lt;span style="color:#f92672">=&lt;/span>171ae855-a0ab-42b6-bd0c-60f5812eea9d
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>interface-name&lt;span style="color:#f92672">=&lt;/span>MainBridge
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>type&lt;span style="color:#f92672">=&lt;/span>bridge
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>bridge&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>interface-name&lt;span style="color:#f92672">=&lt;/span>MainBridge
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>桥的从设备&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>connection&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>id&lt;span style="color:#f92672">=&lt;/span>br-port-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uuid&lt;span style="color:#f92672">=&lt;/span>d6e8ae98-71f8-4b3d-9d2d-2e26048fe794
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>interface-name&lt;span style="color:#f92672">=&lt;/span>em1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>type&lt;span style="color:#f92672">=&lt;/span>ethernet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>master&lt;span style="color:#f92672">=&lt;/span>MainBridge
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>slave-type&lt;span style="color:#f92672">=&lt;/span>bridge
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>VLAN 设备&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>connection&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>id&lt;span style="color:#f92672">=&lt;/span>VLAN &lt;span style="color:#66d9ef">for&lt;/span> building 4A
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uuid&lt;span style="color:#f92672">=&lt;/span>8ce1c9e0-ce7a-4d2c-aa28-077dda09dd7e
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>interface-name&lt;span style="color:#f92672">=&lt;/span>VLAN-4A
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>type&lt;span style="color:#f92672">=&lt;/span>vlan
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>vlan&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>interface-name&lt;span style="color:#f92672">=&lt;/span>VLAN-4A
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>parent&lt;span style="color:#f92672">=&lt;/span>eth0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>id&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">4&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: NetworkManager 配置详解</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/NetworkManager-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/NetworkManager-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/NetworkManager.conf.html">Manual(手册),NetworkManager.conf(5)&lt;/a>&lt;/li>
+&lt;li>在 &lt;a href="https://developer-old.gnome.org/NetworkManager/">GNOME 开发者中心官网&lt;/a>中，也可以查到 Manual&lt;/li>
+&lt;li>&lt;a href="https://wiki.gnome.org/Projects/NetworkManager/DNS">https://wiki.gnome.org/Projects/NetworkManager/DNS&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://cloud.tencent.com/developer/article/1710514">https://cloud.tencent.com/developer/article/1710514&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>NetworkManager 的配置文件是 INI 格式的，由 &lt;strong>Sections(部分)&lt;/strong> 和 &lt;strong>Key/Value Pairs(键/值对)&lt;/strong> 组成。&lt;/p>
+&lt;p>可用的 Sections 有如下几种：&lt;/p>
+&lt;ul>
+&lt;li>main #&lt;/li>
+&lt;li>keyfile # 用于配置 keyfile 插件。通常只在不使用任何特定 Linux 发行版的插件时才进行配置。&lt;/li>
+&lt;li>ifupdown #&lt;/li>
+&lt;li>logging # 控制 NetworkManager 的日志记录。此处的任何设置都被 &amp;ndash;log-level 和 &amp;ndash;log-domains 命令行选项覆盖。&lt;/li>
+&lt;li>connection #&lt;/li>
+&lt;li>device #&lt;/li>
+&lt;li>connectivity #&lt;/li>
+&lt;li>global-dns #&lt;/li>
+&lt;li>global-dns-domain #&lt;/li>
+&lt;li>.config #&lt;/li>
+&lt;/ul>
+&lt;h1 id="main-部分">main 部分&lt;/h1>
+&lt;p>&lt;strong>dns=&amp;lt;MODE&amp;gt;&lt;/strong> # 设置 DNS 处理模式。
+可用的模式有如下几种：&lt;/p>
+&lt;ul>
+&lt;li>default #&lt;/li>
+&lt;li>dnsmasq #&lt;/li>
+&lt;li>systemd-resolved #&lt;/li>
+&lt;li>unbound #&lt;/li>
+&lt;li>&lt;strong>none&lt;/strong> # NetworkManager 程序不会修改 resovl.conf 文件。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>plugins=&amp;lt;STRING&amp;gt;&lt;/strong> # 设置控制 Connections 配置文件的插件，多个插件以 &lt;strong>&lt;code>,&lt;/code>&lt;/strong> 分隔。&lt;/p>
+&lt;p>注意，NetworkManager 原生的 keyfile 插件始终附加到此列表的末尾。也就意味着，NetworkManager 始终都会加载 keyfile 插件。&lt;/p>
+&lt;h1 id="keyfile-部分">keyfile 部分&lt;/h1>
+&lt;p>&lt;strong>path=&amp;lt;STRING&amp;gt;&lt;/strong> # 读取和存储 Connection 配置文件的目录&lt;code>默认值：/etc/NetworkManager/system-connections&lt;/code>&lt;/p>
+&lt;p>&lt;strong>unmanaged-devices=&amp;lt;STRING&amp;gt;&lt;/strong> # 指定 keyfile 不管理的网络设备&lt;/p>
+&lt;h1 id="logging-部分">logging 部分&lt;/h1></description></item><item><title>Docs: nmcli connection 子命令</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/nmcli-connection-%E5%AD%90%E5%91%BD%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/nmcli-connection-%E5%AD%90%E5%91%BD%E4%BB%A4/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/nmcli.html#connection_management_commands">Manual(手册)，nmcli(1)-Connection Management Commands&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/networking_guide/sec-vlan_on_bond_and_bridge_using_the_networkmanager_command_line_tool_nmcli">红帽官方文档,RedHat7-网络指南-使用 nmcli 创建带有 VLAN 的 bond 并作为 Bridge 的从设备&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>nmcli connection {show | up | down | modify | add | edit | clone | delete | monitor | reload | load | import | export} [ARGUMENTS&amp;hellip;]&lt;/strong>&lt;/p>
+&lt;h1 id="up--down--启动--停止连接">up | down # 启动 | 停止连接&lt;/h1>
+&lt;p>nmcli connection up [[id | uuid | path] &amp;lt;ID&amp;gt;] [ifname &amp;lt;ifname&amp;gt;] [ap &amp;lt;BSSID&amp;gt;] [passwd-file &amp;lt;file with passwords&amp;gt;] # 启动连接&lt;/p>
+&lt;p>nmcli connection down [id | uuid | path | apath] &amp;lt;ID&amp;gt; &amp;hellip; # 停止连接&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>启动名为 eth0 的 connection。i.e.把配置应用到指定的网络设备上，并且会自动重启网络设备
+&lt;ul>
+&lt;li>&lt;strong>nmcli con up eth0&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="add-增加连接">add 增加连接&lt;/h1>
+&lt;p>使用指定的 PROPERTY(属性) 创建一个新的连接&lt;/p>
+&lt;p>Note：&lt;/p>
+&lt;ol>
+&lt;li>add 与 modify 命令的参数用法基本一致。delete 连接没有多少复杂的参数，直接指定连接的标识符，即可将连接删除&lt;/li>
+&lt;li>如果想对该连接进行更详细的配置，比如配置 ip、网关、bond 参数等等。就需要指定具体的 PROPETY 和对应的 VALUE。&lt;/li>
+&lt;/ol>
+&lt;h2 id="syntax语法">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>nmcli connection add [save BOOLEAN] SETTING.PROPERTY VALUE &amp;hellip;&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>save&lt;/strong> # 指定该连接创建完成后，是否以文件形式保存到本地磁盘。默认为 true。&lt;/li>
+&lt;li>&lt;strong>SETTING.PROPERTY(设置.属性)&lt;/strong> # 该连接包含的属性。SETTING.PROPERTY 简称 property(属性) 用来指定要增加的连接的配置信息。
+&lt;ul>
+&lt;li>如果 SETTING 和 PROPERTY 是 唯一的，则可以使用缩写(比如 connection.type 缩写为 type)。不同的 SETTING 中有不同的 PROPERTY。并非所有属性都适用于所有类型的连接(type 是创建连接时必须指定的一个属性)。也就是说 property(属性) 分为两种，一种适用于全局的通用属性，另一种是只对特定类型的连接生效。比如我当前创建一个 ethernet 类型的连接，那么就不能使用 bond 属性。&lt;/li>
+&lt;li>注意：如果要在脚本中使用 nmcli 命令，最好不要使用别名&lt;/li>
+&lt;li>可用的 SETTING.PROPERTY 详见 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/8.Network%20%E7%AE%A1%E7%90%86/Linux%20%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/Connection%20%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3.md">Connection 配置详解&lt;/a>，在命令行中的写法与配置文件中是一致的，SETTING 就是 配置文件中的 SETTING，PROPERTY 就是配置文件中所属 SETTING 的 PROPERTY。&lt;/li>
+&lt;li>特殊连接类型的属性
+&lt;ul>
+&lt;li>在命令使用中，特殊类型的属性可能并不在文档中，比如 bond 类型中，可以使用 mode 属性指定 bond 类型。&lt;/li>
+&lt;li>bond 类型的连接可以使用 mode 属性，该属性的值会添加到 bond.options 属性的值中，作为 mode=MODE 这种键值对存在。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>VALUE&lt;/strong> # SETTING.PROPERTY 的值&lt;/li>
+&lt;/ul>
+&lt;h2 id="example">EXAMPLE&lt;/h2>
+&lt;ul>
+&lt;li>创建名为 eth0 的 connection 并关联到 eth0 上，手动指定 IP，并设置开机自动启动网络,关闭 ipv6 网络。
+&lt;ul>
+&lt;li>nmcli con add type ethernet con-name eth0 ifname eth0 ipv4.method manual ip4 10.10.10.10/24 gw4 10.10.10.1 autoconnect yes ipv6.method disabled&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="delete-删除连接">delete 删除连接&lt;/h1>
+&lt;h2 id="syntax语法-1">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>nmcli connection delete [id | uuid | path] &amp;lt;ID&amp;gt;&lt;/strong>&lt;/p>
+&lt;h1 id="modify-修改连接">modify 修改连接&lt;/h1>
+&lt;h2 id="syntax语法-2">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>nmcli connection modify [+|-]PROPETY VALUE # 修改连接。&lt;/strong>&lt;/p>
+&lt;p>Note：&lt;/p>
+&lt;ul>
+&lt;li>在使用 modify 变更网络配置时，可以使用+或者-来实现&amp;quot;增加&amp;quot;或者&amp;quot;删除&amp;quot;某项配置的功能&lt;/li>
+&lt;/ul>
+&lt;h2 id="example-1">EXAMPLE&lt;/h2>
+&lt;ul>
+&lt;li>给名为 bond0 的 Connection 添加两个参数，使用加号可以不负载之前配置的参数而添加新的参数
+&lt;ul>
+&lt;li>nmcli con modify bond0 +bond.options miimon=200 +bond.options xmit_hash_policy=layer3+4&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="show-查看连接">show 查看连接&lt;/h1>
+&lt;h2 id="syntax语法-3">Syntax(语法)&lt;/h2>
+&lt;p>&lt;strong>nmcli connection show [&amp;ndash;active] [&amp;ndash;order &amp;lt;order spec&amp;gt;] [id | uuid | path | apath] &amp;lt;ID&amp;gt; &amp;hellip;&lt;/strong>&lt;/p>
+&lt;h2 id="example-2">EXAMPLE&lt;/h2>
+&lt;ul>
+&lt;li>nmcli con show eth0 # 查看 eth1 这个 connectin 的所有状态，该命令会列出该 connection 的全部属性&lt;/li>
+&lt;li>nmcli -f bond con show bridge-slave-bond0 # 查看 bridge-slave-bond0 这个连接配置中，bond 这个 SETTING 的所有属性及其值。效果如下&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># nmcli -f bond con show bridge-slave-bond0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>bond.options: mode&lt;span style="color:#f92672">=&lt;/span>active-backup
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="应用示例">应用示例&lt;/h1>
+&lt;h2 id="静态路由配置">静态路由配置&lt;/h2>
+&lt;ul>
+&lt;li>在 eth0 网卡上添加静态路由，目的网段是 192.168.122.0/24 的流量下一跳是 10.10.10.1
+&lt;ul>
+&lt;li>nmcli connection modify eth0 +ipv4.routes &amp;ldquo;192.168.122.0/24 10.10.10.1&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>删除 eth0 网卡上的静态路由
+&lt;ul>
+&lt;li>nmcli connection modify eth0 -ipv4.routes &amp;ldquo;192.168.122.0/24 10.10.10.1&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="路由策略配置">路由策略配置&lt;/h2>
+&lt;ul>
+&lt;li>添加一条路由策略：优先级为 5，从 10.0.0.0/24 网段来的数据包，都通过 5000 路由表处理
+&lt;ul>
+&lt;li>nmcli connection add type ethernet con-name eth0 ifname eth0 ipv4.routing-rules &amp;ldquo;priority 5 from 10.0.0.0/24 table 5000&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="多路由表双网卡双网关">多路由表，双网卡，双网关&lt;/h2>
+&lt;ul>
+&lt;li>添加 ens9 连接，配置 IP 地址，不分配默认网关，而是在 3 号路由表中配置一条路由条目：任意目的地址的下一跳是 192.168.122.1
+&lt;ul>
+&lt;li>nmcli con add type ethernet con-name ens9 ifname ens9 ipv4.method manual ipv4.addresses 192.168.122.2 ipv4.routes &amp;ldquo;0.0.0.0/0 192.168.122.1 table=3&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>为 ens9 连接添加一个路由策略，将源地址是 192.168.122.0/24 网段的数据包，都交给 3 号路由表处理
+&lt;ul>
+&lt;li>nmcli con mod ens9 ipv4.routing-rules &amp;ldquo;priority 5 from 192.168.122.0/24 table 3&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="bond-配置">Bond 配置&lt;/h2>
+&lt;ul>
+&lt;li>添加一个 Bond 类型的连接
+&lt;ul>
+&lt;li>使用 bond0 网络设备，bond 模式为主备
+&lt;ul>
+&lt;li>nmcli con add type bond con-name bond0 ifname bond0 mode active-backup&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>使用 bond1 网络设备，bond 模式为 802.3ad
+&lt;ul>
+&lt;li>nmcli con add type bond con-name bond1 ifname bond1 mode 802.3ad&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>创建一个 bond 类型的 connection，名字叫 bond0 且与 bond0 网络设备绑定(若没有 bond0 网络设备则自动创建)；手动设定 ip 并指定 ip、prefix；指定该 bond 的 3 个参数（bond 模式、检测时间、hash 算法）
+&lt;ul>
+&lt;li>nmcli con add type bond con-name bond0 ifname bond0 ipv4.method manual ipv4.addr 192.168.20.22/24 bond.options &amp;ldquo;mode=802.3ad,miimon=100,xmit_hash_policy=layer3+4&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>添加 eth0 网络设备到 bond0 中
+&lt;ul>
+&lt;li>nmcli con add type ethernet master bond0 ifname eth0&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="bridge-配置">Bridge 配置&lt;/h2>
+&lt;ul>
+&lt;li>创建一个 Bridge 类型的 connection，名字叫 br0 且与 br0 网络设备绑定(若没有 br0 网络设备则自动创建)，手动获取 ip 并设定 ip、prefix、gateway。
+&lt;ul>
+&lt;li>nmcli con add type bridge con-name br0 ifname br0 ipv4.method manual ip4 192.168.10.10/24 gw4 192.168.10.1&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>添加 eth0 网络设备到 br0 中
+&lt;ul>
+&lt;li>nmcli con add type ethernet ifname eth0 master br0&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>注意：若不为 bridge 类型的网络设备配置 IP，比如在虚拟化环境中，需要关闭 STP 功能&lt;/p>
+&lt;h2 id="vlan-配置">Vlan 配置&lt;/h2>
+&lt;p>创建一个 Blan 类型的连接，意思就是为指定的网络设备 DEV 划分 vlan。创建一个名为 DEV.VLANID 的新网络设备，凡是通过该设备发送的数据包都会添加上 VLANID。&lt;/p>
+&lt;p>为 Bond 配置 VLAN 标签&lt;/p>
+&lt;ul>
+&lt;li>创建 bond 类型的连接，名为 bond1，关闭 IPv4 和 IPv6
+&lt;ul>
+&lt;li>nmcli con add type bond con-name bond1 ifname bond1 ipv4.method disabled ipv6.method ignore bond.options &amp;ldquo;mode=802.3ad,miimon=100,xmit_hash_policy=layer3+4&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>创建 vlan 类型的连接，绑定到 bond1 设备上，vlan 号为 2409，配置 IP
+&lt;ul>
+&lt;li>nmcli con add type vlan con-name vlan2409-bond1 dev bond1 id 2409 ipv4.method manual ipv4.addresses 100.75.9.17/24 ipv4.gateway 100.75.9.254&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>为 Ethernet 配置 VLAN 标签&lt;/p>
+&lt;ul>
+&lt;li>创建 ethernet 类型的连接，名为 eth0，关闭 IPv4 和 IPv6
+&lt;ul>
+&lt;li>nmcli con add ethernet con-name eth0 ifname eth0 ipv4.method disabled ipv6.method ignore&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>创建一个 vlan 类型的连接，连接名为 vlan2-bond0，为 eth0 划分 vlan，vlan 号为 2
+&lt;ul>
+&lt;li>nmcli con add type vlan con-name vlan2-eth0 dev eth0 id 2 ipv4.method manual ipv4.addresses 100.75.9.17/24&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="具有-vlan-tag-的-ethernet-绑定到-bridge-上">具有 VLAN TAG 的 Ethernet 绑定到 Bridge 上&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>nmcli connection add type ethernet con-name ens1f0 ifname ens1f0 ipv4.method disabled ipv6.method ignore
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nmcli connection add type bridge con-name br0 ifname br0 ipv4.method manual ipv4.address 10.253.26.242/24 ipv4.gateway 10.253.26.254
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nmcli connection add type vlan con-name ens1f0.1251 ifname ens1f0.1251 dev ens1f0 id &lt;span style="color:#ae81ff">1251&lt;/span> master br0 slave-type bridge
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这种配置方法待验证，使用红帽官方的方法配完了起不来，bridge 设备是 down 的状态，ens1f0.1251 设备是 lowerlayerdown 状态。主要问题出在 bridge 设备的配置上，通过简单的传统配置，只要不由 NetworkManager 管理 ifcfg-br0，即可正常使用。&lt;/p>
+&lt;blockquote>
+&lt;p>在寻找该问题的解决方法时，发现了一个相关 BUG，详见：&lt;a href="https://serverfault.com/questions/682183/bridge-on-vlan-on-teaming-for-kvm/861450">https://serverfault.com/questions/682183/bridge-on-vlan-on-teaming-for-kvm/861450&lt;/a>。不过这个连接的解决方案并不适合我&lt;/p>
+&lt;/blockquote>
+&lt;p>最主要的还是 Bridge 设备的配置，&lt;strong>在创建 Bridge 设备的时候，关闭 STP 即可解决&lt;/strong>。可能与交换机那边的设置有关。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>nmcli connection add type ethernet con-name ens1f0 ifname ens1f0 ipv4.method disabled ipv6.method ignore
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nmcli connection add type bridge con-name br0 ifname br0 ipv4.method manual ipv4.address 10.253.26.242/24 ipv4.gateway 10.253.26.254 bridge.stp no
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nmcli connection add type vlan con-name ens1f0.1251 ifname ens1f0.1251 dev ens1f0 id &lt;span style="color:#ae81ff">1251&lt;/span> master br0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="具有-vlan-tag-的-bond-并绑定到-bridge-上">具有 VLAN TAG 的 Bond 并绑定到 Bridge 上&lt;/h2>
+&lt;p>若出现问题无法启动，解决方法与上面的《配置 VLAN TAG 到 Ethernet 绑定到 Bridge 上》的例子解决方法一样。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>nmcli connection add type bond con-name Bond0 ifname bond0 bond.options &lt;span style="color:#e6db74">&amp;#34;mode=active-backup,miimon=100&amp;#34;&lt;/span> ipv4.method disabled ipv6.method ignore
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nmcli connection add type ethernet con-name Slave1 ifname ens1f0 master bond0 slave-type bond
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nmcli connection add type ethernet con-name Slave2 ifname ens1f1 master bond0 slave-type bond
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nmcli connection add type bridge con-name Bridge0 ifname br0 ip4 10.253.26.242/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nmcli connection add type vlan con-name Vlan1251 ifname bond0.1251 dev bond0 id &lt;span style="color:#ae81ff">1251&lt;/span> master br0 slave-type bridge
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nmcli connection show
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NAME UUID TYPE DEVICE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Bond0 f05806fa-72c3-4803-8743-2377f0c10bed bond bond0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Bridge0 22d3c0de-d79a-4779-80eb-10718c2bed61 bridge br0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Slave1 e59e13cb-d749-4df2-aee6-de3bfaec698c 802-3-ethernet em1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Slave2 25361a76-6b3c-4ae5-9073-005be5ab8b1c 802-3-ethernet em2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Vlan2 e2333426-eea4-4f5d-a589-336f032ec822 vlan bond0.2
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: nmcli 命令行工具</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/nmcli-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/8.Network-%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/nmcli-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/networking_guide/sec-configuring_ip_networking_with_nmcli">RedHat7官方文档，网络指南-使用 nmcli 配置 IP 网络&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://networkmanager.dev/docs/api/latest/nmcli.html">Manual(手册)，nmcli(1)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>nmcli 用于 NetworkManager 的命令行工具&lt;/p>
+&lt;h1 id="syntax语法">Syntax(语法)&lt;/h1>
+&lt;p>&lt;strong>nmcli [OPTIONS] OBJECT { COMMAND | help }&lt;/strong>&lt;/p>
+&lt;p>OBJECT 和 COMMAND 可以用全称也可以用简称，最少可以只用一个字母&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>-a, &amp;ndash;ask ask for missing parameters&lt;/li>
+&lt;li>-c, &amp;ndash;colors auto|yes|no whether to use colors in output&lt;/li>
+&lt;li>-e, &amp;ndash;escape yes|no escape columns separators in values&lt;/li>
+&lt;li>&lt;strong>-f, &amp;ndash;fields &amp;lt;FIELD,&amp;hellip;&amp;gt;|all|common&lt;/strong> # 指定要输出的字段，FIELD 可以是 任意 setting&lt;/li>
+&lt;li>-g, &amp;ndash;get-values &amp;lt;field,&amp;hellip;&amp;gt;|all|common shortcut for -m tabular -t -f&lt;/li>
+&lt;li>-h, &amp;ndash;help print this help&lt;/li>
+&lt;li>&lt;strong>-m, &amp;ndash;mode &amp;lt;tabular|multiline&amp;gt;&lt;/strong> # 指定输出模式,tabular 输出为表格样式，multiline 是多行样式。
+&lt;ul>
+&lt;li>nmcli con show # 默认为表格样式&lt;/li>
+&lt;li>nmcli con show DEV # 默认为多行样式&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>-o, &amp;ndash;overview overview mode&lt;/li>
+&lt;li>&lt;strong>-p, &amp;ndash;pretty&lt;/strong> # 美化输出，以连接中的 setting 分段落展示&lt;/li>
+&lt;li>-s, &amp;ndash;show-secrets allow displaying passwords&lt;/li>
+&lt;li>&lt;strong>-t, &amp;ndash;terse&lt;/strong> # 简洁的输出&lt;/li>
+&lt;li>-v, &amp;ndash;version show program version&lt;/li>
+&lt;li>-w, &amp;ndash;wait &amp;lt;seconds&amp;gt; set timeout waiting for finishing operations&lt;/li>
+&lt;/ul>
+&lt;p>OBJECT&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>g[eneral]&lt;/strong> # NetworkManager&amp;rsquo;s general status and operations&lt;/li>
+&lt;li>&lt;strong>n[etworking]&lt;/strong> # overall networking control&lt;/li>
+&lt;li>&lt;strong>r[adio]&lt;/strong> # NetworkManager radio switches&lt;/li>
+&lt;li>&lt;strong>c[onnection]&lt;/strong> # NetworkManager&amp;rsquo;s connections&lt;/li>
+&lt;li>&lt;strong>d[evice]&lt;/strong> # devices managed by NetworkManager&lt;/li>
+&lt;li>&lt;strong>a[gent]&lt;/strong> # NetworkManager secret agent or polkit agent&lt;/li>
+&lt;li>&lt;strong>m[onitor]&lt;/strong> # monitor NetworkManager changes&lt;/li>
+&lt;/ul>
+&lt;h1 id="general--networkmanager-的一般状态和操作">g[eneral] # NetworkManager 的一般状态和操作&lt;/h1>
+&lt;h1 id="networking--overall-networking-control">n[etworking] # overall networking control&lt;/h1>
+&lt;h1 id="radio--networkmanager-radio-switches">r[adio] # NetworkManager radio switches&lt;/h1>
+&lt;h1 id="connection--connections-的管理命令常用命令">c[onnection] # Connections 的管理命令，常用命令&lt;/h1>
+&lt;p>详见：&lt;a href="https://www.yuque.com/go/doc/33221854">connection 子命令章节&lt;/a>&lt;/p>
+&lt;h2 id="clone-克隆连接">clone 克隆连接&lt;/h2>
+&lt;p>clone [&amp;ndash;temporary] [id | uuid | path ] &amp;lt;ID&amp;gt; &amp;lt;new name&amp;gt; # 克隆连接&lt;/p>
+&lt;h2 id="edit-在交互模式的编辑器中修改连接">edit 在交互模式的编辑器中修改连接&lt;/h2>
+&lt;p>edit [id | uuid | path] &amp;lt;ID&amp;gt; # 进入交互编辑器修改连接&lt;/p>
+&lt;p>edit [type &amp;lt;new_con_type&amp;gt;] [con-name &amp;lt;new_con_name&amp;gt;]&lt;/p>
+&lt;h2 id="monitor-监控连接">monitor 监控连接&lt;/h2>
+&lt;p>monitor [id | uuid | path] &amp;lt;ID&amp;gt; &amp;hellip; # 监控连接&lt;/p>
+&lt;h2 id="reloadload-加载连接信息">reload、load 加载连接信息&lt;/h2>
+&lt;p>从磁盘重新加载所有连接文件。 默认情况下，NetworkManager 不会监视对连接文件的更改。 因此，您需要使用此命令来告诉 NetworkManager 在对它们进行更改时从磁盘重新读取连接配置文件。 但是，可以启用自动加载功能，然后 NetworkManager 会在每次更改连接文件时重新加载它们（NetworkManager.conf（5）中的 monitor-connection-files = true）。&lt;/p>
+&lt;p>从磁盘加载/重新加载一个或多个连接文件。 手动编辑连接文件后使用此命令可确保 NetworkManager 知道其最新状态。&lt;/p>
+&lt;p>reload # 从 /etc/sysconfig/network-scripts/ 目录重新加载连接文件&lt;/p>
+&lt;p>load &amp;lt;filename&amp;gt; [ &amp;lt;filename&amp;gt;&amp;hellip; ] #&lt;/p>
+&lt;h2 id="其他">其他&lt;/h2>
+&lt;p>import [&amp;ndash;temporary] type &amp;lt;type&amp;gt; file &amp;lt;file to import&amp;gt;&lt;/p>
+&lt;p>export [id | uuid | path] &amp;lt;ID&amp;gt; [&amp;lt;output file&amp;gt;]&lt;/p>
+&lt;h1 id="device--通过-networkmanager-来管理网络设备">d[evice] # 通过 NetworkManager 来管理网络设备&lt;/h1>
+&lt;h1 id="agent--networkmanager-secret-agent-or-polkit-agent">a[gent] # NetworkManager secret agent or polkit agent&lt;/h1>
+&lt;h1 id="monitor--monitor-networkmanager-changes">m[onitor] # monitor NetworkManager changes&lt;/h1></description></item></channel></rss>

@@ -1,0 +1,279 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – System Call</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/3.System-Call/</link><description>Recent content in System Call on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/3.System-Call/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 3.System Call</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/3.System-Call/System-Call/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/3.System-Call/System-Call/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man2/syscalls.2.html">Manual(手册)，syscalls(2)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/System_call">Wiki,System_call&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://arthurchiao.art/blog/system-call-definitive-guide-zh/">http://arthurchiao.art/blog/system-call-definitive-guide-zh/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>System Call(系统调用，简称 syscall)&lt;/strong> 是 Application(应用程序) 和 Linux Kernel(内核) 之间的基本接口。是操作内核的唯一入口。其实，所谓 syscall 就是各种编程语言中的 &lt;strong>Function(函数)&lt;/strong> 概念。一个 syscall 也有名称、参数、返回值。syscall 即可以是名词，用来描述一个具体的 syscall；也可以是动词，用来表示某物调用了某个 syscall。当用户进程需要发生系统调用时，CPU 通过软中断切换到内核态开始执行内核系统调用函数。&lt;/p>
+&lt;blockquote>
+&lt;p>syscall 还有另一种意思，是一种编程方式，比如我们常说的 API，就是 syscall 的一种实现。但是通常意义的 API 不包含权限的转变，而普通程序进行系统调用时，会涉及到权限的转变。&lt;/p>
+&lt;/blockquote>
+&lt;p>在 &lt;a href="https://man7.org/linux/man-pages/man2/syscalls.2.html#DESCRIPTION">syscalls(2) 手册中的 System call list 章节&lt;/a>可以看到 Linux 可用的完整的 syscall 列表。也就是说所有 Kernel 暴露出来的可供用户调用的 Function。&lt;/p>
+&lt;h2 id="用户程序内核和-cpu-特权级别">用户程序、内核和 CPU 特权级别&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bbar3l/1616168230254-e3c38b73-8092-41bd-a17d-d3c4768de743.jpeg" alt="">&lt;/p>
+&lt;p>用户程序（例如编辑器、终端、ssh daemon 等）需要和 Linux 内核交互，内核代替它们完 成一些它们自身无法完成的操作。&lt;/p>
+&lt;p>例如，如果用户程序需要做 IO 操作（open、read、write 等），或者需要修改它的 内存地址（mmpa、sbrk 等），那它必须触发内核替它完成。&lt;/p>
+&lt;p>为什么禁止用户程序做这些操作呢？&lt;/p>
+&lt;p>因为 x86-64 CPU 有一个特权级别 （privilege levels）的概念。这个概念很复杂，完全可以单独写一篇博客。 出于本文讨论目的，我们将其（大大地）简化为如下：&lt;/p>
+&lt;ol>
+&lt;li>特权级别是权限控制的一种方式。当前的特权级别决定了允许执行哪些 CPU 指令和操作&lt;/li>
+&lt;li>内核运行在最高级别，称为 “Ring 0”；用户程序运行在稍低的一个级别，一般称作 “Ring 3”&lt;/li>
+&lt;/ol>
+&lt;ul>
+&lt;li>内核空间（Ring 0）具有最高权限，可以直接访问所有资源；&lt;/li>
+&lt;li>用户空间（Ring 3）只能访问受限资源，不能直接访问内存等硬件设备，必须通过系统调用陷入到内核中，才能访问这些特权资源。&lt;/li>
+&lt;/ul>
+&lt;p>用户程序要进行特权操作必须触发一次特权级别切换（从 “Ring 3” 到 “Ring 0”）， 由内核（替它）执行。触发特权级别切换有多种方式，我们先从最常见的方式开始：中断。&lt;/p>
+&lt;h1 id="interrupts中断">Interrupts(中断)&lt;/h1>
+&lt;p>详见：[Interrupts(中断) 概念详解](/docs/IT学习笔记/1.操作系统/2.Kernel(内核)/4.CPU%20 管理/Interrupts(中断).md 管理/Interrupts(中断).md)&lt;/p>
+&lt;h1 id="syscall-的方式">syscall 的方式&lt;/h1>
+&lt;p>通过 glibc 提供的库函数&lt;/p>
+&lt;p>glibc 是 Linux 下使用的开源的标准 C 库，它是 GNU 发布的 libc 库，即运行时库。glibc 为程序员提供丰富的 API，除了例如字符串处理、数学运算等用户态服务之外，最重要的是封装了操作系统提供的系统服务，即系统调用的封装。那么 glibc 提供的系统调用 API 与内核特定的系统调用之间的关系是什么呢？&lt;/p>
+&lt;ul>
+&lt;li>通常情况，每个特定的系统调用对应了至少一个 glibc 封装的库函数，如系统提供的打开文件系统调用 sys_open 对应的是 glibc 中的 open 函数；&lt;/li>
+&lt;li>其次，glibc 一个单独的 API 可能调用多个系统调用，如 glibc 提供的 printf 函数就会调用如 sys_open、sys_mmap、sys_write、sys_close 等等系统调用；&lt;/li>
+&lt;li>另外，多个 API 也可能只对应同一个系统调用，如 glibc 下实现的 malloc、calloc、free 等函数用来分配和释放内存，都利用了内核的 sys_brk 的系统调用。&lt;/li>
+&lt;/ul>
+&lt;p>举例来说，我们通过 glibc 提供的 chmod 函数来改变文件 etc/passwd 的属性为 444&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;sys/types.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;sys/stat.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;errno.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;stdio.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">int&lt;/span> rc;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> rc &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">chmod&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/etc/passwd&amp;#34;&lt;/span>, &lt;span style="color:#ae81ff">0444&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> (rc &lt;span style="color:#f92672">==&lt;/span> &lt;span style="color:#f92672">-&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">fprintf&lt;/span>(stderr, &lt;span style="color:#e6db74">&amp;#34;chmod failed, errno = %d&lt;/span>&lt;span style="color:#ae81ff">\n&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>, errno);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">else&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">printf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;chmod success!&lt;/span>&lt;span style="color:#ae81ff">\n&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在普通用户下编译运用，输出结果为：&lt;/p>
+&lt;pre>&lt;code>chmod failed, errno = 1
+&lt;/code>&lt;/pre>
+&lt;p>上面系统调用返回的值为-1，说明系统调用失败，错误码为 1，在 /usr/include/asm-generic/errno-base.h 文件中有如下错误代码说明：&lt;/p>
+&lt;pre>&lt;code>#define EPERM 1 /* Operation not permitted */
+&lt;/code>&lt;/pre>
+&lt;p>即无权限进行该操作，我们以普通用户权限是无法修改 /etc/passwd 文件的属性的，结果正确。&lt;/p>
+&lt;h2 id="使用指定的-syscallname-直接调用">使用指定的 SyscallName 直接调用&lt;/h2>
+&lt;p>使用上面的方法有很多好处，首先你无须知道更多的细节，如 chmod 系统调用号，你只需了解 glibc 提供的 API 的原型；其次，该方法具有更好的移植性，你可以很轻松将该程序移植到其他平台，或者将 glibc 库换成其它库，程序只需做少量改动。&lt;/p>
+&lt;p>但有点不足是，如果 glibc 没有封装某个内核提供的系统调用时，我就没办法通过上面的方法来调用该系统调用。如我自己通过编译内核增加了一个系统调用，这时 glibc 不可能有你新增系统调用的封装 API，此时我们可以利用 glibc 提供的 syscall 函数直接调用。该函数定义在 unistd.h 头文件中，函数原型如下：&lt;/p>
+&lt;p>long int syscall (long int sysno, &amp;hellip;)&lt;/p>
+&lt;ul>
+&lt;li>sysno 是系统调用号，每个系统调用都有唯一的系统调用号来标识。在 sys/syscall.h 中有所有可能的系统调用号的宏定义。&lt;/li>
+&lt;li>&amp;hellip; 为剩余可变长的参数，为系统调用所带的参数，根据系统调用的不同，可带 0~5 个不等的参数，如果超过特定系统调用能带的参数，多余的参数被忽略。&lt;/li>
+&lt;li>返回值 该函数返回值为特定系统调用的返回值，在系统调用成功之后你可以将该返回值转化为特定的类型，如果系统调用失败则返回 -1，错误代码存放在 errno 中。&lt;/li>
+&lt;/ul>
+&lt;p>还以上面修改 /etc/passwd 文件的属性为例，这次使用 syscall 直接调用：&lt;/p>
+&lt;pre>&lt;code>#include &amp;lt;stdio.h&amp;gt;
+#include &amp;lt;unistd.h&amp;gt;
+#include &amp;lt;sys/syscall.h&amp;gt;
+#include &amp;lt;errno.h&amp;gt;
+int main()
+{
+int rc;
+rc = syscall(SYS_chmod, &amp;quot;/etc/passwd&amp;quot;, 0444);
+if (rc == -1)
+fprintf(stderr, &amp;quot;chmod failed, errno = %d\n&amp;quot;, errno);
+else
+printf(&amp;quot;chmod succeess!\n&amp;quot;);
+return 0;
+}
+&lt;/code>&lt;/pre>
+&lt;p>在普通用户下编译执行，输出的结果与上例相同。&lt;/p>
+&lt;h2 id="通过-syscall-间接调用">通过 syscall() 间接调用&lt;/h2>
+&lt;h2 id="通过-int-指令陷入">通过 int 指令陷入&lt;/h2>
+&lt;p>如果我们知道系统调用的整个过程的话，应该就能知道用户态程序通过软中断指令 int 0x80 来陷入内核态（在 Intel Pentium II 又引入了 sysenter 指令），参数的传递是通过寄存器，eax 传递的是系统调用号，ebx、ecx、edx、esi 和 edi 来依次传递最多五个参数，当系统调用返回时，返回值存放在 eax 中。&lt;/p>
+&lt;p>仍然以上面的修改文件属性为例，将调用系统调用那段写成内联汇编代码：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;stdio.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;sys/types.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;sys/syscall.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;errno.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">long&lt;/span> rc;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>file_name &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;/etc/passwd&amp;#34;&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">unsigned&lt;/span> &lt;span style="color:#66d9ef">short&lt;/span> mode &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">0444&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">asm&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">&amp;#34;int $0x80&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;=a&amp;#34;&lt;/span> (rc)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;0&amp;#34;&lt;/span> (SYS_chmod), &lt;span style="color:#e6db74">&amp;#34;b&amp;#34;&lt;/span> ((&lt;span style="color:#66d9ef">long&lt;/span>)file_name), &lt;span style="color:#e6db74">&amp;#34;c&amp;#34;&lt;/span> ((&lt;span style="color:#66d9ef">long&lt;/span>)mode)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">if&lt;/span> ((&lt;span style="color:#66d9ef">unsigned&lt;/span> &lt;span style="color:#66d9ef">long&lt;/span>)rc &lt;span style="color:#f92672">&amp;gt;=&lt;/span> (&lt;span style="color:#66d9ef">unsigned&lt;/span> &lt;span style="color:#66d9ef">long&lt;/span>)&lt;span style="color:#f92672">-&lt;/span>&lt;span style="color:#ae81ff">132&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> errno &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#f92672">-&lt;/span>rc;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> rc &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#f92672">-&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">if&lt;/span> (rc &lt;span style="color:#f92672">==&lt;/span> &lt;span style="color:#f92672">-&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">fprintf&lt;/span>(stderr, &lt;span style="color:#e6db74">&amp;#34;chmode failed, errno = %d&lt;/span>&lt;span style="color:#ae81ff">\n&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>, errno);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">else&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">printf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;success!&lt;/span>&lt;span style="color:#ae81ff">\n&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果 eax 寄存器存放的返回值（存放在变量 rc 中）在 -1~-132 之间，就必须要解释为出错码（在/usr/include/asm-generic/errno.h 文件中定义的最大出错码为 132），这时，将错误码写入 errno 中，置系统调用返回值为 -1；否则返回的是 eax 中的值。&lt;/p>
+&lt;p>上面程序在 32 位 Linux 下以普通用户权限编译运行结果与前面两个相同！&lt;/p>
+&lt;h1 id="系统调用与-api-和函数调用之间的区别">系统调用与 API 和函数调用之间的区别&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/2rzzQTuZKSW0O4zM1DlAWQ">公众号，系统调用与函数调用有什么区别？&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/q7CDAlwUB7bFstYZ1nOVvA">公众号，系统调用和API有什么区别？&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote></description></item><item><title>Docs: System Call 类别</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/3.System-Call/System-Call-%E7%B1%BB%E5%88%AB/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/3.System-Call/System-Call-%E7%B1%BB%E5%88%AB/</guid><description>
+&lt;h1 id="系统调用的类别">系统调用的类别&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="http://c.biancheng.net/view/1196.html">http://c.biancheng.net/view/1196.html&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>系统调用大致可以分为六大类：&lt;/p>
+&lt;h1 id="一进程控制">一、进程控制&lt;/h1>
+&lt;p>执行程序应能正常（end()）或异常（abort()）停止执行。如果一个系统调用异常停止当前执行的程序，或者程序运行遇到问题并引起错误陷阱，那么有时转储内存到磁盘，并生成错误信息。内存信息转储到磁盘后，可用调试器（debugger）来确定问题原因（调试器为系统程序，用以帮助程序员发现和纠正错误（bug））。&lt;/p>
+&lt;p>无论是正常情况还是异常情况，操作系统都应将控制转到调用命令解释程序。命令解释程序接着读入下个命令。对于交互系统，命令解释程序只是简单读入下个命令，而假定用户会采取合适命令以处理错误。对于 GUI 系统，弹出窗口可用于提醒用户出错，并请求指引。对于批处理系统，命令解释程序通常终止整个作业，并继续下个作业。当出现错误时，有的系统可能允许特殊的恢复操作。&lt;/p>
+&lt;p>如果程序发现输入有错并且想要异常终止，那么它也可能需要定义错误级别。错误越严重，错误参数的级别也越高。通过将正常终止的错误级别定义为 0，可以把正常和异常终止放在一起处理。命令解释程序或后面的程序可以利用这种错误级别来自动确定下个动作。&lt;/p>
+&lt;p>执行一个程序的进程或作业可能需要加载（load()）和执行（execute()）另一个程序。这种功能允许命令解释程序来执行一个程序，该命令可以通过用户命令、鼠标点击或批处理命令来给定。一个有趣的问题是：加载程序终止时会将控制返回到哪里？与之相关的问题是：原有程序是否失去或保存了，或者可与新的程序一起并发执行？&lt;/p>
+&lt;p>如果新程序终止时控制返回到现有程序，那么必须保存现有程序的内存映像。因此，事实上创建了一个机制，以便一个程序调用另一个程序。如果两个程序并发继续，那么也就创建了一个新作业或进程，以便多道执行。通常，有一个系统调用专门用于这一目的（create_process() 或 submit_job()）。&lt;/p>
+&lt;p>如果创建了一个新的作业或进程或者一组作业或进程，那么我们应能控制执行。这种控制要能判定和重置进程或作业的属性，包括作业的优先级、最大允许执行时间等（get_ process_attributes() 和 set_process_attributes()）。如果发现创建的进程或作业不正确或者不再需要，那么也要能终止它（terminate_process()）。&lt;/p>
+&lt;p>创建了新的作业或进程后，可能要等待其执行完成，也可能要等待一定时间（wait_time()）。更有可能要等待某个事件的出现（wait_event()）。当事件出现时，作业或进程就会响应（signal_event()）。&lt;/p>
+&lt;p>通常，两个或多个进程会共享数据。为了确保共享数据的完整性，操作系统通常提供系统调用，以允许一个进程锁定（lock）共享数据。这样，在解锁之前，其他进程不能访问该数据。通常，这样的系统调用包括 acquire_lock() 和 release_lock()。这类系统调用用于协调并发进程，将在后续章节详细讨论。&lt;/p>
+&lt;p>进程和作业控制差异很大，这里通过两个例子加以说明：一个涉及单任务系统，另一个涉及多任务系统。&lt;/p>
+&lt;p>MS-DOS 操作系统是个单任务的系统，在计算机启动时它就运行一个命令解释程序（图 1a）。由于 MS-DOS 是单任务的，它采用了一种简单方法来执行程序而且不创建新进程。它加载程序到内存，并对自身进行改写，以便为新程序提供尽可能多的空间（图 1b）。&lt;/p>
+&lt;p>接着，它将指令指针设为程序的第一条指令。然后，运行程序，或者错误引起中断，或者程序执行系统调用来终止。无论如何，错误代码会保存在系统内存中以便以后使用。之后，命令解释程序中的尚未改写部分重新开始执行。它首先从磁盘中重新加载命令解释程序的其他部分。然后，命令解释程序会向用户或下个程序提供先前的错误代码。&lt;/p>
+&lt;p>FreeBSD（源于 Berkeley UNIX）是个多任务系统。在用户登录到系统后，用户所选的外壳就开始运行。这种外壳类似于 MS-DOS 外壳：按用户要求，接受命令并执行程序。不过，由于 FreeBSD 是多任务系统，命令解释程序在另一个程序执行，也可继续执行（图 2）。&lt;/p>
+&lt;p>为了启动新进程，外壳执行系统调用 fork()。接着，所选程序通过系统调用 exec() 加载到内存，程序开始执行。根据命令执行方式，外壳要么等待进程完成，要么后台执行进程。对于后一种情况，外壳可以马上接受下个命令。当进程在后台运行时，它不能直接接受键盘输入，这是因为外壳已在使用键盘。因此 I/O 可通过文件或 GUI 来完成。&lt;/p>
+&lt;p>同时，用户可以让外壳执行其他程序，监视运行进程状态，改变程序优先级等。当进程完成时，它执行系统调用 exit() 以终止，并将 0 或非 0 的错误代码返回到调用进程。这一状态（或错误）代码可用于外壳或其他程序。后续章节将通过一个使用系统调用 fork() 和 exec() 的程序例子来讨论进程。&lt;/p>
+&lt;h1 id="二文件管理">二、文件管理&lt;/h1>
+&lt;p>首先要能创建（create()）和删除（delete()）文件。这两个系统调用需要文件名称，还可能需要文件的一些属性。一旦文件创建后，就会打开（open()）并使用它，也会读(read()）、写（write()）或重定位（reposition()）（例如，重新回到文件开头，或直接跳到文件末尾）。最后，需要关闭（close()）文件，表示不再使用它了。&lt;/p>
+&lt;p>如果采用目录结构来组织文件系统的文件，那么也会需要同样的目录操作。另外，不管是文件还是目录，都要能对各种属性的值加以读取或设置。文件属性包括：文件名、文件类型、保护码、记账信息等。&lt;/p>
+&lt;p>针对这一功能，至少需要两个系统调用：获取文件属性（get_file_attributes()）和设置文件属性（set_file_attributes()）。有的操作系统还提供其他系统调用，如文件的移动（move()）和复制（copy()）。还有的操作系统通过代码或系统调用来完成这些 API 的功能。其他的操作系统可能通过系统程序来实现这些功能。如果系统程序可被其他程序调用，那么这些系统程序也就相当于 API。&lt;/p>
+&lt;h1 id="三设备管理">三、设备管理&lt;/h1>
+&lt;p>进程执行需要一些资源，如内存、磁盘驱动、所需文件等。如果有可用资源，那么系统可以允许请求，并将控制交给用户程序；否则，程序应等待，直到有足够可用的资源为止。&lt;/p>
+&lt;p>操作系统控制的各种资源可看作设备。有的设备是物理设备（如磁盘驱动），而其他的可当作抽象或虚拟的设备（如文件）。多用户系统要求先请求（request()）设备，以确保设备的专门使用。在设备用完后，要释放（release()）它。这些函数类似于文件的系统调用 open() 和 close()。其他操作系统对设备访问不加管理。这样带来的危害是潜在的设备争用以及可能发生的死锁，这将在后续章节中讨论。&lt;/p>
+&lt;p>在请求了设备（并得到）后，就能如同对文件一样，对设备进行读（read())、写（write())、重定位（reposition()）。事实上，I/O 设备和文件极为相似，以至于许多操作系统如 UNIX 都将这两者组合成文件-设备结构。这样，一组系统调用不但用于文件而且用于设备。有时，I/O 设备可通过特殊文件名、目录位置或文件属性来辨认。&lt;/p>
+&lt;p>用户界面可以让文件和设备看起来相似，即便内在系统调用不同。在设计、构建操作系统和用户界面时，这也是要加以考虑的。&lt;/p>
+&lt;p>a.请求设器、释放设器&lt;/p>
+&lt;p>b.读、写、调位位置&lt;/p>
+&lt;p>c.获取/设置设备属性&lt;/p>
+&lt;p>d.连接或断开设备&lt;/p>
+&lt;h1 id="四信息维护">四、信息维护&lt;/h1>
+&lt;p>许多系统调用只不过用于在用户程序与操作系统之间传递信息。例如，大多数操作系统都有一个系统调用，以便返回当前的时间（time()）和日期（date()）。还有的系统调用可以返回系统的其他信息，如当前用户数、操作系统版本、内存或磁盘的可用量等。&lt;/p>
+&lt;p>还有一组系统调用帮助调试程序。许多系统都提供用于转储内存（dump()）的系统调用。对于调试，这很有用。程序 trace 可以列出程序执行时的所有系统调用。甚至微处理器都有一个 CPU 模式，称为单步（single step），即 CPU 每执行一条指令都会产生一个陷阱。调试器通常可以捕获到这些陷阱。&lt;/p>
+&lt;p>许多操作系统都提供程序的时间曲线（time profile），用于表示在特定位置或位置组合上的执行时间。时间曲线需要跟踪功能或固定定时中断。当定时中断出现时，就会记录程序计数器的值。如有足够频繁的定时中断，那么就可得到花在程序各个部分的时间统计信息。&lt;/p>
+&lt;p>再者，操作系统维护所有进程的信息，这些可通过系统调用来访问。通常，也可用系统调用重置进程信息（get_process_attributes() 和 set_process_attributes ()）。&lt;/p>
+&lt;h1 id="五通信">五、通信&lt;/h1>
+&lt;p>进程间通信的常用模型有两个：消息传递模型和共享内存模型。&lt;/p>
+&lt;p>对于消息传递模型（message-passing model），通信进程通过相互交换消息来传递信息。进程间的消息交换可以直接进行，也可以通过一个共同邮箱来间接进行。在开始通信前，应先建立连接。应知道另一个通信实体名称，它可能是同一系统的另一个进程，也可能是通过网络相连的另一计算机的进程。&lt;/p>
+&lt;p>每台网络计算机都有一个主机名（hostname），这是众所周知的。另外，每台主机也都有一个网络标识符，如 IP 地址。类似地，每个进程有进程名（process name），它通常可转换成标识符，以便操作系统引用。系统调用 get_hostid() 和 get_processid() 可以执行这类转换。这些标识符再传给通用系统调用 open() 和 close()（由文件系统提供），或专用系统调用 open_connection() 和 close_connection()，这取决于系统通信模型。&lt;/p>
+&lt;p>接受进程应通过系统调用 accept_connection() 来许可通信。大多数可接受连接的进程为专用的守护进程（daemon），即专用系统程序。它们执行系统调用 wait_for_connection()，在有连接时会被唤醒。通信源称为客户机（client），而接受后台程序称为服务器（server），它们通过系统调用 read_message() 和 write_message() 来交换消息。系统调用 close_connection() 终止通信。&lt;/p>
+&lt;p>对于共享内存模型（shared-memory model），进程通过系统调用 shared_memory_create() 和 shared_memory_attach() 创建共享内存，并访问其他进程拥有的内存区域。&lt;/p>
+&lt;p>注意，操作系统通常需要阻止一个进程访问另一个进程的内存。共享内存要求两个或多个进程都同意取消这一限制，这样它们就可通过读写共享区域的数据来交换信息。这种数据的类型是由这些进程来决定的，而不受操作系统的控制。进程也负责确保不会同时向同一个地方进行写操作。&lt;/p>
+&lt;p>上面讨论的两种模型常用于操作系统，而且大多数系统两种都实现了。消息传递对少量数据的交换很有用，因为没有冲突需要避免。与用于计算机间的共享内存相比，它也更容易实现。共享内存在通信方面具有高速和便捷的特点，因为当通信发生在同一计算机内时，它可以按内存传输速度来进行。不过，共享内存的进程在保护和同步方面有问题。&lt;/p>
+&lt;h1 id="六保护措施">六、保护措施&lt;/h1>
+&lt;p>保护提供控制访问计算机的系统资源的机制。过去，只有多用户的多道计算机系统才要考虑保护。随着网络和因特网的出现，所有计算机（从服务器到手持移动设备）都应考虑保护。&lt;/p>
+&lt;p>通常，提供保护的系统调用包括 set_permission() 和 get_permission()，用于设置资源（如文件和磁盘）权限。系统调用 allow_user() 和 deny_user() 分别用于允许和拒绝特定用户访问某些资源。&lt;/p></description></item><item><title>Docs: 常见 Syscalls</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/3.System-Call/%E5%B8%B8%E8%A7%81-Syscalls/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/3.System-Call/%E5%B8%B8%E8%A7%81-Syscalls/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man2/syscalls.2.html#DESCRIPTION">Manual(手册)，syscall(2)- System call 列表&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="一进程控制">一、进程控制&lt;/h1>
+&lt;h2 id="a创建进程">a.创建进程&lt;/h2>
+&lt;h2 id="b终止进程">b.终止进程&lt;/h2>
+&lt;h2 id="c载入执行">c.载入、执行&lt;/h2>
+&lt;h2 id="d获取设置过程属性">d.获取/设置过程属性&lt;/h2>
+&lt;h2 id="e等待时间等待事件信号事件">e.等待时间、等待事件、信号事件&lt;/h2>
+&lt;h2 id="f分配和释放内存">f.分配和释放内存&lt;/h2>
+&lt;h1 id="二文件管理">二、文件管理&lt;/h1>
+&lt;h2 id="a创建文件删除文件">a.创建文件、删除文件&lt;/h2>
+&lt;p>&lt;strong>open(&amp;ldquo;abc&amp;rdquo;, O_WRONLY|O_CREAT|O_NOCTTY|O_NONBLOCK, 0666)&lt;/strong>&lt;/p>
+&lt;p>创建文件，主要是使用了 O_CREAT 参数&lt;/p>
+&lt;p>&lt;strong>unlink()&lt;/strong> # 删除文件&lt;/p>
+&lt;h2 id="b打开文件关闭文件">b.打开文件、关闭文件&lt;/h2>
+&lt;h3 id="openopenatcreat---打开并可能创建一个文件">open()、openat()、creat() - 打开并可能创建一个文件&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man2/openat.2.html">https://man7.org/linux/man-pages/man2/openat.2.html&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">open&lt;/span>(&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>pathname, &lt;span style="color:#66d9ef">int&lt;/span> flags);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">open&lt;/span>(&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>pathname, &lt;span style="color:#66d9ef">int&lt;/span> flags, &lt;span style="color:#66d9ef">mode_t&lt;/span> mode);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">creat&lt;/span>(&lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>pathname, &lt;span style="color:#66d9ef">mode_t&lt;/span> mode);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">openat&lt;/span>(&lt;span style="color:#66d9ef">int&lt;/span> dirfd, &lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>pathname, &lt;span style="color:#66d9ef">int&lt;/span> flags);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">openat&lt;/span>(&lt;span style="color:#66d9ef">int&lt;/span> dirfd, &lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>pathname, &lt;span style="color:#66d9ef">int&lt;/span> flags, &lt;span style="color:#66d9ef">mode_t&lt;/span> mode);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">openat2&lt;/span>(&lt;span style="color:#66d9ef">int&lt;/span> dirfd, &lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>pathname, &lt;span style="color:#66d9ef">const&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> open_how &lt;span style="color:#f92672">*&lt;/span>how, &lt;span style="color:#66d9ef">size_t&lt;/span> size);
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="c读写调位置">c.读、写、调位置&lt;/h2>
+&lt;h3 id="read---从-file-descriptor文件描述符-读取">read() - 从 File Descriptor(文件描述符) 读取&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man2/read.2.html">https://man7.org/linux/man-pages/man2/read.2.html&lt;/a>&lt;/p>
+&lt;p>&lt;strong>&lt;code>ssize_t read(int fd, void *buf, size_t count);&lt;/code>&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>fd # 文件描述符&lt;/li>
+&lt;li>*buf # 读取/写入的数据的内容(字节流格式)&lt;/li>
+&lt;li>count # 读取/写入数据的数据(单位 bytes)&lt;/li>
+&lt;/ul>
+&lt;h3 id="write---写入到-file-descriptor文件描述符">write() - 写入到 File Descriptor(文件描述符)&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man2/write.2.html">https://man7.org/linux/man-pages/man2/write.2.html&lt;/a>&lt;/p>
+&lt;p>&lt;strong>&lt;code>ssize_t write(int fd, const void *buf, size_t count);&lt;/code>&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>fd # 文件描述符&lt;/li>
+&lt;li>*buf # 读取/写入的数据的内容(字节流格式)&lt;/li>
+&lt;li>count # 读取/写入数据的数据(单位 bytes)&lt;/li>
+&lt;/ul>
+&lt;h3 id="pread-与-pwrite---以给定的-offset偏移量-对给定的-file-descriptor-进行读取或写入数据">pread() 与 pwrite() - 以给定的 offset(偏移量) 对给定的 File Descriptor 进行读取或写入数据。&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man2/pread64.2.html">https://man7.org/linux/man-pages/man2/pread64.2.html&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>ssize_t pread&lt;span style="color:#f92672">(&lt;/span>int fd, void *buf, size_t count, off_t offset&lt;span style="color:#f92672">)&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ssize_t pwrite&lt;span style="color:#f92672">(&lt;/span>int fd, const void *buf, size_t count, off_t offset&lt;span style="color:#f92672">)&lt;/span>;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>fd # 文件描述符&lt;/li>
+&lt;li>*buf # 读取/写入的数据的内容(字节流格式)&lt;/li>
+&lt;li>count # 读取/写入数据的数据(单位 bytes)&lt;/li>
+&lt;li>offset # 偏移量&lt;/li>
+&lt;/ul>
+&lt;p>成功后，pread() 返回读取的字节数 (返回零表示文件结束)，而 pwrite() 返回写入的字节数。&lt;/p>
+&lt;h2 id="d获取设置文件属性">d.获取/设置文件属性&lt;/h2>
+&lt;h3 id="statfstatlastatfstatat---获取文件状态">stat()、fstat()、lastat()、fstatat() - 获取文件状态&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man2/stat.2.html">https://man7.org/linux/man-pages/man2/stat.2.html&lt;/a>&lt;/p>
+&lt;p>&lt;strong>&lt;code>int stat(const char *restrict pathname, struct stat *restrict statbuf);&lt;/code>&lt;/strong>&lt;/p>
+&lt;p>这些获取文件状态的系统调用在 &lt;code>statbuf&lt;/code> 指向的缓冲区中，返回有关文件的信息&lt;/p>
+&lt;h3 id="getcwdgetwdget_current_dir_name---获取当前工作目录">getcwd()、getwd()、get_current_dir_name() - 获取当前工作目录&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man3/getcwd.3.html">https://man7.org/linux/man-pages/man3/getcwd.3.html&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">getcwd&lt;/span>(&lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>buf, &lt;span style="color:#66d9ef">size_t&lt;/span> size);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">getwd&lt;/span>(&lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>buf);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">char&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">get_current_dir_name&lt;/span>(&lt;span style="color:#66d9ef">void&lt;/span>);
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这些函数返回一个以空字符结尾的字符串，字符串是一个绝对路径名称，该路径名是执行系统调用的进程的当前工作目录。&lt;/p>
+&lt;h3 id="fcntl---操控文件描述符">fcntl - 操控文件描述符&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man2/fcntl.2.html">https://man7.org/linux/man-pages/man2/fcntl.2.html&lt;/a>&lt;/p>
+&lt;p>&lt;strong>&lt;code>int fcntl(int fd, int cmd, ... /* arg */ );&lt;/code>&lt;/strong>&lt;/p>
+&lt;h1 id="三设备管理">三、设备管理&lt;/h1>
+&lt;h2 id="a请求设备释放设备">a.请求设备、释放设备&lt;/h2>
+&lt;h2 id="b读写调位位置">b.读、写、调位位置&lt;/h2>
+&lt;h2 id="c获取设置设备属性">c.获取/设置设备属性&lt;/h2>
+&lt;h2 id="d连接或断开设备">d.连接或断开设备&lt;/h2>
+&lt;h1 id="四信息维护">四、信息维护&lt;/h1>
+&lt;h2 id="a获取设定时间或日期">a.获取/设定时间或日期&lt;/h2>
+&lt;h2 id="b获取设置系统数据">b.获取/设置系统数据&lt;/h2>
+&lt;h2 id="c获取设置进程文件或设备属性">c.获取/设置进程、文件或设备属性&lt;/h2>
+&lt;h1 id="五通信">五、通信&lt;/h1>
+&lt;h2 id="a建立断开通信">a.建立、断开通信&lt;/h2>
+&lt;h3 id="socket--创建一个用于通信的-endpoint端点">socket() # 创建一个用于通信的 Endpoint(端点)&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man2/socket.2.html">https://man7.org/linux/man-pages/man2/socket.2.html&lt;/a>&lt;/p>
+&lt;p>在 socketcall() 有注意事项&lt;/p>
+&lt;p>socket() 返回引用该 endpoint 的文件描述符。成功调用返回的文件描述符将是当前未为该进程打开的编号最小的文件描述符。&lt;/p>
+&lt;h3 id="connect--在-socket-上建立一个连接">connect() # 在 Socket 上建立一个连接。&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man2/connect.2.html">https://man7.org/linux/man-pages/man2/connect.2.html&lt;/a>&lt;/p>
+&lt;p>在 socketcall() 有注意事项&lt;/p>
+&lt;h2 id="b收发信息">b.收发信息&lt;/h2>
+&lt;h3 id="sendto--发送网络数据">sendto() # 发送网络数据。&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man2/sendto.2.html">https://man7.org/linux/man-pages/man2/sendto.2.html&lt;/a>&lt;/p>
+&lt;p>在 socketcall() 有注意事项&lt;/p>
+&lt;h3 id="recvfrom--接收网络数据">recvfrom() # 接收网络数据。&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man2/recvfrom.2.html">https://man7.org/linux/man-pages/man2/recvfrom.2.html&lt;/a>&lt;/p>
+&lt;p>在 socketcall() 有注意事项&lt;/p>
+&lt;h2 id="c转移状态信息">c.转移状态信息&lt;/h2>
+&lt;h2 id="d连接和断开远程设备">d.连接和断开远程设备&lt;/h2>
+&lt;h1 id="六保护措施">六、保护措施&lt;/h1>
+&lt;h2 id="a获取设置权限">a.获取/设置权限&lt;/h2>
+&lt;h3 id="futex--快速用户空间锁定">futex() # 快速用户空间锁定&lt;/h3>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man2/futex.2.html">https://man7.org/linux/man-pages/man2/futex.2.html&lt;/a>&lt;/p>
+&lt;h1 id="待分类总结">待分类总结&lt;/h1>
+&lt;p>ioctl()&lt;/p>
+&lt;p>pool()&lt;/p></description></item></channel></rss>

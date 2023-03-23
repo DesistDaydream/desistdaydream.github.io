@@ -1,0 +1,235 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Kubernetes 其他特性</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E5%85%B6%E4%BB%96%E7%89%B9%E6%80%A7/</link><description>Recent content in Kubernetes 其他特性 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E5%85%B6%E4%BB%96%E7%89%B9%E6%80%A7/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Leader Election(领导人选举)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E5%85%B6%E4%BB%96%E7%89%B9%E6%80%A7/Leader-Election%E9%A2%86%E5%AF%BC%E4%BA%BA%E9%80%89%E4%B8%BE/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E5%85%B6%E4%BB%96%E7%89%B9%E6%80%A7/Leader-Election%E9%A2%86%E5%AF%BC%E4%BA%BA%E9%80%89%E4%B8%BE/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/blog/2016/01/simple-leader-election-with-kubernetes/">官方博客,Kubernetes 的简单领导人选举&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://zhengyinyong.com/post/kubernetes-pod-leader-election/">zhengyinyong&lt;/a>&lt;/li>
+&lt;li>用法：
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/LnF9ZIoi-sCUV9rxxEvDvQ">公众号-云原生实验室，巧用 Kubernetes 中的 Leader 选举机制来实现自己的 HA 应用&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="为什么需要-pod-之间的-leader-election">为什么需要 Pod 之间的 Leader Election&lt;/h2>
+&lt;p>一般来说，由 Deployment 创建的 1 个或多个 Pod 都是对等关系，彼此之间提供一样的服务。但是在某些场合，多个 Pod 之间需要有一个 Leader 的角色，即：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Pod 之间有且只有一个 Leader&lt;/strong>；&lt;/li>
+&lt;li>&lt;strong>Leader 在一定周期不可用时，其他 Pod 会再选出一个 Leader&lt;/strong>；&lt;/li>
+&lt;li>&lt;strong>由处于 Leader 身份的 Pod 来完成某些特殊的业务逻辑（通常是写操作）&lt;/strong>；&lt;/li>
+&lt;/ul>
+&lt;p>比如，当&lt;strong>多个 Pod 之间只需要一个写者&lt;/strong>时，如果不采用 Leader Election，那么就必须在 Pod 启动之初人为地配置一个 Leader。如果配置的 Leader 在后续的服务中失效且没有对应机制来生成新的 Leader，那么对应 Pod 服务就可能处于不可用状态，违背高可用原则。&lt;/p>
+&lt;p>典型地，Kubernetes 的核心组件 kube-controller-manager 和 scheduler 就需要一个需要 Leader 的场景。当 kube-controller-manager 的启动参数设置 &lt;code>--leader-elect=true&lt;/code> 时，对应节点的 kube-controller-manager 在启动时会执行选主操作。当选出一个 Leader 之后，由 Leader 来启动所有的控制器。如果 Leader Pod 不可用，将会自动选出新的 Leader Pod，从而保障控制器仍处于运行状态。&lt;/p>
+&lt;h2 id="一个简单的-leader-election-的例子">一个简单的 Leader Election 的例子&lt;/h2>
+&lt;p>&lt;strong>备注&lt;/strong>：该例子取自项目&lt;a href="https://github.com/kubernetes/contrib/tree/master/election">文档&lt;/a>。&lt;/p>
+&lt;h3 id="启动一个-leader-elector-的-pod">启动一个 leader-elector 的 Pod&lt;/h3>
+&lt;ul>
+&lt;li>&lt;strong>创建一个&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ kubectl run leader-elector &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --image&lt;span style="color:#f92672">=&lt;/span>k8s.gcr.io/leader-elector:0.5 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --replicas&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">3&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -- &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --election&lt;span style="color:#f92672">=&lt;/span>example &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --http&lt;span style="color:#f92672">=&lt;/span>0.0.0.0:4040
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>副本数为 3，即将生成 3 个 Pod，如果运行成功，可观察到：&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ kubectl get po
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NAME READY STATUS RESTARTS AGE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> leader-elector-68dcb58d55-7dhdz 1/1 Running &lt;span style="color:#ae81ff">0&lt;/span> 2m36s
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> leader-elector-68dcb58d55-g5zp8 1/1 Running &lt;span style="color:#ae81ff">0&lt;/span> 2m36s
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> leader-elector-68dcb58d55-q45pd 1/1 Running &lt;span style="color:#ae81ff">0&lt;/span> 2m36s
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>&lt;strong>查看哪个 Pod 成为 Leader&lt;/strong>；&lt;/li>
+&lt;/ul>
+&lt;p>可以逐个查看 Pod 的日志：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ kubectl logs -f &lt;span style="color:#e6db74">${&lt;/span>pod_name&lt;span style="color:#e6db74">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果是 Leader 的话，将会有如下的日志：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ kubectl logs leader-elector-68dcb58d55-g5zp8
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> leader-elector-9577494c7-l64lp is the leader
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> I0122 03:24:31.779331 &lt;span style="color:#ae81ff">8&lt;/span> leaderelection.go:296&lt;span style="color:#f92672">]&lt;/span> lock is held by leader-elector-9577494c7-l64lp and has not yet expired
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> I0122 03:24:36.101800 &lt;span style="color:#ae81ff">8&lt;/span> leaderelection.go:296&lt;span style="color:#f92672">]&lt;/span> lock is held by leader-elector-9577494c7-l64lp and has not yet expired
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> I0122 03:24:41.426387 &lt;span style="color:#ae81ff">8&lt;/span> leaderelection.go:296&lt;span style="color:#f92672">]&lt;/span> lock is held by leader-elector-9577494c7-l64lp and has not yet expired
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> I0122 03:24:45.947321 &lt;span style="color:#ae81ff">8&lt;/span> leaderelection.go:215&lt;span style="color:#f92672">]&lt;/span> sucessfully acquired lease default/example
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>leader-elector-68dcb58d55-g5zp8 is the leader
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>更通用的方式是查看资源锁的身份标识信息：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ kubectl get ep example -o yaml
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过查看 annotations 中的 &lt;code>control-plane.alpha.kubernetes.io/leader&lt;/code> 字段来获得 Leader 的信息；&lt;/p>
+&lt;ul>
+&lt;li>**使用 **；
+&lt;code>leader-elector&lt;/code> 实现了一个简单的 HTTP 接口（&lt;code>:4040&lt;/code>）来查看当前 Leader：&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>curl http://localhost:8001/api/v1/namespaces/default/pods/leader-elector-5d77ccc44d-gwsgg:4040/proxy/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#e6db74">&amp;#34;name&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;leader-elector-5d77ccc44d-7tmgm&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="heading">&lt;/h3>
+&lt;h1 id="如何使用-leader-elector">如何使用 leader-elector&lt;/h1>
+&lt;p>如果自己的项目中需要用到 Leader Election 的逻辑，可以有两种方式：&lt;/p>
+&lt;h2 id="将调用-leaderelection-库的逻辑内嵌到自己项目中">将调用 &lt;code>leaderelection&lt;/code> 库的逻辑内嵌到自己项目中&lt;/h2>
+&lt;p>Leader Election 库在 &lt;a href="https://github.com/kubernetes/client-go/tree/master/tools/leaderelection">https://github.com/kubernetes/client-go/tree/master/tools/leaderelection&lt;/a>&lt;/p>
+&lt;h2 id="使用-sidecar-的方式">使用 Sidecar 的方式&lt;/h2>
+&lt;h1 id="leader-election-的实现">Leader Election 的实现&lt;/h1>
+&lt;p>Leader Election 的过程本质上就是一个&lt;strong>竞争分布式锁&lt;/strong>的过程。在 Kubernetes 中，这个分布式锁是通过下面几个 **Resource(资源) **实现的：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Endpoints&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>ConfigMaps&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>Leases&lt;/strong> # 详见 [集群资源-Lease](/docs/IT学习笔记/10.云原生/2.3.Kubernetes%20 容器编排系统/1.API、Resource(资源)、Object(对象)/API%20 参考/集群资源.md 参考/集群资源.md)&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>谁先创建了某种资源，谁就获得锁&lt;/strong>。通常情况下，kube-scheduler 和 kube-controller-manager 使用 leases 资源来实现领导者选举。&lt;/p>
+&lt;p>按照我们以往的惯例，带着问题去看源码。有这么几个问题：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Leader Election 如何竞选&lt;/strong> ？&lt;/li>
+&lt;li>&lt;strong>Leader 不可用之后如何竞选新的 Leader&lt;/strong> ？&lt;/li>
+&lt;/ul>
+&lt;p>不同于 Raft 算法的一致性算法的 Leader 竞选，Pod 之间的 Leader Election 是&lt;strong>无状态&lt;/strong>的，也就是说&lt;strong>现在的 Leader 无需同步上一个 Leader 的数据信息，这就把竞选的过程变得非常简单：先到先得&lt;/strong>。说白了，就是谁先创建了这个资源，谁就是领导者了。
+这部分代码在 &lt;code>kubernetes/staging/src/k8s.io/client-go/tools/leaderelection&lt;/code> 中，取 1.9.2 版本来分析。&lt;/p>
+&lt;h3 id="资源锁的实现">资源锁的实现&lt;/h3>
+&lt;p>Kubernetes 实现了两种资源锁（resourcelock）：Endpoint 和 ConfigMap。&lt;strong>如果是基于 Endpoint 的资源锁，获取到锁的 Pod 将会在对应 Namespace 下创建对应的 Endpoint 对象，并在其 Annotations 上记录 Pod 的信息&lt;/strong>。
+比如 kube-controller-manager：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ kubectl get ep -n kube-system | grep kube-controller-manager
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kube-controller-manager &amp;lt;none&amp;gt; 41d
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ kubectl describe ep kube-controller-manager -n kube-system
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Name: kube-controller-manager
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Namespace: kube-system
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Labels: &amp;lt;none&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Annotations: control-plane.alpha.kubernetes.io/leader:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#e6db74">&amp;#34;holderIdentity&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;szdc-k8sm-0-5&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;leaseDurationSeconds&amp;#34;&lt;/span>:15,&lt;span style="color:#e6db74">&amp;#34;acquireTime&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;2018-12-11T0...
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Subsets:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Events: &amp;lt;none&amp;gt;
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>发现在 kube-system 中创建了同名的 Endpoint（kube-controller-manager），并在 Annotations 中以设置了 key 为 &lt;code>control-plane.alpha.kubernetes.io/leader&lt;/code>，value 为对应 Leader 信息的 JSON 数据。同理，如果采用 ConfigMap 作为资源锁也是类似的实现模式。
+resourcelock 是以 interface 的形式对外暴露，在创建过程（&lt;code>New()&lt;/code>）通过相应的参数来控制具体实例化的过程：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// leaderelection/resourcelock/interface.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">Interface&lt;/span> &lt;span style="color:#66d9ef">interface&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Get returns the LeaderElectionRecord
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Get&lt;/span>() (&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">LeaderElectionRecord&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Create attempts to create a LeaderElectionRecord
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Create&lt;/span>(&lt;span style="color:#a6e22e">ler&lt;/span> &lt;span style="color:#a6e22e">LeaderElectionRecord&lt;/span>) &lt;span style="color:#66d9ef">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Update will update and existing LeaderElectionRecord
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Update&lt;/span>(&lt;span style="color:#a6e22e">ler&lt;/span> &lt;span style="color:#a6e22e">LeaderElectionRecord&lt;/span>) &lt;span style="color:#66d9ef">error&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// RecordEvent is used to record events
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">RecordEvent&lt;/span>(&lt;span style="color:#66d9ef">string&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Identity will return the locks Identity
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Identity&lt;/span>() &lt;span style="color:#66d9ef">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Describe is used to convert details on current resource lock
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// into a string
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">Describe&lt;/span>() &lt;span style="color:#66d9ef">string&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>其中 &lt;code>Get()&lt;/code>、&lt;code>Create()&lt;/code> 和 &lt;code>Update()&lt;/code> 本质上就是对 &lt;code>LeaderElectionRecord&lt;/code> 的读写操作。&lt;code>LeaderElectionRecord&lt;/code> 定义如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">type&lt;/span> &lt;span style="color:#a6e22e">LeaderElectionRecord&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 标示当前资源锁的所有权的信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">HolderIdentity&lt;/span> &lt;span style="color:#66d9ef">string&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;holderIdentity&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 资源锁租约时间是多长
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">LeaseDurationSeconds&lt;/span> &lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;leaseDurationSeconds&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 锁获得的时间
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">AcquireTime&lt;/span> &lt;span style="color:#a6e22e">metav1&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;acquireTime&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 续租的时间
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">RenewTime&lt;/span> &lt;span style="color:#a6e22e">metav1&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;renewTime&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Leader 进行切换的次数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">LeaderTransitions&lt;/span> &lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#e6db74">`json:&amp;#34;leaderTransitions&amp;#34;`&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>理论上，&lt;code>LeaderElectionRecord&lt;/code> 是保存在资源锁的 Annotations 中，可以是任意的字符串，此处是将 JSON 序列化为字符串来进行存储。
+在 &lt;code>leaderelection/resourcelock/configmaplock.go&lt;/code> 和 &lt;code>leaderelection/resourcelock/endpointslock.go&lt;/code> 分别是基于 Endpoint 和 ConfigMap 对上面接口的实现。拿 &lt;code>endpointslock.go&lt;/code> 来看，对这几个接口的实现实际上就是对 Endpoint 资源中 Annotations 的增删查改罢了，比较简单，就不详细展开。&lt;/p>
+&lt;h3 id="竞争锁的过程">竞争锁的过程&lt;/h3>
+&lt;p>完整的 Leader Election 过程在 &lt;code>leaderelection/leaderelection.go&lt;/code> 中。
+整个过程可以简单描述为：&lt;/p>
+&lt;ol>
+&lt;li>**每个 Pod 在启动的时候都会创建 **；&lt;/li>
+&lt;li>&lt;strong>在循环中，Pod 会定期（&lt;/strong>；&lt;/li>
+&lt;li>&lt;strong>在循环周期中，Leader 会不断 Update 资源锁的对应时间信息，从节点则会不断检查资源锁是否过期，如果过期则尝试更新资源，标记资源所有权。这样一来，一旦 Leader 不可用，则对应的资源锁将得不到更新，过期之后其他从节点会再次创建新的资源锁成为 Leader&lt;/strong>；&lt;/li>
+&lt;/ol>
+&lt;p>其中，&lt;code>LeaderElector.Run()&lt;/code> 的源码为：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">le&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">LeaderElector&lt;/span>) &lt;span style="color:#a6e22e">Run&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 尝试创建锁
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">acquire&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// Leader 更新资源锁的租约
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">renew&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>acquire()&lt;/code> 会周期性地创建锁或探查锁有没有过期：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">le&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">LeaderElector&lt;/span>) &lt;span style="color:#a6e22e">acquire&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">wait&lt;/span>.&lt;span style="color:#a6e22e">JitterUntil&lt;/span>(&lt;span style="color:#66d9ef">func&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 尝试创建或者续约资源锁
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">succeeded&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">tryAcquireOrRenew&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// leader 可能发生了改变，执行相应的 OnNewLeader() 回调函数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">maybeReportTransition&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 不成功说明创建资源失败，当前 Leader 是其他 Pod
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> !&lt;span style="color:#a6e22e">succeeded&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }, &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">RetryPeriod&lt;/span>, &lt;span style="color:#a6e22e">JitterFactor&lt;/span>, &lt;span style="color:#66d9ef">true&lt;/span>, &lt;span style="color:#a6e22e">stop&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>执行的周期为 &lt;code>RetryPeriod&lt;/code>。
+我们重点关注 &lt;code>tryAcquireOrRenew()&lt;/code> 的逻辑：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">le&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">leaderElector&lt;/span>) &lt;span style="color:#a6e22e">tryAcquireOrRenew&lt;/span>() &lt;span style="color:#66d9ef">bool&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">now&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">metav1&lt;/span>.&lt;span style="color:#a6e22e">Now&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">leaderElectionRecord&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">rl&lt;/span>.&lt;span style="color:#a6e22e">LeaderElectionRecord&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">HolderIdentity&lt;/span>: &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">Lock&lt;/span>.&lt;span style="color:#a6e22e">Identity&lt;/span>(),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">LeaseDurationSeconds&lt;/span>: int(&lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">LeaseDuration&lt;/span>) &lt;span style="color:#f92672">/&lt;/span> &lt;span style="color:#a6e22e">time&lt;/span>.&lt;span style="color:#a6e22e">Second&lt;/span>),
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 将租约改成 now
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">RenewTime&lt;/span>: &lt;span style="color:#a6e22e">now&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">AcquireTime&lt;/span>: &lt;span style="color:#a6e22e">now&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 获取当前的资源锁
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">oldLeaderElectionRecord&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">Lock&lt;/span>.&lt;span style="color:#a6e22e">Get&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 执行到这里说明找不到资源锁，执行资源锁的创建动作
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 由于资源锁对应的底层 Kubernetes 资源 Endpoint 或 ConfigMap 是不可重复创建的，所以此处创建是安全的
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">Lock&lt;/span>.&lt;span style="color:#a6e22e">Create&lt;/span>(&lt;span style="color:#a6e22e">leaderElectionRecord&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 如果当前已经有 Leader，进行 Update 操作
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 如果当前是 Leader：Update 操作就是续租动作，即将对应字段的时间改成当前时间
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 如果是非 Leader 节点且可运行 Update 操作，则是一个抢夺资源锁的过程，谁先更新成功谁就抢到资源
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 如果还没有过期且当前不是 Leader，直接返回
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 只有 Leader 才进行续租操作且此时其他节点无须抢夺资源锁
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">observedTime&lt;/span>.&lt;span style="color:#a6e22e">Add&lt;/span>(&lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">LeaseDuration&lt;/span>).&lt;span style="color:#a6e22e">After&lt;/span>(&lt;span style="color:#a6e22e">now&lt;/span>.&lt;span style="color:#a6e22e">Time&lt;/span>) &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">oldLeaderElectionRecord&lt;/span>.&lt;span style="color:#a6e22e">HolderIdentity&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">Lock&lt;/span>.&lt;span style="color:#a6e22e">Identity&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#66d9ef">false&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 更新资源
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 对于 Leader 来说，这是一个续租的过程
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 对于非 Leader 节点（仅在上一个资源锁已经过期），这是一个更新锁所有权的过程
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> = &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">Lock&lt;/span>.&lt;span style="color:#a6e22e">Update&lt;/span>(&lt;span style="color:#a6e22e">leaderElectionRecord&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>由上可以看出，&lt;code>tryAcquireOrRenew()&lt;/code> 就是一个不断尝试 Update 操作的过程。
+如果执行逻辑从 &lt;code>le.acquire()&lt;/code> 跳出，往下执行 &lt;code>le.renew()&lt;/code>，这说明当前 Pod 已经成功抢到资源锁成为 Leader，必须定期续租：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">le&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">LeaderElector&lt;/span>) &lt;span style="color:#a6e22e">renew&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">stop&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> make(&lt;span style="color:#66d9ef">chan&lt;/span> &lt;span style="color:#66d9ef">struct&lt;/span>{})
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// period 为 0 说明会一直执行
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">wait&lt;/span>.&lt;span style="color:#a6e22e">Until&lt;/span>(&lt;span style="color:#66d9ef">func&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 每间隔 RetryPeriod 就执行 tryAcquireOrRenew()
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// 如果 tryAcquireOrRenew() 返回 false 跳出 Poll()
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#75715e">// tryAcquireOrRenew() 返回 false 说明续租失败
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">wait&lt;/span>.&lt;span style="color:#a6e22e">Poll&lt;/span>(&lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">RetryPeriod&lt;/span>, &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">config&lt;/span>.&lt;span style="color:#a6e22e">RenewDeadline&lt;/span>, &lt;span style="color:#66d9ef">func&lt;/span>() (&lt;span style="color:#66d9ef">bool&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">le&lt;/span>.&lt;span style="color:#a6e22e">tryAcquireOrRenew&lt;/span>(), &lt;span style="color:#66d9ef">nil&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> })
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 续租失败，说明已经不是 Leader
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#a6e22e">stop&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="如何使用-leaderelection-库">如何使用 &lt;code>leaderelection&lt;/code> 库&lt;/h3>
+&lt;p>让我们来关注一下 &lt;a href="https://github.com/kubernetes/contrib/tree/master/election">election&lt;/a> 的实现。
+主要的逻辑位于 &lt;code>election/lib/election.go&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">RunElection&lt;/span>(&lt;span style="color:#a6e22e">e&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">leaderelection&lt;/span>.&lt;span style="color:#a6e22e">LeaderElector&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">wait&lt;/span>.&lt;span style="color:#a6e22e">Forever&lt;/span>(&lt;span style="color:#a6e22e">e&lt;/span>.&lt;span style="color:#a6e22e">Run&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>主体逻辑很简单，就是不断执行 &lt;code>Run()&lt;/code>。而 &lt;code>Run()&lt;/code> 的实现就是上文中 &lt;code>leaderelection&lt;/code> 的 &lt;code>Run()&lt;/code> 。
+上层应用只需要创建（&lt;code>NewElection()&lt;/code>）创建 &lt;code>LeaderElector&lt;/code> 对象，然后在一个 loop 中调用 &lt;code>Run()&lt;/code> 即可。
+综上所述，Kubernetes 中 Pod 的选举过程本质上还是为了服务的高可用。&lt;strong>希望大家研究得愉快&lt;/strong>！&lt;/p></description></item></channel></rss>

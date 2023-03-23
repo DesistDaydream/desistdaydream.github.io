@@ -1,0 +1,931 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Pipeline 概念</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Log-Clients/Promtail/Pipeline-%E6%A6%82%E5%BF%B5/</link><description>Recent content in Pipeline 概念 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Log-Clients/Promtail/Pipeline-%E6%A6%82%E5%BF%B5/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Pipeline 概念</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Log-Clients/Promtail/Pipeline-%E6%A6%82%E5%BF%B5/Pipeline-%E6%A6%82%E5%BF%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Log-Clients/Promtail/Pipeline-%E6%A6%82%E5%BF%B5/Pipeline-%E6%A6%82%E5%BF%B5/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/pipelines/">官方文档&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/PPNa7CYk6aaYDcvH9eTw1w">公众号,Promtail Pipeline 日志处理配置&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Pipeline 用来处理 tail 到的每一行日志的内容、标签、时间戳。Pipeline 的行为在配置文件的 &lt;code>.scrape_config.pipeline_stages&lt;/code> 字段定义。是 Promtail 处理日志必不可少的一个环节。&lt;/p>
+&lt;p>Pipeline 由一组 &lt;strong>stages(阶段)&lt;/strong> 组成，Loki 将 Stages 分为 4 大类型：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>&lt;strong>Parsing stages(解析阶段)&lt;/strong># 解析每行日志，并从中提取数据。提取的数据可供后面几个阶段使用&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Transform stages(转换阶段)&lt;/strong> # (可省略)转换解析阶段提取到的数据&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Actions stages(行动阶段)&lt;/strong># (可省略)处理转换阶段转换后的数据。行动包括以下几种&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>为每行日志添加标签或修改现有标签&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>更改每行日志的时间戳&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>改变日志行内容&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>根据提取到的数据创建 metrics(指标)&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Filtering stages(过滤阶段)&lt;/strong> # (可省略)根据指定的条件，保留或删除日志行。&lt;/p>
+&lt;ol>
+&lt;li>注意：过滤阶段的类型中，有一个名为 &lt;strong>match&lt;/strong> 的过滤阶段。match 是一个通用的阶段，不受阶段顺序影响，在处理日志行之前，match 阶段可以使用 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Loki/LogQL.md">LogQL&lt;/a>，来过滤要使用某些阶段进行处理的日志行。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;h2 id="各阶段类型">各阶段类型&lt;/h2>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;strong>Parsing stages(解析阶段)&lt;/strong> 类型：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/cri/">cri&lt;/a> # 使用标准的 CRI 日志格式来解析每行日志，并提取数据&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/docker/">docker&lt;/a> # 使用标准的 docker 日志文件格式来解析每行日志，并提取数据(Pipeline 的默认行为，该阶段包括 json、labels、timestamp、output 四个阶段)&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/regex/">regex&lt;/a> # 使用正则表达式从每行日志提取数据&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/json/">json&lt;/a> # 使用 JSON 格式解析每行日志，并提取数据&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/replace/">replace&lt;/a> # 使用正则表达式替换数据&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Transform stages(转换阶段)&lt;/strong> 类型：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/multiline/">multiline&lt;/a> # 多行阶段将多行日志进行合并，然后再将其传递到 pipeline 的下一个阶段。&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/pack/">pack&lt;/a> # Packs a log line in a JSON object allowing extracted values and labels to be placed inside the log line.&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/template/">template&lt;/a> # 使用 Go 模板来修改提取出来数据&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Actions stages(行动阶段)&lt;/strong> 类型：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/timestamp/">timestamp&lt;/a> # 为一行日志设置时间戳&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/output/">output&lt;/a> # 设置一行日志的文本。该行为是 pipeline 阶段可以确定 loki 要展示的日志内容的唯一行为&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/labels/">labels&lt;/a> # 更新日志条目的标签集&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/labelallow/">labelallow&lt;/a> # 保留标签&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/labeldrop/">labeldrop&lt;/a> # 丢掉标签&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/metrics/">metrics&lt;/a> # 根据提取出来的数据计算指标&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/tenant/">tenant&lt;/a> # 设置要用于日志条目的租户 ID 值。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Filtering stages(过滤阶段)&lt;/strong> 支持以下行为&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/match/">match&lt;/a> # 依据指定的标签，过滤日志行，只有匹配到的日志行才会继续执行其他阶段&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/drop/">drop&lt;/a> # 依据条件丢弃日志行&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="配置示例">配置示例&lt;/h2>
+&lt;p>一个典型的 pipeline 将从解析阶段开始（如 regex 或 json 阶段）从日志行中提取数据。然后有一系列的处理阶段配置，对提取的数据进行处理。最常见的处理阶段是一个 &lt;code>labels stage&lt;/code> 标签阶段，将提取的数据转化为标签。&lt;/p>
+&lt;p>需要注意的是现在 pipeline 不能用于重复的日志，例如，Loki 将多次收到同一条日志行：&lt;/p>
+&lt;ul>
+&lt;li>从同一文件中读取的两个抓取配置&lt;/li>
+&lt;li>文件中重复的日志行被发送到一个 pipeline，不会做重复数据删除&lt;/li>
+&lt;/ul>
+&lt;p>然后，Loki 会在查询时对那些具有完全相同的纳秒时间戳、标签与日志内容的日志进行一些重复数据删除。&lt;/p>
+&lt;p>下面的配置示例可以很好地说明我们可以通过 pipeline 来对日志行数据实现什么功能：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">scrape_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">kubernetes-pods-name&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">kubernetes_sd_configs&lt;/span>: &lt;span style="color:#ae81ff">....&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">pipeline_stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 这个阶段只有在被抓取地目标有一个标签名为 name 且值为 promtail 地时候才会执行&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;{name=&amp;#34;promtail&amp;#34;}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># regex 阶段解析出一个 level、timestamp 与 component，在该阶段结束时，这几个值只为 pipeline 内部设置，在以后地阶段可以使用这些值并决定如何处理他们。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">expression&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;.*level=(?P&amp;lt;level&amp;gt;[a-zA-Z]+).*ts=(?P&amp;lt;timestamp&amp;gt;[T\d-:.Z]*).*component=(?P&amp;lt;component&amp;gt;[a-zA-Z]+)&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># labels 阶段从前面地 regex 阶段获取 level、component 值，并将他们变成一个标签，比如 level=error 可能就是这个阶段添加地一个标签。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">level&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">component&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 最后，时间戳阶段采用从 regex 提取地 timestamp，并将其变成日志的新时间戳，并解析为 RFC3339Nano 格式。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">timestamp&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">format&lt;/span>: &lt;span style="color:#ae81ff">RFC3339Nano&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">source&lt;/span>: &lt;span style="color:#ae81ff">timestamp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 这个阶段只有在抓取的目标标签为 name，值为 nginx，并且日志行中包含 GET 字样的时候才会执行&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;{name=&amp;#34;nginx&amp;#34;} |= &amp;#34;GET&amp;#34;&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># regex 阶段通过匹配一些值来提取一个新的 output 值。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">expression&lt;/span>: &lt;span style="color:#ae81ff">\w{1,3}.\w{1,3}.\w{1,3}.\w{1,3}(?P&amp;lt;output&amp;gt;.*)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># output 输出阶段通过将捕获的日志行设置为来自上面 regex 阶段的输出值来更改其内容。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">output&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">source&lt;/span>: &lt;span style="color:#ae81ff">output&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 这个阶段只有在抓取到目标中有标签 name，值为 jaeger-agent 时才会执行。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;{name=&amp;#34;jaeger-agent&amp;#34;}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># JSON 阶段将日志行作为 JSON 字符串读取，并从对象中提取 level 字段，以便在后续的阶段中使用。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">json&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">expressions&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">level&lt;/span>: &lt;span style="color:#ae81ff">level&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 将上一个阶段中的 level 值变成一个标签。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">level&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">job_name&lt;/span>: &lt;span style="color:#ae81ff">kubernetes-pods-app&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">kubernetes_sd_configs&lt;/span>: &lt;span style="color:#ae81ff">....&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">pipeline_stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 这个阶段只有在被抓取的目标的标签为 &amp;#34;app&amp;#34;，名称为grafana 或 prometheus 时才会执行。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;{app=~&amp;#34;grafana|prometheus&amp;#34;}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># regex 阶段将提取一个 level 合 componet 值，供后面的阶段使用，允许 level 被定义为 lvl=&amp;lt;level&amp;gt; 或 level=&amp;lt;level&amp;gt;，组件被定义为 logger=&amp;lt;component&amp;gt; 或 component=&amp;lt;component&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">expression&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;.*(lvl|level)=(?P&amp;lt;level&amp;gt;[a-zA-Z]+).*(logger|component)=(?P&amp;lt;component&amp;gt;[a-zA-Z]+)&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 然后标签阶段将从上面 regex 阶段提取的 level 和 component 变为标签。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">level&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">component&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 只有当被抓取的目标有一个标签 &amp;#34;app&amp;#34;，其值为 &amp;#34;some-app&amp;#34;，并且日志行不包含 &amp;#34;info&amp;#34; 一词时，这个阶段才会执行。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>: &lt;span style="color:#e6db74">&amp;#39;{app=&amp;#34;some-app&amp;#34;} != &amp;#34;info&amp;#34;&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># regex 阶段尝试通过查找日志中的 panic 来提取 panic 信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">expression&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;.*(?P&amp;lt;panic&amp;gt;panic: .*)&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># metrics 阶段将增加一个 Promtail 暴露的 panic_total 指标，只有当从上面的 regex 阶段获取到 panic 值的时候，该 Counter 才会增加。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">metrics&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">panic_total&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">Counter&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">description&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;total count of panic&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">source&lt;/span>: &lt;span style="color:#ae81ff">panic&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">config&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">action&lt;/span>: &lt;span style="color:#ae81ff">inc&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Stages(阶段) 详解</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Log-Clients/Promtail/Pipeline-%E6%A6%82%E5%BF%B5/Stages%E9%98%B6%E6%AE%B5-%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Log-Clients/Promtail/Pipeline-%E6%A6%82%E5%BF%B5/Stages%E9%98%B6%E6%AE%B5-%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/">官方文档,客户端-Promtail-阶段&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/configuration/#pipeline_stages">官方文档,客户端-Promtail-配置-pipelinie_stages&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>对于 Stages 的详解，需要配合配置文件来描述。所以，本片文章即使 Stages 详解，也是 Promtail 配置文件中 &lt;code>pipeline_stages&lt;/code> 字段的详解。&lt;/p>
+&lt;h2 id="pipeline_stages-字段配置">pipeline_stages 字段配置&lt;/h2>
+&lt;p>&lt;code>pipeline_stages&lt;/code> 字段用于配置转换日志条目及其标签。promtail 运行流程中的 日志发现 步骤完成后，将执行 pipeline。&lt;/p>
+&lt;p>在大多数情况下，可以使用 regex 或 json 阶段从日志中提取数据。提取的数据将转换为临时 map 对象。这些提取出来的数据可以被 promtail 使用(比如这些数据可以作为标签的值或作为 i 内容直接输出)。此外，除 docker 和 cri 之外的任何其他阶段都可以访问提取的数据。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">scrape_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">pipeline_stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">docker&lt;/span>: {}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">cri&lt;/span>: {}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">regex&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">json&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">....&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">...... 阶段太多，其余略&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="parsing-stages解析阶段">Parsing stages(解析阶段)&lt;/h1>
+&lt;h2 id="docker-根据标准的-docker-日志文件格式来解析每行日志并提取数据默认行为">docker 根据标准的 docker 日志文件格式来解析每行日志，并提取数据(默认行为)&lt;/h2>
+&lt;p>来自 docker 的每行日志，都是以 JSON 格式编写，该 JSON 格式中有下列几个 key：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>log # 日志行的具体内容&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>stream # 该 key 的值为 stdout 或 stderr，用来指明该日志行是标准输出还是标准错误&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>time # 日志行的时间戳&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>docker stage 会根据上述三种 key 来解析日志并提取其中数据，通过取出来的数据将创建出具有 3 个元素的 map。这些数据将会被其他 stages 所使用，并组合成 loki 可用的一行日志。&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>&lt;strong>output&lt;/strong> # 与 log 对应。output stage 把该 key 的值变为发送到 loki 的一行日志。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>stream&lt;/strong> # 与 stream 对应。labels stage 将该数据作为该行日志的 label。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>timestamp&lt;/strong> # 与 time 对应。timestamp stage 将该数据作为 loki 记录的时间戳，并转换时间格式为 RFC3339Nano&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>上述 map 中的三个元素的键值对的值，就是老 key 的值&lt;/p>
+&lt;p>比如现在有这样一行 docker 日志：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;log&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;log message\n&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;stream&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;stderr&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;time&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2020-09-20T14:02:41.8443515Z&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在提取的数据中，将创建以下键值对&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">output&lt;/span>: &lt;span style="color:#ae81ff">log message\n&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">stream&lt;/span>: &lt;span style="color:#ae81ff">stderr&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">timestamp&lt;/span>: &lt;span style="color:#e6db74">2020-09-20T14:02:41.8443515&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>当该日志进入 loki 后，从 grafana 查看该数据，效果如下
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wzw6g5/1616129604931-8bc3cbd7-6057-4f9e-bdd3-6b33192313f4.jpeg" alt="">&lt;/p>
+&lt;p>本质上，docker 阶段的行为是 json、labels、timestamp、output 四个阶段的集合。各阶段行为如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">json&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">output&lt;/span>: &lt;span style="color:#ae81ff">log&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stream&lt;/span>: &lt;span style="color:#ae81ff">stream&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">timestamp&lt;/span>: &lt;span style="color:#ae81ff">time&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stream&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">timestamp&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">source&lt;/span>: &lt;span style="color:#ae81ff">timestamp&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">format&lt;/span>: &lt;span style="color:#ae81ff">RFC3339Nano&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">output&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">source&lt;/span>: &lt;span style="color:#ae81ff">output&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="cri--使用标准的-cri-日志格式来解析每行日志并提取数据">cri # 使用标准的 CRI 日志格式来解析每行日志，并提取数据&lt;/h2>
+&lt;p>本质上，cri 阶段的行为是 json、labels、timestamp、output 四个阶段的集合。各阶段行为如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">regex&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">expression&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;^(?s)(?P&amp;lt;time&amp;gt;\\S+?) (?P&amp;lt;stream&amp;gt;stdout|stderr) (?P&amp;lt;flags&amp;gt;\\S+?) (?P&amp;lt;content&amp;gt;.*)$&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stream&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">timestamp&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">source&lt;/span>: &lt;span style="color:#ae81ff">time&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">format&lt;/span>: &lt;span style="color:#ae81ff">RFC3339Nano&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">output&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">source&lt;/span>: &lt;span style="color:#ae81ff">content&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="regex--使用正则表达式从每行日志提取数据">regex # 使用正则表达式从每行日志提取数据&lt;/h2>
+&lt;p>使用正则表达式提取数据，在 regex 中命名的捕获组支持将数据添加到提取的 Map 映射中。配置格式如下所示：&lt;/p>
+&lt;pre>&lt;code>regex:
+# RE2 正则表达式，每个捕获组必须被命名。
+expression: &amp;lt;string&amp;gt;
+# 从指定名称中提取数据，如果为空，则使用 log 信息。
+[source: &amp;lt;string&amp;gt;]
+&lt;/code>&lt;/pre>
+&lt;p>其中的 &lt;code>expression&lt;/code> 是一个 Google RE2 正则表达式字符串，每个捕获组将被设置为到提取的 Map 中去，每个捕获组也必须命名：&lt;code>(?P&amp;lt;name&amp;gt;re)&lt;/code>，捕获组的名称将被用作提取的 Map 中的键。
+另外需要注意，在使用双引号时，必须转义正则表达式中的所有反斜杠。例如下面的几个表达式都是有效的：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>expression: \w*&lt;/code>&lt;/li>
+&lt;li>&lt;code>expression: '\w*'&lt;/code>&lt;/li>
+&lt;li>&lt;code>expression: &amp;quot;\\w*&amp;quot;&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>但是下面的这几个是无效的表达式：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>expression: \\w*&lt;/code> - 在使用双引号时才转义反斜线&lt;/li>
+&lt;li>&lt;code>expression: '\\w*'&lt;/code> - 在使用双引号时才转义反斜线&lt;/li>
+&lt;li>&lt;code>expression: &amp;quot;\w*&amp;quot;&lt;/code> - 在使用双引号的时候，反斜杠必须被转义&lt;/li>
+&lt;/ul>
+&lt;p>例如我们使用下的不带 &lt;code>source&lt;/code> 的 pipeline 配置：&lt;/p>
+&lt;pre>&lt;code>- regex:
+expression: &amp;quot;^(?s)(?P&amp;lt;time&amp;gt;\\S+?) (?P&amp;lt;stream&amp;gt;stdout|stderr) (?P&amp;lt;flags&amp;gt;\\S+?) (?P&amp;lt;content&amp;gt;.*)$&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>当我们要抓取的日志数据为：&lt;/p>
+&lt;pre>&lt;code>2019-01-01T01:00:00.000000001Z stderr P i'm a log message!
+&lt;/code>&lt;/pre>
+&lt;p>该 pipeline 执行后以下键值对将被添加到提取的 Map 中去：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>time&lt;/code>: &lt;code>2019-01-01T01:00:00.000000001Z&lt;/code>&lt;/li>
+&lt;li>&lt;code>stream&lt;/code>: &lt;code>stderr&lt;/code>&lt;/li>
+&lt;li>&lt;code>flags&lt;/code>: &lt;code>P&lt;/code>&lt;/li>
+&lt;li>&lt;code>content&lt;/code>: &lt;code>i'm a log message&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>如果我们使用带上 &lt;code>source&lt;/code> 的 pipeline 配置：&lt;/p>
+&lt;pre>&lt;code>- json:
+expressions:
+time:
+- regex:
+expression: &amp;quot;^(?P&amp;lt;year&amp;gt;\\d+)&amp;quot;
+source: &amp;quot;time&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>如果需要抓取的日志数据为：&lt;/p>
+&lt;pre>&lt;code>{ &amp;quot;time&amp;quot;: &amp;quot;2019-01-01T01:00:00.000000001Z&amp;quot; }
+&lt;/code>&lt;/pre>
+&lt;p>则第一阶段将把以下键值对添加到提取的 Map 中：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>time&lt;/code>: &lt;code>2019-01-01T01:00:00.000000001Z&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>而 regex 阶段将解析提取的 Map 中的时间值，并将以下键值对追加到提取的 Map 中去：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>year&lt;/code>: &lt;code>2019&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;h2 id="json--根据-json-的格式解析一行日志并提取数据">json # 根据 JSON 的格式解析一行日志，并提取数据&lt;/h2>
+&lt;p>通过将日志行解析为 JSON 来提取数据，也可以接受 &lt;code>JMESPath&lt;/code> 表达式来提取数据，配置格式如下所示：&lt;/p>
+&lt;pre>&lt;code>json:
+# JMESPath 表达式的键/值对集合，键将是提取的数据中的键，而表达式将是值，被评估为来自源数据的 JMESPath。
+#
+# JMESPath 表达式可以通过用双引号来包装一个键完成，然后在 YAML 中必须用单引号包装起来，这样它们就会被传递给 JMESPath 解析器进行解析。
+expressions:
+[ &amp;lt;string&amp;gt;: &amp;lt;string&amp;gt; ... ]
+[source: &amp;lt;string&amp;gt;]
+&lt;/code>&lt;/pre>
+&lt;p>该阶段使用 Golang JSON 反序列化，提取的数据可以持有非字符串值，本阶段不做任何类型转换，在下游阶段将需要对这些值进行必要的类型转换，可以参考后面的 &lt;code>template&lt;/code> 阶段了解如何进行转换。&lt;/p>
+&lt;blockquote>
+&lt;p>注意：如果提取的值是一个复杂的类型，比如数组或 JSON 对象，它将被转换为 JSON 字符串，然后插入到提取的数据中去。&lt;/p>
+&lt;/blockquote>
+&lt;p>例如我们使用如下所示的 pipeline 配置：&lt;/p>
+&lt;pre>&lt;code>- json:
+expressions:
+output: log
+stream: stream
+timestamp: time
+&lt;/code>&lt;/pre>
+&lt;p>要抓取的日志行数据为：&lt;/p>
+&lt;pre>&lt;code>{
+&amp;quot;log&amp;quot;: &amp;quot;log message\n&amp;quot;,
+&amp;quot;stream&amp;quot;: &amp;quot;stderr&amp;quot;,
+&amp;quot;time&amp;quot;: &amp;quot;2019-04-30T02:12:41.8443515Z&amp;quot;
+}
+&lt;/code>&lt;/pre>
+&lt;p>在提取的数据集中，将创建以下键值对：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>output&lt;/code>: &lt;code>log message\n&lt;/code>&lt;/li>
+&lt;li>&lt;code>stream&lt;/code>: &lt;code>stderr&lt;/code>&lt;/li>
+&lt;li>&lt;code>timestamp&lt;/code>: &lt;code>2019-04-30T02:12:41.8443515&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>然后我们还可以用下面的 pipeline 配置来提前数据：&lt;/p>
+&lt;pre>&lt;code>- json:
+expressions:
+output: log
+stream: stream
+timestamp: time
+extra:
+- json:
+expressions:
+user:
+source: extra
+&lt;/code>&lt;/pre>
+&lt;p>要抓取的日志行数据为：&lt;/p>
+&lt;pre>&lt;code>{
+&amp;quot;log&amp;quot;: &amp;quot;log message\n&amp;quot;,
+&amp;quot;stream&amp;quot;: &amp;quot;stderr&amp;quot;,
+&amp;quot;time&amp;quot;: &amp;quot;2019-04-30T02:12:41.8443515Z&amp;quot;,
+&amp;quot;extra&amp;quot;: &amp;quot;{\&amp;quot;user\&amp;quot;:\&amp;quot;marco\&amp;quot;}&amp;quot;
+}
+&lt;/code>&lt;/pre>
+&lt;p>第一个 json 阶段执行后将在提取的数据集中创建以下键值对：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>output&lt;/code>: &lt;code>log message\n&lt;/code>&lt;/li>
+&lt;li>&lt;code>stream&lt;/code>: &lt;code>stderr&lt;/code>&lt;/li>
+&lt;li>&lt;code>timestamp&lt;/code>: &lt;code>2019-04-30T02:12:41.8443515&lt;/code>&lt;/li>
+&lt;li>&lt;code>extra&lt;/code>: &lt;code>{&amp;quot;user&amp;quot;: &amp;quot;marco&amp;quot;}&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>然后经过第二个 json 阶段执行后将把提取数据中的 extra 值解析为 JSON，并将以下键值对添加到提取的数据集中：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>user&lt;/code>: &lt;code>marco&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>此外我们还可以使用 JMESPath 表达式来解析有特殊字符的 JSON 字段（比如 &lt;code>@&lt;/code> 或 &lt;code>.&lt;/code>），比如我们现在有如下所示的 pipeline 配置：&lt;/p>
+&lt;pre>&lt;code>- json:
+expressions:
+output: log
+stream: '&amp;quot;grpc.stream&amp;quot;'
+timestamp: time
+&lt;/code>&lt;/pre>
+&lt;p>需要抓取的日志数据如下所示：&lt;/p>
+&lt;pre>&lt;code>{
+&amp;quot;log&amp;quot;: &amp;quot;log message\n&amp;quot;,
+&amp;quot;grpc.stream&amp;quot;: &amp;quot;stderr&amp;quot;,
+&amp;quot;time&amp;quot;: &amp;quot;2019-04-30T02:12:41.8443515Z&amp;quot;
+}
+&lt;/code>&lt;/pre>
+&lt;p>在提取的数据集中，将创建以下键值对。&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>output&lt;/code>: &lt;code>log message\n&lt;/code>&lt;/li>
+&lt;li>&lt;code>stream&lt;/code>: &lt;code>stderr&lt;/code>&lt;/li>
+&lt;li>&lt;code>timestamp&lt;/code>: &lt;code>2019-04-30T02:12:41.8443515&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>需要注意的是在引用 &lt;code>grpc.stream&lt;/code> 时，如果没有用单引号包裹的双引号，将无法正常工作。&lt;/p>
+&lt;h2 id="replace--使用正则表达式替换数据">replace # 使用正则表达式替换数据&lt;/h2>
+&lt;h1 id="transform-stages转换阶段">Transform stages(转换阶段)&lt;/h1>
+&lt;p>转换阶段用于对之前阶段提取的数据进行转换。&lt;/p>
+&lt;h2 id="multiline--将多行日志进行合并然后再将其传递到-pipeline-的下一个阶段">multiline # 将多行日志进行合并，然后再将其传递到 pipeline 的下一个阶段。&lt;/h2>
+&lt;p>多行阶段将多行日志进行合并，然后再将其传递到 pipeline 的下一个阶段。
+一个新的日志块由&lt;strong>第一行正则表达式&lt;/strong>来识别，任何与表达式不匹配的行都被认为是前一个匹配块的一部分。配置格式如下所示：&lt;/p>
+&lt;pre>&lt;code>multiline:
+# RE2 正则表达式，如果匹配将开始一个新的多行日志块
+# 这个表达式必须被提供
+firstline: &amp;lt;string&amp;gt;
+# 解析的最大等待时间（Go duration）: https://golang.org/pkg/time/#ParseDuration.
+# 如果在这个最大的等待时间内没有新的日志，那么当前日志块将被继续发送。
+# 如果被观察的应用程序因为异常而down掉了，该参数很有用，没有新的日志出现，并且异常块会在最大等待时间过后发送
+# 默认为 3s
+max_wait_time: &amp;lt;duration&amp;gt;
+# 一个多行日志块有的最大行数，如果该块有更多的行，就会认为是新的日志行
+# 默认为 128 行
+max_lines: &amp;lt;integer&amp;gt;
+&lt;/code>&lt;/pre>
+&lt;p>比如现在我们有一个 flask 应用，下面的日志数据包含异常信息：&lt;/p>
+&lt;pre>&lt;code>[2020-12-03 11:36:20] &amp;quot;GET /hello HTTP/1.1&amp;quot; 200 -
+[2020-12-03 11:36:23] ERROR in app: Exception on /error [GET]
+Traceback (most recent call last):
+File &amp;quot;/home/pallets/.pyenv/versions/3.8.5/lib/python3.8/site-packages/flask/app.py&amp;quot;, line 2447, in wsgi_app
+response = self.full_dispatch_request()
+File &amp;quot;/home/pallets/.pyenv/versions/3.8.5/lib/python3.8/site-packages/flask/app.py&amp;quot;, line 1952, in full_dispatch_request
+rv = self.handle_user_exception(e)
+File &amp;quot;/home/pallets/.pyenv/versions/3.8.5/lib/python3.8/site-packages/flask/app.py&amp;quot;, line 1821, in handle_user_exception
+reraise(exc_type, exc_value, tb)
+File &amp;quot;/home/pallets/.pyenv/versions/3.8.5/lib/python3.8/site-packages/flask/_compat.py&amp;quot;, line 39, in reraise
+raise value
+File &amp;quot;/home/pallets/.pyenv/versions/3.8.5/lib/python3.8/site-packages/flask/app.py&amp;quot;, line 1950, in full_dispatch_request
+rv = self.dispatch_request()
+File &amp;quot;/home/pallets/.pyenv/versions/3.8.5/lib/python3.8/site-packages/flask/app.py&amp;quot;, line 1936, in dispatch_request
+return self.view_functions[rule.endpoint](**req.view_args)
+File &amp;quot;/home/pallets/src/deployment_tools/hello.py&amp;quot;, line 10, in error
+raise Exception(&amp;quot;Sorry, this route always breaks&amp;quot;)
+Exception: Sorry, this route always breaks
+[2020-12-03 11:36:23] &amp;quot;GET /error HTTP/1.1&amp;quot; 500 -
+[2020-12-03 11:36:26] &amp;quot;GET /hello HTTP/1.1&amp;quot; 200 -
+[2020-12-03 11:36:27] &amp;quot;GET /hello HTTP/1.1&amp;quot; 200 -
+&lt;/code>&lt;/pre>
+&lt;p>显然我们更希望将上面的 Exception 多行日志识别为一个日志块，在这个示例中，所有的日志块都是括号包括的时间开始的，所以我们可以用 &lt;code>firstline&lt;/code> 正则表达式：&lt;code>^\[\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2}\]&lt;/code> 来配置一个多行阶段，这将匹配上面我们的异常日志的开头部分，但是不会匹配后面的异常行，直到 &lt;code>Exception: Sorry, this route always breaks&lt;/code> 这一行日志，这些将被识别为单个日志块，在 Loki 中也是以一个日志条目出现的。&lt;/p>
+&lt;pre>&lt;code>multiline:
+# 识别时间戳作为多行日志的第一行，注意这里字符串应该使用单引号。
+firstline: '^\[\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2}\]'
+max_wait_time: 3s
+&lt;/code>&lt;/pre>
+&lt;p>这个示例是假设我们对日志格式没有进行控制，所以我们需要一个更复杂的正则表达式来匹配第一行日志，但是如果我们能够控制被观察的日志格式，那么我们就可以简化第一行的匹配规则。
+下面的是一个简单的 &lt;code>Akka HTTP&lt;/code> 服务的日志：&lt;/p>
+&lt;pre>&lt;code>[2021-01-07 14:17:43,494] [DEBUG] [akka.io.TcpListener] [HelloAkkaHttpServer-akka.actor.default-dispatcher-26] [akka://HelloAkkaHttpServer/system/IO-TCP/selectors/$a/0] - New connection accepted
+[2021-01-07 14:17:43,499] [ERROR] [akka.actor.ActorSystemImpl] [HelloAkkaHttpServer-akka.actor.default-dispatcher-3] [akka.actor.ActorSystemImpl(HelloAkkaHttpServer)] - Error during processing of request: 'oh no! oh is unknown'. Completing with 500 Internal Server Error response. To change default exception handling behavior, provide a custom ExceptionHandler.
+java.lang.Exception: oh no! oh is unknown
+at com.grafana.UserRoutes.$anonfun$userRoutes$6(UserRoutes.scala:28)
+at akka.http.scaladsl.server.Directive$.$anonfun$addByNameNullaryApply$2(Directive.scala:166)
+at akka.http.scaladsl.server.ConjunctionMagnet$$anon$2.$anonfun$apply$3(Directive.scala:234)
+at akka.http.scaladsl.server.directives.BasicDirectives.$anonfun$mapRouteResult$2(BasicDirectives.scala:68)
+at akka.http.scaladsl.server.directives.BasicDirectives.$anonfun$textract$2(BasicDirectives.scala:161)
+at akka.http.scaladsl.server.RouteConcatenation$RouteWithConcatenation.$anonfun$$tilde$2(RouteConcatenation.scala:47)
+at akka.http.scaladsl.util.FastFuture$.strictTransform$1(FastFuture.scala:40)
+...
+&lt;/code>&lt;/pre>
+&lt;p>简单一看和其他日志一样，我们来看看日志的格式：&lt;/p>
+&lt;pre>&lt;code>&amp;lt;configuration&amp;gt;
+&amp;lt;appender name=&amp;quot;FILE&amp;quot; class=&amp;quot;ch.qos.logback.core.FileAppender&amp;quot;&amp;gt;
+&amp;lt;file&amp;gt;crasher.log&amp;lt;/file&amp;gt;
+&amp;lt;append&amp;gt;true&amp;lt;/append&amp;gt;
+&amp;lt;encoder&amp;gt;
+&amp;lt;pattern&amp;gt;&amp;amp;ZeroWidthSpace;[%date{ISO8601}] [%level] [%logger] [%thread] [%X{akkaSource}] - %msg%n&amp;lt;/pattern&amp;gt;
+&amp;lt;/encoder&amp;gt;
+&amp;lt;/appender&amp;gt;
+&amp;lt;appender name=&amp;quot;ASYNC&amp;quot; class=&amp;quot;ch.qos.logback.classic.AsyncAppender&amp;quot;&amp;gt;
+&amp;lt;queueSize&amp;gt;1024&amp;lt;/queueSize&amp;gt;
+&amp;lt;neverBlock&amp;gt;true&amp;lt;/neverBlock&amp;gt;
+&amp;lt;appender-ref ref=&amp;quot;STDOUT&amp;quot; /&amp;gt;
+&amp;lt;/appender&amp;gt;
+&amp;lt;root level=&amp;quot;DEBUG&amp;quot;&amp;gt;
+&amp;lt;appender-ref ref=&amp;quot;ASYNC&amp;quot;/&amp;gt;
+&amp;lt;/root&amp;gt;
+&amp;lt;/configuration&amp;gt;
+&lt;/code>&lt;/pre>
+&lt;p>对于 Logback 配置来说，没有什么特别之处，除了在每个日志行的开头有一个 &lt;code>&amp;amp;ZeroWidthSpace;&lt;/code>，这是零宽度空格的 HTML 代码，它使得识别第一行变得更加简单了，这里我们使用的第一行匹配正则表达式为：&lt;code>\x{200B}\[&lt;/code>，&lt;code>200B&lt;/code> 是零宽度空格字符的 Unicode 编码：&lt;/p>
+&lt;pre>&lt;code>multiline:
+# 将零宽度的空格确定为多行块的第一行，注意该字符串应使用单引号。
+firstline: '^\x{200B}\['
+max_wait_time: 3s
+&lt;/code>&lt;/pre>
+&lt;h2 id="template--使用-go-模板来修改提取出来数据">template # 使用 Go 模板来修改提取出来数据&lt;/h2>
+&lt;p>&lt;code>template&lt;/code> 阶段可以使用 Go 模板语法来操作提取的数据。模板阶段主要用于在将数据设置为标签之前对其他阶段的数据进行操作，例如用下划线替换空格，或者将大写的字符串转换为小写的字符串。模板也可以用来构建具有多个键的信息。模板阶段也可以在提取的数据中创建新的键。
+配置格式如下所示：&lt;/p>
+&lt;pre>&lt;code>template:
+# 要解析的提取数据中的名称，如果提前数据中的key不存在，将为其添加一个新的值
+source: &amp;lt;string&amp;gt;
+# 使用的 Go 模板字符串。 除了正常的模板之外
+# functions, ToLower, ToUpper, Replace, Trim, TrimLeft, TrimRight,
+# TrimPrefix, TrimSuffix, and TrimSpace 都是可以使用的函数。
+template: &amp;lt;string&amp;gt;s
+&lt;/code>&lt;/pre>
+&lt;p>比如下面的 pipeline 配置：&lt;/p>
+&lt;pre>&lt;code>- template:
+source: new_key
+template: &amp;quot;hello world!&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>假如还没有任何数据被添加到提取的数据中，这个阶段将首先在提取的数据 Map 中添加一个空白值的 &lt;code>new_key&lt;/code>，然后它的值将被设置为 &lt;code>hello world!&lt;/code>。
+在看下面的模板阶段配置：&lt;/p>
+&lt;pre>&lt;code>- template:
+source: app
+template: &amp;quot;{{ .Value }}_some_suffix&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>这个 pipeline 在现有提取的数据中获取键为 app 的值，并将 &lt;code>_som_suffix&lt;/code> 附加到值后面。例如，如果提前的数据 Map 的键为 app，值为 loki，那么这个阶段将把值从 loki 修改为 &lt;code>loki_som_suffix&lt;/code>。&lt;/p>
+&lt;pre>&lt;code>- template:
+source: app
+template: &amp;quot;{{ ToLower .Value }}&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>这个 pipeline 从提取的数据中获取键为 app 的值，并将其值转换为小写。例如，如果提取的数据键 app 的值为 LOKI，那么这个阶段将把值转换为小写的 loki。&lt;/p>
+&lt;pre>&lt;code>- template:
+source: output_msg
+template: &amp;quot;{{ .level }} for app {{ ToUpper .app }}&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>这个 pipeline 从提取的数据中获取 &lt;code>level&lt;/code> 与 &lt;code>app&lt;/code> 的值，一个新的 &lt;code>output_msg&lt;/code> 将被添加到提取的数据中，值为上面模板的计算结果。
+例如，如果提取的数据中包含键为 app，值为 loki 的数据，level 的值为 warn，那么经过该阶段后会添加一个新的数据，键为 &lt;code>output_msg&lt;/code>，其值为 &lt;code>warn for app LOKI&lt;/code>。
+任何先前提取的键都可以在模板中使用，所有提取的键都可用于模板的扩展。&lt;/p>
+&lt;pre>&lt;code>- template:
+source: app
+template: &amp;quot;{{ .level }} for app {{ ToUpper .Value }} in module {{.module}}&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>上面的这个 pipeline 从提取的数据中获取 level、app 和  module 值。例如，如果提取的数据包含值为 loki 的 app，level 的值为 warn，moudule 的值为 test，则这个阶段会将提取数据 app 的值更改为 &lt;code>warn for app LOKI in module test&lt;/code>。
+任何之前获取的键都可以在模板中使用，此外，如果 &lt;code>source&lt;/code> 是可用的，它可以在模板中被称为 &lt;code>.Value&lt;/code>，我们这里 app 被当成了 source，所以它可以在模板中通过 &lt;code>.Value&lt;/code> 使用。&lt;/p>
+&lt;pre>&lt;code>- template:
+source: app
+template: '{{ Replace .Value &amp;quot;loki&amp;quot; &amp;quot;blokey&amp;quot; 1 }}'
+&lt;/code>&lt;/pre>
+&lt;p>这里的模板使用 Go 的 &lt;code>string.Replace&lt;/code>函数，当模板执行时，从提取的 Map 数据中的键为 app 的全部内容将最多有 1 个 loki 的实例被改为 blokey。
+另外有一个名为 &lt;code>Entry&lt;/code> 的特殊键可以用来引用当前行，当你需要追加或预设日志行的时候，这应该会很有用。&lt;/p>
+&lt;pre>&lt;code>- template:
+source: message
+template: &amp;quot;{{.app }}: {{ .Entry }}&amp;quot;
+- output:
+source: message
+&lt;/code>&lt;/pre>
+&lt;p>例如，上面的片段会在日志行前加上应用程序的名称。&lt;/p>
+&lt;blockquote>
+&lt;p>在 Loki2.3 中，所有的 sprig 函数都被添加到了当前的模板阶段，包括 ToLower &amp;amp; ToUpper、Replace、Trim、Regex、Hash 和 Sha2Hash 函数。&lt;/p>
+&lt;/blockquote>
+&lt;h1 id="actions-stages行动阶段">Actions stages(行动阶段)&lt;/h1>
+&lt;p>用于从以前阶段中提取数据并对其进行处理。&lt;/p>
+&lt;h2 id="timestamp--为日志条目设置时间戳的值">timestamp # 为日志条目设置时间戳的值&lt;/h2>
+&lt;p>该阶段可以在将日志发送到 Loki 之前更改其时间戳。如果 timestamp 阶段不存在，则日志的时间戳默认为抓取日志条目的时间。&lt;/p>
+&lt;p>设置日志条目的时间戳值，当时间戳阶段不存在时，日志行的时间戳默认为日志条目被抓取的时间。
+配置格式如下所示：&lt;/p>
+&lt;pre>&lt;code>timestamp:
+source: &amp;lt;string&amp;gt;
+# 解析时间字符串的格式，可以只有预定义的格式有：[ANSIC UnixDate RubyDate RFC822
+# RFC822Z RFC850 RFC1123 RFC1123Z RFC3339 RFC3339Nano Unix
+# UnixMs UnixUs UnixNs].
+format: &amp;lt;string&amp;gt;
+# 如果格式无法解析，可尝试的 fallback 的格式
+[fallback_formats: []&amp;lt;string&amp;gt;]
+# IANA 时区数据库字符串
+[location: &amp;lt;string&amp;gt;]
+# 在时间戳无法提取或解析的情况下，应采取何种行动。有效值为：[skip, fudge]，默认为 fudge。
+[action_on_failure: &amp;lt;string&amp;gt;]
+&lt;/code>&lt;/pre>
+&lt;p>其中的 &lt;code>format&lt;/code> 字段可以参考格式如下所示：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>ANSIC&lt;/code>: &lt;code>Mon Jan \_2 15:04:05 2006&lt;/code>&lt;/li>
+&lt;li>&lt;code>UnixDate&lt;/code>: &lt;code>Mon Jan_2 15:04:05 MST 2006&lt;/code>&lt;/li>
+&lt;li>&lt;code>RubyDate&lt;/code>: &lt;code>Mon Jan 02 15:04:05 -0700 2006&lt;/code>&lt;/li>
+&lt;li>&lt;code>RFC822&lt;/code>: &lt;code>02 Jan 06 15:04 MST&lt;/code>&lt;/li>
+&lt;li>&lt;code>RFC822Z&lt;/code>: &lt;code>02 Jan 06 15:04 -0700&lt;/code>&lt;/li>
+&lt;li>&lt;code>RFC850&lt;/code>: &lt;code>Monday, 02-Jan-06 15:04:05 MST&lt;/code>&lt;/li>
+&lt;li>&lt;code>RFC1123&lt;/code>: &lt;code>Mon, 02 Jan 2006 15:04:05 MST&lt;/code>&lt;/li>
+&lt;li>&lt;code>RFC1123Z&lt;/code>: &lt;code>Mon, 02 Jan 2006 15:04:05 -0700&lt;/code>&lt;/li>
+&lt;li>&lt;code>RFC3339&lt;/code>: &lt;code>2006-01-02T15:04:05-07:00&lt;/code>&lt;/li>
+&lt;li>&lt;code>RFC3339Nano&lt;/code>: &lt;code>2006-01-02T15:04:05.999999999-07:00&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>另外支持常见的 Unix 时间戳：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>Unix&lt;/code>: 1562708916 or with fractions 1562708916.000000123&lt;/li>
+&lt;li>&lt;code>UnixMs&lt;/code>: 1562708916414&lt;/li>
+&lt;li>&lt;code>UnixUs&lt;/code>: 1562708916414123&lt;/li>
+&lt;li>&lt;code>UnixNs&lt;/code>: 1562708916000000123&lt;/li>
+&lt;/ul>
+&lt;p>自定义格式是直接传递给  GO 的 &lt;code>time.Parse&lt;/code> 函数中的 layout 参数，如果自定义格式没有指定 year，Promtail 会认为应该使用系统时钟的当前年份。
+自定义格式使用的语法是使用时间戳的每个组件的特定值来定义日期和时间（例如 Mon Jan 2 15:04:05 -0700 MST 2006），下表显示了应在自定义格式中支持的参考值。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wzw6g5/1621834787456-e2597523-491b-482b-bf40-9b76610cd36e.png" alt="">
+&lt;code>action_on_failure&lt;/code> 设置定义了在提取的数据中不存在 &lt;code>source&lt;/code> 字段或时间戳解析失败的情况下，应该如何处理，支持的动作有：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>fudge（默认）&lt;/code>：将时间戳更改为最近的已知时间戳，总计 1 纳秒（以保证日志顺序）&lt;/li>
+&lt;li>&lt;code>skip&lt;/code>：不改变时间戳，保留日志被 Promtail 抓取的时间&lt;/li>
+&lt;/ul>
+&lt;p>比如使用下面的 pipeline 配置：&lt;/p>
+&lt;pre>&lt;code>- timestamp:
+source: time
+format: RFC3339Nano
+&lt;/code>&lt;/pre>
+&lt;p>经过上面的 timestamp 阶段在提取的数据中查找一个 time 字段，并以 &lt;code>RFC3339Nano&lt;/code> 格式化其值（例如，2006-01-02T15:04:05.9999999-07:00），所得的时间值将作为时间戳与日志行一起发送给 Loki。&lt;/p>
+&lt;h2 id="output--设置一行日志的文本">output # 设置一行日志的文本。&lt;/h2>
+&lt;p>也就是根据该配置，将解析出来的数据中的某些内容，作为发送给 loki 的一行日志的具体内容。也就是 loki 所记录的日志内容。&lt;/p>
+&lt;p>设置日志行文本，配置格式如下所示：&lt;/p>
+&lt;pre>&lt;code>output:
+source: &amp;lt;string&amp;gt;
+&lt;/code>&lt;/pre>
+&lt;p>比如我们有一个如下配置的 pipeline：&lt;/p>
+&lt;pre>&lt;code>- json:
+expressions:
+user: user
+message: message
+- labels:
+user:
+- output:
+source: message
+&lt;/code>&lt;/pre>
+&lt;p>需要收集的日志为：&lt;/p>
+&lt;pre>&lt;code>{ &amp;quot;user&amp;quot;: &amp;quot;alexis&amp;quot;, &amp;quot;message&amp;quot;: &amp;quot;hello, world!&amp;quot; }
+&lt;/code>&lt;/pre>
+&lt;p>在经过第一个 json 阶段后将提前以下键值对到数据中：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>user&lt;/code>: &lt;code>alexis&lt;/code>&lt;/li>
+&lt;li>&lt;code>message&lt;/code>: &lt;code>hello, world!&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>然后第二个 label 阶段将把 &lt;code>user=alexis&lt;/code> 添加到输出的日志标签集中，最后的 output 阶段将把日志数据从原来的 JSON 更改为 message 的值 &lt;code>hello, world!&lt;/code> 输出。&lt;/p>
+&lt;h2 id="labels--更新日志条目的标签集默认行为">labels # 更新日志条目的标签集(默认行为)&lt;/h2>
+&lt;p>更新日志的标签集，并一起发送给 Loki。配置格式如下所示：&lt;/p>
+&lt;pre>&lt;code>labels:
+# Key 是必须的，是将被创建的标签名称。
+# Values 是可选的，提取的数据中的名称，其值将被用于标签的值。
+# 如果是空的，值将被推断为与键相同。
+[ &amp;lt;string&amp;gt;: [&amp;lt;string&amp;gt;] ... ]
+&lt;/code>&lt;/pre>
+&lt;p>比如我们有一个如下所示的 pipeline 配置：&lt;/p>
+&lt;pre>&lt;code>- json:
+expressions:
+stream: stream
+- labels:
+stream:
+&lt;/code>&lt;/pre>
+&lt;p>需要处理的日志数据为：&lt;/p>
+&lt;pre>&lt;code>{
+&amp;quot;log&amp;quot;: &amp;quot;log message\n&amp;quot;,
+&amp;quot;stream&amp;quot;: &amp;quot;stderr&amp;quot;,
+&amp;quot;time&amp;quot;: &amp;quot;2019-04-30T02:12:41.8443515Z&amp;quot;
+}
+&lt;/code>&lt;/pre>
+&lt;p>第一个 json 阶段将提取 &lt;code>stream&lt;/code> 到 Map 数据中，其值为 &lt;code>stderr&lt;/code>。然后在第二个 labels 阶段将把这个键值对变成一个标签，在发送到 Loki 的日志行中将包括标签 &lt;code>stream&lt;/code>，值为 &lt;code>stderr&lt;/code>。&lt;/p>
+&lt;h2 id="metrics--根据提取出来的数据计算指标">metrics # 根据提取出来的数据计算指标&lt;/h2>
+&lt;p>根据提取的数据计算指标。需要注意的是，创建的 metrics 指标不会被推送到 Loki，而是通过 Promtail 的 &lt;code>/metrics&lt;/code> 端点暴露出去，Prometheus 应该被配置为可以抓取 Promtail 的指标，以便能够检索这个阶段所配置的指标数据。
+配置格式如下所示：&lt;/p>
+&lt;pre>&lt;code># 一个映射，key为metric的名称，value是特定的metric类型
+metrics:
+[&amp;lt;string&amp;gt;: [ &amp;lt;metric_counter&amp;gt; | &amp;lt;metric_gauge&amp;gt; | &amp;lt;metric_histogram&amp;gt; ] ...]
+&lt;/code>&lt;/pre>
+&lt;ul>
+&lt;li>&lt;strong>metric_counter&lt;/strong>：定义一个 Counter 类型的指标，其值只会不断增加。&lt;/li>
+&lt;li>&lt;strong>metric_gauge&lt;/strong>：定义一个 Gauge 类型的指标，其值可以增加或减少。&lt;/li>
+&lt;li>&lt;strong>metric_histogram&lt;/strong>：定义一个直方图指标。&lt;/li>
+&lt;/ul>
+&lt;p>比如我们有一个如下所示的 pipeline 配置用于定义一个 Counter 指标：&lt;/p>
+&lt;pre>&lt;code>- metrics:
+log_lines_total:
+type: Counter
+description: &amp;quot;total number of log lines&amp;quot;
+prefix: my_promtail_custom_
+max_idle_duration: 24h
+config:
+match_all: true
+action: inc
+log_bytes_total:
+type: Counter
+description: &amp;quot;total bytes of log lines&amp;quot;
+prefix: my_promtail_custom_
+max_idle_duration: 24h
+config:
+match_all: true
+count_entry_bytes: true
+action: add
+&lt;/code>&lt;/pre>
+&lt;p>这个流水线先创建了一个 &lt;code>log_lines_total&lt;/code> 的 Counter，通过使用 &lt;code>match_all: true&lt;/code> 参数为每一个接收到的日志行增加。
+然后还创建了一个 &lt;code>log_bytes_total&lt;/code> 的 Counter 指标，通过使用 &lt;code>count_entry_bytes: true&lt;/code> 参数，将收到的每个日志行的字节大小加入到指标中。
+这两个指标如果没有收到新的数据，将在 24h 后小时。另外这些阶段应该放在 pipeline 的末端，在任何标签阶段之后。&lt;/p>
+&lt;pre>&lt;code>- regex:
+expression: &amp;quot;^.*(?P&amp;lt;order_success&amp;gt;order successful).*$&amp;quot;
+- metrics:
+successful_orders_total:
+type: Counter
+description: &amp;quot;log lines with the message `order successful`&amp;quot;
+source: order_success
+config:
+action: inc
+&lt;/code>&lt;/pre>
+&lt;p>比如上面这个 pipeline 首先尝试在日志中找到成功的订单，将其提取为 &lt;code>order_success&lt;/code> 字段，然后在 metrics 阶段创建一个名为 &lt;code>successful_orders_total&lt;/code> 的 Counter 指标，其值是在只有提取的数据中有 &lt;code>order_success&lt;/code> 的时候才会增加。这个 pipeline 的结果是一个指标，其值只有在 Promtail 抓取的日志中带有 &lt;code>order successful&lt;/code> 文本的日志时才会增加。&lt;/p>
+&lt;pre>&lt;code>- regex:
+expression: &amp;quot;^.* order_status=(?P&amp;lt;order_status&amp;gt;.*?) .*$&amp;quot;
+- metrics:
+successful_orders_total:
+type: Counter
+description: &amp;quot;successful orders&amp;quot;
+source: order_status
+config:
+value: success
+action: inc
+failed_orders_total:
+type: Counter
+description: &amp;quot;failed orders&amp;quot;
+source: order_status
+config:
+value: fail
+action: inc
+&lt;/code>&lt;/pre>
+&lt;p>上面这个 pipeline 首先会尝试在日志中找到格式为 &lt;code>order_status=&amp;lt;value&amp;gt;&lt;/code> 的文本，将 &lt;code>&amp;lt;value&amp;gt;&lt;/code> 提取到 &lt;code>order_status&lt;/code> 中。该指标阶段创建了 &lt;code>successful_orders_total&lt;/code> 和 &lt;code>failed_orders_total&lt;/code> 指标，只有当提取数据中的 &lt;code>order_status&lt;/code> 的值分别为 &lt;code>success&lt;/code> 或 &lt;code>fail&lt;/code> 时才会增加。&lt;/p>
+&lt;h2 id="tenant--设置要用于日志条目的租户-id-值">tenant # 设置要用于日志条目的租户 ID 值。&lt;/h2>
+&lt;p>设置日志要使用的租户 ID 值，从提取数据中的一个字段获取，如果该字段缺失，将使用默认的 Promtail 客户端租户 ID。配置格式如下所示：&lt;/p>
+&lt;pre>&lt;code>tenant:
+# source 或 value 配置选项是必须的，但二者不能同时使用（它们是互斥的）
+[ source: &amp;lt;string&amp;gt; ]
+# 当前阶段执行时用来设置租户 ID 的值。
+# 当这个阶段被包含在一个带有 &amp;quot;match&amp;quot; 的条件管道中时非常有用。
+[ value: &amp;lt;string&amp;gt; ]
+&lt;/code>&lt;/pre>
+&lt;p>比如我们有如下所示的 pipeline 配置：&lt;/p>
+&lt;pre>&lt;code>pipeline_stages:
+- json:
+expressions:
+customer_id: customer_id
+- tenant:
+source: customer_id
+&lt;/code>&lt;/pre>
+&lt;p>需要获取的日志数据为：&lt;/p>
+&lt;pre>&lt;code>{
+&amp;quot;customer_id&amp;quot;: &amp;quot;1&amp;quot;,
+&amp;quot;log&amp;quot;: &amp;quot;log message\n&amp;quot;,
+&amp;quot;stream&amp;quot;: &amp;quot;stderr&amp;quot;,
+&amp;quot;time&amp;quot;: &amp;quot;2019-04-30T02:12:41.8443515Z&amp;quot;
+}
+&lt;/code>&lt;/pre>
+&lt;p>第一个 json 阶段将提取 &lt;code>customer_id&lt;/code> 的值到 Map 中，值为 1。在第二个租户阶段将把 &lt;code>X-Scope-OrgID&lt;/code> 请求 Header 头（Loki 用来识别租户）设置为提取的 &lt;code>customer_id&lt;/code> 的值，也就是 1.
+另外一种场景是用配置的值来覆盖租户 ID，如下所示的 pipeline 配置：&lt;/p>
+&lt;pre>&lt;code>pipeline_stages:
+- json:
+expressions:
+app:
+message:
+- labels:
+app:
+- match:
+selector: '{app=&amp;quot;api&amp;quot;}'
+stages:
+- tenant:
+value: &amp;quot;team-api&amp;quot;
+- output:
+source: message
+&lt;/code>&lt;/pre>
+&lt;p>需要收集的日志数据为：&lt;/p>
+&lt;pre>&lt;code>{
+&amp;quot;app&amp;quot;: &amp;quot;api&amp;quot;,
+&amp;quot;log&amp;quot;: &amp;quot;log message\n&amp;quot;,
+&amp;quot;stream&amp;quot;: &amp;quot;stderr&amp;quot;,
+&amp;quot;time&amp;quot;: &amp;quot;2019-04-30T02:12:41.8443515Z&amp;quot;
+}
+&lt;/code>&lt;/pre>
+&lt;p>这个 pipeline 将：&lt;/p>
+&lt;ul>
+&lt;li>Decode JSON 日志&lt;/li>
+&lt;li>设置标签 &lt;code>app=&amp;quot;api&amp;quot;&lt;/code>&lt;/li>
+&lt;li>处理匹配阶段，检查 &lt;code>{app=&amp;quot;api&amp;quot;}&lt;/code> 选择器是否匹配，如果匹配了则执行子阶段，也就是这里的租户阶段，覆盖值为 &lt;code>&amp;quot;team-api&amp;quot;&lt;/code> 的租户。&lt;/li>
+&lt;/ul>
+&lt;p>此外在处理阶段还有 &lt;code>labeldrop&lt;/code> 阶段，它从标签集中删除标签，这些标签与日志条目一起被发送到 Loki。还有一个 &lt;code>labelallow&lt;/code> 阶段，它只允许将所提供的标签包含在与日志条目一起发送给 Loki 的标签集中。&lt;/p>
+&lt;h1 id="filtering-stages过滤阶段">Filtering stages(过滤阶段)&lt;/h1>
+&lt;h2 id="matchhttpsgrafanacomdocslokilatestclientspromtailstagesmatch--依据指定的标签过滤日志行只有匹配到的日志行才会继续执行其他阶段">&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/stages/match/">match&lt;/a> # 依据指定的标签，过滤日志行，只有匹配到的日志行才会继续执行其他阶段&lt;/h2>
+&lt;p>match 阶段是一个过滤阶段，当日志条目与可配置的 LogQL 流选择器和过滤器表达式匹配时，有条件地应用一组阶段或丢弃条目。&lt;/p>
+&lt;p>在配置文件中，match 可以嵌套一个 pipeline_stages 字段(match 字段下名为 stages)，也就意味着，Promtail 的所有阶段，都可以基于 match 匹配结果进行&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">scrape_configs&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- &lt;span style="color:#f92672">pipeline_stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">match&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 日志流选择器，选择要执行下述 stages 的日志行。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">selector&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># Names the pipeline. When defined, creates an additional label in&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># the pipeline_duration_seconds histogram, where the value is&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># concatenated with job_name using an underscore.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 命名管道。定义后，在pipeline_duration_seconds直方图中创建一个附加标签，其中该值使用下划线与job_name连接。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">[pipeline_name&lt;/span>: &lt;span style="color:#ae81ff">&amp;lt;string&amp;gt;]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 嵌套上层的 pipeline_stages 字段内容。也就意味着，下面指定的各种阶段，只会在 match 匹配到的日志行中执行。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">stages&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">&amp;lt;docker&amp;gt; |&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">&amp;lt;cri&amp;gt; |&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">&amp;lt;regex&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">&amp;lt;json&amp;gt; |&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">&amp;lt;template&amp;gt; |&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">&amp;lt;match&amp;gt; |&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">&amp;lt;timestamp&amp;gt; |&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">&amp;lt;output&amp;gt; |&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">&amp;lt;labels&amp;gt; |&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">&amp;lt;metrics&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>比如我们现在有一个如下所示的 pipeline 配置：&lt;/p>
+&lt;pre>&lt;code>pipeline_stages:
+- json:
+expressions:
+app:
+- labels:
+app:
+- match:
+selector: '{app=&amp;quot;loki&amp;quot;}'
+stages:
+- json:
+expressions:
+msg: message
+- match:
+pipeline_name: &amp;quot;app2&amp;quot;
+selector: '{app=&amp;quot;pokey&amp;quot;}'
+action: keep
+stages:
+- json:
+expressions:
+msg: msg
+- match:
+selector: '{app=&amp;quot;promtail&amp;quot;} |~ &amp;quot;.*noisy error.*&amp;quot;'
+action: drop
+drop_counter_reason: promtail_noisy_error
+- output:
+source: msg
+&lt;/code>&lt;/pre>
+&lt;p>要处理的日志数据为：&lt;/p>
+&lt;pre>&lt;code>{ &amp;quot;time&amp;quot;:&amp;quot;2012-11-01T22:08:41+00:00&amp;quot;, &amp;quot;app&amp;quot;:&amp;quot;loki&amp;quot;, &amp;quot;component&amp;quot;: [&amp;quot;parser&amp;quot;,&amp;quot;type&amp;quot;], &amp;quot;level&amp;quot; : &amp;quot;WARN&amp;quot;, &amp;quot;message&amp;quot; : &amp;quot;app1 log line&amp;quot; }
+{ &amp;quot;time&amp;quot;:&amp;quot;2012-11-01T22:08:41+00:00&amp;quot;, &amp;quot;app&amp;quot;:&amp;quot;promtail&amp;quot;, &amp;quot;component&amp;quot;: [&amp;quot;parser&amp;quot;,&amp;quot;type&amp;quot;], &amp;quot;level&amp;quot; : &amp;quot;ERROR&amp;quot;, &amp;quot;message&amp;quot; : &amp;quot;foo noisy error&amp;quot; }
+&lt;/code>&lt;/pre>
+&lt;p>第一个 json 阶段将在第一个日志行的提取 Map 数据中添加值 &lt;code>app=loki&lt;/code>，然后经过第二个 labels 阶段将 &lt;code>app&lt;/code> 转换成一个标签。对于第二行日志也遵循同样的流程，只是值变成了 &lt;code>promtail&lt;/code>。
+然后在第三个 match 阶段使用 LogQL 表达式 &lt;code>{app=&amp;quot;loki&amp;quot;}&lt;/code> 进行匹配，只有在标签 &lt;code>app=loki&lt;/code> 的时候才会执行嵌套 json 阶段，这里合我们的第一行日志是匹配的，然后嵌套的 json 阶段将 &lt;code>message&lt;/code> 数据提取到 Map 数据中，key 变成了 &lt;code>msg&lt;/code>，值为 &lt;code>app1 log line&lt;/code>。
+接下来执行第四个 match 阶段，需要匹配 &lt;code>app=&amp;quot;pokey&amp;quot;&lt;/code>，很显然这里我们都不匹配，所以嵌套的 json 子阶段不会被执行。
+然后执行的第五个 match 阶段，将会删掉任何具有 &lt;code>app=&amp;quot;promtail&amp;quot;&lt;/code> 标签并包括 &lt;code>noisy error&lt;/code> 文本的日志数据，并且还将增加 &lt;code>logentry_drop_lines_total&lt;/code> 指标，标签为 &lt;code>reason=&amp;quot;promtail_noisy_error&amp;quot;&lt;/code>。
+最后的 output 输出阶段将日志行的内容改为提取数据中的 msg 的值。我们这里的示例最后输出为 &lt;code>app1 log line&lt;/code>。&lt;/p>
+&lt;h2 id="drop--conditionally-drop-log-lines-based-on-several-options">drop # Conditionally drop log lines based on several options.&lt;/h2>
+&lt;p>drop 阶段可以让我们根据配置来删除日志。需要注意的是，如果你提供多个选项配置，它们将被视为 &lt;code>AND&lt;/code> 子句，其中每个选项必须为真才能删除日志。如果你想用一个 &lt;code>OR&lt;/code>子句来删除，那么就指定多个删除阶段。配置语法格式如下所示：&lt;/p>
+&lt;pre>&lt;code>drop:
+[source: &amp;lt;string&amp;gt;]
+# RE2 正则表达式，如果提供了 source，则会尝试匹配 source
+# 如果没有提供 source，则会尝试匹配日志行数据
+# 如果提供的正则匹配了日志行或者 source，则该行日志将被删除。
+[expression: &amp;lt;string&amp;gt;]
+# 只有在指定 source 源的情况下才能指定 value 值。
+# 指定 value 与 regex 是错误的。
+# 如果提供的值与`source`完全匹配，该行将被删除。
+[value: &amp;lt;string&amp;gt;]
+# older_than 被解析为 Go duration 格式
+# 如果日志行的时间戳大于当前时间减去所提供的时间，则将被删除
+[older_than: &amp;lt;duration&amp;gt;]
+# longer_than 是一个以 bytes 为单位的值，任何超过这个值的日志行都将被删除。
+# 可以指定为整数格式的字节数：8192，或者带后缀的 8kb
+[longer_than: &amp;lt;string&amp;gt;|&amp;lt;int&amp;gt;]
+# 每当一个日志行数据被删除，指标 `logentry_dropped_lines_total` 都会增加。
+# 默认的 reason 标签是 `drop_stage`，然而你可以选择指定一个自定义值，用于该指标的 &amp;quot;reason&amp;quot; 标签。
+[drop_counter_reason: &amp;lt;string&amp;gt; | default = &amp;quot;drop_stage&amp;quot;]
+&lt;/code>&lt;/pre>
+&lt;p>比如我们有一个如下所示的简单 drop 阶段配置：&lt;/p>
+&lt;pre>&lt;code>- drop:
+expression: &amp;quot;.*debug.*&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>该阶段将删除任何带有 &lt;code>debug&lt;/code> 字样的日志行。
+如果是下面的配置示例：&lt;/p>
+&lt;pre>&lt;code>- json:
+expressions:
+level:
+msg:
+- drop:
+source: &amp;quot;level&amp;quot;
+expression: &amp;quot;(error|ERROR)&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>则下面的日志数据都将被删除：&lt;/p>
+&lt;pre>&lt;code>{&amp;quot;time&amp;quot;:&amp;quot;2019-01-01T01:00:00.000000001Z&amp;quot;, &amp;quot;level&amp;quot;: &amp;quot;error&amp;quot;, &amp;quot;msg&amp;quot;:&amp;quot;11.11.11.11 - &amp;quot;POST /loki/api/push/ HTTP/1.1&amp;quot; 200 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;}
+{&amp;quot;time&amp;quot;:&amp;quot;2019-01-01T01:00:00.000000001Z&amp;quot;, &amp;quot;level&amp;quot;: &amp;quot;ERROR&amp;quot;, &amp;quot;msg&amp;quot;:&amp;quot;11.11.11.11 - &amp;quot;POST /loki/api/push/ HTTP/1.1&amp;quot; 200 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;}
+&lt;/code>&lt;/pre>
+&lt;p>然后使用下面的配置来删除老的日志数据：&lt;/p>
+&lt;pre>&lt;code>- json:
+expressions:
+time:
+msg:
+- timestamp:
+source: time
+format: RFC3339
+- drop:
+older_than: 24h
+drop_counter_reason: &amp;quot;line_too_old&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;blockquote>
+&lt;p>需要注意的是为了让 &lt;code>old_than&lt;/code> 发挥作用，你必须在应用 drop 阶段之前，使用时间戳阶段来设置抓取日志行的时间戳。&lt;/p>
+&lt;/blockquote>
+&lt;p>比如当前的摄取时间为 &lt;code>2021-05-01T12:00:00Z&lt;/code>，当从文件中读取时，会删除这个日志行：&lt;/p>
+&lt;pre>&lt;code>{&amp;quot;time&amp;quot;:&amp;quot;2021-05-01T12:00:00Z&amp;quot;, &amp;quot;level&amp;quot;: &amp;quot;error&amp;quot;, &amp;quot;msg&amp;quot;:&amp;quot;11.11.11.11 - &amp;quot;POST /loki/api/push/ HTTP/1.1&amp;quot; 200 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;}
+&lt;/code>&lt;/pre>
+&lt;p>但是下面的日志数据不会被删除：&lt;/p>
+&lt;pre>&lt;code>{&amp;quot;time&amp;quot;:&amp;quot;2021-05-03T12:00:00Z&amp;quot;, &amp;quot;level&amp;quot;: &amp;quot;error&amp;quot;, &amp;quot;msg&amp;quot;:&amp;quot;11.11.11.11 - &amp;quot;POST /loki/api/push/ HTTP/1.1&amp;quot; 200 932 &amp;quot;-&amp;quot; &amp;quot;Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.7) Gecko/20091221 Firefox/3.5.7 GTB6&amp;quot;}
+&lt;/code>&lt;/pre>
+&lt;p>在这个例子中，当前时间是 ``2021-05-03T16:00:00Z&lt;code>，&lt;/code>older_than&lt;code>是 24h。所有时间戳超过&lt;/code>2021-05-02T16:00:00Z&lt;code>的日志行都将被删除。&amp;lt;br /&amp;gt;这个删除阶段删除的所有行也将增加&lt;/code>logentry_drop_lines_total&lt;code>指标，并标明原因为&lt;/code>&amp;ldquo;line_too_old&amp;rdquo;`。
+下面是另外一个复杂点的配置：&lt;/p>
+&lt;pre>&lt;code>- json:
+expressions:
+time:
+msg:
+- timestamp:
+source: time
+format: RFC3339
+- drop:
+older_than: 24h
+- drop:
+longer_than: 8kb
+- drop:
+source: msg
+regex: &amp;quot;.*trace.*&amp;quot;
+&lt;/code>&lt;/pre>
+&lt;p>上面的 pipeline 执行后将删除掉所有超过 24 小时&lt;strong>或者&lt;/strong>超过 8kb 的日志&lt;strong>或者&lt;/strong> json 的 msg 值中包含 &lt;code>trace&lt;/code> 字样的日志。&lt;/p></description></item></channel></rss>

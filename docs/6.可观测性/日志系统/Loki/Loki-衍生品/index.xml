@@ -1,0 +1,143 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Loki 衍生品</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Loki/Loki-%E8%A1%8D%E7%94%9F%E5%93%81/</link><description>Recent content in Loki 衍生品 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Loki/Loki-%E8%A1%8D%E7%94%9F%E5%93%81/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Loki 衍生品</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Loki/Loki-%E8%A1%8D%E7%94%9F%E5%93%81/Loki-%E8%A1%8D%E7%94%9F%E5%93%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Loki/Loki-%E8%A1%8D%E7%94%9F%E5%93%81/Loki-%E8%A1%8D%E7%94%9F%E5%93%81/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/grafana/loki/tree/main/production">GitHub 项目,production&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/qnt7JUzHLUU6Qs_tv5V0Hw">公众号,Loki 生产环境集群方案&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>很多新入坑 Loki 的小伙伴当看到 distributor、ingester、querier 以及各种依赖的三方存储时，往往都比较懵逼，不知道从哪儿入手。此外再加上官方的文档里面对于集群部署的粗浅描述，更是让新手们大呼部署太难。其实，除了官方的 helm 外，藏在 Loki 仓库的 production 目录里面有一篇生产环境的集群部署模式。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pwhqog/1621302640599-456c53ed-2d2f-445d-af56-43a28becb54f.webp" alt="">
+原文里面，社区采用的是 docker-compose 的方式来快速拉起一套 Loki 集群。虽然我们正式在生产环境中实施时，不会傻到用 docker-compose 部署在一个 node 上（显然这里我们强行不考虑 docker-swarm）。不过里面关于 Loki 的架构和配置文件却值得我们学习。
+那么，与纯分布式的 Loki 集群相比，这套方案有什么特别的呢？首先我们先来看看下面这张图：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pwhqog/1621302640583-228525ed-be05-4c2c-90ec-329fc40ed955.webp" alt="">
+可以看到，最明显的有三大不同点：&lt;/p>
+&lt;ol>
+&lt;li>loki 核心服务 distributor、ingester、querier 没有分离，而是启动在一个实例当中；&lt;/li>
+&lt;li>抛弃了 consul 和 etcd 外部的 kv 存储，而是直接用 memberlist 在内存中维护集群状态；&lt;/li>
+&lt;li>使用 boltdb-shipper 替代其他日志索引方案&lt;/li>
+&lt;/ol>
+&lt;p>这样看起来，Loki 集群的整体架构就比较清晰，且更少的依赖外部系统。简单总结了下，除了用于存储 chunks 和 index 而绕不开的 S3 存储外，还需要一个缓存服务用于加速日志查询和写入。&lt;/p>
+&lt;blockquote>
+&lt;p>Loki2.0 版本之后，对于使用 boltdb 存储索引部分做了较大的重构，采用新的 boltdb-shipper 模式，可以让 Loki 的索引存储在 S3 上，而彻底摆脱 Cassandra 或者谷歌的 BigTable。此后服务的横向扩展将变得更加容易。关于 bolt-shipper 的更多细节，可以参考：&lt;a href="https://grafana.com/docs/loki/latest/operations/storage/boltdb-shipper/">https://grafana.com/docs/loki/latest/operations/storage/boltdb-shipper/&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>说得这么玄乎，那我们来看看这套方案的配置有哪些不一样呢？&lt;/p>
+&lt;h2 id="原生部分">原生部分&lt;/h2>
+&lt;h4 id="memberlist">memberlist&lt;/h4>
+&lt;pre>&lt;code>memberlist:
+join_members: [&amp;quot;loki-1&amp;quot;, &amp;quot;loki-2&amp;quot;, &amp;quot;loki-3&amp;quot;]
+dead_node_reclaim_time: 30s
+gossip_to_dead_nodes_time: 15s
+left_ingesters_timeout: 30s
+bind_addr: ['0.0.0.0']
+bind_port: 7946
+&lt;/code>&lt;/pre>
+&lt;p>Loki 的 memberlist 使用的是 gossip 协议来让集群内的所有节点达到最终一致性的。此部分的配置几乎都是协议频率和超时的控制，保持默认的就好&lt;/p>
+&lt;h4 id="ingester">ingester&lt;/h4>
+&lt;pre>&lt;code>ingester:
+lifecycler:
+join_after: 60s
+observe_period: 5s
+ring:
+replication_factor: 2
+kvstore:
+store: memberlist
+final_sleep: 0s
+&lt;/code>&lt;/pre>
+&lt;p>ingester 的状态通过 gossip 协议同步到集群的所有 member 当中，同时让 ingester 的复制因子为 2。即一个日志流同时写入到两个 ingster 服务当中以保证数据的冗余。&lt;/p>
+&lt;h2 id="扩展部分">扩展部分&lt;/h2>
+&lt;p>社区的集群模式配置原生部分仍然显得不太够意思，除了 memberlist 的配置稍显诚意外，其它部分仍然不够我们对生产环境的要求。这里小白简单改造了一下，分享给大家。&lt;/p>
+&lt;h4 id="storage">storage&lt;/h4>
+&lt;p>将 index 和 chunks 的存储统一让 S3 对象存储纳管，让 Loki 彻底摆脱三方依赖。&lt;/p>
+&lt;pre>&lt;code>schema_config:
+configs:
+- from: 2021-04-25
+store: boltdb-shipper
+object_store: aws
+schema: v11
+index:
+prefix: index_
+period: 24h
+storage_config:
+boltdb_shipper:
+shared_store: aws
+active_index_directory: /loki/index
+cache_location: /loki/boltdb-cache
+aws:
+s3: s3://&amp;lt;S3_ACCESS_KEY&amp;gt;:&amp;lt;S3_SECRET_KEY&amp;gt;@&amp;lt;S3_URL&amp;gt;/&amp;lt;S3__BUCKET&amp;gt;
+s3forcepathstyle: true
+insecure: true
+&lt;/code>&lt;/pre>
+&lt;p>这里值得说明的就是用于存储日志流索引的是 bolt_shipper，它是可以通过共享存储方式写到 s3 当中的。那么&lt;code>active_index_directory&lt;/code>就是 S3 上的 Bucket 路径，&lt;code>cache_location&lt;/code>则为 Loki 本地 bolt 索引的缓存数据。&lt;/p>
+&lt;blockquote>
+&lt;p>事实上 ingester 上传到 s3 的 index 路径为&lt;code>&amp;lt;S3__BUCKET&amp;gt;/index/&lt;/code>&lt;/p>
+&lt;/blockquote>
+&lt;h4 id="redis">redis&lt;/h4>
+&lt;p>原生的方案里并不提供缓存，这里我们引入 redis 来做查询和写入的缓存。对于很多小伙伴纠结的是一个 redis 共用还是多个 redis 单独使用，这个看你集群规模，不大的情况下，一个 redis 实例足以满足需求。&lt;/p>
+&lt;pre>&lt;code>query_range:
+results_cache:
+cache:
+redis:
+endpoint: redis:6379
+expiration: 1h
+cache_results: true
+index_queries_cache_config:
+redis:
+endpoint: redis:6379
+expiration: 1h
+chunk_store_config:
+chunk_cache_config:
+redis:
+endpoint: redis:6379
+expiration: 1h
+write_dedupe_cache_config:
+redis:
+endpoint: redis:6379
+expiration: 1h
+&lt;/code>&lt;/pre>
+&lt;h4 id="ruler">ruler&lt;/h4>
+&lt;p>既然 Loki 以及做了集群化部署，当然 ruler 这个服务也得跟在切分。难以接受的是，社区这部分的配置竟然是缺失的。所以我们得自己补充完整。我们知道日志的 ruler 可以写在 S3 对象存储上，同时每个 ruler 实例也是通过一致性哈希环来分配自己的 rules。所以这部分配置，我们可以如下参考：&lt;/p>
+&lt;pre>&lt;code>ruler:
+storage:
+type: s3
+s3:
+s3: s3://&amp;lt;S3_ACCESS_KEY&amp;gt;:&amp;lt;S3_SECRET_KEY&amp;gt;@&amp;lt;S3_URL&amp;gt;/&amp;lt;S3_RULES_BUCKET&amp;gt;
+s3forcepathstyle: true
+insecure: true
+http_config:
+insecure_skip_verify: true
+enable_api: true
+enable_alertmanager_v2: true
+alertmanager_url: &amp;quot;http://&amp;lt;alertmanager&amp;gt;&amp;quot;
+ring:
+kvstore:
+store: memberlist
+&lt;/code>&lt;/pre>
+&lt;h4 id="支持-kubernetes">支持 kubernetes&lt;/h4>
+&lt;p>最后，最最最重要的是要让官方的 Loki 集群方案支持在 Kubernetes 中部署，否则一切都是瞎扯。由于篇幅的限制，我将 manifest 提交到 github 上，大家直接 clone 到本地部署。
+GitHub 地址：&lt;a href="https://github.com/CloudXiaobai/loki-cluster-deploy/tree/master/production/loki-system">https://github.com/CloudXiaobai/loki-cluster-deploy/tree/master/production/loki-system&lt;/a>
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pwhqog/1621302640377-bc3f0b0d-6c1a-4d28-a2a3-9aa99aa34e4e.gif" alt="image.gif">
+这个 manifest 只依赖一个 S3 对象存储，所以你在部署到生产环境时，请务必预先准备好对象存储的 AccessKey 和 SecretKey。将他们配置到 installation.sh 当中后，直接执行脚本就可以开始安装了。&lt;/p>
+&lt;blockquote>
+&lt;p>文件中的 ServiceMonitor 是为 Loki 做的 Prometheus Operator 的 Metrics 服务发现，你可以自己选择是否部署&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>本文介绍了官方提供的一种 Loki 生产环境下的集群部署方案，并在此基础上加入了一些诸如缓存、S3 对象存储的扩展配置，并将官方的 docker-compose 部署方式适配到 Kubernetes 当中。官方提供的方案有效的精简了 Loki 分布式部署下复杂的结构，值得我们学习。&lt;/p>
+&lt;p>&lt;strong>&lt;em>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pwhqog/1621302640324-6122ec11-5c55-4805-b893-9b816cdaa09f.gif" alt="image.gif">&lt;/em>&lt;/strong>&lt;/p></description></item><item><title>Docs: qryn</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Loki/Loki-%E8%A1%8D%E7%94%9F%E5%93%81/qryn/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%97%A5%E5%BF%97%E7%B3%BB%E7%BB%9F/Loki/Loki-%E8%A1%8D%E7%94%9F%E5%93%81/qryn/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/metrico/qryn">GitHub 项目，metrico/qryn&lt;/a>
+&lt;ul>
+&lt;li>源项目：&lt;a href="https://github.com/lmangani/cLoki">https://github.com/lmangani/cLoki&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>qryn 是一个灵活的 Loki 与 Tempo 兼容的 LogQL API，构建在 ClickHouse 之上。&lt;/p>
+&lt;ul>
+&lt;li>内置 &lt;a href="https://github.com/metrico/cloki-view">Explore UI&lt;/a> 和 &lt;a href="https://github.com/lmangani/vLogQL">LogQL CLI&lt;/a> 用于查询数据&lt;/li>
+&lt;li>原生支持 &lt;a href="http://docs.grafana.org/features/explore/">Grafana&lt;/a> 和任何 &lt;a href="https://grafana.com/docs/loki/latest/logql/">LogQL&lt;/a> 客户端，用于 &lt;a href="https://github.com/lmangani/qryn/wiki/LogQL-for-Beginners">查询&lt;/a>、&lt;a href="https://github.com/lmangani/qryn/wiki/LogQL-Supported-Queries">处理&lt;/a>、&lt;a href="https://github.com/lmangani/qryn/wiki/Inserting-Logs-to-cLoki">摄取&lt;/a>、&lt;a href="https://github.com/lmangani/qryn/wiki/Tempo-Tracing">跟踪&lt;/a> 和 &lt;a href="https://github.com/lmangani/qryn/wiki/Ruler---Alerts">警报&lt;/a>&lt;/li>
+&lt;/ul></description></item></channel></rss>

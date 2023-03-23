@@ -1,0 +1,876 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – pprof(go程序的性能分析器)</title><link>https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E5%B7%A5%E5%85%B7/pprofgo%E7%A8%8B%E5%BA%8F%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%99%A8/</link><description>Recent content in pprof(go程序的性能分析器) on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E5%B7%A5%E5%85%B7/pprofgo%E7%A8%8B%E5%BA%8F%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%99%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Go Profiling 详解</title><link>https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E5%B7%A5%E5%85%B7/pprofgo%E7%A8%8B%E5%BA%8F%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%99%A8/Go-Profiling-%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E5%B7%A5%E5%85%B7/pprofgo%E7%A8%8B%E5%BA%8F%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%99%A8/Go-Profiling-%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;p>原文：&lt;a href="https://mp.weixin.qq.com/s/SveQPLr7abKXccLpYKkNKA">https://mp.weixin.qq.com/s/SveQPLr7abKXccLpYKkNKA&lt;/a>&lt;/p>
+&lt;h2 id="介绍">介绍&lt;/h2>
+&lt;h3 id="read-this">Read This&lt;/h3>
+&lt;p>这是一本实用指南，针对的是对使用 profiling、跟踪和其他可观察性技术改进程序感兴趣的忙碌的 gopher。如果你对 Go 的内部实现不熟悉，建议你先阅读整个介绍。之后，你可以自由地跳到你感兴趣的任何章节。&lt;/p>
+&lt;h3 id="go-心智模型">Go 心智模型&lt;/h3>
+&lt;p>虽然不了解 Go 语言的底层原理，但是你也能熟练地编写 Go 代码。但是当涉及到性能和调试时，你会从内部实现中受益匪浅。我们接下来会概述 Go 基本原理的模型。这个模型应该足以让你避免最常见的错误，但是所有的模型都是错误的[2]，所以我们鼓励你寻找更深入的材料来解决未来的难题。&lt;/p>
+&lt;p>Go 的主要工作是对硬件资源进行复用和抽象，类似于操作系统。主要使用两个抽象：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>Goroutine Scheduler(goroutine 调度器):&lt;/strong> 管理你的代码如何在 CPU 上执行。&lt;/li>
+&lt;li>&lt;strong>Garbage Collector(垃圾回收):&lt;/strong> 提供虚拟内存，在需要时自动释放。&lt;/li>
+&lt;/ol>
+&lt;h4 id="goroutine-调度器">Goroutine 调度器&lt;/h4>
+&lt;p>让我们先用下面的例子来谈谈调度器 :&lt;/p>
+&lt;p>&lt;code>func main() {     res, err := http.Get(&amp;quot;https://example.org/&amp;quot;)     if err != nil {         panic(err)     }     fmt.Printf(&amp;quot;%d\n&amp;quot;, res.StatusCode) }&lt;/code>&lt;/p>
+&lt;p>这里我们有一个 goroutine，我们称之为 &lt;code>G1&lt;/code>，它运行 &lt;code>main&lt;/code> 函数。下图显示了这个 goroutine 如何在单个 CPU 上执行的简化的时间线。最初 &lt;code>G1&lt;/code> 在 CPU 上运行以准备 http 请求。然后 CPU 变得空闲，因为 goroutine 需要网络等待。最后它再次被调度到 CPU 上，打印出状态代码。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/4aaac374-ac48-48d4-8190-b524f880bf2f/640" alt="">&lt;/p>
+&lt;p>从调度器的角度来看，上述程序的执行情况如下所示。一开始，&lt;code>G1&lt;/code> 在 &lt;code>CPU 1&lt;/code> 上 &lt;code>Executing&lt;/code>。然后，在 &lt;code>Waiting&lt;/code> 网络的过程中，goroutine 被从 CPU 上取出。一旦调度器注意到网络已经返回（使用非阻塞 I/O，类似于 Node.js），它就把 goroutine 标记为 &lt;code>Runnable&lt;/code>。一旦有 CPU 核心可用，goroutine 就会再次开始 &lt;code>Executing&lt;/code>。在我们的例子中，所有的 cpu 核都是可用的，所以 &lt;code>G1&lt;/code> 可以立即回到其中一个 CPU 上 &lt;code>Executing&lt;/code>  &lt;code>fmt.Printf()&lt;/code> 函数，而无需在 &lt;code>Runnable&lt;/code> 状态下花费任何时间。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/4aaac374-ac48-48d4-8190-b524f880bf2f/640" alt="">&lt;/p>
+&lt;p>大多数时候，Go 程序都在运行多个 goroutine，所以你会有一些 goroutine 在一些 CPU 核心上 &lt;code>Executing&lt;/code>，大量 goroutine 由于各种原因 &lt;code>Waiting&lt;/code>，理想情况下没有 goroutine &lt;code>Runnable&lt;/code>，除非你的程序显示非常高的 CPU 负载。下面就是一个例子。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/4aaac374-ac48-48d4-8190-b524f880bf2f/640" alt="">&lt;/p>
+&lt;p>当然，上面的模型掩盖了许多细节。Go 调度器是在操作系统管理的线程之上运行的，甚至 CPUs 本身也能够实现超线程，这可以看作是一种调度形式。所以如果你感兴趣的话，可以通过 Ardan labs 的 Scheduling in Go[3] 或其他资料继续深入这个主题。&lt;/p>
+&lt;p>但是，上面的模型应该足以理解本指南的其余部分。特别是，各种 Go profilers 所测量的时间基本上是 goroutines 在 &lt;code>Executing&lt;/code> 和 &lt;code>Waiting&lt;/code> 状态中所花费的时间，如下图所示。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/4aaac374-ac48-48d4-8190-b524f880bf2f/640" alt="">&lt;/p>
+&lt;h4 id="垃圾收集器">垃圾收集器&lt;/h4>
+&lt;p>Go 的另一个主要抽象是垃圾收集器。在 C 语言中，程序员需要使用 &lt;code>malloc()&lt;/code> 和 &lt;code>free()&lt;/code> 手动分配和释放内存。这提供了很好的控制，但在实践中很容易出错。垃圾收集器可以减少这种负担，但内存的自动管理很容易成为性能瓶颈。本指南将为 Go 的 GC 提供一个简单模型，这个模型对于识别和优化内存管理相关问题非常有用。&lt;/p>
+&lt;h5 id="the-stack">The Stack&lt;/h5>
+&lt;p>让我们从最基础开始。Go 可以将内存分配到堆栈或者堆的任意一个位置。每个 goroutine 都有自己的堆栈，栈是一个连续的内存区域。此外，goroutine 之间还有一大块内存共享区域，这就是堆。如下所示。&lt;/p>
+&lt;p>当一个函数调用另一个函数时，它会在堆栈中获得自己的部分，称为 stack frame(堆栈帧) ，在这里它可以创建局部变量等。堆栈指针用于标识帧中的下一个空闲位置。当一个函数返回时，通过简单地将堆栈指针移回到前一帧的末尾，最后一帧中的数据就会被丢弃。帧的数据本身可以留在堆栈中，并被下一个函数调用覆盖。这是非常简单和有效的，因为 Go 不需要跟踪每个变量。&lt;/p>
+&lt;p>为了让这个更直观一点，让我们看看下面的例子 :&lt;/p>
+&lt;p>`func main() {
+ sum := 0
+ sum = add(23, 42)
+ fmt.Println(sum)
+}&lt;/p>
+&lt;p>func add(a, b int) int {
+ return a + b
+}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>我们有一个 &lt;code>main()&lt;/code> 函数，它一开始就在堆栈中为变量 &lt;code>sum&lt;/code> 创建了空间。当调用 &lt;code>add()&lt;/code> 函数时，它获得自己的帧来保存本地的 &lt;code>a&lt;/code> 和 &lt;code>b&lt;/code> 参数。一旦 &lt;code>add()&lt;/code> 返回，通过将堆栈指针移回 &lt;code>main()&lt;/code> 函数帧末尾，它的数据就会被丢弃，&lt;code>sum&lt;/code> 变量就会得到更新。同时，&lt;code>add()&lt;/code> 的旧值逗留在堆栈指针之外，以便被下一个函数调用覆盖。下面是这个过程的可视化图 :&lt;/p>
+&lt;p>上面的例子是高度简化了，省略了许多关于返回值、帧指针、返回地址和函数内联的细节。实际上，在 Go 1.17 中，上面的程序甚至可能不需要堆栈上的任何空间，因为少量的数据可以由编译器使用 CPU 寄存器来管理。但这也没关系。这个模型应该还是能让你对简单的 Go 程序在堆栈上分配和丢弃局部变量的方式有一个直观认识。&lt;/p>
+&lt;p>此时你可能会想，如果堆栈上的空间用完了会怎么样。在像 C 这样的语言中，这会导致堆栈溢出错误。而 Go 会自动处理这个问题，扩容成两倍堆栈。所以一般 goroutine 开始都是很小的，通常是 2 KiB，这也是 goroutine 比操作系统线程更具可伸缩性的关键因素[4]之一。&lt;/p>
+&lt;h5 id="the-heap">The Heap&lt;/h5>
+&lt;p>堆栈分配很 nice，但是在很多情况下 Go 不能全部都使用它们。最常见比如函数返回指针。把上面的 &lt;code>add()&lt;/code> 函数示例修改一下，如下 :&lt;/p>
+&lt;p>`func main() {
+ fmt.Println(*add(23, 42))
+}&lt;/p>
+&lt;p>func add(a, b int) *int {
+ sum := a + b
+ return &amp;amp;sum
+}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>通常 Go 可以把 &lt;code>add()&lt;/code> 函数内部的 &lt;code>sum&lt;/code> 变量分配到堆栈中。我们已经知道当 &lt;code>add()&lt;/code> 函数返回时，这些数据将被丢弃。因此，为了安全返回 &lt;code>&amp;amp;sum&lt;/code> 指针，Go 必须从堆栈外为其分配内存。这就是堆的作用。&lt;/p>
+&lt;p>堆用于存储可能比创建它的函数存活时间更长的数据，以及任何使用指针在 goroutine 之间共享数据。然而，这就提出了一个问题 : 这些内存是如何被释放的。因为与堆栈分配不同，当创建堆分配的函数返回时，堆分配是不能被丢弃。&lt;/p>
+&lt;p>Go 使用其内置的垃圾收集器解决了这个问题。其实现的细节非常复杂，但是从宏观角度来看，它可以跟踪你的内存，如下图所示。在这里你可以看到三个 goroutines，它们具有指向堆上绿色分配的指针。其中一些分配还有指向其他分配的指针，用绿色显示。此外，灰色分配可能指向绿色分配或相互指向，但它们本身并不被绿色分配引用。这些分配曾经是可到达的，但现在被认为是垃圾。如果在堆栈上分配它们的指针的函数返回，或者它们的值被覆盖，就会发生这种情况。GC 负责自动识别和释放这些分配。&lt;/p>
+&lt;p>执行 GC 涉及大量开销很大的图遍历和缓冲区的处理。它甚至需要定期 stop-the-world 阶段来停止整个程序执行。Go 现在的版本已经把 GC 的过程打到很恐怖的速度了 (毫秒级)，剩余的大部分开销都是任何 GC 算法都跑不掉的的。事实上，Go 程序执行中 20-30% 的时间都开销在内存管理上并不罕见。&lt;/p>
+&lt;p>一般来说，GC 的成本与程序执行的堆分配量成正比。因此，在优化程序的内存开销时，需要注意的是 :&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Reduce&lt;/strong>: 尝试将堆分配转换为堆栈分配，或者干脆避免它们。把堆上的指针数量打下来也会有帮助。&lt;/li>
+&lt;li>&lt;strong>Reuse:&lt;/strong> 复用堆分配，而不是用新的堆分配来替换它们。&lt;/li>
+&lt;li>&lt;strong>Recycle:&lt;/strong> 有些堆分配是无法避免的。让 GC 自动回收它们，并关注其他问题。&lt;/li>
+&lt;/ul>
+&lt;p>与本指南中之前的心智模型一样，上面的流程都是对实际的情况做了简化。但是希望它能够很好地帮你理解本指南的其余部分，并激励你阅读更多关于这个主题的文章。推荐你必读的一篇文章《Getting to Go: The Journey of Go&amp;rsquo;s Garbage Collector[5]》 ，它让你很好地了解 Go 的 GC 多年来是如何进步的，以及它的改进速度。&lt;/p>
+&lt;h2 id="go-profilers">Go Profilers&lt;/h2>
+&lt;p>以下是 Go runtime 内置 profilers 的概述。有关更多详细信息，请点击链接。&lt;/p>
+&lt;p>|&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>CPU&lt;/th>
+&lt;th>Memory&lt;/th>
+&lt;th>Block&lt;/th>
+&lt;th>Mutex&lt;/th>
+&lt;th>Goroutine&lt;/th>
+&lt;th>ThreadCreate&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Production Safety&lt;/td>
+&lt;td>✅&lt;/td>
+&lt;td>✅&lt;/td>
+&lt;td>✅&lt;/td>
+&lt;td>✅&lt;/td>
+&lt;td>⚠️ (1.)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Safe Rate&lt;/td>
+&lt;td>default&lt;/td>
+&lt;td>default&lt;/td>
+&lt;td>&lt;code>10000&lt;/code>&lt;/td>
+&lt;td>&lt;code>10&lt;/code>&lt;/td>
+&lt;td>&lt;code>1000&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>goroutines&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Accuracy&lt;/td>
+&lt;td>⭐️⭐&lt;/td>
+&lt;td>⭐⭐⭐&lt;/td>
+&lt;td>⭐⭐⭐&lt;/td>
+&lt;td>⭐⭐⭐&lt;/td>
+&lt;td>⭐⭐⭐&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Max Stack Depth&lt;/td>
+&lt;td>&lt;code>64&lt;/code>&lt;/td>
+&lt;td>&lt;code>32&lt;/code>&lt;/td>
+&lt;td>&lt;code>32&lt;/code>&lt;/td>
+&lt;td>&lt;code>32&lt;/code>&lt;/td>
+&lt;td>&lt;code>32&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>- &lt;code>100&lt;/code>
+(3.) |&lt;/p>
+&lt;ol>
+&lt;li>一个 O(N) stop-the-world 的暂停，其中 N 是 goroutine 的数量。预计每个 goroutine 会有 ~1-10 微妙的暂停。&lt;/li>
+&lt;li>完全坏了，不要尝试使用它。&lt;/li>
+&lt;li>取决于 API 的情况。&lt;/li>
+&lt;/ol>
+&lt;h3 id="cpu-profiler">CPU Profiler&lt;/h3>
+&lt;p>Go 的 CPU profiler 可以帮助你确定代码的哪些部分占用了大量的 CPU 时间。&lt;/p>
+&lt;p>⚠️ 请注意，CPU 时间跟我们体验的实际时间是不同的。例如，一个典型的 http 请求可能需要 &lt;code>100ms&lt;/code> 才能完成，但是在数据库上等待 &lt;code>95ms&lt;/code> 时只消耗 &lt;code>5ms&lt;/code> 的 CPU 时间。一个请求也有可能 &lt;code>100ms&lt;/code>，但是如果两个 goroutine 并行地执行 CPU 密集型工作，则需要花费 &lt;code>200ms&lt;/code> 的 CPU。如果你对此感到困惑，请参阅 Goroutine Scheduler[6] 部分。&lt;/p>
+&lt;p>你可以通过各种 APIs 来控制 CPU profiler:&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>go test -cpuprofile cpu.pprof&lt;/code> 将运行你的测试并将 CPU profile 写入名为 &lt;code>cpu.pprof&lt;/code> 的文件。&lt;/li>
+&lt;li>&lt;code>pprof.StartCPUProfile(w)&lt;/code> 将 CPU profile 抓取到 &lt;code>w&lt;/code>，涵盖的时间跨度直到 &lt;code>pprof.StopCPUProfile()&lt;/code> 被调用。&lt;/li>
+&lt;li>&lt;code>import _ &amp;quot;net/http/pprof&amp;quot;&lt;/code> 允许你通过点击默认 http 服务器的 &lt;code>GET /debug/pprof/profile?seconds=30&lt;/code> 来请求 30s CPU profile，你可以通过 &lt;code>http.ListenAndServe(&amp;quot;localhost:6060&amp;quot;, nil)&lt;/code> 来启动。&lt;/li>
+&lt;li>&lt;code>runtime.SetCPUProfileRate()&lt;/code> 可以让你控制 CPU profile 的采样率。&lt;/li>
+&lt;li>&lt;code>runtime.SetCgoTraceback()&lt;/code> 可以用来获取 cgo 代码中的堆栈痕迹。benesch/cgosymbolizer[7] 有一个针对 Linux 和 macOS 的实现。&lt;/li>
+&lt;/ul>
+&lt;p>如果你需要一个可以立马看到效果的代码贴到 &lt;code>main()&lt;/code> 函数里，你可以使用下面的代码 :&lt;/p>
+&lt;p>&lt;code>file, _ := os.Create(&amp;quot;./cpu.pprof&amp;quot;) pprof.StartCPUProfile(file) defer pprof.StopCPUProfile()&lt;/code>&lt;/p>
+&lt;p>无论如何激活 CPU profiler，最终的 profile 文件本质上都是一个以二进制 pprof[8] 格式的堆栈跟踪表。这种表的简化版本如下 :&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>stack trace&lt;/th>
+&lt;th>samples/count&lt;/th>
+&lt;th>cpu/nanoseconds&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>main;foo&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>50000000&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>main;foo;bar&lt;/td>
+&lt;td>3&lt;/td>
+&lt;td>30000000&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>main;foobar&lt;/td>
+&lt;td>4&lt;/td>
+&lt;td>40000000&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>CPU profiler 通过请求操作系统监视应用程序的 CPU 使用情况来捕获这些数据，并为每占用 &lt;code>10ms&lt;/code> 的 CPU 时间发送一个 &lt;code>SIGPROF&lt;/code> 信号。操作系统还将内核代表应用程序所消耗的时间包括在这个监测中。由于信号传输速率取决于 CPU 的消耗，因此它是动态的，可以达到 &lt;code>N * 100Hz&lt;/code>，其中 &lt;code>N&lt;/code> 是系统上逻辑 CPU 核心的数量。当 &lt;code>SIGPROF&lt;/code> 信号到达时，Go 的信号处理程序捕获当前活动 goroutine 的堆栈跟踪，并在 profile 中增加相应的值。&lt;code>cpu/nanoseconds&lt;/code> 的值目前是直接从样本计数中推导出来的，因此它是冗余的，但很方便。&lt;/p>
+&lt;h4 id="cpu-profiler-标签">CPU Profiler 标签&lt;/h4>
+&lt;p>Go 的 CPU profiler 的一个很吊的特性是你可以将任意键值对附加到 goroutine。这些标签将由从这个 goroutine 产生的任何 goroutine 继承，并显示在产生的 profile 文件中。&lt;/p>
+&lt;p>让我们考虑下面的示例[9]，它代表 &lt;code>user&lt;/code> 执行一些 CPU &lt;code>work()&lt;/code>。通过使用 pprof.Labels()[10]和 pprof.Labels()[11] API，我们可以将 &lt;code>user&lt;/code> 与执行 &lt;code>work()&lt;/code> 函数的 goroutine 关联起来。此外，同一块代码中产生任何 goroutine 都会自动继承这些标签，例如 &lt;code>backgroundWork()&lt;/code> goroutine。&lt;/p>
+&lt;p>&lt;code>func work(ctx context.Context, user string) {  labels := pprof.Labels(&amp;quot;user&amp;quot;, user)  pprof.Do(ctx, labels, func(_ context.Context) {   go backgroundWork()   directWork()  }) }&lt;/code>&lt;/p>
+&lt;p>得到的 profile 将包括一个新的标签列，可能看起来像这样 :&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>stack trace&lt;/th>
+&lt;th>label&lt;/th>
+&lt;th>samples/count&lt;/th>
+&lt;th>cpu/nanoseconds&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>main.childWork&lt;/td>
+&lt;td>user:bob&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>50000000&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>main.childWork&lt;/td>
+&lt;td>user:alice&lt;/td>
+&lt;td>2&lt;/td>
+&lt;td>20000000&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>main.work;main.directWork&lt;/td>
+&lt;td>user:bob&lt;/td>
+&lt;td>4&lt;/td>
+&lt;td>40000000&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>main.work;main.directWork&lt;/td>
+&lt;td>user:alice&lt;/td>
+&lt;td>3&lt;/td>
+&lt;td>30000000&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>使用 pprof’s Graph 视图查看相同的档案也会包括以下标签 :&lt;/p>
+&lt;p>如何使用这些标签取决于你。你可以包含一些东西比如 &lt;code>user ids&lt;/code>、&lt;code>request ids&lt;/code>、 &lt;code>http endpoints&lt;/code>, &lt;code>subscription plan&lt;/code> 或其他数据，这些东西可以让你更好地理解哪些类型的请求导致了高 CPU 利用率，即使它们是由相同的代码路径处理的。也就是说，使用标签会增加 pprof 文件的大小。因此，你可能应该先从低 cardinality 标签（比如 endpoints）开始，一旦你确信它们不会影响你的应用程序的性能，就应该转向高 cardinality 标签。&lt;/p>
+&lt;h4 id="cpu-利用率">CPU 利用率&lt;/h4>
+&lt;p>由于 CPU profiler 的采样速率适应程序消耗的 CPU 数量，因此可以从 CPU profile 中获得 CPU 利用率。事实上，pprof 会自动为你做这件事。例如，下面的 profile 取自一个平均 CPU 利用率为 &lt;code>147.77%&lt;/code> 的程序 :&lt;/p>
+&lt;p>&lt;code>$ go tool pprof guide/cpu-utilization.pprof Type: cpu Time: Sep 9, 2021 at 11:34pm (CEST) Duration: 1.12s, Total samples = 1.65s (147.77%) Entering interactive mode (type &amp;quot;help&amp;quot; for commands, &amp;quot;o&amp;quot; for options) (pprof)&lt;/code>&lt;/p>
+&lt;p>另一种流行的表示 CPU 利用率的方法是 CPU 核心。在上面的例子中，程序在 profiling 期间平均使用了 &lt;code>1.47&lt;/code> 个 CPU 核心。&lt;/p>
+&lt;p>⚠️ 如果这个数值接近或高于 &lt;code>250%&lt;/code> ，那么你不应该过于信任这个数值。但是，如果你看到的数字非常低，比如 &lt;code>10%&lt;/code> ，这通常表明 CPU 消耗对你的应用程序来说是小 case。一个常见的错误是忽略这个数字，并开始担心某个特定的函数占用了相对于 profile 文件其余部分的很长时间。当总体 CPU 利用率较低时，这通常是浪费时间，因为通过优化这个函数不会获得太多好处。&lt;/p>
+&lt;h4 id="cpu-profiles-的系统调用">CPU Profiles 的系统调用&lt;/h4>
+&lt;p>如果你看到诸如 &lt;code>syscall.Read()&lt;/code> 或 &lt;code>syscall.Write()&lt;/code> 这样的系统调用在你的 CPU profiles 中使用了大量的时间，请注意这只是内核中这些函数中占用的 CPU 时间。I/O 时间本身没有被跟踪。在系统调用上花费大量时间通常表明调用过多，因此增加缓冲区大小可能会有所帮助。对于这种更复杂的情况，你应该考虑使用 Linux perf，因为它还可以向你显示内核堆栈跟踪，从而可能为你提供更多的线索。&lt;/p>
+&lt;h4 id="cpu-profiler-局限">CPU Profiler 局限&lt;/h4>
+&lt;p>有一些已知的问题和 CPU profiler 的局限性，需要注意的是 :&lt;/p>
+&lt;ul>
+&lt;li>🐞 在 Linux 上的一个已知问题是 CPU profile 难以实现超过 &lt;code>250Hz&lt;/code> 的采样率。这通常不是问题，但如果你的 CPU 利用率非常高，就会导致偏差。有关这方面的更多信息，可以看看 GitHub issue[12]。同时你可以使用支持更高采样频率的 Linux perf。&lt;/li>
+&lt;li>⚠️️ 你可以在调用 runtime.SetCPUProfileRate()[13] 之前调用 &lt;code>runtime.StartCPUProfile()&lt;/code> 来调整 CPU profile 的速率。这将打印一个警告：&lt;code>runtime: cannot set cpu profile rate until previous profile has finished&lt;/code>。然而，它仍然在上述 bug 的限制下工作。这个问题最初是在 这里[14] 提出的，并且有一个 被接受的改进 API 的建议[15]。&lt;/li>
+&lt;li>⚠️ 目前，CPU profile 可以在堆栈跟踪中捕获的嵌套函数调用的最大数量是 64[16]。如果你的程序使用了大量的递归或其他导致调用函数堆栈的方法，你的 CPU profile 将包括堆栈跟踪被截断。这意味着你将错过调用链中导致采样时处于活动状态的函数的部分。&lt;/li>
+&lt;/ul>
+&lt;h3 id="memory-profiler">Memory Profiler&lt;/h3>
+&lt;p>Go memory(内存) profiler 可以帮助你识别代码中哪些部分执行了大量堆分配，以及在上一次垃圾收集期间有多少分配是仍可访问的。因此，memory profiler 生成的 profile 通常也称为 heap(堆) profile。&lt;/p>
+&lt;p>堆内存管理相关的活动通常占用 Go 进程消耗的 CPU 时间的 20-30% 。此外，由于减少了垃圾收集器扫描堆时发生的缓存抖动，干掉堆分配会产生二阶效应，从而加快代码的其他部分。这意味着优化内存分配通常比优化程序中与 cpu 绑定的代码路径更好使。&lt;/p>
+&lt;p>⚠️memory profiler 不显示堆栈分配，因为这些分配通常比堆分开销小得多。有关详细信息，请参阅本指南的 GC 章节。&lt;/p>
+&lt;p>你可以通过各种 api 来控制 memory profiler:&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>go test -memprofile mem.pprof&lt;/code> 将运行你的测试并将 memory profile 写进 &lt;code>mem.pprof&lt;/code>。&lt;/li>
+&lt;li>&lt;code>pprof.Lookup(&amp;quot;allocs&amp;quot;).WriteTo(w, 0)&lt;/code> 将一个涵盖进程开始以来的时间的 memory profile 写入到 &lt;code>w&lt;/code>。&lt;/li>
+&lt;li>&lt;code>import _ &amp;quot;net/http/pprof&amp;quot;&lt;/code> 允许你通过点击默认的 http 服务器 &lt;code>GET /debug/pprof/allocs?seconds=30&lt;/code> 来请求 30 秒的 memory profile，你可以通过 &lt;code>http.ListenAndServe(&amp;quot;localhost:6060&amp;quot;, nil)&lt;/code> 启动。这在内部也被称为 delta profile 。&lt;/li>
+&lt;li>&lt;code>runtime.MemProfileRate&lt;/code> 允许你控制 memory profilee 的采样率。&lt;/li>
+&lt;/ul>
+&lt;p>如果你需要一个可以立马看到效果的代码贴到 &lt;code>main()&lt;/code> 函数里，你可以使用下面的代码 :&lt;/p>
+&lt;p>&lt;code>file, _ := os.Create(&amp;quot;./mem.pprof&amp;quot;) defer pprof.Lookup(&amp;quot;allocs&amp;quot;).WriteTo(file, 0) defer runtime.GC()&lt;/code>&lt;/p>
+&lt;p>无论如何激活 memory profiler，得到的 profile 文件本质上都是一个二进制 pprof 格式的格式化的堆栈跟踪表。这种表的简化版本如下 :&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>stack trace&lt;/th>
+&lt;th>alloc_objects/count&lt;/th>
+&lt;th>alloc_space/bytes&lt;/th>
+&lt;th>inuse_objects/count&lt;/th>
+&lt;th>inuse_space/bytes&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>main;foo&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>120&lt;/td>
+&lt;td>2&lt;/td>
+&lt;td>48&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>main;foo;bar&lt;/td>
+&lt;td>3&lt;/td>
+&lt;td>768&lt;/td>
+&lt;td>0&lt;/td>
+&lt;td>0&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>main;foobar&lt;/td>
+&lt;td>4&lt;/td>
+&lt;td>512&lt;/td>
+&lt;td>1&lt;/td>
+&lt;td>128&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>memory profile 包含两条主要信息 :&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>alloc_*&lt;/code>: 程序从进程最开始以来所有的分配。&lt;/li>
+&lt;li>&lt;code>insue_*&lt;/code>: 程序从上次 GC 完到现在分配。&lt;/li>
+&lt;/ul>
+&lt;p>你可以将此信息用于各种用途。例如，你可以使用 &lt;code>alloc_*&lt;/code> 数据来确定哪些代码路径可能会产生大量 GC 处理，并且随着时间的推移查看 &lt;code>inuse_*&lt;/code> 数据可以帮助你调查程序的内存泄漏或内存使用率过高。&lt;/p>
+&lt;h4 id="allocs-vs-heap-profile">Allocs vs Heap Profile&lt;/h4>
+&lt;p>pprof.Lookup()[17] 函数以及 net/http/pprof[18] 包使用两个名称 (&lt;code>allocs&lt;/code> 和 &lt;code>heap&lt;/code>) 公开 memory profile。两个 profile 都包含相同的数据，唯一的区别是 &lt;code>allocs&lt;/code> profile 将 &lt;code>alloc_space/bytes&lt;/code> 设置为默认的样本类型，而 &lt;code>heap&lt;/code> profile 默认设置为 &lt;code>inuse_space/bytes&lt;/code>。pprof 工具使用它来决定默认情况下显示哪个示例类型。&lt;/p>
+&lt;h4 id="memory-profiler-采样">Memory Profiler 采样&lt;/h4>
+&lt;p>为了保持比较低的开销，内存 profiler 使用泊松采样，因此平均每 &lt;code>512KiB&lt;/code> 只有一次分配触发堆栈跟踪并将其添加到 profile 中。然而，在将 profile 写入最终的 pprof 文件之前，runtime 将收集到的样本值除以抽样概率，从而对其进行扩展。这意味着报告的分配数量应该是对实际分配数量的很好的估算。而不管你使用的是 runtime.MemProfileRate[19]。&lt;/p>
+&lt;p>对于生产中的分析，通常不必修改取样速率。这样做的唯一原因是，如果你担心在很少进行分配的情况下没有收集到足够的样本。&lt;/p>
+&lt;h4 id="memory-inuse-vs-rss">Memory Inuse vs RSS&lt;/h4>
+&lt;p>一个常见的混淆是查看 &lt;code>inuse_space/bytes&lt;/code> 样本类型的内存总量，并注意到它与操作系统报告的 RSS 内存使用量不匹配。有多种原因可能导致 :&lt;/p>
+&lt;ul>
+&lt;li>根据定义，RSS 包括了很多不仅仅是 Go 堆内存的使用，例如 goroutine 堆栈、程序可执行文件、共享库以及 C 函数分配的内存所使用的内存。&lt;/li>
+&lt;li>GC 可能不会立把空闲内存返回给操作系统，但在 Go 1.16 的 runtime[20] 改回来了，这个就算小问题了。&lt;/li>
+&lt;li>Go 使用 non-moving GC，因此在某些情况下，空闲堆内存可能会碎片化，从而阻止 Go 将其释放到操作系统。&lt;/li>
+&lt;/ul>
+&lt;h4 id="memory-profiler-implementation">Memory Profiler Implementation&lt;/h4>
+&lt;p>下面的伪代码应该捕获 memory profiler 实现的基本东西，让你有个大概的印象。如下所示，Go runtime 中的 &lt;code>malloc()&lt;/code> 函数使用 &lt;code>poisson_sample(size)&lt;/code> 来确定是否应该对分配进行取样。如果是，则以堆栈跟踪 &lt;code>s&lt;/code> 作为 &lt;code>mem_profile&lt;/code> 哈希表中的 key，用来增加 &lt;code>allocs&lt;/code> 和 &lt;code>alloc_bytes&lt;/code> 计数器。此外，&lt;code>track_profiled(object, s)&lt;/code> 调用将 &lt;code>object&lt;/code> 标记为堆上的采样分配，并将堆栈跟踪 &lt;code>s&lt;/code> 与其关联。&lt;/p>
+&lt;p>`func malloc(size):
+  object = &amp;hellip; // allocation magic&lt;/p>
+&lt;p>if poisson_sample(size):
+    s = stacktrace()
+    mem_profile[s].allocs++
+    mem_profile[s].alloc_bytes += size
+    track_profiled(object, s)&lt;/p>
+&lt;p>return object&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>当 GC 确定是时候释放分配的对象时，它调用 &lt;code>sweep()&lt;/code> ，使用 &lt;code>is_profiled(object)&lt;/code> 来检查 &lt;code>object&lt;/code> 是否被标记为采样对象。如果是，它将检索导致分配的堆栈跟踪 &lt;code>s&lt;/code>，并在 &lt;code>mem_profile&lt;/code> 内为它增加 &lt;code>frees&lt;/code> 和 &lt;code>free_bytes&lt;/code> 计数器。&lt;/p>
+&lt;p>`func sweep(object):
+  if is_profiled(object)
+    s = alloc_stacktrace(object)
+    mem_profile[s].frees++
+    mem_profile[s].free_bytes += sizeof(object)&lt;/p>
+&lt;p>// deallocation magic&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>&lt;code>free_*&lt;/code> 计数器本身不包含在最终 memory profile 中。相反，它们通过简单的 &lt;code>allocs - frees&lt;/code> 减法计算 profile 中的 &lt;code>insue_*&lt;/code> 计数器。另外，最终的输出值是通过取样概率除以它们的比例而得到的。&lt;/p>
+&lt;h4 id="memory-profiler-的局限">Memory Profiler 的局限&lt;/h4>
+&lt;p>memory profiler 有一些已知的问题还有局限性，需要注意的是 :&lt;/p>
+&lt;ul>
+&lt;li>⚠️ &lt;code>runtime.MemProfileRate&lt;/code> 必须尽可能早地在程序启动时修改一次，例如在 &lt;code>main()&lt;/code> 的开头。写入这个值本质上是一个产生的数据竞争很小，在程序执行期间多次更改它会产生不正确的配置文件。&lt;/li>
+&lt;li>⚠ 在调试潜在的内存泄漏时，memory profiler 可以显示这些分配的是哪里创建的，但它无法告诉你哪些指针还在保持引用。这么些年，一直有人想解决掉这个问题，但没有一个适用于最新版本的 Go。如果你知道有什么好使的工具，请告诉 我[21]。&lt;/li>
+&lt;li>⚠ CPU Profiler Labels[22] 或者其他类似的东西不受 memory profiler 支持。在目前的实现中很难添加这个功能，因为它可能会在保存 memory profiler 数据的内部哈希映射中造成内存泄漏。&lt;/li>
+&lt;li>⚠ cgo C 代码所做的分配不会显示在 memory profile 文件中。&lt;/li>
+&lt;li>⚠ Memory profile 可能是两个垃圾收集周期前的数据。如果你想要一个更一致的时间点快照，可以考虑在请求内存配置文件之前调用 &lt;code>runtime.GC()&lt;/code> 。net/http/pprof[23] 接受 &lt;code>?gc=1&lt;/code> 的参数。更多信息请参阅 runtime.MemProfile()[24] 文档， 以及 &lt;code>mprof.go&lt;/code> 中关于 &lt;code>memRecord&lt;/code> 的注释。&lt;/li>
+&lt;li>⚠️ memory profiler 可以在堆栈跟踪中捕获的嵌套函数调用的最大数量目前是 &lt;code>32&lt;/code>, 有关超过此限制时会发生什么情况的更多信息，请参阅 CPU Profiler Limitations[25]。&lt;/li>
+&lt;li>⚠️ 保存 memory profile 文件的内部哈希表没有大小限制。这意味着它的大小会不断增长，直到它涵盖您的代码库中的所有分配代码路径。这在实践中不是问题，但如果您正在观察进程的内存使用情况，它可能看起来像一个比较小的内存泄漏。&lt;/li>
+&lt;/ul>
+&lt;h3 id="threadcreate-profiler">ThreadCreate Profiler&lt;/h3>
+&lt;p>🐞 Threadcreate profile 旨在显示导致创建新 OS 线程的堆栈跟踪。然而，它从 2013 年[26]就已经不好使了，所以大家记得不要用。&lt;/p></description></item><item><title>Docs: pprof(go程序的性能分析器)</title><link>https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E5%B7%A5%E5%85%B7/pprofgo%E7%A8%8B%E5%BA%8F%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%99%A8/pprofgo%E7%A8%8B%E5%BA%8F%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%99%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E5%B7%A5%E5%85%B7/pprofgo%E7%A8%8B%E5%BA%8F%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%99%A8/pprofgo%E7%A8%8B%E5%BA%8F%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%99%A8/</guid><description>
+&lt;h1 id="heading">&lt;/h1>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://go.dev/doc/diagnostics">Go 官方文档，诊断&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/google/pprof">GitHub 项目，google/pprof&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/google/pprof/tree/master/doc">GitHub 项目-文档，google/pprof/doc&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://pkg.go.dev/net/http/pprof">Go 包，net/http/pprof&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://go.dev/blog/pprof">Go 博客，分析 Go 程序&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://segmentfault.com/a/1190000016412013">思否，Golang 大杀器之性能剖析 PProf&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>pprof 是一个可视化和分析 Profiling 数据的工具。pprof 可以从目标获取运行数据并生成 profile.proto 格式的 Profiles 文件，还可以读取 profile.proto 格式的 Profiling 样本集合，并生成报告。&lt;/p>
+&lt;p>profile.proto 是一个协议缓冲区，描述了一组调用堆栈和符号化信息。详见 &lt;a href="https://developers.google.com/protocol-buffers">https://developers.google.com/protocol-buffers&lt;/a>&lt;/p>
+&lt;p>可以通过本地文件或 HTTP 读取 Profiles 文件。同时也可以聚合或比较多个 Profiles 文件。每个 profile.prot 格式的 Profile 样本的集合。&lt;/p>
+&lt;h2 id="使用-pprof">使用 pprof&lt;/h2>
+&lt;p>想要使用 pprof 程序非常简单，只需要引入 &lt;code>net/http/pprof&lt;/code> 包，并启动监听即可&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;log&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#e6db74">&amp;#34;net/http/pprof&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ListenAndServe&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;localhost:18080&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Fatal&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;ListenAndServe: &amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>注意：若不使用 &lt;code>DefaultServeMux&lt;/code>，则我们需要手动注册处理程序，效果如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;log&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">_&lt;/span> &lt;span style="color:#e6db74">&amp;#34;net/http/pprof&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mux&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">NewServeMux&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mux&lt;/span>.&lt;span style="color:#a6e22e">Handle&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/debug/pprof/&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">HandlerFunc&lt;/span>(&lt;span style="color:#a6e22e">pprof&lt;/span>.&lt;span style="color:#a6e22e">Index&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mux&lt;/span>.&lt;span style="color:#a6e22e">Handle&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/debug/pprof/cmdline&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">HandlerFunc&lt;/span>(&lt;span style="color:#a6e22e">pprof&lt;/span>.&lt;span style="color:#a6e22e">Cmdline&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mux&lt;/span>.&lt;span style="color:#a6e22e">Handle&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/debug/pprof/profile&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">HandlerFunc&lt;/span>(&lt;span style="color:#a6e22e">pprof&lt;/span>.&lt;span style="color:#a6e22e">Profile&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mux&lt;/span>.&lt;span style="color:#a6e22e">Handle&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/debug/pprof/symbol&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">HandlerFunc&lt;/span>(&lt;span style="color:#a6e22e">pprof&lt;/span>.&lt;span style="color:#a6e22e">Symbol&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">mux&lt;/span>.&lt;span style="color:#a6e22e">Handle&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/debug/pprof/trace&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">HandlerFunc&lt;/span>(&lt;span style="color:#a6e22e">pprof&lt;/span>.&lt;span style="color:#a6e22e">Trace&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ListenAndServe&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;localhost:18080&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>); &lt;span style="color:#a6e22e">err&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">log&lt;/span>.&lt;span style="color:#a6e22e">Fatal&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;ListenAndServe: &amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">err&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>此时我们可以在 pprof 启动的 HTTP 服务端的 &lt;code>/debug/pprof&lt;/code> 端点查看本程序 profile 信息：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652319650333-cea6d5e1-0f15-4981-93f9-86d5833ecf57.png" alt="image.png">
+pprof 库会暴露多个端点&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>/debug/pprof/allocs&lt;/strong> #
+&lt;ul>
+&lt;li>用与分析 Mem 申请内存频率过高的问题。比如 Go 频繁垃圾回收等&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>/debug/pprof/block&lt;/strong> # 查看导致阻塞同步的堆栈跟踪&lt;/li>
+&lt;li>&lt;strong>/debug/pprof/cmdline&lt;/strong> #&lt;/li>
+&lt;li>&lt;strong>/debug/pprof/goroutine&lt;/strong> # 查看当前所有运行的 goroutines 堆栈跟踪
+&lt;ul>
+&lt;li>用于分析 Goroutine 泄露问题&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>/debug/pprof/heap&lt;/strong> # 查看活动对象的内存分配情况
+&lt;ul>
+&lt;li>用于分析 Mem 使用率高的问题&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>/debug/pprof/mutex&lt;/strong> # 查看导致互斥锁的竞争持有者的堆栈跟踪
+&lt;ul>
+&lt;li>用于分析锁的抢占问题&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>/debug/pprof/profile&lt;/strong> # 默认获取程序 30s 对 CPU 的使用情况的 Profile 文件。
+&lt;ul>
+&lt;li>用于分析 CPU 使用率高的问题&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="不通过-nethttp-标准库使用-pprof">不通过 net/http 标准库使用 pprof&lt;/h2>
+&lt;p>若不直接使用 &lt;code>net/http&lt;/code> 标准库，则需要手动注册路由&lt;/p>
+&lt;h3 id="gin-库">gin 库&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/gin-contrib/pprof&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/gin-gonic/gin&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">router&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">gin&lt;/span>.&lt;span style="color:#a6e22e">Default&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">pprof&lt;/span>.&lt;span style="color:#a6e22e">Register&lt;/span>(&lt;span style="color:#a6e22e">router&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">router&lt;/span>.&lt;span style="color:#a6e22e">Run&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;:8080&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="chi-库">chi 库&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;net/http&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/go-chi/chi&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;github.com/go-chi/chi/middleware&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>() {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">r&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">chi&lt;/span>.&lt;span style="color:#a6e22e">NewRouter&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">r&lt;/span>.&lt;span style="color:#a6e22e">Mount&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/debug&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">middleware&lt;/span>.&lt;span style="color:#a6e22e">Profiler&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">http&lt;/span>.&lt;span style="color:#a6e22e">ListenAndServe&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;:8080&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">r&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="top-信息">top 信息&lt;/h2>
+&lt;ul>
+&lt;li>flat：给定函数上运行耗时&lt;/li>
+&lt;li>flat%：同上的 CPU 运行耗时总比例&lt;/li>
+&lt;li>sum%：给定函数累积使用 CPU 总比例&lt;/li>
+&lt;li>cum：当前函数加上它之上的调用运行总耗时&lt;/li>
+&lt;li>cum%：同上的 CPU 运行耗时总比例&lt;/li>
+&lt;/ul>
+&lt;h1 id="pprof-工具">pprof 工具&lt;/h1>
+&lt;p>pprof 工具运行时，会在 ${HOME}/pprof/ 目录下生成临时的 &lt;code>*.pb.gz&lt;/code> 文件&lt;/p>
+&lt;h2 id="syntax语法">Syntax(语法)&lt;/h2>
+&lt;p>**pprof [FORMAT] [OPTIONS] [BINARY] &lt;!-- raw HTML omitted --> &amp;hellip; **
+从 SOURCE 出获取性能信息数据，并在当前目录下生成 FORMAT 格式的 Profile 文件，文件名默认为 &lt;code>profileXXX.pb.gz&lt;/code>。若省略 FORMAT，则将会进入交互式 CLI。&lt;/p>
+&lt;p>在省略 FORMAT 时，提供 &lt;code>-http&lt;/code> 参数，pprof 会启动 HTTP 服务，可以通过浏览器浏览 Profile 信息。&lt;/p>
+&lt;p>&lt;strong>FORMAT&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-proto&lt;/strong> # 以压缩的 protobuf 格式输出 Profile 文件。&lt;code>默认生成的缓存 Profile 文件就是这种格式&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>SOURCE OPTIONS&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-seconds=&lt;!-- raw HTML omitted -->&lt;/strong> # 采集 SOURCE 的持续时间，单位：秒&lt;/li>
+&lt;/ul>
+&lt;h2 id="交互式-cli">交互式 CLI&lt;/h2>
+&lt;p>&lt;strong>top -cum 5&lt;/strong> # 按照资源使用率排序并查看前 5 个&lt;/p>
+&lt;h1 id="最佳实践">最佳实践&lt;/h1>
+&lt;p>当我们在程序中注册了 pprof 之后，就可以开始使用 pprof 工具对获取到的性能数据进行分析。&lt;/p>
+&lt;h2 id="生成-profile-文件">生成 Profile 文件&lt;/h2>
+&lt;p>首先，我们需要先使用 pprof 工具从 &lt;code>**/debug/pprof/profile**&lt;/code>&lt;strong>端点&lt;/strong>获取性能数据。默认情况会采集 30 秒程序运行数据，并缓存 potol 格式的 Profile 文件到 &lt;code>${HOME}/pprof/&lt;/code> 目录中，同时在当前目录生成指定格式的 Profile 文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># go tool pprof -proto http://localhost:18080/debug/pprof/profile&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Fetching profile over HTTP from http://localhost:18080/debug/pprof/profile
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Saved profile in /home/lichenhao/pprof/pprof.main.samples.cpu.001.pb.gz
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Generating report in profile001.pb.gz
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>若待采集 profile 文件的目标程序需要使用 HTTPS，则将 http 改为 https+insecure&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="分析-profile-文件">分析 Profile 文件&lt;/h2>
+&lt;p>想要分析 profile.proto 文件，同样需要使用 pprof 程序。我们可以通过两种方式分析数据文件&lt;/p>
+&lt;ul>
+&lt;li>交互式 CLI&lt;/li>
+&lt;li>Web&lt;/li>
+&lt;/ul>
+&lt;h3 id="交互式-cli-1">交互式 CLI&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># go tool pprof profile001.pb.gz&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>File: main
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Type: cpu
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Time: May 12, &lt;span style="color:#ae81ff">2022&lt;/span> at 9:07am &lt;span style="color:#f92672">(&lt;/span>CST&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Duration: 10s, Total samples &lt;span style="color:#f92672">=&lt;/span> 10ms &lt;span style="color:#f92672">(&lt;/span> 0.1%&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Entering interactive mode &lt;span style="color:#f92672">(&lt;/span>type &lt;span style="color:#e6db74">&amp;#34;help&amp;#34;&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> commands, &lt;span style="color:#e6db74">&amp;#34;o&amp;#34;&lt;/span> &lt;span style="color:#66d9ef">for&lt;/span> options&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>pprof&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>CLI 中最常见的操作就是 top、list、web，web 命令是打开一个 Web 服务端，这里可以查看识图、火焰图等等&lt;/p>
+&lt;p>&lt;code>top&lt;/code> 命令可以获取最消耗资源的函数名，然后通过 &lt;code>list FuncName&lt;/code> 列出其中函数中最消耗资源的几行代码并且会展示出资源消耗的数值。&lt;/p>
+&lt;h3 id="web">Web&lt;/h3>
+&lt;p>使用 &lt;code>-http&lt;/code> 参数以便让 pprof 工具监听一个端口，通过 Web 来分析数据&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># go tool pprof -http=:8080 profile001.pb.gz&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Serving web UI on http://localhost:8080
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>也可以在交互式 CLI 中使用 &lt;code>web&lt;/code> 命令打开该界面。若出现 &lt;code> Could not execute dot; may need to install graphviz.&lt;/code> 报错，安装 graphviz 即可。&lt;/p>
+&lt;/blockquote>
+&lt;p>在 Web 中可以将 profile 数据解析成火焰图、以图形和线条方式展示调用链、等等等&lt;/p>
+&lt;p>效果如下：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652326690785-770c9f40-8461-4904-9958-aefc3a88ee9f.png" alt="image.png">&lt;/p>
+&lt;h2 id="最简单的排查-cpu-使用率问题">最简单的排查 CPU 使用率问题&lt;/h2>
+&lt;p>在 &lt;code>pkg/webhook/webhook.go&lt;/code> 中添加 &lt;code>h.router.Mount(&amp;quot;/debug&amp;quot;, middleware.Profiler())&lt;/code> 代码以引入 pprof&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">h&lt;/span>.&lt;span style="color:#a6e22e">router&lt;/span>.&lt;span style="color:#a6e22e">Use&lt;/span>(&lt;span style="color:#a6e22e">middleware&lt;/span>.&lt;span style="color:#a6e22e">Timeout&lt;/span>(&lt;span style="color:#ae81ff">2&lt;/span> &lt;span style="color:#f92672">*&lt;/span> &lt;span style="color:#a6e22e">h&lt;/span>.&lt;span style="color:#a6e22e">WebhookTimeout&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">h&lt;/span>.&lt;span style="color:#a6e22e">router&lt;/span>.&lt;span style="color:#a6e22e">Mount&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/debug&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">middleware&lt;/span>.&lt;span style="color:#a6e22e">Profiler&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">h&lt;/span>.&lt;span style="color:#a6e22e">router&lt;/span>.&lt;span style="color:#a6e22e">Get&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;/receivers&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">h&lt;/span>.&lt;span style="color:#a6e22e">handler&lt;/span>.&lt;span style="color:#a6e22e">ListReceivers&lt;/span>)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>程序启动后开始获取 CPU 信息的 Profile 文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># go tool pprof -proto http://localhost:19093/debug/pprof/profile&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Fetching profile over HTTP from http://localhost:19093/debug/pprof/profile
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Saved profile in /home/lichenhao/pprof/pprof.main.samples.cpu.002.pb.gz
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Generating report in profile001.pb.gz
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>同时发起一些请求，触发其中的代码逻辑&lt;/p>
+&lt;p>以 Web 形式分析 Profile 文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># go tool pprof -http=&amp;#34;:8080&amp;#34; profile001.pb.gz&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Serving web UI on http://localhost:8080
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>首先可以看到调用逻辑关系
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652341730532-08dc5241-a436-4288-bb7e-76e7e5f168ef.png" alt="image.png">
+这里可以查看每个函数调用所占用的 CPU 时间
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652341794711-3758bcfe-b3e6-4611-8c7b-0c02338a97fe.png" alt="image.png">
+这里可以查看火焰图
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652341761629-901f7396-c816-4d99-bedf-0a51ecda903c.png" alt="image.png">&lt;/p>
+&lt;h1 id="pprof-实战">pprof 实战&lt;/h1>
+&lt;p>原文链接：&lt;a href="https://cloud.tencent.com/developer/article/1485112">腾讯云+社区，golang pprof 实战-CPU,heap,alloc,goroutine,mutex,block&lt;/a>&lt;/p>
+&lt;h2 id="前言">前言&lt;/h2>
+&lt;p>如果要说在 golang 开发过程进行性能调优，pprof 一定是一个大杀器般的工具。但在网上找到的教程都偏向简略，难寻真的能应用于实战的教程。这也无可厚非，毕竟 pprof 是当程序占用资源异常时才需要启用的工具，而我相信大家的编码水平和排场问题的能力是足够高的，一般不会写出性能极度堪忧的程序，且即使发现有一些资源异常占用，也会通过排查代码快速定位，这也导致 pprof 需要上战场的机会少之又少。即使大家有心想学习使用 pprof，却也常常相忘于江湖。&lt;/p>
+&lt;p>&lt;strong>既然如此，那我就送大家一个性能极度堪忧的“炸弹”程序吧！&lt;/strong>&lt;/p>
+&lt;p>这程序没啥正经用途却极度占用资源，基本覆盖了常见的性能问题。本文就是希望读者能一步一步按照提示，使用 pprof 定位这个程序的的性能瓶颈所在，借此学习 pprof 工具的使用方法。&lt;/p>
+&lt;p>因此，本文是一场“实验课”而非“理论课”，请读者腾出时间，脚踏实地，一步一步随实验步骤进行操作，这会是一个很有趣的冒险，不会很无聊，希望你能喜欢。&lt;/p>
+&lt;h2 id="实验准备">实验准备&lt;/h2>
+&lt;p>这里假设你有基本的 golang 开发功底，拥有 golang 开发环境并配置了 $GOPATH，能熟练阅读简单的代码或进行简单的修改，且知道如何编译运行 golang 程序。此外，需要你大致知道 pprof 是干什么的，有一个基本印象即可，你可以花几分钟时间读一下&lt;a href="https://links.jianshu.com/go?to=https%3A%2F%2Fblog.wolfogre.com%2Fredirect%2Fv3%2FA3jsjsv0r3pCsn4x_qmqFKwSAwM8Cv46xcU7LxImWv3F_wdFRERZQ0pZxVoWBjvFWhYGWsWtTRvFOwaJVMX_BDIwMTjM_wIwOcz_AjE1zP5HBolU_1AlMjAlRTUlQTQlQTclRTYlOUQlODAlRTUlOTklQTglRTQlQjklOEIlRTYlODAlQTclRTglODMlQkQlRTUlODklOTYlRTYlOUUlOTAlMjBQUHMsbi0YMRIDAzwK_jrFxVoWBjtuQQYW3Dsh_cU8Bk0KxTsGzDw8Bcw8ghxKiMU">《Golang 大杀器之性能剖析 PProf》&lt;/a>的开头部分，这不会耽误太久。&lt;/p>
+&lt;p>此外由于你需要运行一个“炸弹”程序，请务必确保你用于做实验的机器有充足的资源，你的机器至少需要：&lt;/p>
+&lt;ul>
+&lt;li>2 核 CPU；&lt;/li>
+&lt;li>2G 内存。&lt;/li>
+&lt;/ul>
+&lt;p>注意，以上只是最低需求，你的机器配置能高于上述要求自然最好。实际运行“炸弹”时，你可以关闭电脑上其他不必要的程序，甚至 IDE 都不用开，我们的实验操作基本上是在命令行里进行的。&lt;/p>
+&lt;p>此外，务必确保你是在个人机器上运行“炸弹”的，能接受机器死机重启的后果（虽然这发生的概率很低）。请你务必不要在危险的边缘试探，比如在线上&lt;a href="https://cloud.tencent.com/product/cvm?from=10680">服务器&lt;/a>运行这个程序。&lt;/p>
+&lt;p>可能说得你都有点害怕了，为打消你顾虑，我可以剧透一下“炸弹”的情况，让你安心：&lt;/p>
+&lt;ul>
+&lt;li>程序会占用约 2G 内存；&lt;/li>
+&lt;li>程序占用 CPU 最高约 100%（总量按“核数 * 100%”来算）；&lt;/li>
+&lt;li>程序不涉及网络或文件读写；&lt;/li>
+&lt;li>程序除了吃资源之外没有其他危险操作。&lt;/li>
+&lt;/ul>
+&lt;p>且程序所占用的各类资源，均不会随着运行时间的增长而增长，换句话说，只要你把“炸弹”启动并正常运行了一分钟，就基本确认安全了，之后即使运行几天也不会有更多的资源占用，除了有点费电之外。&lt;/p>
+&lt;h2 id="获取炸弹">获取“炸弹”&lt;/h2>
+&lt;p>炸弹程序的代码我已经放到了 &lt;a href="https://links.jianshu.com/go?to=https%3A%2F%2Fblog.wolfogre.com%2Fredirect%2Fv3%2FA_4-v86v-9Btg9a9FuRKCcgSAwM8Cv46xcU7LxImWv3FQQYW3DshxTsGzDw8cyzMPIIcSogxEgMDPAr-OsXFWhYGO25BBhbcOyH9xTwGTQrFOwbMPDwFzDyCHEqIxQ">GitHub&lt;/a> 上，你只需要在终端里运行 &lt;code>go get&lt;/code> 便可获取，注意加上 &lt;code>-d&lt;/code> 参数，避免下载后自动安装：&lt;/p>
+&lt;pre>&lt;code>go get -d github.com/wolfogre/go-pprof-practice
+cd $GOPATH/src/github.com/wolfogre/go-pprof-practice
+&lt;/code>&lt;/pre>
+&lt;p>我们可以简单看一下 &lt;code>main.go&lt;/code> 文件，里面有几个帮助排除性能调问题的关键的的点，我加上了些注释方便你理解，如下：&lt;/p>
+&lt;pre>&lt;code>package main
+import (
+_ &amp;quot;net/http/pprof&amp;quot;
+)
+func main() {
+runtime.GOMAXPROCS(1)
+runtime.SetMutexProfileFraction(1)
+runtime.SetBlockProfileRate(1)
+go func() {
+if err := http.ListenAndServe(&amp;quot;:6060&amp;quot;, nil); err != nil {
+log.Fatal(err)
+}
+os.Exit(0)
+}()
+}
+&lt;/code>&lt;/pre>
+&lt;p>除此之外的其他代码你一律不用看，那些都是我为了模拟一个“逻辑复杂”的程序而编造的，其中大多数的问题很容易通过肉眼发现，但我们需要做的是通过 pprof 来定位代码的问题，所以为了保证实验的趣味性请不要提前阅读代码，可以实验完成后再看。&lt;/p>
+&lt;p>接着我们需要编译一下这个程序并运行，你不用担心依赖问题，这个程序没有任何外部依赖。&lt;/p>
+&lt;pre>&lt;code>go build
+./go-pprof-practice
+&lt;/code>&lt;/pre>
+&lt;p>运行后注意查看一下资源是否吃紧，机器是否还能扛得住，坚持一分钟，如果确认没问题，咱们再进行下一步。&lt;/p>
+&lt;p>控制台里应该会不停的打印日志，都是一些“猫狗虎鼠在不停地吃喝拉撒”的屁话，没有意义，不用细看。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342670773-707536b2-d1e0-4dcb-a837-97c73ce2ec20.png" alt="image.png">&lt;/p>
+&lt;h2 id="使用-pprof-1">使用 pprof&lt;/h2>
+&lt;p>保持程序运行，打开浏览器访问 &lt;code>http://localhost:6060/debug/pprof/&lt;/code>，可以看到如下页面：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342670421-8ffb9b61-ff9a-4b0b-bf6e-57df41394c08.png" alt="image.png">&lt;/p>
+&lt;p>image&lt;/p>
+&lt;p>页面上展示了可用的程序运行采样数据，分别有：
+页面上展示了可用的程序运行采样数据，分别有：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>类型&lt;/th>
+&lt;th>描述&lt;/th>
+&lt;th>备注&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>allocs&lt;/td>
+&lt;td>内存分配情况的采样信息&lt;/td>
+&lt;td>可以用浏览器打开，但可读性不高&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>blocks&lt;/td>
+&lt;td>阻塞操作情况的采样信息&lt;/td>
+&lt;td>可以用浏览器打开，但可读性不高&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>cmdline&lt;/td>
+&lt;td>显示程序启动命令及参数&lt;/td>
+&lt;td>可以用浏览器打开，这里会显示 ./go-pprof-practice&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>goroutine&lt;/td>
+&lt;td>当前所有协程的堆栈信息&lt;/td>
+&lt;td>可以用浏览器打开，但可读性不高&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>heap&lt;/td>
+&lt;td>堆上内存使用情况的采样信息&lt;/td>
+&lt;td>可以用浏览器打开，但可读性不高&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>mutex&lt;/td>
+&lt;td>锁争用情况的采样信息&lt;/td>
+&lt;td>可以用浏览器打开，但可读性不高&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>profile&lt;/td>
+&lt;td>CPU 占用情况的采样信息&lt;/td>
+&lt;td>浏览器打开会下载文件&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>threadcreate&lt;/td>
+&lt;td>系统线程创建情况的采样信息&lt;/td>
+&lt;td>可以用浏览器打开，但可读性不高&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>trace&lt;/td>
+&lt;td>程序运行跟踪信息&lt;/td>
+&lt;td>浏览器打开会下载文件，本文不涉及，可另行参阅《深入浅出 Go trace》&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>因为 cmdline 没有什么实验价值，trace 与本文主题关系不大，threadcreate 涉及的情况偏复杂，所以这三个类型的采样信息这里暂且不提。除此之外，其他所有类型的采样信息本文都会涉及到，且炸弹程序已经为每一种类型的采样信息埋藏了一个对应的性能问题，等待你的发现。&lt;/p>
+&lt;p>由于直接阅读采样信息缺乏直观性，我们需要借助 &lt;code>go tool pprof&lt;/code> 命令来排查问题，这个命令是 go 原生自带的，所以不用额外安装。&lt;/p>
+&lt;p>我们先不用完整地学习如何使用这个命令，毕竟那太枯燥了，我们一边实战一边学习。&lt;/p>
+&lt;p>以下正式开始。&lt;/p>
+&lt;h2 id="排查-cpu-占用过高">排查 CPU 占用过高&lt;/h2>
+&lt;p>我们首先通过活动监视器（或任务管理器、top 命令，取决于你的操作系统和你的喜好），查看一下炸弹程序的 CPU 占用：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342670264-907c836e-e6a7-4962-8809-1be829ae7078.png" alt="image.png">
+可以看到 CPU 占用相当高，这显然是有问题的，我们使用 &lt;code>go tool pprof&lt;/code> 来排场一下：&lt;/p>
+&lt;pre>&lt;code>go tool pprof http://localhost:6060/debug/pprof/profile
+&lt;/code>&lt;/pre>
+&lt;p>等待一会儿后，进入一个交互式终端：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342670211-12943d99-488c-41f9-bcc0-ebb23e9125b9.png" alt="image.png">&lt;/p>
+&lt;p>输入 top 命令，查看 CPU 占用较高的调用：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342670434-f5e5887e-67e4-40cc-8235-30f14e1a2e31.png" alt="image.png">&lt;/p>
+&lt;p>很明显，CPU 占用过高是 &lt;code>github.com/wolfogre/go-pprof-practice/animal/felidae/tiger.(*Tiger).Eat&lt;/code> 造成的。&lt;/p>
+&lt;blockquote>
+&lt;p>注：为了保证实验节奏，关于图中 &lt;code>flat&lt;/code>、&lt;code>flat%&lt;/code>、&lt;code>sum%&lt;/code>、&lt;code>cum&lt;/code>、&lt;code>cum%&lt;/code> 等参数的含义这里就不展开讲了，你可以先简单理解为数字越大占用情况越严重，之后可以在&lt;a href="https://links.jianshu.com/go?to=https%3A%2F%2Fblog.wolfogre.com%2Fredirect%2Fv3%2FA3jsjsv0r3pCsn4x_qmqFKwSAwM8Cv46xcU7LxImWv3F_wdFRERZQ0pZxVoWBjvFWhYGWsWtTRvFOwaJVMX_BDIwMTjM_wIwOcz_AjE1zP5HBolU_1AlMjAlRTUlQTQlQTclRTYlOUQlODAlRTUlOTklQTglRTQlQjklOEIlRTYlODAlQTclRTglODMlQkQlRTUlODklOTYlRTYlOUUlOTAlMjBQUHMsbi0YMRIDAzwK_jrFxVoWBjtuQQYW3Dsh_cU8Bk0KxTsGzDw8Bcw8ghxKiMU">《Golang 大杀器之性能剖析 PProf》&lt;/a>等其他资料中深入学习。&lt;/p>
+&lt;/blockquote>
+&lt;p>输入 &lt;code>list Eat&lt;/code>，查看问题具体在代码的哪一个位置：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342672266-67b39808-d532-47f5-9f51-6a3597bc0620.png" alt="image.png">&lt;/p>
+&lt;p>可以看到，是第 24 行那个一百亿次空循环占用了大量 CPU 时间，至此，问题定位成功！&lt;/p>
+&lt;p>接下来有一个扩展操作：图形化显示调用栈信息，这很酷，但是需要你事先在机器上安装 &lt;code>graphviz&lt;/code>，大多数系统上可以轻松安装它：&lt;/p>
+&lt;pre>&lt;code>brew install graphviz # for macos
+apt install graphviz # for ubuntu
+yum install graphviz # for centos
+&lt;/code>&lt;/pre>
+&lt;p>或者你也可以访问 &lt;a href="https://links.jianshu.com/go?to=https%3A%2F%2Fblog.wolfogre.com%2Fredirect%2Fv3%2FA421Yoc_xEV4GG_UO8tV1nMSAwM8Cv46xcU7gjwSbQjbbjsviVpukMUYBkEJFgboxTESAwM8Cv46xcVaFgY7bkEGFtw7If3FPAZNCsU7Bsw8PAXMPIIcSojF">graphviz 官网&lt;/a>寻找适合自己操作系统的安装方法。&lt;/p>
+&lt;p>安装完成后，我们继续在上文的交互式终端里输入 &lt;code>web&lt;/code>，注意，虽然这个命令的名字叫“web”，但它的实际行为是产生一个 .svg 文件，并调用你的系统里设置的默认打开 .svg 的程序打开它。如果你的系统里打开 .svg 的默认程序并不是浏览器（比如可能是你的代码编辑器），这时候你需要设置一下默认使用浏览器打开 .svg 文件，相信这难不倒你。&lt;/p>
+&lt;p>你应该可以看到：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342672880-6d25d002-b6d6-4517-9462-7ba47d2fe941.png" alt="image.png">&lt;/p>
+&lt;p>图中，&lt;code>tiger.(*Tiger).Eat&lt;/code> 函数的框特别大，箭头特别粗，pprof 生怕你不知道这个函数的 CPU 占用很高，这张图还包含了很多有趣且有价值的信息，你可以多看一会儿再继续。&lt;/p>
+&lt;p>至此，这一小节使用 pprof 定位 CPU 占用的实验就结束了，你需要输入 &lt;code>exit&lt;/code> 退出 pprof 的交互式终端。&lt;/p>
+&lt;p>为了方便进行后面的实验，我们修复一下这个问题，不用太麻烦，注释掉相关代码即可：&lt;/p>
+&lt;pre>&lt;code>func (t *Tiger) Eat() {
+log.Println(t.Name(), &amp;quot;eat&amp;quot;)
+}
+&lt;/code>&lt;/pre>
+&lt;p>之后修复问题的的方法都是注释掉相关的代码，不再赘述。你可能觉得这很粗暴，但要知道，这个实验的重点是如何使用 pprof 定位问题，我们不需要花太多时间在改代码上。&lt;/p>
+&lt;h2 id="排查内存占用过高">排查内存占用过高&lt;/h2>
+&lt;p>重新编译炸弹程序，再次运行，可以看到 CPU 占用率已经下来了，但是内存的占用率仍然很高：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342673383-82d8e798-d1b6-42fc-ab58-7f70d1c2d0d4.png" alt="image.png">&lt;/p>
+&lt;p>image&lt;/p>
+&lt;p>我们再次运行使用 pprof 命令，注意这次使用的 URL 的结尾是 heap：&lt;/p>
+&lt;pre>&lt;code>go tool pprof http://localhost:6060/debug/pprof/heap
+&lt;/code>&lt;/pre>
+&lt;p>再一次使用 &lt;code>top&lt;/code>、&lt;code>list&lt;/code> 来定问问题代码：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342675687-d36c06ac-c6b8-4739-9fd0-ae5272b71cb6.png" alt="image.png">&lt;/p>
+&lt;p>可以看到这次出问题的地方在 &lt;code>github.com/wolfogre/go-pprof-practice/animal/muridae/mouse.(*Mouse).Steal&lt;/code>，函数内容如下：&lt;/p>
+&lt;pre>&lt;code>func (m *Mouse) Steal() {
+log.Println(m.Name(), &amp;quot;steal&amp;quot;)
+max := constant.Gi
+for len(m.buffer) * constant.Mi &amp;lt; max {
+m.buffer = append(m.buffer, [constant.Mi]byte{})
+}
+}
+&lt;/code>&lt;/pre>
+&lt;p>可以看到，这里有个循环会一直向 m.buffer 里追加长度为 1 MiB 的数组，直到总容量到达 1 GiB 为止，且一直不释放这些内存，这就难怪会有这么高的内存占用了。&lt;/p>
+&lt;p>使用 &lt;code>web&lt;/code> 来查看图形化展示，可以再次确认问题确实出在这里：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342675266-a848fa57-5cb9-4188-bedd-0c84ed45c6db.png" alt="image.png">&lt;/p>
+&lt;p>现在我们同样是注释掉相关代码来解决这个问题。&lt;/p>
+&lt;p>再次编译运行，查看内存占用：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342675895-2104ed19-316d-4df4-816d-a3fecb1e99d1.png" alt="image.png">&lt;/p>
+&lt;p>可以看到内存占用已经将到了 35 MB，似乎内存的使用已经恢复正常，一片祥和。&lt;/p>
+&lt;p>但是，内存相关的性能问题真的已经全部解决了吗？&lt;/p>
+&lt;h2 id="排查频繁内存回收">排查频繁内存回收&lt;/h2>
+&lt;p>你应该知道，频繁的 GC 对 golang 程序性能的影响也是非常严重的。虽然现在这个炸弹程序内存使用量并不高，但这会不会是频繁 GC 之后的假象呢？&lt;/p>
+&lt;p>为了获取程序运行过程中 GC 日志，我们需要先退出炸弹程序，再在重新启动前赋予一个环境变量，同时为了避免其他日志的干扰，使用 grep 筛选出 GC 日志查看：&lt;/p>
+&lt;pre>&lt;code>GODEBUG=gctrace=1 ./go-pprof-practice | grep gc
+&lt;/code>&lt;/pre>
+&lt;p>日志输出如下：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342676751-565d6c37-649d-4a45-abbc-22de6a6764d6.png" alt="image.png">&lt;/p>
+&lt;p>可以看到，GC 差不多每 3 秒就发生一次，且每次 GC 都会从 16MB 清理到几乎 0MB，说明程序在不断的申请内存再释放，这是高性能 golang 程序所不允许的。&lt;/p>
+&lt;p>如果你希望进一步了解 golang 的 GC 日志可以查看&lt;a href="https://links.jianshu.com/go?to=https%3A%2F%2Fblog.wolfogre.com%2Fredirect%2Fv3%2FA9DNc05mRFLA-ZPsjfPhLuZDu-oKbuLF_wQyMDE2xf8CMDfF_wIwMcUtHy8qzDsGiVTMOxzFMRIDAzwK_jrFxVoWBjtuQQYW3Dsh_cU8Bk0KxTsGzDw8Bcw8ghxKiMU">《如何监控 golang 程序的垃圾回收》&lt;/a>,为保证实验节奏，这里不做展开。&lt;/p>
+&lt;p>所以接下来使用 pprof 排查时，我们在乎的不是什么地方在占用大量内存，而是什么地方在不停地申请内存，这两者是有区别的。&lt;/p>
+&lt;p>由于内存的申请与释放频度是需要一段时间来统计的，所有我们保证炸弹程序已经运行了几分钟之后，再运行命令：&lt;/p>
+&lt;pre>&lt;code>go tool pprof http://localhost:6060/debug/pprof/allocs
+&lt;/code>&lt;/pre>
+&lt;p>同样使用 top、list、web 大法：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342678255-9fbe8591-fd0c-426d-b10b-384a944a79fa.png" alt="image.png">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342677694-f7eb46e4-bbf3-4f83-a2eb-6fb0574cba27.png" alt="image.png">&lt;/p>
+&lt;p>可以看到 &lt;code>github.com/wolfogre/go-pprof-practice/animal/canidae/dog.(*Dog).Run&lt;/code> 会进行无意义的内存申请，而这个函数又会被频繁调用，这才导致程序不停地进行 GC:&lt;/p>
+&lt;pre>&lt;code>func (d *Dog) Run() {
+log.Println(d.Name(), &amp;quot;run&amp;quot;)
+_ = make([]byte, 16 * constant.Mi)
+}
+&lt;/code>&lt;/pre>
+&lt;p>这里有个小插曲，你可尝试一下将 &lt;code>16 * constant.Mi&lt;/code> 修改成一个较小的值，重新编译运行，会发现并不会引起频繁 GC，原因是在 golang 里，对象是使用堆内存还是栈内存，由编译器进行逃逸分析并决定，如果对象不会逃逸，便可在使用栈内存，但总有意外，就是对象的尺寸过大时，便不得不使用堆内存。所以这里设置申请 16 MiB 的内存就是为了避免编译器直接在栈上分配，如果那样得话就不会涉及到 GC 了。&lt;/p>
+&lt;p>我们同样注释掉问题代码，重新编译执行，可以看到这一次，程序的 GC 频度要低很多，以至于短时间内都看不到 GC 日志了：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342677869-a929d664-3bb1-4a81-b44b-9e085c70a69f.png" alt="image.png">&lt;/p>
+&lt;h2 id="排查协程泄露">排查协程泄露&lt;/h2>
+&lt;p>由于 golang 自带内存回收，所以一般不会发生内存泄露。但凡事都有例外，在 golang 中，协程本身是可能泄露的，或者叫协程失控，进而导致内存泄露。&lt;/p>
+&lt;p>我们在浏览器里可以看到，此时程序的协程数已经多达 106 条：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342920133-d94f6be1-3553-4e5b-9969-d90ee3e8eaee.png" alt="image.png">
+虽然 106 条并不算多，但对于这样一个小程序来说，似乎还是不正常的。为求安心，我们再次是用 pprof 来排查一下：&lt;/p>
+&lt;pre>&lt;code>go tool pprof http://localhost:6060/debug/pprof/goroutine
+&lt;/code>&lt;/pre>
+&lt;p>同样是 top、list、web 大法：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342931465-9bce9a37-20cb-4a3f-832a-ea349f816a14.png" alt="image.png">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652342954617-7ec317ec-6c0b-444e-9107-591e4b80fa1f.png" alt="image.png">
+可能这次问题藏得比较隐晦，但仔细观察还是不难发现，问题在于 &lt;code>github.com/wolfogre/go-pprof-practice/animal/canidae/wolf.(*Wolf).Drink&lt;/code> 在不停地创建没有实际作用的协程：&lt;/p>
+&lt;pre>&lt;code>func (w *Wolf) Drink() {
+log.Println(w.Name(), &amp;quot;drink&amp;quot;)
+for i := 0; i &amp;lt; 10; i++ {
+go func() {
+time.Sleep(30 * time.Second)
+}()
+}
+}
+&lt;/code>&lt;/pre>
+&lt;p>可以看到，Drink 函数每次回释放 10 个协程出去，每个协程会睡眠 30 秒再退出，而 Drink 函数又会被反复调用，这才导致大量协程泄露，试想一下，如果释放出的协程会永久阻塞，那么泄露的协程数便会持续增加，内存的占用也会持续增加，那迟早是会被操作系统杀死的。&lt;/p>
+&lt;p>我们注释掉问题代码，重新编译运行可以看到，协程数已经降到 4 条了：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652343010037-df499f46-85e0-4835-887e-e6c36439ac23.png" alt="image.png">&lt;/p>
+&lt;h2 id="排查锁的争用">排查锁的争用&lt;/h2>
+&lt;p>到目前为止，我们已经解决这个炸弹程序的所有资源占用问题，但是事情还没有完，我们需要进一步排查那些会导致程序运行慢的性能问题，这些问题可能并不会导致资源占用，但会让程序效率低下，这同样是高性能程序所忌讳的。&lt;/p>
+&lt;p>我们首先想到的就是程序中是否有不合理的锁的争用，我们倒一倒，回头看看上一张图，虽然协程数已经降到 4 条，但还显示有一个 mutex 存在争用问题。&lt;/p>
+&lt;p>相信到这里，你已经触类旁通了，无需多言，开整。&lt;/p>
+&lt;pre>&lt;code>go tool pprof http://localhost:6060/debug/pprof/mutex
+&lt;/code>&lt;/pre>
+&lt;p>同样是 top、list、web 大法：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652343071279-b6754799-45a6-4769-9f73-7d474636fe36.png" alt="image.png">
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652343075415-a3376489-a540-447c-b144-7fef8fe838b5.png" alt="image.png">
+可以看出来这问题出在 &lt;code>github.com/wolfogre/go-pprof-practice/animal/canidae/wolf.(*Wolf).Howl&lt;/code>。但要知道，在代码中使用锁是无可非议的，并不是所有的锁都会被标记有问题，我们看看这个有问题的锁那儿触雷了。&lt;/p>
+&lt;pre>&lt;code>func (w *Wolf) Howl() {
+log.Println(w.Name(), &amp;quot;howl&amp;quot;)
+m := &amp;amp;sync.Mutex{}
+m.Lock()
+go func() {
+time.Sleep(time.Second)
+m.Unlock()
+}()
+m.Lock()
+}
+&lt;/code>&lt;/pre>
+&lt;p>可以看到，这个锁由主协程 Lock，并启动子协程去 Unlock，主协程会阻塞在第二次 Lock 这儿等待子协程完成任务，但由于子协程足足睡眠了一秒，导致主协程等待这个锁释放足足等了一秒钟。虽然这可能是实际的业务需要，逻辑上说得通，并不一定真的是性能瓶颈，但既然它出现在我写的“炸弹”里，就肯定不是什么“业务需要”啦。&lt;/p>
+&lt;p>所以，我们注释掉这段问题代码，重新编译执行，继续。&lt;/p>
+&lt;h2 id="排查阻塞操作">排查阻塞操作&lt;/h2>
+&lt;p>好了，我们开始排查最后一个问题。&lt;/p>
+&lt;p>在程序中，除了锁的争用会导致阻塞之外，很多逻辑都会导致阻塞。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652343092686-180c61a0-e682-4666-84ba-528f17fd346d.png" alt="image.png">
+可以看到，这里仍有 2 个阻塞操作，虽然不一定是有问题的，但我们保证程序性能，我们还是要老老实实排查确认一下才对。&lt;/p>
+&lt;pre>&lt;code>go tool pprof http://localhost:6060/debug/pprof/block
+&lt;/code>&lt;/pre>
+&lt;p>top、list、web，你懂得。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652343109220-a11fcfbf-b808-4da2-b253-3d4339319bd9.png" alt="image.png">
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gz5a6m/1652343120730-030aaaa4-47fa-41be-873b-ee97e32c730f.png" alt="image.png">
+可以看到，阻塞操作位于 &lt;code>github.com/wolfogre/go-pprof-practice/animal/felidae/cat.(*Cat).Pee&lt;/code>：&lt;/p>
+&lt;pre>&lt;code>func (c *Cat) Pee() {
+log.Println(c.Name(), &amp;quot;pee&amp;quot;)
+&amp;lt;-time.After(time.Second)
+}
+&lt;/code>&lt;/pre>
+&lt;p>你应该可以看懂，不同于睡眠一秒，这里是从一个 channel 里读数据时，发生了阻塞，直到这个 channel 在一秒后才有数据读出，这就导致程序阻塞了一秒而非睡眠了一秒。&lt;/p>
+&lt;p>这里有个疑点，就是上文中是可以看到有两个阻塞操作的，但这里只排查出了一个，我没有找到其准确原因，但怀疑另一个阻塞操作是程序监听端口提供 porof 查询时，涉及到 IO 操作发生了阻塞，即阻塞在对 HTTP 端口的监听上，但我没有进一步考证。&lt;/p>
+&lt;p>不管怎样，恭喜你完整地完成了这个实验。&lt;/p>
+&lt;h2 id="思考题">思考题&lt;/h2>
+&lt;p>另有一些问题，虽然比较重要，但碍于篇幅（其实是我偷懒），就以思考题的形式留给大家了。&lt;/p>
+&lt;ol>
+&lt;li>每次进入交互式终端，都会提示“type ‘help’ for commands, ‘o’ for options”，你有尝试过查看有哪些命令和哪些选项吗？有重点了解一下“sample_index”这个选项吗？&lt;/li>
+&lt;li>关于内存的指标，有申请对象数、使用对象数、申请空间大小、使用空间大小，本文用的是什么指标？如何查看不同的指标？（提示：在内存实验中，试试查看、修改“sample_index”选项。）&lt;/li>
+&lt;li>你有听说过火焰图吗？要不要在试验中生成一下火焰图？&lt;/li>
+&lt;li>main 函数中的 &lt;code>runtime.SetMutexProfileFraction&lt;/code> 和 &lt;code>runtime.SetBlockProfileRate&lt;/code> 是如何影响指标采样的？它们的参数的含义是什么？&lt;/li>
+&lt;/ol>
+&lt;h2 id="最后">最后&lt;/h2>
+&lt;p>碍于我的水平有限，实验中还有很多奇怪的细节我只能暂时熟视无睹（比如“排查内存占用过高”一节中，为什么实际申请的是 1.5 GiB 内存），如果这些奇怪的细节你也发现了，并痛斥我假装睁眼瞎，那么我的目的就达到了……&lt;/p>
+&lt;p>——还记得吗，本文的目的是让你熟悉使用 pprof，消除对它的陌生感，并能借用它进一步得了解 golang。而你通过这次试验，发现了程序的很多行为不同于你以往的认知或假设，并抱着好奇心，开始向比深处更深处迈进，那么，我何尝不觉得这是本文的功德呢？&lt;/p>
+&lt;p>与君共勉。&lt;/p>
+&lt;hr>
+&lt;p>写得非常棒，向原作者致敬！&lt;/p>
+&lt;p>作者：狼* 链接：&lt;a href="https://links.jianshu.com/go?to=https%3A%2F%2Fblog.wolfogre.com%2Fposts%2Fgo-ppof-practice">https://blog.wolfogre.com/posts/go-ppof-practice&lt;/a>&lt;/p></description></item><item><title>Docs: 通过pprof监控docker</title><link>https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E5%B7%A5%E5%85%B7/pprofgo%E7%A8%8B%E5%BA%8F%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%99%A8/%E9%80%9A%E8%BF%87pprof%E7%9B%91%E6%8E%A7docker/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go-%E5%B7%A5%E5%85%B7/pprofgo%E7%A8%8B%E5%BA%8F%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%99%A8/%E9%80%9A%E8%BF%87pprof%E7%9B%91%E6%8E%A7docker/</guid><description>
+&lt;p>debug 模式启动 docker&lt;/p>
+&lt;pre>&lt;code>$ /usr/bin/docker daemon -D -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock
+&lt;/code>&lt;/pre>
+&lt;h1 id="通过-socat-端口转发">通过 socat 端口转发&lt;/h1>
+&lt;pre>&lt;code>$ socat -d -d TCP-LISTEN:8080,fork,bind=192.168.1.137 UNIX:/var/run/docker.sock
+&lt;/code>&lt;/pre>
+&lt;h2 id="测试">测试&lt;/h2>
+&lt;pre>&lt;code>[root@reg pprof]# curl -s http://10.39.0.102:8080/debug/vars | jq .
+{
+&amp;quot;cmdline&amp;quot;: [
+&amp;quot;/usr/bin/dockerd&amp;quot;,
+&amp;quot;-D&amp;quot;
+],
+&amp;quot;memstats&amp;quot;: {
+&amp;quot;Alloc&amp;quot;: 13847856,
+&amp;quot;TotalAlloc&amp;quot;: 71577968,
+&amp;quot;Sys&amp;quot;: 27052344,
+&amp;quot;Lookups&amp;quot;: 7829,
+&amp;quot;Mallocs&amp;quot;: 891300,
+&amp;quot;Frees&amp;quot;: 772846,
+&amp;quot;HeapAlloc&amp;quot;: 13847856,
+&amp;quot;HeapSys&amp;quot;: 18743296,
+&amp;quot;HeapIdle&amp;quot;: 1941504,
+&amp;quot;HeapInuse&amp;quot;: 16801792,
+&amp;quot;HeapReleased&amp;quot;: 1810432,
+&amp;quot;HeapObjects&amp;quot;: 118454,
+&amp;quot;StackInuse&amp;quot;: 1179648,
+&amp;quot;StackSys&amp;quot;: 1179648,
+&amp;quot;MSpanInuse&amp;quot;: 225280,
+&amp;quot;MSpanSys&amp;quot;: 262144,
+&amp;quot;MCacheInuse&amp;quot;: 4800,
+&amp;quot;MCacheSys&amp;quot;: 16384,
+&amp;quot;BuckHashSys&amp;quot;: 1460436,
+&amp;quot;GCSys&amp;quot;: 1374208,
+&amp;quot;OtherSys&amp;quot;: 4016228,
+&amp;quot;NextGC&amp;quot;: 25872553,
+&amp;quot;LastGC&amp;quot;: 1512984476111075800,
+&amp;quot;PauseTotalNs&amp;quot;: 29246607,
+&amp;quot;PauseNs&amp;quot;: [
+317474,
+1159328,
+271770,
+...
+&lt;/code>&lt;/pre>
+&lt;h2 id="获取命令行">获取命令行&lt;/h2>
+&lt;pre>&lt;code>$ curl -s http://10.39.0.102:8080/debug/pprof/cmdline
+/usr/bin/dockerd-D
+&lt;/code>&lt;/pre>
+&lt;h2 id="通过客户端获取">通过客户端获取&lt;/h2>
+&lt;pre>&lt;code>$ go tool pprof http://10.39.0.102:8080/debug/pprof/profile
+Fetching profile from http://10.39.0.102:8080/debug/pprof/profile
+Please wait... (30s)
+Saved profile in /root/pprof/pprof.dockerd.10.39.0.102:8080.samples.cpu.001.pb.gz
+Entering interactive mode
+&lt;/code>&lt;/pre>
+&lt;h2 id="生成文件转成-pdf">生成文件转成 pdf&lt;/h2>
+&lt;pre>&lt;code>$ go tool pprof --pdf pprof.dockerd.10.39.0.102\:8080.samples.cpu.001.pb &amp;gt;call.pdf
+&lt;/code>&lt;/pre>
+&lt;h2 id="get-symbol">get symbol&lt;/h2>
+&lt;pre>&lt;code>$ curl -s http://10.39.0.102:8080/debug/pprof/symbol
+num_symbols: 1
+1
+2
+&lt;/code>&lt;/pre>
+&lt;h2 id="如果你感兴趣其它的信息都可以获取到">如果你感兴趣，其它的信息都可以获取到&lt;/h2>
+&lt;pre>&lt;code>$ culr -s http://10.39.0.102:8080/debug/pprof/block
+$ curl -s http://10.39.0.102:8080/debug/pprof/heap
+$ curl -s http://10.39.0.102:8080/debug/pprof/goroutine
+$ curl -s http://10.39.0.102:8080/debug/pprof/threadcreate
+&lt;/code>&lt;/pre></description></item></channel></rss>

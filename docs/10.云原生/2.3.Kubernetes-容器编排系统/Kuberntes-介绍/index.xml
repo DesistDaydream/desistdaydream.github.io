@@ -1,0 +1,749 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Kuberntes 介绍</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/</link><description>Recent content in Kuberntes 介绍 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Kubernetes Runtime</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/Kubernetes-Runtime/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/Kubernetes-Runtime/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>原文链接：&lt;a href="https://aleiwu.com/post/cncf-runtime-landscape/">白话 Kubernetes Runtime&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>回想最开始接触 k8s 的时候, 经常搞不懂 CRI 和 OCI 的联系和区别, 也不知道为啥要垫那么多的 “shim”(尤其是 containerd-shim 和 dockershim 这两个完全没啥关联的东西还恰好都叫 shim). 所以嘛, 这篇就写一写 k8s 的 runtime 部分, 争取一篇文章把下面这张 Landscape 里的核心项目给白话明白。&lt;/p>
+&lt;p>(以上理由其实都是为了说服自己写写水文也是可以的…)&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bc0a9o/1616120553266-dd129ef4-21d8-42bd-b1ed-ecbbdbca2e78.png" alt="">&lt;/p>
+&lt;h1 id="典型的-runtime-架构">典型的 Runtime 架构&lt;/h1>
+&lt;p>我们从最常见的 runtime 方案 Docker 说起, 现在 Kubelet 和 Docker 的集成还是挺啰嗦的:&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bc0a9o/1616120553275-0587e792-8d38-4736-a4cb-1a1216dd9617.png" alt="">&lt;/p>
+&lt;p>当 Kubelet 想要创建一个容器时, 有这么几步:&lt;/p>
+&lt;ol>
+&lt;li>Kubelet 通过 CRI 接口(gRPC) 调用 dockershim, 请求创建一个容器. CRI 即容器运行时接口(Container Runtime Interface), 这一步中, Kubelet 可以视作一个简单的 CRI Client, 而 dockershim 就是接收请求的 Server. 目前 dockershim 的代码其实是内嵌在 Kubelet 中的, 所以接收调用的凑巧就是 Kubelet 进程;&lt;/li>
+&lt;li>dockershim 收到请求后, 转化成 Docker Daemon 能听懂的请求, 发到 Docker Daemon 上请求创建一个容器;&lt;/li>
+&lt;li>Docker Daemon 早在 1.12 版本中就已经将针对容器的操作移到另一个守护进程: containerd 中了, 因此 Docker Daemon 仍然不能帮我们创建容器, 而是要请求 containerd 创建一个容器;&lt;/li>
+&lt;li>containerd 收到请求后, 并不会自己直接去操作容器, 而是创建一个叫做 containerd-shim 的进程, 让 containerd-shim 去操作容器. 这是因为容器进程需要一个父进程来做诸如收集状态, 维持 stdin 等 fd 打开等工作. 而假如这个父进程就是 containerd, 那每次 containerd 挂掉或升级, 整个宿主机上所有的容器都得退出了. 而引入了 containerd-shim 就规避了这个问题(containerd 和 shim 并不需要是父子进程关系, 当 containerd 退出或重启时, shim 会 re-parent 到 systemd 这样的 1 号进程上);&lt;/li>
+&lt;li>我们知道创建容器需要做一些设置 namespaces 和 cgroups, 挂载 root filesystem 等等操作, 而这些事该怎么做已经有了公开的规范了, 那就是 OCI(Open Container Initiative, 开放容器标准). 它的一个参考实现叫做 runc. 于是, containerd-shim 在这一步需要调用 runc 这个命令行工具, 来启动容器;&lt;/li>
+&lt;li>runc 启动完容器后本身会直接退出, containerd-shim 则会成为容器进程的父进程, 负责收集容器进程的状态, 上报给 containerd, 并在容器中 pid 为 1 的进程退出后接管容器中的子进程进行清理, 确保不会出现僵尸进程;&lt;/li>
+&lt;/ol>
+&lt;p>这个过程乍一看像是在搞我们: Docker Daemon 和 dockershim 看上去就是两个不干活躺在中间划水的啊, Kubelet 为啥不直接调用 containerd 呢?&lt;/p>
+&lt;p>当然是可以的, 不过咱们先不提那个, 先看看为什么现在的架构如此繁冗.&lt;/p>
+&lt;h1 id="小插曲-容器历史小叙不负责任版">小插曲: 容器历史小叙(不负责任版)&lt;/h1>
+&lt;p>其实 k8s 最开始的 Runtime 架构远没这么复杂: kubelet 想要创建容器直接跟 Docker Daemon 说一声就行, 而那时也不存在 containerd, Docker Daemon 自己调一下 libcontainer 这个库把容器跑起来, 整个过程就搞完了.&lt;/p>
+&lt;p>而熟悉容器和容器编排历史的读者老爷应该知道, 这之后就是容器圈的一系列政治斗争, 先是大佬们认为运行时标准不能被 Docker 一家公司控制, 于是就撺掇着搞了开放容器标准 OCI. Docker 则把 libcontainer 封装了一下, 变成 runC 捐献出来作为 OCI 的参考实现.&lt;/p>
+&lt;p>再接下来就是 rkt 想从 docker 那边分一杯羹, 希望 k8s 原生支持 rkt 作为运行时, 而且 PR 还真的合进去了. 维护过一块业务同时接两个需求方的读者老爷应该都知道类似的事情有多坑, k8s 中负责维护 kubelet 的小组 sig-node 也是被狠狠坑了一把.&lt;/p>
+&lt;p>大家一看这么搞可不行, 今天能有 rkt, 明天就能有更多幺蛾子出来, 这么搞下去我们小组也不用干活了, 整天搞兼容性的 bug 就够呛. 于是乎, k8s 1.5 推出了 CRI 机制, 即容器运行时接口(Container Runtime Interface), k8s 告诉大家, 你们想做 Runtime 可以啊, 我们也资瓷欢迎, 实现这个接口就成, 成功反客为主.&lt;/p>
+&lt;p>不过 CRI 本身只是 k8s 推的一个标准, 当时的 k8s 尚未达到如今这般武林盟主的地位, 容器运行时当然不能说我跟 k8s 绑死了只提供 CRI 接口, 于是就有了 shim(垫片) 这个说法, 一个 shim 的职责就是作为 Adapter 将各种容器运行时本身的接口适配到 k8s 的 CRI 接口上.&lt;/p>
+&lt;p>接下来就是 Docker 要搞 Swarm 进军 PaaS 市场, 于是做了个架构切分, 把容器操作都移动到一个单独的 Daemon 进程 containerd 中去, 让 Docker Daemon 专门负责上层的封装编排. 可惜 Swarm 在 k8s 面前实在是不够打, 惨败之后 Docker 公司就把 containerd 项目捐给 CNCF 缩回去安心搞 Docker 企业版了.&lt;/p>
+&lt;p>最后就是我们在上一张图里看到的这一坨东西了, 尽管现在已经有 CRI-O, containerd-plugin 这样更精简轻量的 Runtime 架构, dockershim 这一套作为经受了最多生产环境考验的方案, 迄今为止仍是 k8s 默认的 runtime 实现.&lt;/p>
+&lt;p>了解这些具体的架构有时能在 debug 时候帮我们一些忙, 但更重要的是它们能作为一个例子, 帮助我们更好地理解整个 k8s runtime 背后的设计逻辑, 我们这就言归正传.&lt;/p>
+&lt;h1 id="oci-cri-与被滥用的名词-runtime">OCI, CRI 与被滥用的名词 “Runtime”&lt;/h1>
+&lt;p>OCI 是对 Docker 来说的 runtime。i.e.docker 使用什么 oci-runtime 来启动容器&lt;/p>
+&lt;p>CRI 是对 kubernetes 来说的。i.e.kubernetes 使用什么 cri-runtime 来与后面操作容器的程序对接&lt;/p>
+&lt;p>OCI, 也就是前文提到的”开放容器标准”其实就是一坨文档, 其中主要规定了两点:&lt;/p>
+&lt;ol>
+&lt;li>容器镜像要长啥样, 即 ImageSpec. 里面的大致规定就是你这个东西需要是一个压缩了的文件夹, 文件夹里以 xxx 结构放 xxx 文件;&lt;/li>
+&lt;li>容器要需要能接收哪些指令, 这些指令的行为是什么, 即 RuntimeSpec. 这里面的大致内容就是”容器”要能够执行 “create”, “start”, “stop”, “delete” 这些命令, 并且行为要规范.&lt;/li>
+&lt;/ol>
+&lt;p>runC 为啥叫参考实现呢, 就是它能按照标准将符合标准的容器镜像运行起来(当然, 这里为了易读性略去了很多细节, 要了解详情建议点前文的链接读文档)&lt;/p>
+&lt;p>标准的好处就是方便搞创新, 反正只要我符合标准, 生态圈里的其它工具都能和我一起愉快地工作(…当然 OCI 这个标准本身制订得不怎么样, 真正工程上还是要做一些 adapter 的), 那我的镜像就可以用任意的工具去构建, 我的”容器”就不一定非要用 namespace 和 cgroups 来做隔离. 这就让各种虚拟化容器可以更好地参与到游戏当中, 我们暂且不表.&lt;/p>
+&lt;p>CRI 更简单, 单纯是一组 gRPC 接口, 扫一眼 kubelet/apis/cri/services.go 就能归纳出几套核心接口:&lt;/p>
+&lt;ul>
+&lt;li>一套针对容器操作的接口, 包括创建,启停容器等等;&lt;/li>
+&lt;li>一套针对镜像操作的接口, 包括拉取镜像删除镜像等;&lt;/li>
+&lt;li>还有一套针对 PodSandbox (容器沙箱环境) 的操作接口, 我们之后再说;&lt;/li>
+&lt;/ul>
+&lt;p>现在我们可以找到很多符合 OCI 标准或兼容了 CRI 接口的项目, 而这些项目就大体构成了整个 Kuberentes 的 Runtime 生态:&lt;/p>
+&lt;ul>
+&lt;li>OCI Compatible: runC, Kata(以及它的前身 runV 和 Clear Containers), gVisor. 其它比较偏门的还有 Rust 写的 railcar&lt;/li>
+&lt;li>CRI Compatible: Docker(借助 dockershim), containerd(借助 CRI-containerd), CRI-O, frakti, etc.&lt;/li>
+&lt;/ul>
+&lt;p>最开始 k8s 的时候我经常弄不清 OCI 和 CRI 的区别与联系, 其中一大原因就是社区里糟糕的命名: 这上面的项目统统可以称为容器运行时(Container Runtime), 彼此之间区分的办法就是给”容器运行时”这个词加上各种定语和从句来进行修饰. Dave Cheney 有条推说:&lt;/p>
+&lt;p>Good naming is like a good joke. If you have to explain it, it’s not funny.&lt;/p>
+&lt;p>显然 Container Runtime 在这里就不是一个好名字了, 我们接下来换成一个在这篇文章的语境中更准确的说法: cri-runtime 和 oci-runtime. 通过这个粗略的分类, 我们其实可以总结出整个 runtime 架构万变不离其宗的三层抽象:&lt;/p>
+&lt;pre>&lt;code>Orchestration API -&amp;gt; Container API -&amp;gt; Kernel API
+&lt;/code>&lt;/pre>
+&lt;p>这其中 k8s 已经是 Orchestration API 的事实标准, 而在 k8s 中, Container API 的接口标准就是 CRI, 由 cri-runtime 实现, Kernel API 的规范是 OCI, 由 oci-runtime 实现.&lt;/p>
+&lt;p>根据这个思路, 我们就很容易理解下面这两种东西:&lt;/p>
+&lt;ul>
+&lt;li>各种更为精简的 cri-runtime (反正就是要干掉 Docker)&lt;/li>
+&lt;li>各种”强隔离”容器方案&lt;/li>
+&lt;/ul>
+&lt;h1 id="containerd-和-cri-o">containerd 和 CRI-O&lt;/h1>
+&lt;p>我们在第一节就看到现在的 runtime 实在是有点复杂了, 而复杂是万恶之源(其实本质上就是想干掉 docker), 于是就有了直接拿 containerd 做 oci-runtime 的方案. 当然, 除了 k8s 之外, containerd 还要接诸如 Swarm 等调度系统, 因此它不会去直接实现 CRI, 这个适配工作当然就要交给一个 shim 了.&lt;/p>
+&lt;p>containerd 1.0 中, 对 CRI 的适配通过一个单独的进程 CRI-containerd 来完成:&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bc0a9o/1616120553282-8c3efc09-ee3a-4e6d-9627-5f380c3363da.png" alt="">&lt;/p>
+&lt;p>containerd 1.1 中做的又更漂亮一点, 砍掉了 CRI-containerd 这个进程, 直接把适配逻辑作为插件放进了 containerd 主进程中:&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bc0a9o/1616120553327-f8a19256-d235-45cb-b6d5-9336561882a7.png" alt="">&lt;/p>
+&lt;p>但在 containerd 做这些事情之情, 社区就已经有了一个更为专注的 cri-runtime: CRI-O, 它非常纯粹, 就是兼容 CRI 和 OCI, 做一个 k8s 专用的运行时:&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bc0a9o/1616120553308-ce56e68f-09ab-4e08-bc35-b8b120afbd87.png" alt="">&lt;/p>
+&lt;p>其中 conmon 就对应 containerd-shim, 大体意图是一样的.&lt;/p>
+&lt;p>CRI-O 和 (直接调用)containerd 的方案比起默认的 dockershim 确实简洁很多, 但没啥生产环境的验证案例, 我所知道的仅仅是 containerd 在 GKE 上是 beta 状态. 因此假如你对 docker 没有特殊的政治恨意, 大可不必把 dockershim 这套换掉.&lt;/p>
+&lt;h1 id="强隔离容器-kata-gvisor-firecracker">强隔离容器: Kata, gVisor, firecracker&lt;/h1>
+&lt;p>一直以来 k8s 都有一个被诟病的点: 难以实现真正的多租户.&lt;/p>
+&lt;p>为什么这么说呢, 我们先考虑一下什么样是理想的多租户状态:&lt;/p>
+&lt;p>理想来说, 平台的各个租户(tenant)之间应该无法感受到彼此的存在, 表现得就像每个租户独占这整个平台一样. 具体来说, 我不能看到其它租户的资源, 我的资源跑满了不能影响其它租户的资源使用, 我也无法从网络或内核上攻击其它租户.&lt;/p>
+&lt;p>k8s 当然做不到, 其中最大的两个原因是:&lt;/p>
+&lt;ul>
+&lt;li>kube-apiserver 是整个集群中的单例, 并且没有多租户概念&lt;/li>
+&lt;li>默认的 oci-runtime 是 runC, 而 runC 启动的容器是共享内核的&lt;/li>
+&lt;/ul>
+&lt;p>对于第二个问题, 一个典型的解决方案就是提供一个新的 OCI 实现, 用 VM 来跑容器, 实现内核上的硬隔离. runV 和 Clear Containers 都是这个思路. 因为这两个项目做得事情是很类似, 后来就合并成了一个项目 Kata Container. Kata 的一张图很好地解释了基于虚拟机的容器与基于 namespaces 和 cgroups 的容器间的区别:&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bc0a9o/1616120553328-07dc12ea-490c-43d3-b7c7-c1de3257b81e.png" alt="">&lt;/p>
+&lt;p>当然, 没有系统是完全安全的, 假如 hypervisor 存在漏洞, 那么用户仍有可能攻破隔离. 但所有的事情都要对比而言, 在共享内核的情况下, 暴露的攻击面是非常大的, 做安全隔离的难度就像在美利坚和墨西哥之间修 The Great Wall, 而当内核隔离之后, 只要守住 hypervisor 这道关子就后顾无虞了&lt;/p>
+&lt;p>嗯, 一个 VM 里跑一个容器, 听上去隔离性很不错, 但不是说虚拟机又笨重又不好管理才切换到容器的吗, 怎么又要走回去了?&lt;/p>
+&lt;p>Kata 告诉你, 虚拟机没那么邪恶, 只是以前没玩好:&lt;/p>
+&lt;ul>
+&lt;li>不好管理是因为没有遵循”不可变基础设施”, 大家都去虚拟机上这摸摸那碰碰, 这台装 Java 8 那台装 Java 6, Admin 是要 angry 的. Kata 则支持 OCI 镜像, 完全可以用上 Dockerfile + 镜像, 让不好管理成为了过去时;&lt;/li>
+&lt;li>笨重是因为之前要虚拟化整个系统, 现在我们只着眼于虚拟化应用, 那就可以裁剪掉很多功能, 把 VM 做得很轻量, 因此即便用虚拟机来做容器, Kata 还是可以将容器启动时间压缩得非常短, 启动后在内存上和 IO 上的 overhead 也尽可能去优化;&lt;/li>
+&lt;/ul>
+&lt;p>不过话说回来, k8s 上的调度单位是 Pod, 是容器组啊, Kata 这样一个虚拟机里一个容器, 同一个 Pod 间的容器还怎么做 namespace 的共享?&lt;/p>
+&lt;p>这就要说回我们前面讲到的 CRI 中针对 PodSandbox (容器沙箱环境) 的操作接口了. 第一节中, 我们刻意简化了场景, 只考虑创建一个容器, 而没有讨论创建一个 Pod. 大家都知道, 真正启动 Pod 里定义的容器之前, kubelet 会先启动一个 infra 容器, 并执行 /pause 让 infra 容器的主进程永远挂起. 这个容器存在的目的就是维持住整个 pod 的各种 namespace, 真正的业务容器只要加入 infra 容器的 network 等 namespace 就能实现对应 namespace 的共享. 而 infra 容器创造的这个共享环境则被抽象为 PodSandbox. 每次 kubelet 在创建 Pod 时, 就会先调用 CRI 的 RunPodSandbox 接口启动一个沙箱环境, 再调用 CreateContainer 在沙箱中创建容器.&lt;/p>
+&lt;p>这里就已经说出答案了, 对于 Kata Container 而言, 只要在 RunPodSandbox 调用中创建一个 VM, 之后再往 VM 中添加容器就可以了. 最后运行 Pod 的样子就是这样的:&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bc0a9o/1616120553300-2de1d661-ee54-42f1-9359-4174b5c34b58.png" alt="">&lt;/p>
+&lt;p>说完了 Kata, 其实 gVisor 和 firecracker 都不言自明了, 大体上都是类似的, 只是:&lt;/p>
+&lt;ul>
+&lt;li>gVisor 并不会去创建一个完整的 VM, 而是实现了一个叫 “Sentry” 的用户态进程来处理容器的 syscall, 而拦截 syscall 并重定向到 Sentry 的过程则由 KVM 或 ptrace 实现.&lt;/li>
+&lt;li>firecracker 称自己为 microVM, 即轻量级虚拟机, 它本身还是基于 KVM 的, 不过 KVM 通常使用 QEMU 来虚拟化除 CPU 和内存外的资源, 比如 IO 设备,网络设备. firecracker 则使用 rust 实现了最精简的设备虚拟化, 为的就是压榨虚拟化的开销, 越轻量越好.&lt;/li>
+&lt;/ul>
+&lt;h1 id="安全容器与-serverless">安全容器与 Serverless&lt;/h1>
+&lt;p>你可能觉得安全容器对自己而言没什么用: 大不了我给每个产品线都部署 k8s, 机器池也都隔离掉, 从基础设施的层面就隔离掉嘛.&lt;/p>
+&lt;p>这么做当然可以, 但同时也要知道, 这种做法最终其实是以 IaaS 的方式在卖资源, 是做不了真正的 PaaS 乃至 Serverless 的.&lt;/p>
+&lt;p>Serverless 要做到所有的用户容器或函数按需使用计算资源, 那必须满足两点:&lt;/p>
+&lt;ul>
+&lt;li>多租户强隔离: 用户的容器或函数都是按需启动按秒计费, 我们可不能给每个用户预先分配一坨隔离的资源,因此我们要保证整个 Platform 是多租户强隔离的;&lt;/li>
+&lt;li>极度轻量: Serverless 的第一个特点是运行时沙箱会更频繁地创建和销毁, 第二个特点是切分的粒度会非常非常细, 细中细就是 FaaS, 一个函数就要一个沙箱. 因此就要求两点: 1. 沙箱启动删除必须飞快; 2. 沙箱占用的资源越少越好. 这两点在 long-running, 粒度不大的容器运行环境下可能不明显, 但在 Serverless 环境下就会急剧被放大. 这时候去做 MicroVM 的 ROI 就比以前要高很多. 想想, 用传统的 KVM 去跑 FaaS, 那还不得亏到姥姥家了?&lt;/li>
+&lt;/ul>
+&lt;h1 id="结尾">结尾&lt;/h1>
+&lt;p>这次的内容是越写越多, 感觉怎么都写不完的样子, rkt, lxd 其实都还没涉及, 这里就提供下类比, 大家可以自行做拓展阅读: rkt 跟 docker 一样是一个容器引擎, 特点是无 daemon, 目前项目基本不活跃了; lxc 是 docker 最早使用的容器工具集, 位置可以类比 runc, 提供跟 kernel 打交道的库&amp;amp;命令行工具, lxd 则是基于 lxc 的一个容器引擎, 只不过大多数容器引擎的目标是容器化应用, lxd 的目标则是容器化操作系统.&lt;/p>
+&lt;p>最后, 这篇文章涉及内容较多, 如有纰漏, 敬请指正!&lt;/p></description></item><item><title>Docs: Kuberntes 介绍</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/Kuberntes-%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/Kuberntes-%E4%BB%8B%E7%BB%8D/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/overview/">官方文档,概念-概述&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://labs.play-with-k8s.com/">play with kubernetes&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Borg 是谷歌内部的容器管理系统，kuberntes 根据 Borg 的思路使用 go 语言重新开发，2015 年 7 月份发布
+特性自动装箱：&lt;/p>
+&lt;ol>
+&lt;li>自我修复：一个 pod 崩了，可以在 1 秒启动，pod 比较轻量，kill 掉崩的容器再启动一个，所以一般情况一个 deployment 会启动多个 pod&lt;/li>
+&lt;li>自动实现水平扩展：一个 pod 不够，再起一个&lt;/li>
+&lt;li>自动服务发现和自动负载均衡：当在 k8s 上运行很多程序的时候，通过服务发现，找到所依赖的服务，且多个相同 pod 可以实现自动负载均衡&lt;/li>
+&lt;li>自动发布与回滚&lt;/li>
+&lt;li>支持密钥和配置管理：云原声应用，基于环境变量进行配置，需要一个外部组件，当镜像启动为容器的时候，可以自动去外部组件加载相关配置，这个配置中心就是 etcd&lt;/li>
+&lt;li>存储编排&lt;/li>
+&lt;li>任务的批量处理执行&lt;/li>
+&lt;/ol>
+&lt;p>google 成立 CNCF，让各大公司共同管理，并把 kubernetes 贡献给 CNCF，所以 Kubernetes 不会闭源。&lt;/p>
+&lt;h1 id="kubernetes-components组件">Kubernetes Components(组件)&lt;/h1>
+&lt;p>Kubernetes 集群由代表控制平面和一组称为 nodes 的机器的组件组成。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/te78l0/1649254728428-ead6f0e0-3d8b-4527-8abf-17bd82533aa8.svg" alt="">&lt;/p>
+&lt;h2 id="control-plane-components控制平面组件">Control Plane Components(控制平面组件)&lt;/h2>
+&lt;h3 id="kube-apiserver">kube-apiserver&lt;/h3>
+&lt;h3 id="etcd">etcd&lt;/h3>
+&lt;h3 id="kube-scheduler">kube-scheduler&lt;/h3>
+&lt;h3 id="kube-controller-manager">kube-controller-manager&lt;/h3>
+&lt;h2 id="node-components节点组件">Node Components(节点组件)&lt;/h2>
+&lt;h3 id="kubelet">kubelet&lt;/h3>
+&lt;h3 id="kube-proxy">kube-proxy&lt;/h3>
+&lt;h3 id="container-runtime">Container runtime&lt;/h3>
+&lt;h2 id="addons附加组件">Addons(附加组件)&lt;/h2>
+&lt;h3 id="dns">DNS&lt;/h3>
+&lt;p>DNS，core&lt;/p>
+&lt;h3 id="webui">WebUI&lt;/h3>
+&lt;p>Dashboard 提供 web 界面的&lt;/p>
+&lt;h3 id="container-resource-monitoring容器资源监控">Container Resource Monitoring(容器资源监控)&lt;/h3>
+&lt;ol>
+&lt;li>heapster：是 Kubernetes 原生的集群监控方案。Heapster 以 Pod 的形式运行，它会自动发现集群节点、从节点上的 Kubelet 获取监控数据。Kubelet 则是从节点上的 cAdvisor 收集数据。
+&lt;ol>
+&lt;li>Heapster 将数据按照 Pod 进行分组，将它们存储到预先配置的 backend 并进行可视化展示。Heapster 当前支持的 backend 有 InfluxDB（通过 Grafana 展示），Google Cloud Monitoring 等。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>ingress&lt;/li>
+&lt;/ol>
+&lt;h3 id="cluster-level-logging集群级日志">Cluster-level Logging(集群级日志)&lt;/h3>
+&lt;h1 id="kuberntes-api-接口">Kuberntes API 接口&lt;/h1>
+&lt;p>官方文档：&lt;a href="https://kubernetes.io/docs/concepts/overview/kubernetes-api/">https://kubernetes.io/docs/concepts/overview/kubernetes-api/&lt;/a>
+Kubernetes API 使您可以查询和操纵 Kubernetes 中对象的状态。 Kubernetes 控制平面的核心是 API 服务器和它公开的 HTTP API。用户，集群的不同部分以及外部组件都通过 API 服务器相互通信。&lt;/p>
+&lt;h1 id="kubernetes-objects对象">Kubernetes Objects(对象)&lt;/h1>
+&lt;p>官方文档：&lt;a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/">https://kubernetes.io/docs/concepts/overview/working-with-objects/&lt;/a>
+Kubernetes 对象是 Kubernetes 系统中的持久实体。 Kubernetes 使用这些实体来表示您的集群状态。了解 Kubernetes 对象模型以及如何使用这些对象。&lt;/p>
+&lt;h2 id="kubernetes-所有用-kubectl-creat-出来的都可以理解为是一种对象">kubernetes 所有用 kubectl creat 出来的都可以理解为是一种对象&lt;/h2>
+&lt;ul>
+&lt;li>workload：Pod，ReplicaSet，Deployment，StatefuSet()，DaemonSet，Job&lt;/li>
+&lt;li>服务发现及均衡：Service，Ingress&lt;/li>
+&lt;li>配置与存储：Volume
+&lt;ul>
+&lt;li>ConifgMap，secret&lt;/li>
+&lt;li>DownwardAPI&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>集群级对象：Namesapces,Node,Role,ClusterRole,RoleBinding,ClusterRoleBinding&lt;/li>
+&lt;li>元数据型对象：PodTemplate，LimitRange&lt;/li>
+&lt;/ul>
+&lt;p>每个对象所引用的路径格式为：/api/GROUP/VERSION/namespaces/NAMESPACES/TYPE/NAME&lt;/p>
+&lt;p>可以使用命令 kubectl api-resources 命令查看所有可以创建为对象的资源&lt;/p>
+&lt;h1 id="基本概念">基本概念&lt;/h1>
+&lt;p>&lt;strong>Cluster：所有运行 kubernetes 的设备的合计&lt;/strong>
+Cluster 是计算、存储和网络资源的集合，Kubernetes 利用这些资源运行各种基于容器的应用。&lt;/p>
+&lt;p>&lt;strong>Master ：控制 kubernetes 的 cluster&lt;/strong>
+Master 是 Cluster 的大脑，它的主要职责是调度，即决定将应用放在哪里运行。Master 运行 Linux 操作系统，可以是物理机或者虚拟机。为了实现高可用，可以运行多个 Master。&lt;/p>
+&lt;p>&lt;strong>Node ：运行 kuberntes 的 node&lt;/strong>
+Node 的职责是运行容器应用。Node 由 Master 管理，Node 负责监控并汇报容器的状态，并根据 Master 的要求管理容器的生命周期。Node 运行在 Linux 操作系统，可以是物理机或者是虚拟机。&lt;/p>
+&lt;p>**Pod：Kubernetes 的最小工作单元 **
+Pod 是 Kubernetes 的最小工作单元。每个 Pod 包含一个或多个容器。Pod 中的容器会作为一个整体被 Master 调度到一个 Node 上运行。
+Kubernetes 引入 Pod 主要基于下面两个目的：&lt;/p>
+&lt;ol>
+&lt;li>可管理性。
+&lt;ol>
+&lt;li>有些容器天生就是需要紧密联系，一起工作。Pod 提供了比容器更高层次的抽象，将它们封装到一个部署单元中。Kubernetes 以 Pod 为最小单位进行调度、扩展、共享资源、管理生命周期。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>通信和资源共享。
+&lt;ol>
+&lt;li>Pod 中的所有容器使用同一个网络 namespace，即相同的 IP 地址和 Port 空间。它们可以直接用 localhost 通信。同样的，这些容器可以共享存储，当 Kubernetes 挂载 volume 到 Pod，本质上是将 volume 挂载到 Pod 中的每一个容器。user,mnt,pnt。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>Pods 有两种使用方式：&lt;/p>
+&lt;ol>
+&lt;li>运行单一容器。
+&lt;ol>
+&lt;li>one-container-per-Pod 是 Kubernetes 最常见的模型，这种情况下，只是将单个容器简单封装成 Pod。即便是只有一个容器，Kubernetes 管理的也是 Pod 而不是直接管理容器。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>运行多个容器。
+&lt;ol>
+&lt;li>这些容器联系必须非常紧密，而且需要直接共享资源的应该放到一个 Pod 中(注意：当使用多容器的时候，其中一个容器要加上 command 的参数，否则其中一个起不来来)
+&lt;ol>
+&lt;li>比如：File Puller 会定期从外部的 Content Manager 中拉取最新的文件，将其存放在共享的 volume 中。Web Server 从 volume 读取文件，响应 Consumer 的请求。这两个容器是紧密协作的，它们一起为 Consumer 提供最新的数据；同时它们也通过 volume 共享数据。所以放到一个 Pod 是合适的。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>Scheduler（kube-scheduler）：调度 POD&lt;/strong>&lt;/p>
+&lt;ol>
+&lt;li>Scheduler 负责决定将 Pod 放在哪个 Node 上运行。Scheduler 在调度时会充分考虑 Cluster 的拓扑结构，当前各个节点的负载，以及应用对高可用、性能、数据亲和性的需求。&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>Controller：执行运行 POD 的任务&lt;/strong>
+控制器，Kubernetes 一般情况人们不会直接创建 Pod，而是通过创建 Controller 来管理 Pod 的。Controller 中定义了 Pod 的部署特性，比如有几个副本，在什么样的 Node 上运行等。为了满足不同的业务场景，Kubernetes 提供了多种 Controller，包括 Deployment、ReplicaSet、DaemonSet、StatefuleSet、Job 等，我们逐一讨论。一般创建 POD，都是直接创建 Deployment 的 kind，然后定义该 Deployment 下有几个 pod 的副本，一般情况至少有俩，保证 pod 的高可用。注意：deployment 下创建的多个 pod 的功能和内容是一模一样的，多个 pod 被分配到多个节点，以便实现负载均衡和高可用，pod 比较轻量，就算挂了一个，还可以自动销毁后再自动启动一个，所以，不要把一个 deployment 下的多个 pod 分开理解，他们是一个整体&lt;/p>
+&lt;p>&lt;strong>label selector：标签选择器，简称 selector&lt;/strong>
+可以给 kubernetes 中所有 node，resource 等等打上标签，然后让某个资源使用 selector 来选择具有相同标签的 Node 或 resource 成为同一组来协调工作或者进行各种限定&lt;/p>
+&lt;p>比如具有相同标签的 Pod 和 Node，该 Pod 会使用 selector 选择在该 Node 上运行，该 Pod 对该 Node 具有倾向性；或者把具有相同标签的 Service 和 Pod 关联起来，使 Service 使用 selector 知道可以选择哪些 Pod 来进行调度&lt;/p>
+&lt;p>&lt;strong>Service：服务发现，执行访问 POD 的任务&lt;/strong>&lt;/p>
+&lt;ol>
+&lt;li>Deployment 可以部署多个副本，每个 Pod 都有自己的 IP，外界如何访问这些副本呢？通过 Pod 的 IP 吗？&lt;/li>
+&lt;li>要知道 Pod 很可能会被频繁地销毁和重启，它们的 IP 会发生变化，用 IP 来访问不太现实。答案是 Service。Service 作为访问 Pod 的接入层来使用&lt;/li>
+&lt;li>Kubernetes Service 定义了外界访问一组特定 Pod 的方式。Service 有自己的 IP 和端口，Service 为 Pod 提供了负载均衡。&lt;/li>
+&lt;li>可以把 service 想象成负载均衡功能的前端，该 Service 下的 pod 是负载均衡功能的后端,通过类似 nat 的方式，访问 service 的 IP:PORT，然后转发数据到后端的 pod，注意：在转发到后端 Pod 之前，Service 会先把请求转发到 Endpoints 后再转发到 Pod&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>kube-proxy：转发 Service 的流量到 POD&lt;/strong>&lt;/p>
+&lt;ol>
+&lt;li>service 在逻辑上代表了后端的多个 Pod，外界通过 service 访问 Pod。service 接收到的请求是如何转发到 Pod 的呢？这就是 kube-proxy 要完成的工作。接管系统的 iptables，所有到达 Service 的请求，都会根据 proxy 所定义的 iptables 的规则，进行 nat 转发&lt;/li>
+&lt;li>每个 Node 都会运行 kube-proxy 服务，它负责将访问 service 的 TCP/UPD 数据流转发到后端的容器。如果有多个副本，kube-proxy 会实现负载均衡。&lt;/li>
+&lt;li>每个 Service 的变动(创建，改动，摧毁)都会通知 proxy，在 proxy 所在的本节点创建响应的 iptables 规则，如果 Service 后端的 Pod 摧毁后重新建立了，那么就是靠 proxy 来把 pod 信息提供给 Service。&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>Kubernetes 的网络&lt;/strong>
+kubernetes 的整体网络分为以下三类&lt;/p>
+&lt;ol>
+&lt;li>Node IP，各节点网络&lt;/li>
+&lt;li>Cluster IP，Service 网络，虚拟的，是主机上 iptables 规则中的地址&lt;/li>
+&lt;li>Pod IP，Pod 网络
+&lt;ol>
+&lt;li>同一个 Pod 内的多个容器间通信，通过各容器的 lo 通信&lt;/li>
+&lt;li>各 Pod 之间的通信
+&lt;ol>
+&lt;li>overlay 叠加网络转发二层报文，通过隧道方式转发三层报文&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>Pod 与 Service 之间的通信，&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>通过 CNI(Container Network Interface 容器网络接口)来使用第三方 plugin 实现网络的解决方案&lt;/p>
+&lt;ol>
+&lt;li>flannel，叠加网络，不支持网络策略&lt;/li>
+&lt;li>calico，三层隧道网络，可基于 BGP 协议，即支持网络配置也支持网络策略&lt;/li>
+&lt;li>canel，&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>Namespace：隔离资源&lt;/strong>
+官方文档：&lt;a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/">https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/&lt;/a>
+该 Namespace 与平时所接触的 Namespace 不一样，这是 kubernetes 专用的另一种。如果有多个用户或项目组使用同一个 Kubernetes Cluster，如何将他们创建的 Controller、Pod 等资源分开呢？&lt;/p>
+&lt;p>答案就是 Namespace。&lt;/p>
+&lt;p>Namespace 可以将一个物理的 Cluster 逻辑上划分成多个虚拟 Cluster，每个 Cluster 就是一个 Namespace。不同 Namespace 里的资源是完全隔离的。&lt;/p>
+&lt;p>Kubernetes 默认创建了两个 Namespace。&lt;/p>
+&lt;ol>
+&lt;li>default &amp;ndash; 创建资源时如果不指定，将被放到这个 Namespace 中。&lt;/li>
+&lt;li>kube-system &amp;ndash; Kubernetes 自己创建的系统资源将放到这个 Namespace 中&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>API Server（kube-apiserver）&lt;/strong>
+API Server 提供 HTTP/HTTPS RESTful API，即 Kubernetes API。API Server 是 Kubernetes Cluster 的前端接口，各种客户端工具（CLI 或 UI）以及 Kubernetes 其他组件可以通过它管理 Cluster 的各种资源。kubectl 就是 API Server 的客户端程序，实现 k8s 各种资源的增删改查&lt;/p>
+&lt;p>&lt;strong>ETCD&lt;/strong>
+作为 kubernetes 集群的存储系统使用，保存了集群的所有配置信息，需要高可用，如果需要在生产环境下使用，则需要在单独部署&lt;/p>
+&lt;p>&lt;strong>Volume 卷&lt;/strong>
+Volume 的工作流程：可以把 volume 想象成一个中间人，数据流走向：Container—Volum—StorageResource&lt;/p>
+&lt;p>Volume 的应用场景&lt;/p>
+&lt;p>在 container 中的磁盘文件是短暂的，这对于 fornon-trivial 类型的 APP 来说会有一些问题。第一，当 container 崩溃时，kubelet 会重启它，但是文件都将丢失并且 container 以最干净的状态启动；第二，当在 Pod 中运行多个 container 的时候，这些 container 需要共享文件以实现功能。Volume 就是为了解决上面两种情况出现的。&lt;/p>
+&lt;p>volume 定义了一个逻辑卷，该逻辑卷有多种类型，不同的类型可以把不同的存储资源当成 volume 使用(比如内存，文件，分区，网络存储等等)。当我们给 Pod 指定一个 volume 类型后，还需要给该类型的 volume 指定一个可以存放数据的地方；这样，在 container 使用 volume 的时候，可以把自己的数据存放在 volume 所指定的存储资源的地方&lt;/p>
+&lt;p>&lt;strong>认证&lt;/strong>
+etcd 内部，etcd 与 apiservice，apiservice-客户端，apiservice 与 kubectl，apiservice 与 kube-proxy&lt;/p>
+&lt;p>客户端与服务端的概念&lt;/p>
+&lt;p>谁向谁发请求，前者就是客户端，所在在这里，客户端与服务端没有绝对，一个服务既可以是客户端也可以是服务端&lt;/p>
+&lt;h2 id="简单流程">简单流程&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/te78l0/1616120984034-51654ec9-735a-4eb1-b033-c4dd648cd2d7.png" alt="">&lt;/p>
+&lt;ol>
+&lt;li>kubectl 发送部署请求到 API Server。&lt;/li>
+&lt;li>API Server 通知 Controller Manager 创建一个 deployment 资源。&lt;/li>
+&lt;li>Scheduler 执行调度任务，将两个副本 Pod 分发到 k8s-node1 和 k8s-node2。&lt;/li>
+&lt;li>k8s-node1 和 k8s-node2 上的 kubelet 在各自的节点上创建并运行 Pod。&lt;/li>
+&lt;li>补充两点：&lt;/li>
+&lt;li>应用的配置和当前状态信息保存在 etcd 中，执行 kubectl get pod 时 API Server 会从 etcd 中读取这些数据。&lt;/li>
+&lt;li>flannel 会为每个 Pod 都分配 IP。因为没有创建 service，目前 kube-proxy 还没参与进来。&lt;/li>
+&lt;/ol>
+&lt;h1 id="kubernetes-架构">Kubernetes 架构&lt;/h1>
+&lt;p>官方文档：&lt;a href="https://kubernetes.io/docs/concepts/architecture/">https://kubernetes.io/docs/concepts/architecture/&lt;/a>&lt;/p>
+&lt;h2 id="node-节点">Node 节点&lt;/h2>
+&lt;h2 id="控制平面到-node-的通信">控制平面到 Node 的通信&lt;/h2>
+&lt;p>本文列举控制面节点（确切说是 API 服务器）和 Kubernetes 集群之间的通信路径。 目的是为了让用户能够自定义他们的安装，以实现对网络配置的加固，使得集群能够在不可信的网络上 （或者在一个云服务商完全公开的 IP 上）运行。&lt;/p>
+&lt;p>节点到控制面&lt;/p>
+&lt;p>Kubernetes 采用的是中心辐射型（Hub-and-Spoke）API 模式。 所有从集群（或所运行的 Pods）发出的 API 调用都终止于 apiserver（其它控制面组件都没有被设计为可暴露远程服务）。 apiserver 被配置为在一个安全的 HTTPS 端口（443）上监听远程连接请求， 并启用一种或多种形式的客户端身份认证机制。 一种或多种客户端鉴权机制应该被启用， 特别是在允许使用匿名请求 或服务账号令牌的时候。&lt;/p>
+&lt;p>应该使用集群的公共根证书开通节点，这样它们就能够基于有效的客户端凭据安全地连接 apiserver。 例如：在一个默认的 GCE 部署中，客户端凭据以客户端证书的形式提供给 kubelet。 请查看 kubelet TLS 启动引导 以了解如何自动提供 kubelet 客户端证书。&lt;/p>
+&lt;p>想要连接到 apiserver 的 Pod 可以使用服务账号安全地进行连接。 当 Pod 被实例化时，Kubernetes 自动把公共根证书和一个有效的持有者令牌注入到 Pod 里。 kubernetes 服务（位于所有名字空间中）配置了一个虚拟 IP 地址，用于（通过 kube-proxy）转发 请求到 apiserver 的 HTTPS 末端。&lt;/p>
+&lt;p>控制面组件也通过安全端口与集群的 apiserver 通信。&lt;/p>
+&lt;p>这样，从集群节点和节点上运行的 Pod 到控制面的连接的缺省操作模式即是安全的，能够在不可信的网络或公网上运行。&lt;/p>
+&lt;p>控制面到节点&lt;/p>
+&lt;p>从控制面（apiserver）到节点有两种主要的通信路径。 第一种是从 apiserver 到集群中每个节点上运行的 kubelet 进程。 第二种是从 apiserver 通过它的代理功能连接到任何节点、Pod 或者服务。&lt;/p>
+&lt;p>API 服务器到 kubelet&lt;/p>
+&lt;p>从 apiserver 到 kubelet 的连接用于：&lt;/p>
+&lt;ul>
+&lt;li>获取 Pod 日志&lt;/li>
+&lt;li>挂接（通过 kubectl）到运行中的 Pod&lt;/li>
+&lt;li>提供 kubelet 的端口转发功能。&lt;/li>
+&lt;/ul>
+&lt;p>这些连接终止于 kubelet 的 HTTPS 末端。 默认情况下，apiserver 不检查 kubelet 的服务证书。这使得此类连接容易受到中间人攻击， 在非受信网络或公开网络上运行也是 不安全的。&lt;/p>
+&lt;p>为了对这个连接进行认证，使用 &amp;ndash;kubelet-certificate-authority 标志给 apiserver 提供一个根证书包，用于 kubelet 的服务证书。&lt;/p>
+&lt;p>如果无法实现这点，又要求避免在非受信网络或公共网络上进行连接，可在 apiserver 和 kubelet 之间使用 SSH 隧道。&lt;/p>
+&lt;p>最后，应该启用 Kubelet 用户认证和/或鉴权 来保护 kubelet API。&lt;/p>
+&lt;p>apiserver 到节点、Pod 和服务
+从 apiserver 到节点、Pod 或服务的连接默认为纯 HTTP 方式，因此既没有认证，也没有加密。 这些连接可通过给 API URL 中的节点、Pod 或服务名称添加前缀 https: 来运行在安全的 HTTPS 连接上。 不过这些连接既不会验证 HTTPS 末端提供的证书，也不会提供客户端证书。 因此，虽然连接是加密的，仍无法提供任何完整性保证。 这些连接 目前还不能安全地 在非受信网络或公共网络上运行。&lt;/p>
+&lt;p>SSH 隧道
+Kubernetes 支持使用 SSH 隧道来保护从控制面到节点的通信路径。在这种配置下，apiserver 建立一个到集群中各节点的 SSH 隧道（连接到在 22 端口监听的 SSH 服务） 并通过这个隧道传输所有到 kubelet、节点、Pod 或服务的请求。 这一隧道保证通信不会被暴露到集群节点所运行的网络之外。&lt;/p>
+&lt;p>SSH 隧道目前已被废弃。除非你了解个中细节，否则不应使用。 Konnectivity 服务是对此通信通道的替代品。&lt;/p>
+&lt;p>Konnectivity 服务
+FEATURE STATE: Kubernetes v1.18 [beta]
+作为 SSH 隧道的替代方案，Konnectivity 服务提供 TCP 层的代理，以便支持从控制面到集群的通信。 Konnectivity 服务包含两个部分：Konnectivity 服务器和 Konnectivity 代理，分别运行在 控制面网络和节点网络中。Konnectivity 代理建立并维持到 Konnectivity 服务器的网络连接。 启用 Konnectivity 服务之后，所有控制面到节点的通信都通过这些连接传输。&lt;/p>
+&lt;p>请浏览 Konnectivity 服务任务 在你的集群中配置 Konnectivity 服务。&lt;/p>
+&lt;h2 id="controller-控制器">Controller 控制器&lt;/h2>
+&lt;p>官方文档：&lt;a href="https://kubernetes.io/docs/concepts/architecture/controller/">https://kubernetes.io/docs/concepts/architecture/controller/&lt;/a>&lt;/p>
+&lt;p>&lt;strong>控制器模式是 Kubernetes 的重要设计原则之一&lt;/strong>&lt;/p>
+&lt;p>在机器人技术和自动化领域，控制回路（Control Loop）是一个非终止回路，用于调节系统状态。&lt;/p>
+&lt;p>这是一个控制环的例子：房间里的温度自动调节器。&lt;/p>
+&lt;p>当你设置了温度，告诉了温度自动调节器你的期望状态（Desired State）。 房间的实际温度是当前状态（Current State）。 通过对设备的开关控制，温度自动调节器让其当前状态接近期望状态。&lt;/p>
+&lt;p>控制器通过 apiserver 监控集群的公共状态，并致力于将当前状态转变为期望的状态。&lt;/p>
+&lt;p>&lt;strong>控制器模式&lt;/strong>
+一个控制器至少追踪一种类型的 Kubernetes 资源。这些 对象 有一个代表期望状态的 spec 字段。 该资源的控制器负责确保其当前状态接近期望状态。&lt;/p>
+&lt;p>控制器可能会自行执行操作；在 Kubernetes 中更常见的是一个控制器会发送信息给 API 服务器，这会有副作用。 具体可参看后文的例子。&lt;/p>
+&lt;p>通过 API 服务器来控制&lt;/p>
+&lt;p>Job 控制器是一个 Kubernetes 内置控制器的例子。 内置控制器通过和集群 API 服务器交互来管理状态。&lt;/p>
+&lt;p>Job 是一种 Kubernetes 资源，它运行一个或者多个 Pod， 来执行一个任务然后停止。 （一旦被调度了，对 kubelet 来说 Pod 对象就会变成了期望状态的一部分）。&lt;/p>
+&lt;p>在集群中，当 Job 控制器拿到新任务时，它会保证一组 Node 节点上的 kubelet 可以运行正确数量的 Pod 来完成工作。 Job 控制器不会自己运行任何的 Pod 或者容器。Job 控制器是通知 API 服务器来创建或者移除 Pod。 控制面中的其它组件 根据新的消息作出反应（调度并运行新 Pod）并且最终完成工作。&lt;/p>
+&lt;p>创建新 Job 后，所期望的状态就是完成这个 Job。Job 控制器会让 Job 的当前状态不断接近期望状态：创建为 Job 要完成工作所需要的 Pod，使 Job 的状态接近完成。&lt;/p>
+&lt;p>控制器也会更新配置对象。例如：一旦 Job 的工作完成了，Job 控制器会更新 Job 对象的状态为 Finished。&lt;/p>
+&lt;p>（这有点像温度自动调节器关闭了一个灯，以此来告诉你房间的温度现在到你设定的值了）。&lt;/p>
+&lt;p>&lt;strong>直接控制&lt;/strong>
+相比 Job 控制器，有些控制器需要对集群外的一些东西进行修改。&lt;/p>
+&lt;p>例如，如果你使用一个控制环来保证集群中有足够的节点，那么控制就需要当前集群外的一些服务在需要时创建新节点。&lt;/p>
+&lt;p>和外部状态交互的控制器从 API 服务器获取到它想要的状态，然后直接和外部系统进行通信并使当前状态更接近期望状态。&lt;/p>
+&lt;p>（实际上有一个控制器可以水平地扩展集群中的节点。请参阅 集群自动扩缩容）。&lt;/p>
+&lt;p>&lt;strong>期望状态与当前状态&lt;/strong>
+Kubernetes 采用了系统的云原生视图，并且可以处理持续的变化。&lt;/p>
+&lt;p>在任务执行时，集群随时都可能被修改，并且控制回路会自动修复故障。这意味着很可能集群永远不会达到稳定状态。&lt;/p>
+&lt;p>只要集群中控制器的在运行并且进行有效的修改，整体状态的稳定与否是无关紧要的。&lt;/p>
+&lt;p>&lt;strong>设计&lt;/strong>
+作为设计原则之一，Kubernetes 使用了很多控制器，每个控制器管理集群状态的一个特定方面。 最常见的一个特定的控制器使用一种类型的资源作为它的期望状态， 控制器管理控制另外一种类型的资源向它的期望状态演化。&lt;/p>
+&lt;p>使用简单的控制器而不是一组相互连接的单体控制回路是很有用的。 控制器会失败，所以 Kubernetes 的设计正是考虑到了这一点。&lt;/p>
+&lt;p>说明：&lt;/p>
+&lt;p>可以有多个控制器来创建或者更新相同类型的对象。 在后台，Kubernetes 控制器确保它们只关心与其控制资源相关联的资源。&lt;/p>
+&lt;p>例如，你可以创建 Deployment 和 Job；它们都可以创建 Pod。 Job 控制器不会删除 Deployment 所创建的 Pod，因为有信息 （标签）让控制器可以区分这些 Pod。&lt;/p>
+&lt;p>&lt;strong>运行控制器的方式&lt;/strong>
+Kubernetes 内置一组控制器，运行在 kube-controller-manager 内。 这些内置的控制器提供了重要的核心功能。&lt;/p>
+&lt;p>Deployment 控制器和 Job 控制器是 Kubernetes 内置控制器的典型例子。 Kubernetes 允许你运行一个稳定的控制平面，这样即使某些内置控制器失败了， 控制平面的其他部分会接替它们的工作。&lt;/p>
+&lt;p>你会遇到某些控制器运行在控制面之外，用以扩展 Kubernetes。 或者，如果你愿意，你也可以自己编写新控制器。 你可以以一组 Pod 来运行你的控制器，或者运行在 Kubernetes 之外。 最合适的方案取决于控制器所要执行的功能是什么&lt;/p></description></item><item><title>Docs: Standardized Glossary(标准化术语)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/Standardized-Glossary%E6%A0%87%E5%87%86%E5%8C%96%E6%9C%AF%E8%AF%AD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/Standardized-Glossary%E6%A0%87%E5%87%86%E5%8C%96%E6%9C%AF%E8%AF%AD/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/glossary/">官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="declarative-application-managementhttpsgithubcomkubernetescommunityblobmastercontributorsdesign-proposalsarchitecturedeclarative-application-managementmd">&lt;a href="https://github.com/kubernetes/community/blob/master/contributors/design-proposals/architecture/declarative-application-management.md">Declarative Application Management&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>Declarative Application Management(声明式应用管理)&lt;/strong> 是一种部署和管理应用程序的方式。&lt;/p>
+&lt;h2 id="kubeconfighttpskubernetesiodocsconceptsconfigurationorganize-cluster-access-kubeconfig">&lt;a href="https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/">kubeconfig&lt;/a>&lt;/h2>
+&lt;p>kubeconfig 是用于保存集群访问信息的文件，这是引用配置文件的通用方法，并不表示一定会有一个名为 kubeconfig 的文件。
+kubeconfig 文件用来组织有关集群、用户、明哼空间的信息和身份验证机制。kubectl 命令行工具使用 kubeconfig 文件来与 Kubernetes 集群进行交互。Kuberntes 集群的某些主要组件，也会使用 kubeconfig 文件进行交互，比如使用 kubeadm 工具部署的 kubernetes 集群，在每个节点的 /etc/kubernetes 目录下，就会有以 .conf 文件结尾的 kubeconfig 文件，以供 kubelet、scheduler、controller-manager 等组件使用。&lt;/p>
+&lt;h2 id="manifesthttpskubernetesiodocsreferenceglossaryfundamentaltrueterm-manifest">&lt;a href="https://kubernetes.io/docs/reference/glossary/?fundamental=true#term-manifest">Manifest&lt;/a>&lt;/h2>
+&lt;p>JSON 或 YAML 格式的 Kubernetes API 对象的规范。
+manifest 指定了应用该 manifest 时，Kubernetes 将维护的对象的所需状态。每个配置文件可以包含多个清单&lt;/p></description></item><item><title>Docs: 灵魂拷问，上 Kubernetes 有什么业务价值？</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/%E7%81%B5%E9%AD%82%E6%8B%B7%E9%97%AE%E4%B8%8A-Kubernetes-%E6%9C%89%E4%BB%80%E4%B9%88%E4%B8%9A%E5%8A%A1%E4%BB%B7%E5%80%BC/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/%E7%81%B5%E9%AD%82%E6%8B%B7%E9%97%AE%E4%B8%8A-Kubernetes-%E6%9C%89%E4%BB%80%E4%B9%88%E4%B8%9A%E5%8A%A1%E4%BB%B7%E5%80%BC/</guid><description>
+&lt;p>参考：&lt;a href="https://mp.weixin.qq.com/s/a3NE5fSpZIM9qlOofGTMWQ">原文链接&lt;/a>&lt;/p>
+&lt;p>本文整理自 2020 年 7 月 22 日《基于 Kubernetes 与 OAM 构建统一、标准化的应用管理平台》主题线上网络研讨会。文章共分为上下两篇，本文为上篇，主要和大家介绍上 Kubernetes 有什么业务价值，以及什么是 “以应用为中心” 的 Kubernetes。下篇将跟大家具体分享如何构建 “以应用为中心” 的 Kubernetes。&lt;/p>
+&lt;p>非常感谢大家来到 CNCF 的直播，我是张磊，阿里云的高级技术专家，Kubernetes 项目资深维护者。同时也是 CNCF 应用交付领域 co-chair。我今天给大家带来的分享主题是《基于 Kubernetes 与 OAM 构建统一、标准化的应用管理平台》。在封面上有个钉钉群组二维码。大家可以通过这个二维码进入线上交流群。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>&lt;strong>上 Kubernetes 有什么业务价值？&lt;/strong>&lt;/p>
+&lt;p>今天要演讲的主题是跟应用管理或者说是云原生应用交付是相关的。首先我们想要先回答这么一个问题：为什么我们要基于 Kubernetes 去构建一个应用管理平台？&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>上图是一个本质的问题，我们在落地 K8s 经常遇到的一个问题。尤其是我们的业务方会问到这么一个问题，我们上 Kubernetes 有什么业务价值？这时候作为我们 K8s 工程师往往是很难回答的。原因在哪里呢？实际上这跟 K8s 的定位是相关的。K8s 这个项目呢，如果去做一个分析的话，我们会发现 K8s 不是一个 PaaS 或者应用管理的平台。实际上它是一个标准化的能力接入层。什么是能力接入层呢？大家可以看一下下图。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>实际上通过 Kubernetes 对用户暴露出来的是一组声明式 API，这些声明式 API 无论是 Pod 还是 Service 都是对底层基础设施的一个抽象。比如 Pod 是对一组容器的抽象，而 Deployment 是对一组 pod 的抽象。而 Service 作为 Pod 的访问入口，实际上是对集群基础设施：网络、网关、iptables 的一个抽象。Node 是对宿主机的抽象。Kubernetes 还提供了我们叫做 CRD（也就是 Custom Resource）的自定义对象。让你自己能够自定义底层基础设施的一个抽象。&lt;/p>
+&lt;p>而这些抽象本身或者是 API 本身，是通过另外一个模式叫做控制器 (Controller) 去实现的。通过控制器去驱动我们的底层基础设施向我的抽象逼近，或者是满足我抽象定义的一个终态。&lt;/p>
+&lt;p>所以本质来讲，Kubernetes 他的专注点是 “如何标准化的接入来自于底层，无论是容器、虚机、负载均衡各种各样的一个能力，然后通过声明式 API 的方式去暴露给用户”。这就意味着 Kubernetes 实际用户不是业务研发，也不是业务运维。那是谁呢？是我们的平台开发者。希望平台开发者能够基于 Kubernetes 再去做上层的框架或者是平台。那就导致了今天我们的业务研发和业务运维对 Kubernetes 直接暴露出来的这一层抽象，感觉并不是很友好。&lt;/p>
+&lt;p>这里的关键点在于，Kubernetes 对这些基础设施的抽象，跟业务研发和业务运维看待系统的角度是完全不同的。这个抽象程度跟业务研发和业务运维希望的抽象程度也是不一样的。语义完全对不上，使用习惯也是有很大的鸿沟。所以说为了解决这样一个问题，都在思考一些解决方法。怎么能让我 Kubernetes 提供的基础设施的抽象能够满足我业务研发和业务运维的一个诉求呢？怎么能让 Kubernetes 能够成为业务研发和业务运维喜欢的一个平台呢？&lt;/p>
+&lt;h3 id="方法一把所有人都变成-kubernetes-专家">&lt;strong>方法一：把所有人都变成 Kubernetes 专家&lt;/strong>&lt;/h3>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>假如我们所有人都是 Kubernetes 专家，那当然会喜欢 Kubernetes 对我提供的服务，这里给他发个 Kubernetes 的 PhD 博士。这里我强烈推荐阿里云和 CNCF 主办的云原生技术公开课。大家试试学完这门课程后，能不能变成 Kubernetes 专家。&lt;/p>
+&lt;p>这个方法门槛比较高，因为每个人对于这个系统本身感兴趣程度不太一样，学习能力也不太一样。&lt;/p>
+&lt;h3 id="方法二构建一个面向用户的应用管理平台">&lt;strong>方法二：构建一个面向用户的应用管理平台&lt;/strong>&lt;/h3>
+&lt;p>业界常见的方法，大家会基于 Kubernetes 构建一个面向用户的应用管理平台，或者说是一个 PaaS，有人直接做成一个 Serverless。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>那这个具体是怎么做呢？还是在 Kubernetes 之上，会搭建一个东西叫做上层应用管理平台，这个上层应用平台对业务研发和业务运维暴露出来一个上层的 API。比如说业务研发这一侧，他不太会暴露 Pod，Deployment 这样的抽象。只会暴露出来 CI/CD 流水线。或者说一个应用，WordPress，一个外部网站，暴露出这样一个上层的概念，这是第一个部分。&lt;/p>
+&lt;p>第二部分，它也会给业务运维暴露出一组运维的 API。比如说：水平扩容，发布策略，分批策略，访问控制，流量配置。这样的话有一个好处，业务研发和业务运维面对的 API 不是 Kubernetes 底层的 API，不是 Node，不是 Service，不是 Deployment，不是我们的 CRD。是这样一组经过抽象经过封装后的 API。这样的业务研发和业务运维用起来会跟他所期望的 Ops 流水线，它所熟悉的使用体检有个天然的结合点。&lt;/p>
+&lt;p>所以说只有这么做了之后，我们才能够跟我们的业务老大说，Kubernetes 的业务价值来了。实际上业务价值不是在 Kubernetes 这一层，而是在 Kubernetes 往上的这一层 &amp;ndash;&amp;quot;&lt;strong>你的解决方案&lt;/strong>&amp;quot;。所以说这样的一个系统构建出来之后呢，实际上是对 Kubernetes 又做了一层封装。变成了很多公司都有的，比如说 Kubernetes 应用平台。这是一个非常常见的做法。相比于我们让研发运维变成 Kubernetes 专家来说会更加实际一点。&lt;/p>
+&lt;p>但是我们在阿里也好，在很多社区的实际场景也好，它往往会伴随着这么一个问题。这个问题是：今天 Kubernetes 的生态是非常非常繁荣的，下图是我在 CNCF 截的图，好几百个项目，几千个可以让我们 Kubernetes 即插即用的能力。比如 istio，KEDA，Promethues 等等都是 Kubernetes 的插件。正是基于这么一个扩展性非常高的声明式 API 体系才会有了这么繁荣的 Kubernetes 生态。所以可以认为 Kubernetes 能力是无限的，非常强大。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>可是这么一个无限能力，如果对接到一个非常传统的，非常经典的一个应用管理平台。比如说我们的 PaaS 上，如 Cloud Foundry。立刻就会发现一个问题，PaaS 虽然对用户提供的是很友好的 API，但是这个 API 本身是有限的，是难以扩展的。比如说 Cloud Foundry 要给用户使用，就有 Buildpack 这么一个概念，而不是 Kubernetes 所有的能力都能给用户去使用。其实几乎所有的 PaaS 都会存在这么一个问题。它往上暴露的是一个用户的 API，是不可扩展的，是个有限集。&lt;/p>
+&lt;p>下面一个非常庞大繁荣的 Kubernetes 生态，没办法直接给用户暴露出去。可能每使用一个插件就要重新迭代开发你的 PaaS，重新交付你的 PaaS。这个是很难接受的。&lt;/p>
+&lt;h3 id="传统-paas-的-能力困境">&lt;strong>传统 PaaS 的 “能力困境”&lt;/strong>&lt;/h3>
+&lt;p>这问题是一个普遍存在的问题，我们叫做传统 PaaS 的 “能力困境”。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>本质上来说这个困境是什么意思呢？K8s 生态繁荣多样的应用基础设施能力，与业务开发人员日益增长的应用管理诉求，中间存在一个传统的 PaaS，他就会变成一个瓶颈。K8s 无限的能力无法让你的研发与运维立刻用到。所以传统 PaaS 就会成为一个显而易见的瓶颈。&lt;/p>
+&lt;p>这样给我带来一个思考：我们能不能抛弃传统 PaaS 的一个做法，基于 K8s 打造高可扩展的应用管理平台。我们想办法能把 K8s 能力无缝的透给用户，同时又能提供传统 PaaS 比较友好的面向研发运维的使用体验呢？&lt;/p>
+&lt;p>其实可以从另外一个角度思考这个问题：如何基于 K8s 打造高可扩展的应用管理平台，实际上等同于 如何打造一个 “以应用为中心的” 的 Kubernetes。或者说能不能基于 Kubernetes 去封装下，让它能够像 PaaS 一样，去面向我的实际用户去使用呢？这个就是我们要聊的关键点。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>&lt;strong>什么是 “以应用为中心” 的 Kubernetes&lt;/strong>&lt;/p>
+&lt;h3 id="特征一通过原生的声明式-api-和插件体系暴露面向最终用户的上层语义和抽象">&lt;strong>特征一：通过原生的声明式 API 和插件体系，暴露面向最终用户的上层语义和抽象&lt;/strong>&lt;/h3>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>我们不是说要在 Kubernetes 上盖一个 PaaS，或者说是盖一个大帽子，不干这件事情。因为 K8s 本身可以扩展，可以写一组 CRD，把我们要的 API 给装上去。比如 CI/CD 流水线，就可以像 Tektong 系统直接使用 pipeline。应用也可以通过某些项目直接暴露出来。运维这一侧的发布扩容等，都可以通过安装一个 Operator 去解决问题。当然也需要一些技术将这些运维策略绑定到应用或者流水线中。&lt;/p>
+&lt;p>这就是我们第一个点，以应用为中心的 K8s 首先是暴露给用户的语义和 API，而不是非常底层的，比如 Service、Node 或者是 Ingress。可能用户都不知道什么意思，也不知道怎么写的。&lt;/p>
+&lt;h3 id="特征二上层语义和抽象可插拔可扩展没有抽象程度锁定和任何能力限制">&lt;strong>特征二：上层语义和抽象可插拔，可扩展，没有抽象程度锁定和任何能力限制&lt;/strong>&lt;/h3>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>第二个点很重要，上层语义和抽象必须是可插拔的，必须是可扩展的，是无缝兼容利用 K8s 的可扩展能力的。并且也不应该有对抽象程度的锁定。&lt;/p>
+&lt;p>举个例子：比如一个应用本身既可以是 Deployment，这是一个比较低程度的抽象。也可以是 Knative Service，这是一个相对来说高程度的抽象，相对于 deployment 来说比较简单，只有一个 PodTemplate。甚至可以更简单，可以是一个 Service，或者是个 Function。这个时候抽象程度就很高。如果基于 K8s 做一个以应用为中心的框架的话，它应该是能够暴露工作负载的多种抽象程度的。而不是说单独去使用 Knative，只能暴露出 Knative Service。假如我想使用 Knative 部署一个 Statefulset，这当然是不可以的。抽象程度是完全不一致的。所以我希望这个以应用为中心的 K8s 是没有抽象程度的锁定的。&lt;/p>
+&lt;p>同时也不应该有能力的限制，什么叫没有能力的限制呢？比如从运维侧举个例子，运维侧有很多很多扩容策略、发布策略等等。如果我想新加一个策略能力，它应该是非常简单的，就像在 K8s 安装一个 Operator 一样非常简单，能 helm insatll 就能搞定，答案是必须的。假如需要添加一个水平扩容，直接 helm install vpa 就能解决。通过这种方式才能做一个以应用为中心的 Kubernetes。&lt;/p>
+&lt;p>可以看到它跟我们的传统 PaaS 还是有很大区别的，它的可扩展能力非常非常强。它本质上就是一个 K8s，但是它跟专有的 Service，Knative，OpenFaaS 也不一样。它不会把抽象程度锁定到某一种 Workload 上，你的 Workload 是可以随意去定义。运维侧的能力也可以随意可插拔的去定义。这才是我们叫做一个以应用为中心的 Kubernetes。那么这么一个 Kubernetes 怎么做呢？&lt;/p>
+&lt;p>后续我们将会在下篇文章中详细为大家解读如何构建 “以应用为中心” 的 Kubernetes？以及构建这么一个以用户为中心的 Kubernetes，需要做几个层级的事情。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>&lt;strong>《云原生实践公开课》&lt;/strong>&lt;/p>
+&lt;p>去年，CNCF 与 阿里云联合发布了《云原生技术公开课》已经成为了 Kubernetes 开发者的一门 “必修课”。&lt;/p>
+&lt;p>今天，阿里云再次集结多位具有丰富云原生实践经验的技术专家，正式推出《云原生实践公开课》。课程内容由浅入深，专注讲解 “落地实践”。还为学习者打造了真实、可操作的实验场景，方便验证学习成果，也为之后的实践应用打下坚实基础。课程已经正式上线，欢迎大家观看。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/32400091-3bb6-4dc4-84e2-5be0c4733585/640" alt="">&lt;/p>
+&lt;p>&lt;strong>戳原文，免费观看云原生实践公开课！&lt;/strong>
+&lt;a href="https://mp.weixin.qq.com/s/a3NE5fSpZIM9qlOofGTMWQ">https://mp.weixin.qq.com/s/a3NE5fSpZIM9qlOofGTMWQ&lt;/a>&lt;/p></description></item><item><title>Docs: 如何构建以应用为中心的“Kubernetes”?（内含 QA 整理）</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/%E5%A6%82%E4%BD%95%E6%9E%84%E5%BB%BA%E4%BB%A5%E5%BA%94%E7%94%A8%E4%B8%BA%E4%B8%AD%E5%BF%83%E7%9A%84Kubernetes_%E5%86%85%E5%90%AB-QA-%E6%95%B4%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/%E5%A6%82%E4%BD%95%E6%9E%84%E5%BB%BA%E4%BB%A5%E5%BA%94%E7%94%A8%E4%B8%BA%E4%B8%AD%E5%BF%83%E7%9A%84Kubernetes_%E5%86%85%E5%90%AB-QA-%E6%95%B4%E7%90%86/</guid><description>
+&lt;p>参考：&lt;a href="https://mp.weixin.qq.com/s/ql_AIFc0s5HwZgsML63zQA">原文链接&lt;/a>
+本文整理自 2020 年 7 月 22 日《基于 Kubernetes 与 OAM 构建统一、标准化的应用管理平台》主题线上网络研讨会。&lt;/p>
+&lt;p>文章共分为上下两篇。上篇文章《&lt;a href="http://mp.weixin.qq.com/s?__biz=MzUzNzYxNjAzMg==&amp;amp;mid=2247492713&amp;amp;idx=1&amp;amp;sn=63d26542a935a6b3d1cfd7a72f71425b&amp;amp;chksm=fae6efa6cd9166b0c66e73ad47be04d029d40066b7697f2f4c7cd7a53d08ba6e019419166bb8&amp;amp;scene=21#wechat_redirect">&lt;strong>灵魂拷问，上 Kubernetes 有什么业务价值？&lt;/strong>&lt;/a>》，主要和大家介绍了上 Kubernetes 有什么业务价值，以及什么是 “以应用为中心” 的 Kubernetes。本文为下篇，将跟大家具体分享如何构建 “以应用为中心” 的 Kubernetes。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>&lt;strong>如何构建 “以应用为中心” 的 Kubernetes？&lt;/strong>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>构建这么一个以用户为中心的 Kubernetes，需要做几个层级的事情。&lt;/p>
+&lt;h3 id="1-应用层驱动">&lt;strong>1. 应用层驱动&lt;/strong>&lt;/h3>
+&lt;p>首先来看最核心的部分，上图中蓝色部分，也就是 Kubernetes。可以在 Kubernetes 之上定义一组 CRD 和 Controller。可以在 CRD 来做用户这一侧的 API，比如说 pipeline 就是一个 API，应用也是一个 API。像运维侧的扩容策略这些都是可以通过 CRD 的方式安装起来。&lt;/p>
+&lt;h3 id="2-应用层抽象">&lt;strong>2. 应用层抽象&lt;/strong>&lt;/h3>
+&lt;p>所以我们的需要解决第一个问题是应用抽象。如果在 Kubernetes 去做应用层抽象，就等同于定义 CRD 和 Controller，所以 Controller 可以叫做应用层的抽象。本身可以是社区里的，比如 Tekton，istio 这些，可以作为你的应用驱动层。这是第一个问题，解决的是抽象的问题。不是特别难。&lt;/p>
+&lt;h3 id="3-插件能力管理">&lt;strong>3. 插件能力管理&lt;/strong>&lt;/h3>
+&lt;p>很多功能不是 K8s 提供的，内置的 Controller 还是有限的，大部分能力来自于社区或者是自己开发的 Controller。这时我的集群里面就会安装好多好多插件。如果要构建以应用为中心的 Kubernetes，那我必须能够管理起来这些能力，否则整个集群就会脱管了。用户想要这么一个能力，我需要告诉他有或者是没有。需要暴露出一个 API 来告诉他，集群是否有他需要的能力。假设需要 istio 的流量切分，需要有个接口告诉用户这个能力存不存在。不能指望用户去 get 一下 crd 合不合适，检查 Controller 是否运行。这不叫以应用为中心的 K8s，这叫裸 K8s。&lt;/p>
+&lt;p>所以必须有个能力，叫做插件能力管理。如果我装了 Tekton，kEDA，istio 这些组件，我必须将这些组件注册到能力注册中心，让用户能够发现这些能力，查询这些能力。这叫做：插件能力管理。&lt;/p>
+&lt;h3 id="4-用户体验层">&lt;strong>4. 用户体验层&lt;/strong>&lt;/h3>
+&lt;p>有了应用层驱动，应用层抽象，插件能力管理，我们才能更好地去考虑，如何给用户暴露一个友好的 API 或者是界面出来。有这么几种方式，比如 CLI 客户端命令行工具，或者是一个 Dashboard，又或者是研发侧的 Docker Compose。或者可以让用户写代码，用 python 或者 go 等实现 DSL，这都是可以的。&lt;/p>
+&lt;p>用户体验层怎么做，完全取决于用户接受什么样的方式。关键点在于以应用为中心的 Kubernetes，UI 层就可以非常方便的基于应用层抽象去做。比如 CLI 就可以直接创建一个流水线和应用，而不是兜兜转转去创建 Deployment 和 Pod，这两个的衔接方式是完全不一样的。pipeline 只需要生成一下就结束了。然后去把 Pod 和 Deployment 组成一个 Pipeline，那这个工作就非常繁琐了。这是非常重要的一点，当你有了应用层驱动，应用层抽象，插件能力管理，再去构建用户体验层就会非常非常简单。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>&lt;strong>Open Application Model(OAM)&lt;/strong>&lt;/p>
+&lt;p>如果想构建一个应用为中心的 Kubernetes，有没有一个标准化的、简单的方案呢？&lt;/p>
+&lt;p>&lt;strong>下面就要为大家介绍：&lt;/strong> &lt;strong>Open Application Model(OAM)。&lt;/strong>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>OAM 的本质是帮助你构建一个 “以应用为中心 “的 Kubernetes 标准规范和框架，相比较前面的方案，OAM 专注于做这三个层次。&lt;/p>
+&lt;h3 id="1-应用组件-components">&lt;strong>1. 应用组件 Components&lt;/strong>&lt;/h3>
+&lt;p>第一个叫做应用层抽象，OAM 对用户暴露出自己定义的应用层抽象，第一个抽象叫做 Components。Components 实际上是帮助我们定义 Deployment、StatefulSet 这样的 Workload 的。暴露给用户，让他去定义这些应用的语义。&lt;/p>
+&lt;h3 id="2-应用特征-traits">&lt;strong>2. 应用特征 Traits&lt;/strong>&lt;/h3>
+&lt;p>第二个叫做应用特征，叫做 Traits。运维侧的概念，比如扩容策略，发布策略，这些策略通过一个叫做 Traits 的 API 暴露给用户。首先 OAM 给你做了一个应用层定义抽象的方式，分别叫做 Components 和 Traits。由于你需要将 Traits 应用特征关联给应用组件 Components，例如 Deployment 需要某种扩容策略或者是发布策略，怎么把他们关联在一起呢？&lt;/p>
+&lt;h3 id="3-应用配置-application-configuration">&lt;strong>3. 应用配置 Application Configuration&lt;/strong>&lt;/h3>
+&lt;p>这个就需要第三种配置叫做 Application Configuration 应用配置。最终这些概念和配置都会变成 CRD，如果你的 K8s 里面安装了 OAM 的 Kubernetes Runtime 组件，那么那就能解析你 CRD 定义的策略和 Workload，最终去交给 K8s 去执行运行起来。就这么一个组件帮助你更好地去定义抽象应用层，提供了几个标准化的方法。&lt;/p>
+&lt;h3 id="4-能力定义对象-definitions">&lt;strong>4. 能力定义对象 Definitions&lt;/strong>&lt;/h3>
+&lt;p>这些抽象和能力交给 K8s 去处理之后，我这些能力需要的 Controller 插件在哪？有没有 Ready？这些版本是不是已经有了，能不能自动去安装。这是第四个能力了：能力定义对象。这是 OAM 提供的最后一个 API，通过这个 API 可以自己去注册 K8s 所有插件，比如 Tekton、KEDA、istio 等。&lt;/p>
+&lt;p>把它注册为组件的一个能力，或者是某一个特征。比如说 Flager，可以把它注册为金丝雀发布的能力，用户只要发现这个发布策略存在，说明这个集群支持 Flager，那么他就可以去使用。这就是一个以应用为中心的一个玩法。以用户侧为出发点，而不是以集群侧为出发点，用户侧通过一个上层的 api，特征和组件来去了解他的系统，去操作他的系统。以上就是 OAM 提供的策略和方法。&lt;/p>
+&lt;p>总结下来就是 OAM 可以通过标准化的方式帮助平台构建者或者开发者去定义用户侧，应用侧的抽象。第二点是提供了插件化能力注册于管理机制。并且有了这些抽象和机制之后，可以非常方便的构建可扩展的 UI 层。这就是 OAM 最核心的功能和价值。&lt;/p>
+&lt;h3 id="5-oam-会怎样给用户提供一个-api-呢">&lt;strong>5. OAM 会怎样给用户提供一个 API 呢？&lt;/strong>&lt;/h3>
+&lt;h3 id="1components">&lt;strong>1）Components&lt;/strong>&lt;/h3>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>Component 是工作负载的版本化定义，例如上图中创建一个 Component，实际上就是创建一个 Deployment。这样一个 Component 交给 K8s 之后，首先会创建一个 Component 来管理这个 Workload，当你修改 Component 之后就会生成一个对应版本的 deployment。这个 Component 实际上是 Deployment 的一个模板。比如我把 image 的版本修改一下，这个操作就会触发 OAM 插件，生成一个新的版本的 Deployment，这是第一个点。其实就版本化管理机制去管理 Component。&lt;/p>
+&lt;p>第二点是 Workload 部分完全是自定义的，或者是是可插拔的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>今天可以定义为 Deployment，明天可以定义为一个非常简单的版本。也就是说我 Components 的抽象程度完全取决于用户自己决定的。后期也可以改成 Knative Service，甚至改成一个 Open PaaS。所以说在 Components 的 Workload 部分你可以自由的去定义自己的抽象。只要你提前安装了对应 CRD 即可，这是一个非常高级的玩法。&lt;/p>
+&lt;p>此外在 OAM 中，” 云服务 “也是一种 Workload， 只要你能用 CRD 定义你的云服务，就可以直接在 OAM 中定义为一个应用所依赖的组件。比如上图中的 redis 实际上是阿里云的 Redis 服务，大概是这么一个玩法。&lt;/p>
+&lt;h3 id="2trait-和-application-configuration">&lt;strong>2）Trait 和 Application Configuration&lt;/strong>&lt;/h3>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>首先 Trait 是声明式运维能力的描述，其实就是 Kubernetes API 对象。任何管理和运维 Workload 的组件和能力，都可以以这种 CER 的方式定义为一个 Trait。所以像 HPA，API gateway，istio 里面的 Virtual Services 都是 Trait。&lt;/p>
+&lt;p>Application Configuration 就像是一个信封，将 Traits 绑定给 Component，这个是显式绑定的。OAM 里面不建议去使用 Label 这样的松耦合的方式去关联你的工作负载。建议通过这种结构化的方式，通过 CRD 去显式的绑定你的特征和工作负载。这样的好处是我的绑定关系是可管理的。可以通过 kubectl get 看到这个绑定关系。作为管理员或者用户，就非常容易的看到某一个组件绑定的所有运维能力有哪些，这是可以直接展示出来的，如果通过 label 是很难做到的。同时 Label 本身有个问题是，本身不是版本化的，不是结构体，很难去升级，很难去扩展。通过这么结构化定义，后面的升级扩展将会变得非常简单。&lt;/p>
+&lt;p>在一个用户配置里面，可以关联多个 Components。它认为一个应用运行所需要的所有组件和所依赖的运维能力，都应该定义为一个文件叫做 ApplicationConfiguration。所以在任何环境，只要拥有这个文件，提交之后，这个应用就会生效了。OAM 是希望能够提供一个自包含的应用声明方式。&lt;/p>
+&lt;h3 id="3definition-object">&lt;strong>3）Definition Object&lt;/strong>&lt;/h3>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>除此之外，还提到了对应管理员提供了 Definition Object，这是用来注册和发现插件化能力的 API 对象。&lt;/p>
+&lt;p>比如我想讲 Knative Service 定义为平台支持的一种工作负载，如上图只需要简单的写一个文件即可。其中在 definitionRef 中引用 service.serving.knative.dev 即可。这样的好处就是可以直接用 kubectl get Workload 查看 Knative Service 的 Workload。所以这是一个用来注册和发现插件化能力的机制，使得用户非常简单的看到系统中当前有没有一个工作负载叫做 Knative Service。而不是让用户去看 CRD，看插件是否安装，看 Controller 是否 running，这是非常麻烦的一件事情。所以必须有这么一个插件注册和发现机制。&lt;/p>
+&lt;p>这一部分还有其他额外的能力，可以注册 Trait，并且允许注册的 Trait-A 和 Trait-B 是冲突的。这个信息也能带进去，这样部署的时候检查到 A 和 B 是冲突的，会产生报错信息。否则部署下去结果什么都不知道，两个能力是冲突的，赶紧删了回滚重新创建。OAM 在注册的时候就会暴露出来运维能力的冲突，这也是靠 Definition 去做的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>除此之外，OAM 的 model 这层其他的一些附加能力，能够让你定义更为复杂的应用。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>&lt;strong>总结&lt;/strong>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>前面我们提到很多企业等等都在基于 Kubernetes 去构建一个上层应用管理平台。Kubernetes 实际上是面向平台开发者，而不是面向研发和应用运维的这么一个项目。它天生就是这么设计的，所以说需要基于 Kubernetes 去构建应用管理平台。去更好的服务研发和运维，这也是一个非常自然的选择。不是说必须使用 K8s 去服务你的用户。如果你的用户都是 K8s 专家，这是没问题的。如果不是的话，你去做这样一个应用平台是非常自然的事情。&lt;/p>
+&lt;p>但是我们不想在 K8s 之前架一个像 Cloud Foundry 传统的 PaaS。因为它会把 K8s 的能力完全遮住。它有自己的一套 API，自己的理念，自己的模型，自己的使用方式。跟 Kubernetes 都是不太一样的，很难把 Kubernetes 的能力给暴露出去。这是经典 PaaS 的一个用法，但是我们不想要这么一个理念。我们的目标是既能给用户提供一个使用体验，同时又能把 Kubernetes 的能力全部发挥出来。并且使用体验跟 Kubernetes 是完全一致的。OAM 本质上要做的是面向开发和运维的，或者说是面向以应用为中心的 Kubernetes。&lt;/p>
+&lt;p>所以今天所介绍的 OAM 是一个统一、标准、高可扩展的应用管理平台，能够以应用为中心的全新的 Kubernetes，这是今天讨论的一个重点。OAM 这个项目就是支撑这种理念的核心依赖和机制。简单地来说 OAM 能够让你以统一的，标准化的方式去做这件事情。比如标准化定义应用层抽象，标准化编写底层应用驱动，标准化管理 K8s 插件能力。&lt;/p>
+&lt;p>对于平台工程师来说，日常的工作能不能以一个标准化的框架或者依赖让平台工程师更简单更快的做这件事情。这就是 OAM 给平台工程师带来的价值。当然它也有些额外的好处，基于 OAM 暴露出来的新的 API 之后，你上层的 UI 构建起来会非常简单。&lt;/p>
+&lt;p>你的 OAM 天然分为两类，一类叫做工作负载，一类叫做运维特征。所以你的 UI 这层可以直接去对接了，会减少很多前端的工作。如果基于 CI/CD 做 GitOps / 持续集成发现也会变得非常简单。因为它把一个应用通过自包含的方式给定义出来了，而不是说写很多个 yaml 文件。并且这个文件不仅自包含了工作负载，也包括了运维特征。所以创建好了这个文件往 Kubernetes 中提交，这个应用要做金丝雀发布或者是蓝绿发布，流量控制，全部是清清楚楚的定义在这个应用配置文件里面的。因为 GitOps 也好，持续集成也好，是不想管你的 pod 或者是 Deployment 怎么生成的，这个应用怎么运维，怎么 run 起来，还是要靠 Kubernetes 插件或者内置能力去做的。这些能力都被定义到一个自包含的文件，适用于所有集群。所以这就会使得你的 GitOps 和持续集成变得简单。&lt;/p>
+&lt;p>以上就是 OAM 给平台工程师带来的一些特有的价值。简单来说是统一、标准的 API，区分研发和运维策略，让你的 UI 和 GitOps 特别容易去构建。另一点是向下提供了高可扩展的管理 K8s 插件能力。这样的系统真正做到了标准，自运维，一个以应用为中心和用户为中心的 Kubernetes 平台。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>&lt;strong>OAM 社区&lt;/strong>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>上面最后希望大家踊跃加入 OAM 社区，参与讨论。上图中有钉钉群二维码，目前人数有几千人，讨论非常激烈，我们会在里面讨论 GitOps，CI/CD，构建 OAM 平台等等。OAM 也有亚太地区的周会，大家可以去参加。上面的链接是开源项目地址，将这个安装到 Kubernetes 中就可以使用上面我们说的这些能力了。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">&lt;/p>
+&lt;p>&lt;strong>QA 环节&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>Q1：&lt;/strong> 例子中提问到了 Function 的例子，是否可以理解为 Serverless 或者是 PaaS？&lt;/p>
+&lt;p>&lt;strong>A1**&lt;/strong>：** 这样理解是没错的，可以理解为阿里云的一个 Function，或者是 Knative Service。&lt;/p>
+&lt;p>&lt;strong>Q2：&lt;/strong> 有没有可以让我自由定义出相应的规则这种规范？&lt;/p>
+&lt;p>&lt;strong>A2：&lt;/strong> 有的，在 OAM 里面有个规范，叫做 spec。spec 里面有提交容器化的规范。后面会增加更多抽象的规范。当然也分类别，有一些是非常标准化的，需要严格遵守。有一些是比较松的，可以不用严格遵守。&lt;/p>
+&lt;p>&lt;strong>Q3：&lt;/strong> docker-compose 的例子可否再谈谈？&lt;/p>
+&lt;p>&lt;strong>A3：&lt;/strong> 本次 ppt 中没有 docker-compose 的例子，但是这个其实很容易去理解，因为 OAM 将 Kubernetes API 分为两类，一个叫做 Components，一个叫 T raits。有这么一个 Componets 文件，就可以直接映射 OAM 的概念，docker-compose 中有个概念叫做 Service，其实就是对应了 OAM 中的 Component。这完全是一对一对应关系。Service 下面有个 Deployment，有个部署策略，其实对应的就是 OAM 的 Trait。&lt;/p>
+&lt;p>&lt;strong>Q4：&lt;/strong> 定义阿里云的 redis 是否已经实现了？&lt;/p>
+&lt;p>&lt;strong>A4：&lt;/strong> 已经实现了，但是功能有限。内部已经实现了一个更强大的功能，通过 OAM 将阿里云的所有资源给创建起来。目前这个是在 Crossplane 去做的。但是内部更完整的实现还没有完全的放出去。我们还在规划中，希望通过一个叫做 Alibaba Opreator 的方式暴露出去。&lt;/p>
+&lt;p>&lt;strong>Q5：&lt;/strong> 是否可以理解 OAM 通过管理元数据通过编写 CRD 来打包 Components 和 Traits。&lt;/p>
+&lt;p>&lt;strong>A5：&lt;/strong> 可以说是对的。你把自己的 CRD 也好，社区里面的 CRD 也好，稍微做个分类或者封装，暴露给用户。所以对于用户来说只要理解两个概念——Components 和 Traits。Components 里面的内容是靠你的 CRD 来决定的，所以说这是一个比较轻量级的抽象。&lt;/p>
+&lt;p>&lt;strong>Q6：&lt;/strong> 假设 Components 有四个，Traits 有五个，是否可以理解为可封装能力有 20 项。&lt;/p>
+&lt;p>&lt;strong>A6：&lt;/strong> 这个不是这么算的，不管有多少 Components 和 Trait，最终有几个能力取决于你注册的实际 CRD。Components 和 Traits 与背后的能力是解耦开的。&lt;/p>
+&lt;p>&lt;strong>Q7：&lt;/strong> OAM 能使用 Kustomize 生成么？&lt;/p>
+&lt;p>&lt;strong>A7：&lt;/strong> 当然可以了，Kustomize 使一个 yaml 文件操作工具。你可以用这个工具生成任何你想要的 yaml 文件，你也可以用其他的，比如 google 的另一个项目叫 kpt，比如你用 DSL，json。所有可以操作 yaml 文件的工具都可以操作 OAM 文件，OAM 的 yaml 文件跟正常的 K8s 中的 yaml 没有任何区别。在 K8s 看来 OAM 无非就是一个 CRD。&lt;/p>
+&lt;p>&lt;strong>Q8：&lt;/strong> OAM 是否可以生产可用？&lt;/p>
+&lt;p>&lt;strong>A8：&lt;/strong> 这里面分几个点，OAM 本身分两个部分。第一部分是规范，是处于 alpha 版本，计划在 2020 年内发布 beta 版本。beta 就是一个稳定版本，这是一个比较明确的计划。现在的 spec 是有可能会变的，但是有另外一个版本叫做 oam-kubernetes-runtime 插件，这是作为独立项目去运营的，计划在 Q3 发布稳定版本。即使我的 spec 发生的改变，但是插件会做向下兼容，保证 spec 变化不会影响你的系统，我们的 runtime 会提前发布稳定版本，应该是比较快的。如果构建平台化建议优先使用 runtime。&lt;/p>
+&lt;p>&lt;strong>Q9：&lt;/strong> OAM 有没有稳定性考虑？比如说高可用。&lt;/p>
+&lt;p>&lt;strong>A9：&lt;/strong> 这个是有的，目前 runtime 这个项目就在做很多稳定性的东西，这是阿里内部和微软内部的一个诉求。这块都是在做，肯定是有这方面考虑的，包括边界条件的一个覆盖。&lt;/p>
+&lt;p>&lt;strong>Q10：&lt;/strong> 可不可介绍下双十一的状态下，有多少个 Pod 在支持？&lt;/p>
+&lt;p>&lt;strong>A10：&lt;/strong> 这个数量会比较大，大概在十几万这样一个规模，应用容器数也是很多的。这个对大家的参考价值不是很大，因为阿里的架构和应用跟大多数同学看到的是不太一样的，大多数是个单元化的框架，每个应用拆分的微服务非常非常细。pod 数和容器数都是非常多的。&lt;/p>
+&lt;p>&lt;strong>Q11：&lt;/strong> 目前 OAM 只有阿里和微软，以后像 google 这些大厂会加入么？&lt;/p>
+&lt;p>&lt;strong>A11：&lt;/strong> 一定会的，接下来的计划会引入新的合作方。目前 google 和 aws 都对 OAM 有一些社区的支持。本身作为云原生的一个规范，也是有一些想法的。在初期的时候，大厂加入的速度会比较慢，更希望的是用户使用起来。大厂并不一定是 OAM 的主要用户，他们更多的是商业考虑。&lt;/p>
+&lt;p>&lt;strong>Q12：&lt;/strong> OAM 是否会关联 Mesh？&lt;/p>
+&lt;p>&lt;strong>A12：&lt;/strong> 一定会的，但是并不是说直接 Mesh 一个核心能力，更多的说作为 OAM trait 使用, 比如描述一个流量的拓扑关系。&lt;/p>
+&lt;p>&lt;strong>Q13：&lt;/strong> OAM 的高可用方案？&lt;/p>
+&lt;p>&lt;strong>A13：&lt;/strong> OAM 本身就是个无状态服务，本身的高可用方案不是很复杂。&lt;/p>
+&lt;p>&lt;strong>Q14：&lt;/strong> OAM 考虑是单集群还是多集群？&lt;/p>
+&lt;p>&lt;strong>A14：&lt;/strong> 目前是单集群，但是我们马上也会发布多集群的模型，在阿里内部已经是多集群模型。简单来说多集群是两层模型。多集群的概念是定义在 Scope 里面的，通过 Scope 来决定 Workload 或者是 Components 放到哪个集群里面。我们会在社区尽快放出来。&lt;/p>
+&lt;p>如果有其他问题，建议大家加入我们的钉钉群进行讨论。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/527401b0-9af0-4240-98b5-5f8936c0d0c2/640" alt="">
+&lt;a href="https://mp.weixin.qq.com/s/ql_AIFc0s5HwZgsML63zQA">https://mp.weixin.qq.com/s/ql_AIFc0s5HwZgsML63zQA&lt;/a>&lt;/p></description></item><item><title>Docs: 如何玩转 Kubernetes 开源社区？这篇文章一定要看！</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/%E5%A6%82%E4%BD%95%E7%8E%A9%E8%BD%AC-Kubernetes-%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E8%BF%99%E7%AF%87%E6%96%87%E7%AB%A0%E4%B8%80%E5%AE%9A%E8%A6%81%E7%9C%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kuberntes-%E4%BB%8B%E7%BB%8D/%E5%A6%82%E4%BD%95%E7%8E%A9%E8%BD%AC-Kubernetes-%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E8%BF%99%E7%AF%87%E6%96%87%E7%AB%A0%E4%B8%80%E5%AE%9A%E8%A6%81%E7%9C%8B/</guid><description>
+&lt;p>&lt;a href="https://mp.weixin.qq.com/s/aZGBkBpFZOEyoa1xj-16kQ">如何玩转 Kubernetes 开源社区？这篇文章一定要看！&lt;/a>&lt;/p>
+&lt;p>近日，「DaoCloud 道客」成功进入 Kubernetes 开源榜单累计贡献度全球前十，亚洲前三。基于在 Kuberntes 开源社区的长期深耕细作，「DaoCloud 道客」积累了一些心得，特写此文章，旨在帮助对开源贡献感兴趣的同学快速⼊⻔，并为之后的进阶之路提供⼀些参考和指导意义。&lt;/p>
+&lt;p>这⼀章节，你将了解整个 Kubernetes 社区是如何治理的：&lt;/p>
+&lt;h2 id="11-分布式协作">1.1. 分布式协作&lt;/h2>
+&lt;p>与公司内部集中式的项⽬开发模式不同，⼏乎所有的开源社区都是⼀个分布式、松散的组织，为此  ，Kubernetes 建⽴了⼀套完备的社区治理制度。协作上，社区⼤多数的讨论和交流主要围绕 issue 和 PR 展开。由于 Kubernetes ⽣态⼗分繁荣，因此所有对 Kubernetes 的修改都⼗分谨慎，每个提交的 PR 都需要通过两个以上成员的 Review 以及经过⼏千个单元测试、集成测试、端到端测试以及扩展性测试，所有这些举措共同保证了项⽬的稳定。&lt;/p>
+&lt;h2 id="12committees">1.2. Committees&lt;/h2>
+&lt;p>委员会由多人组成，主要负责制定组织的行为规范和章程，处理一些敏感的话题。常见的委员会包括行为准则委员会，安全委员会，指导委员会。&lt;/p>
+&lt;h2 id="13sig">1.3. SIG&lt;/h2>
+&lt;p>SIG 的全称是 Special Interest Group，即特别兴趣⼩组，它们是 Kubernetes 社区中关注特定模块的永久组织，Kubernetes 作为⼀个拥有⼏⼗万⾏源代码的项⽬，单⼀的⼩组是⽆法了解其实现的全貌的。Kubernetes ⽬前包含 20 多个 SIG，它们分别负责了 Kubernetes 项⽬中的不同模块，这是我们参与 Kubernetes 社区时关注最多的⼩组。作为刚刚参与社区的开发者，可以选择从某个 SIG 入手，逐步了解社区的⼯作流程。&lt;/p>
+&lt;h2 id="14-kep">1.4. KEP&lt;/h2>
+&lt;p>KEP 的全称是 Kubernetes Enhancement Proposal，因为 Kubernetes ⽬前已经是⽐较成熟的项⽬了，所有的变更都会影响下游的使⽤者，因此，对于功能和  API 的修改都需要先在 kubernetes/enhancements 仓库对应 SIG 的⽬录下提交提案才能实施，所有的提案都必须经过讨论、通过社区 SIG Leader 的批准。&lt;/p>
+&lt;h2 id="15working-group">1.5. Working Group&lt;/h2>
+&lt;p>这是由社区贡献者⾃由组织的兴趣⼩组，对现阶段的⼀些⽅案和社区未来发展⽅向进⾏讨论，并且会周期性的举⾏会议。会议⼤家都可以参加，⼤多是在国内的午夜时分。以 scheduling 为例，你可以查看文档 Kubernetes Scheduling Interest Group 了解例次会议纪要。会议使⽤ Zoom 进⾏录制并且会上传到 Youtube, 过程中会有主持⼈主持，如果你是新⼈，可能需要你进行自我介绍。&lt;/p>
+&lt;p>🔗&lt;a href="https://docs.google.com/document/d/13mwye7nvrmV11q9_Eg77z-1w3X7Q1GTbslpml4J7F3A/edit%23heading%25253Dh.ukbaidczvy3r">https://docs.google.com/document/d/13mwye7nvrmV11q9_Eg77z-1w3X7Q1GTbslpml4J7F3A/edit%23heading%25253Dh.ukbaidczvy3r&lt;/a>&lt;/p>
+&lt;h2 id="16membership">1.6. MemberShip&lt;/h2>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>角色&lt;/th>
+&lt;th>职责&lt;/th>
+&lt;th>要求&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Member&lt;/td>
+&lt;td>社区积极贡献者&lt;/td>
+&lt;td>对社区有多次贡献并得到两名 reviewer 的赞同&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Reviewer&lt;/td>
+&lt;td>对其他成员贡献的代码积极的 review&lt;/td>
+&lt;td>在某个子项目中长期 review 和贡献代码&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Approver&lt;/td>
+&lt;td>对提交的代码进行最后的把关，有合并代码的权限&lt;/td>
+&lt;td>属于某一个子项目经验丰富的 reviewer 和代码贡献者&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Maintainer&lt;/td>
+&lt;td>制定项目的优先级并引领项目发展方向&lt;/td>
+&lt;td>证明自己在这个项目中有很强的责任感和技术能力&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>每种⻆⾊承担不同的职责，同时也拥有不同的权限。⻆⾊晋升主要参考你对社区的贡献，具体内容可参考 KubernetesMemberShip。&lt;/p>
+&lt;p>🔗&lt;a href="https://github.com/kubernetes/community/blob/master/community-membership.md">https://github.com/kubernetes/community/blob/master/community-membership.md&lt;/a>&lt;/p>
+&lt;h2 id="17-issue-分类">1.7. Issue 分类&lt;/h2>
+&lt;p>🔗 文章链接：&lt;a href="https://hackmd.io/O_gw_sXGRLC_F0cNr3Ev1Q">https://hackmd.io/O_gw_sXGRLC_F0cNr3Ev1Q&lt;/a>&lt;/p>
+&lt;h2 id="18-其他关注项">1.8. 其他关注项&lt;/h2>
+&lt;p>更多详情可参见官⽅⽂档，⽂档详细描述了该如何提交 PR，以及应该遵循什么样的原则，并给到了⼀些最佳实践。&lt;/p>
+&lt;p>🔗 官方文档：&lt;a href="https://www.kubernetes.dev/docs/guide/contributing/">https://www.kubernetes.dev/docs/guide/contributing/&lt;/a>&lt;/p>
+&lt;p>2.1.  申请  CLA&lt;/p>
+&lt;p>当你提交 PR 时，Kubernetes 代码仓库 CI 流程会检查是否有 CLA 证书，如何申请证书可以参考官⽅⽂档。&lt;/p>
+&lt;p>🔗 官方文档：&lt;a href="https://github.com/kubernetes/community/blob/master/CLA.md">https://github.com/kubernetes/community/blob/master/CLA.md&lt;/a>&lt;/p>
+&lt;p>2.2.  搜索 first-good-issue 「你可以选择你感兴趣的或你所熟悉的 SIG」&lt;/p>
+&lt;p>first-good-issue 是 Kubernetes 社区为培养新参与社区贡献的开发⼈员⽽准备的 issue，⽐较容易上⼿。&lt;/p>
+&lt;p>以 sig/scheduling 为例，在 Issues  中输⼊：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-swift" data-lang="swift">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">is&lt;/span>:issue&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#66d9ef">is&lt;/span>:open&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>label:sig&lt;span style="color:#f92672">/&lt;/span>scheduling&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>label:&lt;span style="color:#e6db74">&amp;#34;good first issue&amp;#34;&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>no:assignee
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>该 Filters 表示筛选出没有被关闭的，属于 sig/scheduling，没有 assign 给别⼈的 good first issue。&lt;/p>
+&lt;p>如果没有相关的 good-first-issue，你也可以选择 kind/documentation 或者 kind/cleanup 类型 issue。&lt;/p>
+&lt;p>🔗Command-Hlep：&lt;a href="https://prow.k8s.io/command-help?repo=kubernetes%25252Fkubernetes">https://prow.k8s.io/command-help?repo=kubernetes%25252Fkubernetes&lt;/a>&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>/retitle&lt;/th>
+&lt;th>重命名标题&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>/close&lt;/td>
+&lt;td>关闭 issue&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>/assign&lt;/td>
+&lt;td>将 issue assign 给⾃⼰&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>/sig scheduling&lt;/td>
+&lt;td>添加标签 sig/scheduling&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>/remove-sig scheduling&lt;/td>
+&lt;td>去掉标签&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>/help&lt;/td>
+&lt;td>表示需要帮助，会打上标签 help wanted&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>/good-first-issue&lt;/td>
+&lt;td>添加标签 good first issue&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>/retest&lt;/td>
+&lt;td>重新测试出错的测试⽤例&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>/ok-to-test&lt;/td>
+&lt;td>准备好开始测试&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>a.  Fork 代码仓库&lt;/p>
+&lt;p>将 kubernetes/Kubernetes fork 到⾃⼰的 GitHub 账号名下。&lt;/p>
+&lt;p>b. Clone ⾃⼰的代码仓库&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">git&lt;/span> &lt;span style="color:#e6db74">clone&lt;/span> &lt;span style="color:#e6db74">git@github.com:&amp;lt;your&lt;/span> &lt;span style="color:#e6db74">github&lt;/span> &lt;span style="color:#e6db74">id&amp;gt;/kubernetes.git&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>c.   追踪源代码仓库代码变动&lt;/p>
+&lt;ul>
+&lt;li>添加 upstream：&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cs" data-lang="cs">&lt;span style="display:flex;">&lt;span>git remote &lt;span style="color:#66d9ef">add&lt;/span> upstream https:&lt;span style="color:#75715e">//github.com/kubernetes/kubernetes.git&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>git remote -v 检查是否添加成功，成功则显示：&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-properties" data-lang="properties">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">origin&lt;/span> &lt;span style="color:#e6db74">git@github.com:&amp;lt;your github id&amp;gt;/kubernetes.git&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">(fetch)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">origin&lt;/span> &lt;span style="color:#e6db74">git@github.com:&amp;lt;your github id&amp;gt;/kubernetes.git&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">(push)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">upstream&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">https&lt;/span>&lt;span style="color:#f92672">:&lt;/span>&lt;span style="color:#e6db74">//github.com/kubernetes/kubernetes.git (fetch)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">upstream&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">https&lt;/span>&lt;span style="color:#f92672">:&lt;/span>&lt;span style="color:#e6db74">//github.com/kubernetes/kubernetes.git (push)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>同步  upstream kubernetes 最新代码&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-properties" data-lang="properties">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">git&lt;/span> &lt;span style="color:#e6db74">checkout master&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">git&lt;/span> &lt;span style="color:#e6db74">pull upstream master git push&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>d.   切分支，编码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-xml" data-lang="xml">&lt;span style="display:flex;">&lt;span>git checkout -b &lt;span style="color:#f92672">&amp;lt;branch&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">name&lt;/span>&lt;span style="color:#f92672">&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>e.  Commit，并提交 PR&lt;/p>
+&lt;ul>
+&lt;li>命令行：&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">git&lt;/span> &lt;span style="color:#e6db74">commit&lt;/span> &lt;span style="color:#e6db74">-s&lt;/span> &lt;span style="color:#e6db74">-m&lt;/span> &lt;span style="color:#e6db74">&amp;#39;&amp;lt;change&lt;/span> &lt;span style="color:#e6db74">me&amp;gt;&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>注意：&lt;/li>
+&lt;li>commit push  前先执⾏一些检查，如  make update 等&lt;/li>
+&lt;li>如果本次修改还没有完成，可以使⽤  Github Draft   模式，并添加  [WIP]  在标题中&lt;/li>
+&lt;li>Commit  信息过多，且没有特别⼤的价值，建议合成⼀条  commit  信息&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">git&lt;/span> &lt;span style="color:#e6db74">rebase&lt;/span> &lt;span style="color:#e6db74">-i&lt;/span> &lt;span style="color:#e6db74">HEAD~2&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>f.   提交  PR&lt;/p>
+&lt;p>在  GitHub  ⻚⾯按照模版提交  PR&lt;/p>
+&lt;p>a. PR 提交后需要执⾏ Kubernetes CI 流程，此时需要 Kubernetes Member 输入  /ok- to-test 命令，然后会⾃动执⾏ CI，包括验证和各种测试。可以 @ 社区成员帮助打标签。&lt;/p>
+&lt;p>b. ⼀旦测试失败，修复后可以执⾏  /retest 重新执⾏失败的测试，此时，你已经可以⾃⼰操作。&lt;/p>
+&lt;p>a. 每次提交需要有 2 个 Reviewer 进⾏ Code Review， 如果通过，他们会打上 /lgtm 标签，表示 looks good to me, 代码审核完成。&lt;/p>
+&lt;p>b.   另外需要⼀个 Approver 打上 /approve 标签，表示代码可以合⼊主⼲分⽀，GitHub 机器⼈会⾃动执⾏ merge 操作。&lt;/p>
+&lt;p>c.  PR 跟进没有想像中那么快，有时候 1-2 周也正常。&lt;/p>
+&lt;p>d.   恭喜，你完成了第⼀个 PR 的提交。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cs" data-lang="cs">&lt;span style="display:flex;">&lt;span>Sponsored &lt;span style="color:#66d9ef">by&lt;/span> &lt;span style="color:#ae81ff">2&lt;/span> reviewers and multiple contributions to the project
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-css" data-lang="css">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">PR&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">Issue&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">Kep&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">Comment&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>a.   多参与社区的讨论，表达⾃⼰的观点&lt;/p>
+&lt;p>b.   多参与  issue 的解答，帮助提问者解决问题，社区的意义也在于此&lt;/p>
+&lt;p>c.   可以在看源代码的时候多留意⼀些语法、命名和重复代码问题，做⼀些重构相关的⼯作&lt;/p>
+&lt;p>d.   从测试⼊⼿也是⼀个好办法，如补全测试，或者修复测试&lt;/p>
+&lt;p>e.   参与⼀些代码的 review，可以学到不少知识&lt;/p>
+&lt;p>f. 最有价值的肯定是 feature 的实现，可以提交 kep&lt;/p>
+&lt;p>参考  Makefile  ⽂件&lt;/p>
+&lt;p>🔗&lt;a href="https://github.com/kubernetes/kubernetes/blob/master/build/root/Makefile">https://github.com/kubernetes/kubernetes/blob/master/build/root/Makefile&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>单元测试（单方法）&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">go&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">test&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#f92672">-&lt;/span>&lt;span style="color:#a6e22e">v&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#f92672">--&lt;/span>&lt;span style="color:#a6e22e">timeout&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#ae81ff">30&lt;/span>&lt;span style="color:#a6e22e">s&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">k8s&lt;/span>.&lt;span style="color:#a6e22e">io&lt;/span>&lt;span style="color:#f92672">/&lt;/span>&lt;span style="color:#a6e22e">kubectl&lt;/span>&lt;span style="color:#f92672">/&lt;/span>&lt;span style="color:#a6e22e">pkg&lt;/span>&lt;span style="color:#f92672">/&lt;/span>&lt;span style="color:#a6e22e">cmd&lt;/span>&lt;span style="color:#f92672">/&lt;/span>&lt;span style="color:#a6e22e">get&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#f92672">-&lt;/span>&lt;span style="color:#a6e22e">run&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>^&lt;span style="color:#a6e22e">TestGetSortedObjects&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">$&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>集成测试（单⽅法）&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>make test-integration WHAT&lt;span style="color:#f92672">=&lt;/span>./vendor/k8s.io/kubectl/pkg/cmd/get GOFLAGS&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;-v&amp;#34;&lt;/span> KUBE_TEST_ARGS&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;-run ^TestRuntimeSortLess&lt;/span>$&lt;span style="color:#e6db74">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>E2E 测试&lt;/li>
+&lt;/ul>
+&lt;p>可以使⽤ GitHub 集成的 E2E 测试：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>/test pull-kubernetes-node-kubelet-serial
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Kubernetes 和 Linux 一样, 早已成为 IT 技术的重要事实标准，而开源 Kubernetes 是整个行业的  “上游”，灌溉了数亿的互联网和企业应用。「DaoCloud 道客」融合自身在各行各业的实战经验，持续贡献 Kubernetes 开源项目，致力于让以 Kubernetes 为代表的云原生技术更平稳、高效地落地到产品和生产实践中。此外，「DaoCloud 道客」全面布局开源生态，是最早一批加入 CNCF 基金会的云原生企业，拥有云原生基金会成员，Linux 基金会成员，Linux 基金会培训合作伙伴，Kubernetes 培训合作伙伴，Kubernetes 兼容性认证，以及 Kubernetes 认证服务提供商等资质，坚持构建并维护云原生开源生态圈。在开源贡献这条道路上，「DaoCloud 道客」会一直走下去，也愿意成为开源社区的守护者、暸望塔，并始终坚信开源的力量、原生的力量会与这个时代产生共鸣，迸发出属于自己的光彩。&lt;/p>
+&lt;p>作者简介&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bb6e356a-0809-470a-8674-9af62b340848/640" alt="">&lt;/p>
+&lt;p>殷纳&lt;/p>
+&lt;p>DaoCloud  云原生工程师&lt;/p>
+&lt;p>Kubernetes Member&lt;/p>
+&lt;p>专注 Kubernetes 及多集群管理开源工作&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bb6e356a-0809-470a-8674-9af62b340848/640" alt="">&lt;/p>
+&lt;p>&lt;strong>DaoCloud 公司简介&lt;/strong>&lt;/p>
+&lt;p>上海道客网络科技有限公司，成立于 2014 年底，公司拥有自主知识产权的核心技术，以云计算、人工智能为底座构建数字化操作系统为实体经济赋能，推动传统企业完成数字化转型。成立迄今，公司已在金融科技、先进制造、智能汽车、零售网点、城市大脑等多个领域深耕，标杆客户包括交通银行、浦发银行、上汽集团、东风汽车、海尔集团、金拱门（麦当劳）等。被誉为科技领域准独角兽企业。公司在北京、武汉、深圳、成都设立多家分公司及合资公司，总员工人数超过 300 人，是上海市高新技术企业、上海市 “专精特新” 企业和上海市 “科技小巨人” 企业，并入选了科创板培育企业名单。&lt;/p>
+&lt;p>网址：www.daocloud.io&lt;/p>
+&lt;p>邮件：info&lt;a href="https://desistdaydream.github.io/daocloud.io">@daocloud.io &lt;/a>&lt;/p>
+&lt;p>电话：400 002 6898&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bb6e356a-0809-470a-8674-9af62b340848/640" alt="">&lt;/p>
+&lt;p>文章转载自道客船长。&lt;a href="https://mp.weixin.qq.com/s?__biz=MzA5NTUxNzE4MQ==&amp;amp;mid=2659272563&amp;amp;idx=1&amp;amp;sn=9cbdc17729dc631d490ab33897012c73&amp;amp;scene=21#wechat_redirect">点击这里阅读原文了解更多&lt;/a>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bb6e356a-0809-470a-8674-9af62b340848/640" alt="">&lt;/p>
+&lt;p>中国 KubeCon + CloudNativeCon + Open Source Summit 虚拟大会&lt;/p>
+&lt;p>12 月 9 日至 10 日&lt;/p>
+&lt;p>&lt;a href="https://www.lfasiallc.com/kubecon-cloudnativecon-open-source-summit-china/">https://www.lfasiallc.com/kubecon-cloudnativecon-open-source-summit-china/&lt;/a>&lt;/p>
+&lt;p>&lt;strong>标准票和免费的 “主题演讲 + 解决方案展示仅用票”&lt;/strong>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bb6e356a-0809-470a-8674-9af62b340848/640" alt="">&lt;/p>
+&lt;p>选定合适门票，马上扫码注册！&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bb6e356a-0809-470a-8674-9af62b340848/640" alt="">&lt;/p>
+&lt;p>（&lt;a href="https://www.bagevent.com/event/7680821%EF%BC%89">https://www.bagevent.com/event/7680821）&lt;/a>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bb6e356a-0809-470a-8674-9af62b340848/640" alt="">&lt;/p>
+&lt;p>CNCF 概况（幻灯片）&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bb6e356a-0809-470a-8674-9af62b340848/640" alt="">&lt;/p>
+&lt;p>扫描二维码联系我们！&lt;/p>
+&lt;hr>
+&lt;p>&lt;strong>_CNCF (Cloud Native Computing Foundation) 成立于 2015 年 12 月，隶属于 Linux Foundation，是非营利性组织。 _&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>_*&lt;strong>CNCF*&lt;/strong>****&lt;/strong>（*&lt;strong>****&lt;strong>云原生计算基金会&lt;/strong>*）致力于培育和维护一个厂商中立的开源生态系统，来推广云原生技术。我们通过将最前沿的模式民主化，让这些创新为大众所用。请长按以下二维码进行关注。_&lt;/strong>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bb6e356a-0809-470a-8674-9af62b340848/640" alt="">&lt;/p></description></item></channel></rss>

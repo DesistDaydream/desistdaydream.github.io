@@ -1,0 +1,244 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Volume</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/9.Kubernetes-%E5%AD%98%E5%82%A8/Volume/</link><description>Recent content in Volume on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/9.Kubernetes-%E5%AD%98%E5%82%A8/Volume/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: ConfigMap 与 Secret</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/9.Kubernetes-%E5%AD%98%E5%82%A8/Volume/ConfigMap-%E4%B8%8E-Secret/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/9.Kubernetes-%E5%AD%98%E5%82%A8/Volume/ConfigMap-%E4%B8%8E-Secret/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#configmap">官方文档,概念-存储-卷-configMap&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/tasks/configure-pod-container/configure-pod-configmap/">官方文档,任务-配置 Pods 和容器-使用 ConfigMap 配置 Pod&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>ConfigMap 与 Secret 这两种资源是 Kubernetes 的配置管理中心，是一种特殊类型的 Volume。用来提供给从 k8s 集群外部到 pod 内部的应用，注入各种信息(配置文件、变量等)的功能。&lt;/p>
+&lt;p>这种类型的 Volume 不是为了存放 Container 中的数据，也不是用来进行 Container 与 Host 之间的数据交换。而是用来为 Container 提供预先定义好的数据。从 Container 的角度看，这些 Volume 里的信息就仿佛是被 Kubernetes &amp;ldquo;投射&amp;quot;进容器当中一样。&lt;/p>
+&lt;h2 id="为什么需要-configmap">为什么需要 ConfigMap？&lt;/h2>
+&lt;ol>
+&lt;li>
+&lt;p>几乎所有的应用开发中，都会涉及到配置文件的变更，比如说在 web 的程序中，需要连接数据库，缓存甚至是队列等等。而我们的一个应用程序从写第一行代码开始，要经历开发环境、测试环境、预发布环境直到最终的线上环境。而每一个环境都要定义其独立的各种配置。如果我们不能很好的管理这些配置文件，运维工作将顿时变的无比的繁琐。为此业内的一些大公司专门开发了自己的一套配置管理中心，如 360 的 Qcon，百度的 disconf 等。很多应用程序的配置需要通过配置文件，命令行参数和环境变量的组合配置来完成（“十二要素应用”等均要求去配置）。这些配置应该从 image 内容中解耦，以此来保持容器化应用程序的可移植性。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Kubernetes 也提供了自己的一套方案，即 ConfigMap。kubernetes 通过 ConfigMap 来实现对容器中应用的配置管理，configmap 是 kubernetes 中的一个资源，可以通过 yaml 来进行配置。每个运行 Pod 的环境都可以有自己的一套 configmap，只需要当 Pod 运行在此环境的时候，自动加载对应的 configmap 即可实现 Pod 中 container 的配置变更。secret 是加密的 configmap。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h1 id="configmap">ConfigMap&lt;/h1>
+&lt;p>ConfigMap 的特性与用法：(是 kubernetes 集群中的一个资源，作为 kubernetes 的配置中心),使用 kubectl get configmaps -A 命令查看 configmap 的资源列表&lt;/p>
+&lt;p>特性：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>ConfigMap 资源提供了将配置数据注入容器的方式，同时保证该机制对容器来说是透明的。ConfigMap 可以被用来保存单个属性，也可以用来保存整个配置文件或者 JSON 二进制大对象。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>ConfigMap 资源存储 &lt;strong>Key/Value Pairs(键/值对)&lt;/strong> 配置数据，这些数据可以在 Pod 里使用。KEY/VAL PAIR 的 KEY 由自己定义，类似于变量的变量名；KEY/VAL PAIR 的 VAL 类似于变量的值。一个 KEY/VAL PAIR 就是 configmap 中 data 字段中的一个数据，当需要使用 configmap 中的数据时。只需要引用其中一个 KEY，就等于把 KEY 所对应的 VAL 交给引用方&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>用法：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>ConfigMap 作为 container 内变量使用。KEY 是 Pod 中定义 env 字段中 key 的值，VAL 是 Pod 定义后 container 显示出的 Pod 中的 env 定义的变量的 VAL。即引用时通过 KEY 名引用，然后显示 VAL。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>configmap 作为命令行的参数使用。注意：需要先把数据保存在变量中，再引用变量作为命令行参数&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>configmap 作为 volume 挂载使用。KEY 是 container 中的文件名，VAL 是该文件的内容。Pod 中的 volumes 的类型设定为 configMap,选择引用的 configMap 的名称。当 configmap 的 data 中有多个 KEY/VAL PAIR 时，每个 KEY 都是一个文件名。&lt;/p>
+&lt;ol>
+&lt;li>pod 使用 ConfigMap，通常用于：设置环境变量的值、设置命令行参数、创建配置文件。
+&lt;ol>
+&lt;li>当需要修改 container 中的配置文件时，只需要修改 container 引用的 configmap 中的 KEY 的 VAL，过一会就会在 container 中生效&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>Configmap 的理解概述：可以这么说，ConfigMap 也是存储数据的一种东西，只不过既不是外部的硬件(比如磁盘阵列、存储设备)，也不是外部软件(比如分布式文件系统)，而是 kubernetes 自带的一种键值型存储工具，所以 volume 同样可以把 configmap 当做卷来使用并挂载进 pod 中，还可以让 pod 把 configmap 当做外部数据，引入后作为变量使用。&lt;/p>
+&lt;h1 id="secret--与-configmap-类似不过是把数据进行-base64-编码之后保存">secret # 与 ConfigMap 类似，不过是把数据进行 base64 编码之后保存&lt;/h1></description></item><item><title>Docs: emptyDir、hostPath、local</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/9.Kubernetes-%E5%AD%98%E5%82%A8/Volume/emptyDirhostPathlocal/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/9.Kubernetes-%E5%AD%98%E5%82%A8/Volume/emptyDirhostPathlocal/</guid><description>
+&lt;h1 id="emptydir--在-pod-的生命周期中的空目录">emptyDir # 在 Pod 的生命周期中的空目录&lt;/h1>
+&lt;p>该类型的 Volume 会随着 Pod 的摧毁重建而自动还原成初始状态。Pod 会创建一个逻辑上的 volume，把该 volum 挂载到一个 Pod 中每个 container 所定义的目录，所有 container 对自己挂载 volume 的目录进行的操作都会在其余 container 挂载该 volume 的目录中看到(每个 container 用于挂载的目录可以不一样，但是用到的 volume 都是同一个)。&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>medium：指定 volum 的存储媒介(即 volum 使用的存储资源)，默认使用 memory，这样两个容器的数据交互速度会非常快&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>sizeLimit：容量大小限制，限制 volume 的最大存储空间，如果不做限制，那么对于设备来说，用户数据交互的 volume 会非常浪费资源&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>获取 emptyDir 类型的 volume 在宿主机的路径的方式：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>首先通过 kubectl get pod PODNAME -o yaml | grep uid 来获取 pod 的标识符&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>然后在目录/var/lib/kubelet/pods/PodID/volumes/kubernets.io~empty-dir/下面找到所有该 pod 所挂载的 empty 类型的 volume，该目录与 pod 中的目录是同步的，在该目录增删改的信息同样也会影响到 pod 对应的目录中。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>hostPath # Node 上的文件或目录&lt;/p>
+&lt;p>hostPath 类型的 Volume 会将节点上的文件或目录挂载到 Pod 中。&lt;/p>
+&lt;p>hostPath 常用于将节点上的目录挂载到容器中，以便让容器可以读取目录中的内容执行一些操作，比如：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>运行一个需要访问节点日志的容器(比如 Loki)，使用 hostPath 类型的卷挂载节点上的 /var/log/pods 目录到容器中。以便 Loki 可以采集宿主机的日志。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>在容器中运行 cAdvisor 时，以 hostPaht 的方式挂载节点的 /sys 目录。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>使用 hostPath 作为 volume 时，有两个参数需要指定：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>path：指明 Node 上的哪个文件或者目录作为 volume 提供给 container&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>type：Node 上目录或文件的使用行为，比如&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>DirectoryOrCreate # 如果指定 path 不存在，则自动创建，并设置权限为 0755，具有有 kubelet 相同的组和所有权&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Directory # 指定 path 必须存在，不存在则报报错&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&amp;hellip;.等等，详见官网&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>hostPath 类型的 volume 关联的目录，并不会自动变更权限，自动创建出来后，如果 容器 不以 root 身份运行，则有可能会没有权限对该目录进行读写操作&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>hostPath 类型的 volume 不会随着 Pod 的摧毁重建而自动还原成初始状态。这种类型会把 Node 上的本地存储资源当作 volume 给 container 使用，保证了数据的持久性，但是当 pod 重建时，如果不被分配到原 Node，则该数据会变成另一个 Node 上的数据，没法使用原数据了，不够灵活。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="local--指定-node-上的存储设备如-磁盘分区目录">local # 指定 Node 上的存储设备(如 磁盘、分区、目录)&lt;/h1>
+&lt;blockquote>
+&lt;p>注意：local 类型的卷暂时只能在静态的 Persistent Volume 持久卷 中使用。&lt;/p>
+&lt;/blockquote>
+&lt;ol>
+&lt;li>
+&lt;p>local 会根据容器所需要的权限，自动更改关联目录的权限&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>相比于 hostPath 卷，local 卷更像是存储数据所用，而 hostPath 更偏向于容器共享宿主机目录。只不过 local 卷只能在 PV 中使用，并必须指定节点亲和性，以便将 PV 绑定到指定的节点上。这样，pod 在使用对应 PVC 时，则会自动调度到 PV 所在的 节点上，而不用给 pod 手动指定 nodeselector 了。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h1 id="manifests-示例">Manifests 示例&lt;/h1>
+&lt;h2 id="hostpath-类型">hostPath 类型&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test-pd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">k8s.gcr.io/test-webserver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test-container&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">volumeMounts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/test-pd&lt;/span> &lt;span style="color:#75715e"># 指定要改volume要挂载到容器的哪个目录下&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test-volume&lt;/span> &lt;span style="color:#75715e"># 指定要使用的volume，该字段的值为.volumes.name中的值&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">volumes&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test-volume&lt;/span> &lt;span style="color:#75715e"># 指定volume的名字，用于pod挂载volume时所用&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostPath&lt;/span>: &lt;span style="color:#75715e"># 指定volume的类型，该字段下面的字段为该类型的参数，不同的类型有不通的参数&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/data&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">Directory&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Volume</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/9.Kubernetes-%E5%AD%98%E5%82%A8/Volume/Volume/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/9.Kubernetes-%E5%AD%98%E5%82%A8/Volume/Volume/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/storage/volumes/">官方文档，概念-存储-卷&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Volume(卷) 的工作流程：可以把 volume 想象成一个中间人，数据流走向：Container—Volum—StorageResource&lt;/p>
+&lt;p>要使用 Volume，Pod 的 Manifests 中需要指定要为 Pod 提供卷的类型（&lt;code>.spec.volumes&lt;/code> 字段）以及将这些卷挂载到容器的位置（&lt;code>.spec.containers [*].volumeMounts&lt;/code> 字段）。&lt;/p>
+&lt;h2 id="volume-中数据所在目录">Volume 中数据所在目录&lt;/h2>
+&lt;p>/var/lib/kubelet/pods/PodUID/volumes/XXX # pod 中挂载的 volume，其数据都会保存在该目录下，就算是 nfs 这种远程存储，pod 也是会读取该目录下的某个目录，因为这个目录就是挂载 nfs 的目录。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ymmgaq/1616117653866-393d3afc-56b4-4ad5-b1f1-428a013719d3.jpeg" alt="">&lt;/p>
+&lt;h1 id="volume-的类型">Volume 的类型&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/storage/volumes/#types-of-volumes">官方文档，概念-存储-卷-卷类型&lt;/a>(全部 Volume 类型的官方介绍)&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>注意：大量的第三方 In-Tree 类型的第三方卷插件(i.e.非 ConfigMap、Secret 等内置资源的卷插件)将会逐步被弃用，详情参考 &lt;a href="https://kubernetes.io/blog/2021/12/10/storage-in-tree-to-csi-migration-status-update/">Kubernetes 博客，Kubernetes 1.23: Kubernetes In-Tree to CSI Volume Migration Status Update&lt;/a>&lt;/p>
+&lt;p>现阶段(1.21 版本)，Kubernetes 支持以下类型的 Volume：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#awselasticblockstore">awsElasticBlockStore&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#azuredisk">azureDisk&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#azurefile">azureFile&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#cephfs">cephfs&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#cinder">cinder&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#configmap">configMap&lt;/a> # 一种 Kubernetes 资源，使用 ConfigMap 资源中定义的内容作为 Volume。比如 key 是文件名，value 是文件内容。&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#downwardapi">downwardAPI&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#emptydir">emptyDir&lt;/a> # 把宿主机上的目录作为 Volume&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#fc">fc (光纤通道)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#gcepersistentdisk">gcePersistentDisk&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#hostpath">hostPath&lt;/a> # 把宿主机上的目录作为 Volume&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#iscsi">iscsi&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#local">local&lt;/a> # 把宿主机上的目录作为 Volume&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#nfs">nfs&lt;/a> # 将 NFS 服务提供的目录作为 Volume&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#persistentvolumeclaim">persistentVolumeClaim&lt;/a> # 一种 Kubernetes 资源。详见&lt;a href="https://www.yuque.com/go/doc/33163956">Persistent Volume 持久卷&lt;/a> 中关于 PVC 的说明&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#portworxvolume">portworxVolume&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#projected">projected&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#quobyte">quobyte&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#rbd">rbd&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#secret">secret&lt;/a> # 一种 Kubernetes 资源。使用 Secret 资源中定义的内容作为 Volume。比如 key 是文件名，value 是文件内容。&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#storageos">storageOS&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#vspherevolume">vsphereVolume&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>上述类型都有各自的用法，常用类型的卷详见本章节下的子章节。&lt;/p>
+&lt;p>已弃用：&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#glusterfs">glusterfs&lt;/a>、&lt;a href="https://kubernetes.io/zh/docs/concepts/storage/volumes/#scaleio">scaleIO&lt;/a>&lt;/p>
+&lt;p>**
+Projected 类型的卷可以将现在的某些卷映射到同一个目录上。
+目前，有以下几种 Volume 可以统一映射&lt;/p>
+&lt;ol>
+&lt;li>Secret&lt;/li>
+&lt;li>ConfigMap&lt;/li>
+&lt;li>Downward API&lt;/li>
+&lt;li>ServiceAccountToken&lt;/li>
+&lt;/ol>
+&lt;h1 id="subpath">subPath&lt;/h1>
+&lt;p>参考：&lt;a href="https://kubernetes.io/docs/concepts/storage/volumes/#using-subpath">https://kubernetes.io/docs/concepts/storage/volumes/#using-subpath&lt;/a>
+注意：如果使用 subPath 挂载为 Container 的 Volume，Kubernetes 不会做自动热更新，因为子路径属于 Volume 下的内容，而不属于 k8s 本身。&lt;/p>
+&lt;p>有时候，在一个 Pod 中共享一个 Volume 以用于多种用途是很有用的。volumeMounts.subPath 字段可引用 Volume 内的子子路径，而不是该 Volume 的根。&lt;/p>
+&lt;p>比如&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">volumeMounts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">sub&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/logs/sub1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">subPath&lt;/span>: &lt;span style="color:#ae81ff">sub1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">sub&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/opt/sub2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">subPath&lt;/span>: &lt;span style="color:#ae81ff">sub2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">volumes&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">sub&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostPath&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/root&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在这个示例中，宿主机的 /root/sub1 目录，将会被挂载到容器中的 /logs/sub1 目录上；宿主机得 /root/sub2 目录，将会被挂载到容器中的 /opt/sub2 目录上。如果宿主机不存在该目录，则会自动创建该目录。&lt;/p>
+&lt;p>subPath 的行为根据 Volume 类型的不同而不同&lt;/p>
+&lt;ol>
+&lt;li>Volume 类型为 hostPath、nfs、pvc 等 # 挂载该类型 Volume 目录下的子目录&lt;/li>
+&lt;li>Volume 类型为 configmap # 挂载 configmap 中指定的文件&lt;/li>
+&lt;/ol>
+&lt;h2 id="pod-中挂载单个文件的方法">Pod 中挂载单个文件的方法&lt;/h2>
+&lt;p>在一般情况下 configmap 挂载文件时，会先覆盖掉挂载目录，然后再将 congfigmap 中的内容作为文件挂载进行。如果想不对原来的文件夹下的文件造成覆盖，只是将 configmap 中的每个 key，按照文件的方式挂载到目录下，可以使用 subpath 字段。&lt;/p>
+&lt;ol>
+&lt;li>创建一个 configmap，让其中 key 为文件名，val 为文件内容&lt;/li>
+&lt;li>然后创建 configmap 类型的 volumes&lt;/li>
+&lt;li>配置文件中，&lt;/li>
+&lt;li>在 pod 的 mountPath 下面使用 subPath 键指定其值为所需要挂载的文件的文件名，即可把文件挂载到相应的目录中，注意 mountPath 需要写文件的绝对路径，不能只写一个目录的路径。这样，在 host 上的 grafana.ini 文件就被挂载到容器中的 /etc/frafana/ 目录下，并且该目录其余文件不受影响&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">kubectl create configmap -n montiroing grafanaini --from-file=grafana.ini&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">cat XXXX.yaml&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...&lt;span style="color:#ae81ff">....&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/etc/grafana/grafana.ini&lt;/span> &lt;span style="color:#75715e"># 指定要挂载到容器的哪个路径下&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">grafana-ini&lt;/span> &lt;span style="color:#75715e"># 指定要使用的volumes名称&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">subPath&lt;/span>: &lt;span style="color:#ae81ff">grafana.ini&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">volumes&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">grafana-ini&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">configMap&lt;/span>: &lt;span style="color:#75715e"># 指定要使用的configmap名称&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">grafanaini&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...&lt;span style="color:#ae81ff">....&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>

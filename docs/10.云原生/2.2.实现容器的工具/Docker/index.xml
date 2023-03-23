@@ -1,0 +1,1115 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Docker</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/</link><description>Recent content in Docker on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Docker API</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-API/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-API/</guid><description>
+&lt;p>Docker API 官方文档：&lt;a href="https://docs.docker.com/engine/api/latest/">https://docs.docker.com/engine/api/latest/&lt;/a>&lt;/p></description></item><item><title>Docs: Docker Compose</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-Compose/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-Compose/</guid><description/></item><item><title>Docs: Docker Image</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-Image/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-Image/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://segmentfault.com/a/1190000009309347">https://segmentfault.com/a/1190000009309347&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在虚拟化中，运行程序的地方是一个虚拟的操作系统。而容器技术中，运行程序的地方是一个容器 image(镜像)。&lt;/p>
+&lt;p>容器的镜像与虚拟机的虚拟系统有异曲同工之妙，基本原理相似，只不过虚拟系统可以像正常安装系统一样进行安装，而容器镜像，则是一个已经打包好的操作系统，可以开箱即用。&lt;/p>
+&lt;p>由于这种构造，docker 公司研究出一种技术，就是联合文件系统(UnionFS(Union File System))。可以将镜像分为多层(layers)，每层附加一个功能。&lt;/p>
+&lt;p>实现联合文件系统的驱动程序：docker 本身支持 overlay，overlay2，aufs，btrfs，devicemapper，vfs 等&lt;/p>
+&lt;h2 id="container-image-的分层结构httpwwwcnblogscomcloudman6p6806193html联合文件系统">&lt;a href="http://www.cnblogs.com/CloudMan6/p/6806193.html">Container Image 的分层结构&lt;/a>(联合文件系统)&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ma1cb7/1616121959962-5b74016a-126f-4a55-a37f-f93631fd335c.png" alt="">&lt;/p>
+&lt;p>Container Image 采用分层结构，最底层为 bootfs，其它为 rootfs&lt;/p>
+&lt;ol>
+&lt;li>bootfs：用于系统引导的文件系统，包括 bootloader 和 kernel，Container 启动完成后会被卸载以节约内存资源&lt;/li>
+&lt;li>rootfs：位于 bootfs 之上，表现为 Container 的根文件系统；
+&lt;ol>
+&lt;li>传统模式中，系统启动时，内核挂载 rootfs 时会先将其挂载为只读模式，完整性自检完成后将其重新挂载为读写模式。&lt;/li>
+&lt;li>docker 中，rootfs 由内核挂载为“只读”模式，然后通过“联合挂载”技术额外挂载一个“可写(writable)”层。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>可以这么理解：&lt;/p>
+&lt;ol>
+&lt;li>通过一个 Base Image 启动了一个 Container，然后安装一个 vim 编辑器，commit 这个 container，生成的新镜像就是两层，第一层是系统，第二层是 vim。&lt;/li>
+&lt;li>这时候用这个这个新的 image 启动一个 Container 后，再安装一个 Nginx，然后 commit 这个 Container，生成的新镜像就是三层，1 系统、2vim、3nginx。&lt;/li>
+&lt;li>以此类推，每一次 Container 的变化被 commit 后都可以当作一层。&lt;/li>
+&lt;li>对 Container 的操作产生的变化，是在可写的容器层中进行的&lt;/li>
+&lt;/ol>
+&lt;h2 id="可写writable的层layers">可写(writable)的层(layers)&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ma1cb7/1616121959993-37ba6cb0-18ec-495b-84c0-72e941c5a240.png" alt="">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ma1cb7/1616121960020-2c73e0a5-a7e5-4e71-9907-d098c5233d30.png" alt="">&lt;/p>
+&lt;p>当容器启动时，一个新的“可读写”层被加载到镜像的顶部。这一层通常被称作“容器层”，“容器层”之下的都叫“镜像层”。位于下层的 image 称为父镜像(parent image)，最底层的称为基础镜像(base image)&lt;/p>
+&lt;p>所有对容器的改动 - 无论添加、删除、还是修改文件都只会发生在容器层中。&lt;/p>
+&lt;p>只有容器层是“可读写”的，容器层下面的所有镜像层都是“只读”的。&lt;/p>
+&lt;p>镜像层数量可能会很多，所有镜像层会联合在一起组成一个统一的文件系统。如果不同层中有一个相同路径的文件，比如 /a，上层的 /a 会覆盖下层的 /a，也就是说用户只能访问到上层中的文件 /a。在容器层中，用户看到的是一个叠加之后的文件系统。&lt;/p>
+&lt;ol>
+&lt;li>添加文件：在容器中创建文件时，新文件被添加到容器层中。&lt;/li>
+&lt;li>读取文件 ：在容器中读取某个文件时，Docker 会从上往下依次在各镜像层中查找此文件。一旦找到，打开并读入内存。&lt;/li>
+&lt;li>修改文件 ：在容器中修改已存在的文件时，Docker 会从上往下依次在各镜像层中查找此文件。一旦找到，立即将其复制到容器层，然后修改之。&lt;/li>
+&lt;li>删除文件 ：在容器中删除文件时，Docker 也是从上往下依次在镜像层中查找此文件。找到后，会在容器层中记录下此删除操作。&lt;/li>
+&lt;/ol>
+&lt;p>只有当需要修改时才复制一份数据，这种特性被称作 Copy-on-Write。可见，容器层保存的是镜像变化的部分，不会对镜像本身进行任何修改；所以，如果多个容器共享一份基础镜像，当某个容器修改了基础镜像的内容，比如 /etc 下的文件，这时其他容器的 /etc 不会被修改，因为修改的只是容器层那个变化的地方，底下的镜像层是不变的&lt;/p>
+&lt;p>为什么 Docker Image 要采用这种分层结构呢？&lt;/p>
+&lt;p>最大的一个好处就是 - 共享资源。&lt;/p>
+&lt;p>比如：有多个镜像都从相同的 base 镜像构建而来，那么 Docker Host 只需在磁盘上保存一份 base 镜像；同时内存中也只需加载一份 base 镜像，就可以为所有容器服务了。而且镜像的每一层都可以被共享。&lt;/p>
+&lt;p>比如当我获取一个镜像时，可以看到下面的信息&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker pull lchdzh/network-test:v2.0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>v2.0: Pulling from lchdzh/network-test
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>f34b00c7da20: Pull complete &lt;span style="color:#75715e"># 镜像第一层&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>b248a5455a16: Pull complete &lt;span style="color:#75715e"># 镜像第二层&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>beaf4c6c50c6: Pull complete &lt;span style="color:#75715e"># 镜像第三层&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Digest: sha256:b27d98887f62c0cf28bc8707ee2de39f8c753afbd047e910e6f1cf2670ae141b
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Status: Downloaded newer image &lt;span style="color:#66d9ef">for&lt;/span> lchdzh/network-test:v2.0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker.io/lchdzh/network-test:v2.0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在获取镜像时可以看到，一共有三个层的镜像需要下载。&lt;/p>
+&lt;p>而当容器运行时，我们通过 mount 命令可以看到如下内容&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>overlay on /var/lib/docker/overlay2/XXXXXXX/merged type overlay &lt;span style="color:#f92672">(&lt;/span>rw,relatime,lowerdir&lt;span style="color:#f92672">=&lt;/span>/var/lib/docker/overlay2/l/XFVMRG3WBD4RLHJ73V5DQHSCZ5:/var/lib/docker/overlay2/l/PZG7BURXDF2DQ4FF54XUEGZE6A:/var/lib/docker/overlay2/l/L4GF2CGQ7LA6LAACXSSE5CMC4P:/var/lib/docker/overlay2/l/6XYKKSJHBNHYSTQMCETDRWL2AA,upperdir&lt;span style="color:#f92672">=&lt;/span>/var/lib/docker/overlay2/7b64f08bef3ca5ab8a2aa0fa0b124b4e55f3f98f421d0cfe7dab271447cb77a2/diff,workdir&lt;span style="color:#f92672">=&lt;/span>/var/lib/docker/overlay2/7b64f08bef3ca5ab8a2aa0fa0b124b4e55f3f98f421d0cfe7dab271447cb77a2/work&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这就是那个读写层，这就说明当一个容器运行的时候，会在 docker 的存储类型(这里是 overlay2)目录中，创建一个 XXX/merged 的目录，如果通过 docker exec 进入容器的话，会发现容器中的目录内容与该目录一模一样，并且如果在宿主机上的挂载目录修改文件，同样会影响到容器中。&lt;/p>
+&lt;h1 id="docker-image-的管理标准oci-标准介绍">Docker Image 的管理标准(OCI 标准)介绍&lt;/h1>
+&lt;p>OCI 规范详见：&lt;a href="https://www.yuque.com/go/doc/33996191">OCI 标准介绍&lt;/a>&lt;/p>
+&lt;h2 id="docker-pull-命令的大概过程">docker pull 命令的大概过程&lt;/h2>
+&lt;p>如果对 Image manifest，Image Config 和 Filesystem Layers 等概念不是很了解，请先参考 image(镜像)是什么。&lt;/p>
+&lt;p>拉取 image 的大概过程如下：&lt;/p>
+&lt;ul>
+&lt;li>docker 发送 image 的名称+tag（或者 digest）给 registry 服务器，服务器根据收到的 image 的名称+tag（或者 digest），找到相应 image 的 manifest，然后将 manifest 返回给 docker&lt;/li>
+&lt;li>docker 得到 manifest 后，读取里面 image 配置文件的 digest(sha256)，这个 sha256 码就是 image 的 ID&lt;/li>
+&lt;li>根据 ID 在本地找有没有存在同样 ID 的 image，有的话就不用继续下载了&lt;/li>
+&lt;li>如果没有，那么会给 registry 服务器发请求（里面包含配置文件的 sha256 和 media type），拿到 image 的配置文件（Image Config）&lt;/li>
+&lt;li>根据配置文件中的 diff_ids（每个 diffid 对应一个 layer tar 包的 sha256，tar 包相当于 layer 的原始格式），在本地找对应的 layer 是否存在&lt;/li>
+&lt;li>如果 layer 不存在，则根据 manifest 里面 layer 的 sha256 和 media type 去服务器拿相应的 layer（相当去拿压缩格式的包）。&lt;/li>
+&lt;li>拿到后进行解压，并检查解压后 tar 包的 sha256 能否和配置文件（Image Config）中的 diff_id 对的上，对不上说明有问题，下载失败&lt;/li>
+&lt;li>根据 docker 所用的后台文件系统类型，解压 tar 包并放到指定的目录&lt;/li>
+&lt;li>等所有的 layer 都下载完成后，整个 image 下载完成，就可以使用了&lt;/li>
+&lt;/ul>
+&lt;p>注意： 对于 layer 来说，config 文件中 diffid 是 layer 的 tar 包的 sha256，而 manifest 文件中的 digest 依赖于 media type，比如 media type 是 tar+gzip，那 digest 就是 layer 的 tar 包经过 gzip 压缩后的内容的 sha256，如果 media type 就是 tar 的话，diffid 和 digest 就会一样。&lt;/p>
+&lt;p>dockerd 和 registry 服务器之间的协议为 Registry HTTP API V2。&lt;/p>
+&lt;h2 id="oci-image-中的各种标识符xxxid">OCI Image 中的各种标识符(XXXID)&lt;/h2>
+&lt;p>在上述四部分中，有多个 XXXID 来标识 docker image 的各种信息&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>imageID&lt;/strong> # 镜像的唯一标志，根据镜像的元数据配置文件采用 sha256 算法计算获得
+&lt;ol>
+&lt;li>imageID 一般可以在 &lt;code>${DockerRootDir}/image/${StorageDriver}/repositories.json&lt;/code> 文件中找到&lt;/li>
+&lt;li>镜像的 configuration 文件就是以 imageID 命名，一般保存在 &lt;code>${DockerRootDir}/image/${StorageDriver}/imagedb/content/sha256/&lt;/code> 目录下&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>&lt;strong>diffID&lt;/strong> # 镜像层的校验 ID，根据该镜像层的打包文件校验获得
+&lt;ol>
+&lt;li>diffID 一般在 configuration 文件的 .rootfs.diff_ids 字段中找到&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>&lt;strong>chainID&lt;/strong> # docker 内容寻址机制采用的索引 ID，其值根据当前层和所有父层的 diffID(或父层的 chainID) 计算获得
+&lt;ol>
+&lt;li>chainID 计算完成后，一般可以在 &lt;code>${DockerRootDir}/image/${StorageDriver}/layerdb/sha256/&lt;/code> 目录中找到 chainID 的同名目录&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>&lt;strong>cacheID&lt;/strong> # 下载 layer 时、创建容器后产生可写 layers 时，随机生成的 uuid，用于索引镜像层
+&lt;ol>
+&lt;li>在 chainID 的目录中，可以找到 image 的 cache-id 文件，文件内容就是 cacheID。&lt;/li>
+&lt;li>然后在 &lt;code>${DockerRootDir}/${StorageDriver}/&lt;/code> 目录中找到与 cacheID 同名的目录，这些目录中存储了镜像层的所有数据&lt;/li>
+&lt;li>至于创建容器后生成的可写 layers 的 cacheID 信息，一般是保存在容器相关的信息文件中的，比如容器的状态文件、容器的可写层的信息、系统的 mount 信息等等地方，都会有相关记录&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>&lt;strong>digest&lt;/strong> # 对于某些 image 来说，可能在发布之后还会做一些更新，比如安全方面的，这时虽然镜像的内容变了，但镜像的名称和 tag 没有变，所以会造成前后两次通过同样的名称和 tag 从服务器得到不同的两个镜像的问题，于是 docker 引入了镜像的 digest 的概念，一个镜像的 digest 就是镜像的 manifes 文件的 sha256 码，当镜像的内容发生变化的时候，即镜像的 layer 发生变化，从而 layer 的 sha256 发生变化，而 manifest 里面包含了每一个 layer 的 sha256，所以 manifest 的 sha256 也会发生变化，即镜像的 digest 发生变化，这样就保证了 digest 能唯一的对应一个镜像&lt;/li>
+&lt;/ol>
+&lt;h1 id="docker-image-本地路径存放规则">Docker Image 本地路径存放规则&lt;/h1>
+&lt;p>现在通过命令 docker pull ubuntu 获取一个镜像(官方提供的最新 ubuntu 镜像，对应的完整名称为 docker.io/library/ubuntu:latest)&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker pull ubuntu&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Using default tag: latest
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>latest: Pulling from library/ubuntu
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>a4a2a29f9ba4: Pull complete
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>127c9761dcba: Pull complete
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d13bf203e905: Pull complete
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>4039240d2e0b: Pull complete
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Digest: sha256:35c4a2c15539c6c1e4e5fa4e554dac323ad0107d8eb5c582d6ff386b383b7dce
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Status: Downloaded newer image &lt;span style="color:#66d9ef">for&lt;/span> ubuntu:latest
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker.io/library/ubuntu:latest
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 /var/lib/docker/ 目录中，存放着关于 docker image 的所有信息&lt;/p>
+&lt;p>首先需要先在 docker 保存 image 的元数据目录(/var/lib/docker/image/)中查找相关信息&lt;/p>
+&lt;h2 id="查找镜像的基础信息iamge-id-与-digest">查找镜像的基础信息，IAMGE ID 与 DIGEST&lt;/h2>
+&lt;p>/var/lib/docker/image/overlay2/repositories.json 文件中记录了和本地 image 相关的 repository 信息，主要是和 image 的名字和 ID 的对应关系。当 image 从 registry 上被 pull 下来之后，就会更新该文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat repositories.json | jq .&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Repositories&amp;#34;&lt;/span>: &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 仓库名&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ubuntu&amp;#34;&lt;/span>: &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># IMAGE NAME ，以及 IMAGE ID(在 docker images 命令中，只显示ID的前12位)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ubuntu:latest&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;sha256:74435f89ab7825e19cf8c92c7b5c5ebd73ae2d0a2be16f49b3fb81c9062ab303&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># IMAGE 的 DIGEST，以及 IMAGE ID&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ubuntu@sha256:35c4a2c15539c6c1e4e5fa4e554dac323ad0107d8eb5c582d6ff386b383b7dce&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;sha256:74435f89ab7825e19cf8c92c7b5c5ebd73ae2d0a2be16f49b3fb81c9062ab303&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker images --digests&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>REPOSITORY TAG DIGEST IMAGE ID CREATED SIZE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ubuntu latest sha256:35c4a2c15539c6c1e4e5fa4e554dac323ad0107d8eb5c582d6ff386b383b7dce 74435f89ab78 &lt;span style="color:#ae81ff">4&lt;/span> days ago 73.9MB
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker images&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>REPOSITORY TAG IMAGE ID CREATED SIZE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ubuntu latest 74435f89ab78 &lt;span style="color:#ae81ff">4&lt;/span> days ago 73.9MB
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="根据基础信息查找镜像层layer的元数据">根据基础信息查找镜像层(layer)的元数据&lt;/h2>
+&lt;p>根据 repositories.json 文件中的 IMAGE ID ，可以在如下路径中找到该 image 的 Image Configuration 文件&lt;/p>
+&lt;p>/var/lib/docker/image/overlay2/imagedb/content/sha256/74435f89ab7825e19cf8c92c7b5c5ebd73ae2d0a2be16f49b3fb81c9062ab303 文件就是 OCI 标准的 Image Configuration 文件，从该配置文件的 rootfs 字段中，可以看到该 image 包含 4 个镜像层，从上到下依次是底层到顶层的 diffID&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">.....&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;rootfs&amp;#34;&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;type&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;layers&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;diff_ids&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;sha256:e1c75a5e0bfa094c407e411eb6cc8a159ee8b060cbd0398f1693978b4af9af10&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;sha256:9e97312b63ff63ad98bb1f3f688fdff0721ce5111e7475b02ab652f10a4ff97d&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;sha256:ec1817c93e7c08d27bfee063f0f1349185a558b87b2d806768af0a8fbbf5bc11&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;sha256:05f3b67ed530c5b55f6140dfcdfb9746cdae7b76600de13275197d009086bb3d&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">....&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Note：该对应关系对查找镜像的存储路径没有绝对关系。在 /var/lib/docker/image/overlay2/distribution/ 目录中，保存了镜像层的 digest 与 diffid 对应关系。&lt;/p>
+&lt;ul>
+&lt;li>diffid-by-digest： 存放 digest 到 diffid 的对应关系&lt;/li>
+&lt;li>v2metadata-by-diffid： 存放 diffid 到 digest 的对应关系&lt;/li>
+&lt;/ul>
+&lt;p>/var/lib/docker/image/overlay2/layerdb/ 目录下存放了所有镜像层的元数据信息，在 /var/lib/docker/image/overlay2/layerdb/sha256/* 目录下，以镜像层的 chaind 命名。根据 OCI 默认规则，最底下的镜像层 chainid 与 diffid 相同&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao sha256&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># pwd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/image/overlay2/layerdb/sha256
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao sha256&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ll -h&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwx------ &lt;span style="color:#ae81ff">2&lt;/span> root root &lt;span style="color:#ae81ff">85&lt;/span> Jun &lt;span style="color:#ae81ff">21&lt;/span> 19:26 27d46ebb54384edbc8c807984f9eb065321912422b0e6c49d6a9cd8c8b7d8ffc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwx------ &lt;span style="color:#ae81ff">2&lt;/span> root root &lt;span style="color:#ae81ff">85&lt;/span> Jun &lt;span style="color:#ae81ff">21&lt;/span> 19:26 8a8d1f0b34041a66f09e49bdc03e75c2190f606b0db7e08b75eb6747f7b49e11
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwx------ &lt;span style="color:#ae81ff">2&lt;/span> root root &lt;span style="color:#ae81ff">71&lt;/span> Jun &lt;span style="color:#ae81ff">21&lt;/span> 19:26 e1c75a5e0bfa094c407e411eb6cc8a159ee8b060cbd0398f1693978b4af9af10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwx------ &lt;span style="color:#ae81ff">2&lt;/span> root root &lt;span style="color:#ae81ff">85&lt;/span> Jun &lt;span style="color:#ae81ff">21&lt;/span> 19:26 f1b8f74eff975ae600be0345aaac8f0a3d16680c2531ffc72f77c5e17cbfeeee
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># echo -n &amp;#34;sha256:父层chainID sha256:本层diffID&amp;#34; | sha256sum -&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 根据该命令得出本层的 chainID&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 下面根据最低镜像层计算第二层镜像的 chainid&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao sha256&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># echo -n &amp;#34;sha256:e1c75a5e0bfa094c407e411eb6cc8a159ee8b060cbd0398f1693978b4af9af10 sha256:9e97312b63ff63ad98bb1f3f688fdff0721ce5111e7475b02ab652f10a4ff97d&amp;#34; | sha256sum -&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>27d46ebb54384edbc8c807984f9eb065321912422b0e6c49d6a9cd8c8b7d8ffc -
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在每个镜像层的目录中，包含了如下几种信息&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cd /var/lib/docker/image/overlay2/layerdb/sha256 &amp;amp;&amp;amp; ls&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>27d46ebb54384edbc8c807984f9eb065321912422b0e6c49d6a9cd8c8b7d8ffc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cd 27d46ebb54384edbc8c807984f9eb065321912422b0e6c49d6a9cd8c8b7d8ffc&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>27d46ebb54384edbc8c807984f9eb065321912422b0e6c49d6a9cd8c8b7d8ffc&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cache-id diff parent size tar-split.json.gz
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># cache-id 是 docker 在下载镜像层时随机生成的 uuid。也就是说，该文件内容指向了真正存放镜像层文件的地方。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>27d46ebb54384edbc8c807984f9eb065321912422b0e6c49d6a9cd8c8b7d8ffc&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat cache-id&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>5de7ac8af2fb0a5fb0be4244aa07685bfcfcfc4c4b1c149bc753eb044d7f4a12
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># diff 文件存放镜像层的 diffid&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>27d46ebb54384edbc8c807984f9eb065321912422b0e6c49d6a9cd8c8b7d8ffc&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat diff&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sha256:9e97312b63ff63ad98bb1f3f688fdff0721ce5111e7475b02ab652f10a4ff97d
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># parent 文件存放 当前layer 的 父layer 的 diffid。注意：对于最底层的 layer 来说，由于没有 父layer，所以没有这个文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>27d46ebb54384edbc8c807984f9eb065321912422b0e6c49d6a9cd8c8b7d8ffc&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat parent&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sha256:e1c75a5e0bfa094c407e411eb6cc8a159ee8b060cbd0398f1693978b4af9af10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># size 文件存放当前镜像层的大小，单位是字节&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>27d46ebb54384edbc8c807984f9eb065321912422b0e6c49d6a9cd8c8b7d8ffc&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat size&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">1006717&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># tar-split.json.gz，layer 压缩包的 split 文件，通过这个文件可以还原 layer 的 tar 包，&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 在 docker save 导出 image 的时候会用到&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 详情可参考 https://github.com/vbatts/tar-split&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="根据-cache-id-查找到存放镜像层的路径">根据 cache-id 查找到存放镜像层的路径&lt;/h2>
+&lt;p>/var/lib/docker/overlay2/ 目录存放了所有镜像层的数据。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># pwd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/overlay2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ll -h&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwx------ &lt;span style="color:#ae81ff">4&lt;/span> root root &lt;span style="color:#ae81ff">72&lt;/span> Jun &lt;span style="color:#ae81ff">21&lt;/span> 19:26 113a9d8407c2db3892944c17beba7a635ea39aa5108c7f716088466ea302a7e3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 根据 cache-id 中显示的信息，ubuntu 第二层镜像就是在这个目录中&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwx------ &lt;span style="color:#ae81ff">4&lt;/span> root root &lt;span style="color:#ae81ff">72&lt;/span> Jun &lt;span style="color:#ae81ff">21&lt;/span> 19:26 5de7ac8af2fb0a5fb0be4244aa07685bfcfcfc4c4b1c149bc753eb044d7f4a12
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwx------ &lt;span style="color:#ae81ff">4&lt;/span> root root &lt;span style="color:#ae81ff">72&lt;/span> Jun &lt;span style="color:#ae81ff">21&lt;/span> 19:28 7704e53a9392b092479707d38b2b183b17bbe2cc220e2283cead9493e19aa651
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 根据 cache-id 中显示的信息，ubuntu 最底层的镜像就是在这个目录中&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwx------ &lt;span style="color:#ae81ff">3&lt;/span> root root &lt;span style="color:#ae81ff">47&lt;/span> Jun &lt;span style="color:#ae81ff">21&lt;/span> 19:26 8f377ae99a442b37f5a831724951ce1cf8bfc7b874843c97d09e8027c3dd19e6
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwx------ &lt;span style="color:#ae81ff">2&lt;/span> root root &lt;span style="color:#ae81ff">142&lt;/span> Jun &lt;span style="color:#ae81ff">21&lt;/span> 21:01 l
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="怎样修改-docker-容器-hosts-文件的内容">怎样修改 docker 容器 hosts 文件的内容？&lt;/h1>
+&lt;p>这就要了解 docker 镜像的分层结构了，其中有一个叫 Init 的层，该层专门用来存储一些配置文件，比如：/etc/hosts、/etc/resolv.conf 等信息的，该层并不会跟随镜像一起提交，所以如果我们直接在 Dockerfile 中去覆盖 /etc/hosts 文件的话是不会生效的，要解决这个问题可以有几种方法：
+1. 启动容器的时候(docker run)添加参数—add-host machine:ip 可以实现 hosts 修改，缺点就是如果很多个节点的话命令会很长
+2. 修改容器 hosts de 查找目录，我们可以让容器启动的时候不去找 /etc/hosts 文件，而是去查找我们自己定义的 hosts 文件，下面是一个 Dockerfile 实例：&lt;/p>
+&lt;pre>&lt;code>FROM ubuntu:14.04
+RUN cp /etc/hosts /tmp/hosts # 路径长度最好保持一致
+RUN mkdir -p -- /lib-override &amp;amp;&amp;amp; cp /lib/x86_64-linux-gnu/libnss_files.so.2 /lib-override
+RUN sed -i 's:/etc/hosts:/tmp/hosts:g' /lib-override/libnss_files.so.2
+ENV LD_LIBRARY_PATH /lib-override
+RUN echo &amp;quot;192.168.0.1 node1&amp;quot; &amp;amp;gt;&amp;amp;gt; /tmp/hosts # 可以随意修改/tmp/hosts了
+...
+&lt;/code>&lt;/pre>
+&lt;ol start="3">
+&lt;li>
+&lt;p>在 dockerfile 中，使用脚本作为镜像入口，然后利用脚本运行修改 hosts 文件的命令以及真正的应用程序入口，下面是一个 Dockerfile 实例：&lt;/p>
+&lt;p>FROM centos:6
+RUN mkdir /data
+COPY run.sh /data/
+COPY myhosts /data/
+RUN chmod +x /data/run.sh
+ENTRYPOINT /bin/sh -c /data/run.sh&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>其中 run.sh 示例：
+#!/bin/bash
+cat /data/myhosts &amp;raquo; /etc/hosts # 向 hosts 文件追加内容&lt;/p>
+&lt;h1 id="binbash--保留终端防止容器自动退出">其他命令
+/bin/bash # 保留终端，防止容器自动退出&lt;/h1>
+&lt;p>然后在 myhosts 文件中添加上你需要添加的 hosts 映射，然后镜像构建完成后，执行 docker run 指令运行容器，查看 /etc/hosts 配置是否生效。&lt;/p>
+&lt;p>这个问题最重要的就是要理解 docker 镜像的分层结构，由只读层+可读写层+ init 层组成。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ma1cb7/1616121959946-c34b9fbf-7490-4ef8-919e-433e1c41f5b8.png" alt="">&lt;/p></description></item><item><title>Docs: Docker Runtime</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-Runtime/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-Runtime/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;p>Runtime 和 Image 一样，也有标准，也由 OCI 维护，官方详解地址为：runtime-spec。现阶段 Docker 的 1.19 版本使用 runc 作为 Runtime&lt;/p>
+&lt;p>OCI Runtime 旨在指定 Container 的配置、执行环境和生命周期。&lt;/p>
+&lt;p>容器的配置被指定为 config.json ，并详细说明了可以创建容器的字段。指定执行环境是为了确保容器内运行的应用程序在运行时之间具有一致的环境，以及为容器的生命周期定义的常见操作。&lt;/p>
+&lt;p>runtime 规范有如下几个，所有人必须遵守该规范来使用 runtime 。&lt;/p>
+&lt;ol>
+&lt;li>Filesystem Bundle # 文件系统捆绑。bundle 是以某种方式组织的一组文件，包含了容器所需要的所有信息，有了这个 bundle 后，符合 runtime 标准的程序(e.g.runc)就可以根据 bundle 启动容器了(哪怕没有 docker，也可以启动一个容器)。&lt;/li>
+&lt;li>Runtime and Lifecycle #&lt;/li>
+&lt;li>Linux-specific Runtime and Lifecycle # 这是关于 linux 平台的 Runtime 与 Lifecycle&lt;/li>
+&lt;li>Configuration # Configuration 包含对容器执行标准操作(比如 create、start、stop 等)所必须的元数据。这包括要运行的过程、要注入的环境变量、要使用的沙盒功能等等。不同平台(linux、window 等)，有不同的规范。&lt;/li>
+&lt;li>Linux-specific configuration # 这是关于 linux 平台的 Configuration&lt;/li>
+&lt;/ol>
+&lt;h1 id="docker-create">Docker create&lt;/h1>
+&lt;p>有了 image 之后，就可以使用 image 来创建并启动 container 了。&lt;/p>
+&lt;p>docker run 命令直接创建并运行一个容器，它的背后其实包含独立的两步，一步是 docker create 创建容器，另一步是 docker start 启动容器，先介绍在 docker create 这一步中，docker 做了哪些事情。&lt;/p>
+&lt;p>简单点来说，dockerd 在收到客户端的创建容器请求后，做了两件事情&lt;/p>
+&lt;ol>
+&lt;li>准备容器所需的 layer&lt;/li>
+&lt;li>检查客户端传过来的参数，并和 image 配置文件中的参数进行合并，然后存储成容器的配置文件。&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 创建容器前的 layers&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>113a9d8407c2db3892944c17beba7a635ea39aa5108c7f716088466ea302a7e3 7704e53a9392b092479707d38b2b183b17bbe2cc220e2283cead9493e19aa651 l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>5de7ac8af2fb0a5fb0be4244aa07685bfcfcfc4c4b1c149bc753eb044d7f4a12 8f377ae99a442b37f5a831724951ce1cf8bfc7b874843c97d09e8027c3dd19e6
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 创建容器后的 layers，多了两个&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker create -it --name docker_runtime_test ubuntu:latest&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>113a9d8407c2db3892944c17beba7a635ea39aa5108c7f716088466ea302a7e3 8f377ae99a442b37f5a831724951ce1cf8bfc7b874843c97d09e8027c3dd19e6 l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>5de7ac8af2fb0a5fb0be4244aa07685bfcfcfc4c4b1c149bc753eb044d7f4a12 d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>7704e53a9392b092479707d38b2b183b17bbe2cc220e2283cead9493e19aa651 d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 这俩 layers 的元数据在 ${DockerRootDir}/image/${StorageDriver}/layerdb/mounts目录中&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># pwd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/image/overlay2/layerdb/mounts/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>init-id mount-id parent
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># init-id 文件包含了 init layer 的 cacheID&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># init layer 的 cacheid 就是在 mount layer 的 cacheID 后面加上了一个“-init”&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat init-id&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># mount-id 文件包含了 mount layer 的 cacheID&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat mount-id&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># parent 里面包含的是 image 的最上 layer 的 chainID&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 表示这个容器的 init layer 的父 layer 是 image 的最顶层 layer&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat parent&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sha256:8a8d1f0b34041a66f09e49bdc03e75c2190f606b0db7e08b75eb6747f7b49e11
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Note:&lt;/p>
+&lt;ol>
+&lt;li>新加的这两层 layer 比较特殊，元数据只保存在 layerdb/mounts 下面，在 layerdb/sha256 目录下没有相关信息，说明 docker 将 container 的 layer 和 image 的 layer 的元数据放在了不同的两个目录中。&lt;/li>
+&lt;li>根据元数据中的信息，就可以通过 mount 信息中的 cacheID 来查找该 mount 信息来源于哪个容器，从而定位问题，参考：最后 docker 使用技巧 中 mount 信息章节&lt;/li>
+&lt;/ol>
+&lt;p>从上面的文章可以看到，每个创建完的容器都会新增两个层&lt;/p>
+&lt;ol>
+&lt;li>mount layer # 供容器写数据的层，如果容器仅创建而没运行的话，那么该层的目录中，没有 merged 目录，并且其余目录也是空的&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── diff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── link
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── lower
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── work
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── work
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ol>
+&lt;li>init layer # 包含了 docker 为容器所预先准备的文件&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── committed
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── diff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── dev
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ ├── console
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ ├── pts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ └── shm
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── etc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── hostname
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── hosts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── mtab -&amp;gt; /proc/mounts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── resolv.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── link
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── lower
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── work
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── work
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>init layer 里面的文件有什么作用呢？从下面的结果可以看出，除了 mtab 文件是指向/proc/mounts 的软连接之外，其他的都是空的普通文件。&lt;/p>
+&lt;p>这几个文件都是 Linux 运行时必须的文件，如果缺少的话会导致某些程序或者库出现异常，所以 docker 需要为容器准备好这些文件：&lt;/p>
+&lt;ul>
+&lt;li>/dev/console: 在 Linux 主机上，该文件一般指向主机的当前控制台，有些程序会依赖该文件。在容器启动的时候，docker 会为容器创建一个 pts，然后通过 bind mount 的方式将 pts 绑定到容器里面的/dev/console 上，这样在容器里面往这个文件里面写东西就相当于往容器的控制台上打印数据。这里创建一个空文件相当于占个坑，作为后续 bind mount 的目的路径。&lt;/li>
+&lt;li>hostname，hosts，resolv.conf：对于每个容器来说，容器内的这几个文件内容都有可能不一样，这里也只是占个坑，等着 docker 在外面生成这几个文件，然后通过 bind mount 的方式将这些文件绑定到容器中的这些位置，即这些文件都会被宿主机中的文件覆盖掉。&lt;/li>
+&lt;li>/etc/mtab：这个文件在新的 Linux 发行版中都指向/proc/mounts，里面包含了当前 mount namespace 中的所有挂载信息，很多程序和库会依赖这个文件。&lt;/li>
+&lt;/ul>
+&lt;p>注意： 这里 mtab 指向的路径是固定的，但内容是变化的，取决于你从哪里打开这个文件，当在宿主机上打开时，是宿主机上/proc/mounts 的内容，当启动并进入容器后，在容器中打开看到的就是容器中/proc/mounts 的内容。&lt;/p>
+&lt;h2 id="容器的元数据">容器的元数据&lt;/h2>
+&lt;p>容器创建完成后，就会生成容器的元数据信息，包括默认配置、运行时配置等等，文件在 ${DockerRootDir}/containers/ContainerID/* 目录下&lt;/p>
+&lt;p>Note：容器启动后，该目录还会有新的文件产生。&lt;/p>
+&lt;pre>&lt;code>[root@lichenhao containers]# pwd
+/var/lib/docker/containers
+[root@lichenhao containers]# ls
+28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+[root@lichenhao containers]# tree
+.
+├── checkpoints
+├── config.v2.json # 通用的配置，如容器名称、启动后要执行的命令等等
+└── hostconfig.json # 该容器关于docker 宿主机的配置，日志驱动、是否自动删除、cgroup的配置等等
+&lt;/code>&lt;/pre>
+&lt;h1 id="docker-start">Docker start&lt;/h1>
+&lt;p>容器启动简单流程&lt;/p>
+&lt;ul>
+&lt;li>docker（client）发送启动容器命令给 dockerd&lt;/li>
+&lt;li>dockerd 收到请求后，准备好 rootfs，以及一些其它的配置文件，然后通过 grpc 的方式通知 containerd 启动容器&lt;/li>
+&lt;li>containerd 根据收到的请求以及配置文件位置，创建容器运行时需要的 bundle，然后启动 shim 进程，让它来启动容器&lt;/li>
+&lt;li>shim 进程启动后，做一些准备工作，然后调用 runc 启动容器&lt;/li>
+&lt;/ul>
+&lt;p>容器启动后，会在下面几个目录中生成容器运行所需的内容：&lt;/p>
+&lt;ul>
+&lt;li>/run/docker/runtime-runc/ # 容器状态 json 文件&lt;/li>
+&lt;li>/run/docker/containerd/ # 容器的 IO 文件&lt;/li>
+&lt;li>/run/containerd/io.containerd.runtime.v1.linux/moby/ # 容器的 bundle 文件、pid 号&lt;/li>
+&lt;li>/var/lib/containerd/io.containerd.runtime.v1.linux/moby/ # shim.stderr.log 与 shim.stdout.log&lt;/li>
+&lt;/ul>
+&lt;p>Note：这些目录在容器停止后，会自动删除&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao containerd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># find / -name &amp;#34;28f5bed704dc*&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/docker/runtime-runc/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/docker/containerd/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/containerd/io.containerd.runtime.v1.linux/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/containerd/io.containerd.runtime.v1.linux/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/image/overlay2/layerdb/mounts/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao docker&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker stop docker_runtime_test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker_runtime_test
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao docker&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># find / -name &amp;#34;28f5bed704dc*&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/containers/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/image/overlay2/layerdb/mounts/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="准备-rootfs">准备 rootfs&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 容器运行后，在没有 mount layer 中，会多出来一个 merged 的目录，这就是当前已经启动容器的可读写层，所有变化都会在这里。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 并且当容器停止后，merged 目录也会随之消失&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>diff link lower merged work
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd-init/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>committed diff link lower work
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 当在容器中创建一个文件时，该变化会同时应用到 mount layer 的 diff 和 merged 目录&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker start docker_runtime_test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker_runtime_test
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker exec -it docker_runtime_test /bin/bash&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@28f5bed704dc:/# ls
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>bin boot dev etc home lib lib32 lib64 libx32 media mnt opt proc root run sbin srv sys tmp usr var
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@28f5bed704dc:/# touch home/lichenhao
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/diff/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/diff/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── home
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── lichenhao
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── root
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao overlay2&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged/home/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged/home/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── lichenhao
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 容器停止后，merged 的目录消失，但是 diff 目录还在，所有对容器的操作产生的变化，都会在diff目录中永久保存，直到该容器被删除。&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以通过 mount 命令看到如下信息&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>overlay on /var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged type overlay
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>rw,relatime,lowerdir&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/overlay2/l/QNYNLXQAPEKTOMU3TO27ITE3YO:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/overlay2/l/2EP6BMP6AI5RGGBLLTGZURP72X:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/overlay2/l/OLJPRTJOMYVHG3OZOMYZMBAEMQ:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/overlay2/l/FWHKA7CXM7LSCGUQLDTAJSZFPE:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/var/lib/docker/overlay2/l/KVQ7AO63OIRUAHZTZAS474Y3VT,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>upperdir&lt;span style="color:#f92672">=&lt;/span>/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/diff,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>workdir&lt;span style="color:#f92672">=&lt;/span>/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/work&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过 overlay 联合挂载技术，将多个 layer 挂载到该容器的 mount layer 的 merged 目录中&lt;/p>
+&lt;ol>
+&lt;li>lower(下层挂载) # 用启动该容器的 image 的所有 layers 作为 lowerdir&lt;/li>
+&lt;li>upperdir(上层挂在) # 用容器 mount layer 的 diff 目录作为 upperdir&lt;/li>
+&lt;/ol>
+&lt;p>所有在 merged 目录的变化，会同步到 diff 目录中，这样在容器停止，merged 目录消失后，所有变化依然得以保留在 diff 目录中，这样后续再启动容器的时候，上次的操作还能看到。&lt;/p>
+&lt;h2 id="容器元数据目录的变化">容器元数据目录的变化&lt;/h2>
+&lt;p>rootfs 准备好之后，dockerd 接着会准备一些容器里面需要用的配置文件，下面是容器元数据目录的变化&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── checkpoints
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── config.v2.json
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── hostconfig.json
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── hostname
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── hosts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── mounts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── resolv.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── resolv.conf.hash
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>容器启动后多了几个文件，这几个文件时 docker 动态生成的&lt;/p>
+&lt;ul>
+&lt;li>28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10-json.log # 容器的日志文件，后续容器的 stdout 和 stderr 都会输出到这个目录。当然如果配置了其它的日志插件的话，日志就会写到别的地方。&lt;/li>
+&lt;li>hostname：里面是容器的主机名，来自于 config.v2.json，由 docker create 命令的-h 参数指定，如果没指定的话，就是容器 ID 的前 12 位，这里即为 28f5bed704dc&lt;/li>
+&lt;li>resolv.conf：里面包含了 DNS 服务器的 IP，来自于 hostconfig.json，由 docker create 命令的&amp;ndash;dns 参数指定，没有指定的话，docker 会根据容器的网络类型生成一个默认的，一般是主机配置的 DNS 服务器或者是 docker bridge 的 IP。&lt;/li>
+&lt;li>resolv.conf.hash：resolv.conf 文件的校验码&lt;/li>
+&lt;/ul>
+&lt;p>Note：除了日志文件外，其它文件在每次容器启动的时候都会自动生成，所以修改他们的内容后只会在当前容器运行的时候生效，容器重启后，配置又都会恢复到默认的状态&lt;/p>
+&lt;h2 id="准备-oci-所需的-bundle">准备 OCI 所需的 bundle&lt;/h2>
+&lt;p>bundle 被 docker 放在 /run/containerd/ 目录下，展示如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao containerd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># pwd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/containerd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao containerd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── containerd.sock
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── io.containerd.runtime.v1.linux
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── moby
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── config.json
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── init.pid
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── log.json
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ └── rootfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── io.containerd.runtime.v2.task
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="准备-io-文件">准备 IO 文件&lt;/h2>
+&lt;p>容器运行所需的 IO 文件被 docker 放在 /run/docker/containerd/* 目录下&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao containerd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># pwd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/docker/containerd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao containerd&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├── init-stdin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── init-stdout
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>init-stdin 文件用来向容器的 stdin 中写数据，init-stdout 用来接受容器的 stdout。如果使用 echo &amp;ldquo;XXX&amp;rdquo; &amp;gt; init-stdin 向容器的标准输入写入内容，则容器会接收该命令，并返回执行结果给 init-stdout。与此同时 cat init-stdout 的话，在宿主机就可以显示容器内在标准输出的内容。&lt;/p>
+&lt;p>docker exec 命令就是通过这两个文件，来让宿主机与容器进行交互，效果如下：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xgxt2w/1616121764249-a0867491-440e-4f2d-a52d-186aceee3136.png" alt="">&lt;/p>
+&lt;h2 id="正常启动容器">正常启动容器&lt;/h2>
+&lt;p>容器正常启动后，会在 /run/docker/runtime-runc/moby/* 目录中创建该容器的状态文件 state.json 。该文件包含当前容器详细的配置及状态信息。其中也包括 bundle 路径等等。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao moby&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># pwd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/run/docker/runtime-runc/moby
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao moby&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── state.json
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao moby&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat 28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10/state.json | jq .&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;id&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;init_process_pid&amp;#34;&lt;/span>: 32221,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;init_process_start&amp;#34;&lt;/span>: 355109292,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;created&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2020-06-24T04:03:19.300399652Z&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;config&amp;#34;&lt;/span>: &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;no_pivot_root&amp;#34;&lt;/span>: false,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;parent_death_signal&amp;#34;&lt;/span>: 0,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;rootfs&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/var/lib/docker/overlay2/d976eddf7575a3464486d92539229146f3df66080a3265195791ebb0d24b24dd/merged&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;readonlyfs&amp;#34;&lt;/span>: false,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;rootPropagation&amp;#34;&lt;/span>: 0,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;mounts&amp;#34;&lt;/span>: &lt;span style="color:#f92672">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.....
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;bundle=/run/containerd/io.containerd.runtime.v1.linux/moby/28f5bed704dc80bed6dbaa8af514d2191d8d4ab0339bb3a663e66609ccd34c10&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Docker 部署</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E9%83%A8%E7%BD%B2/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.docker.com/engine/install/">官方文档&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.docker.com/engine/install/centos/">Centos 安装&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository">Ubuntu 安装&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.docker.com/engine/install/binaries/">二进制安装&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="安装-docker-套件">安装 Docker 套件&lt;/h1>
+&lt;h2 id="方法-1使用-linux-的包管理器安装">方法 1：使用 Linux 的包管理器安装&lt;/h2>
+&lt;h3 id="使用包管理器安装">使用包管理器安装&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># centos&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>yum install -y yum-utils device-mapper-persistent-data lvm2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>yum install -y docker-ce
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># ubuntu&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>curl -fsSL https://repo.huaweicloud.com/docker-ce/linux/ubuntu/gpg | sudo apt-key add -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo add-apt-repository &lt;span style="color:#e6db74">&amp;#34;deb [arch=amd64] https://repo.huaweicloud.com/docker-ce/linux/ubuntu &lt;/span>&lt;span style="color:#66d9ef">$(&lt;/span>lsb_release -cs&lt;span style="color:#66d9ef">)&lt;/span>&lt;span style="color:#e6db74"> stable&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo apt-get -y update
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo apt-get -y install docker-ce
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>若 centos8 提示无法安装 contained.io ,则执行如下指令安装
+yum install -y &lt;a href="https://mirrors.aliyun.com/docker-ce/linux/centos/7/x86_64/edge/Packages/containerd.io-1.2.13-3.2.el7.x86_64.rpm">https://mirrors.aliyun.com/docker-ce/linux/centos/7/x86_64/edge/Packages/containerd.io-1.2.13-3.2.el7.x86_64.rpm&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="配置-unit-文件">配置 Unit 文件&lt;/h3>
+&lt;p>docker 自 1.13 版起会自动设置 iptables 的 FORWARD 默认策略为 DROP，这可能会影响 Kubernetes 集群依赖的报文转发功能，因此，需要在 docker 服务启动后，重新将 FORWARD 链的默认策略设备为 ACCEPT&lt;/p>
+&lt;ul>
+&lt;li>sed -i &amp;ldquo;14i ExecStartPost=/usr/sbin/iptables -P FORWARD ACCEPT&amp;rdquo; /usr/lib/systemd/system/docker.service&lt;/li>
+&lt;/ul>
+&lt;h2 id="方法-2直接安装二进制文件">方法 2：直接安装二进制文件&lt;/h2>
+&lt;p>以 20.10.6 版本为例&lt;/p>
+&lt;h3 id="获取并部署二进制文件">获取并部署二进制文件&lt;/h3>
+&lt;p>在 &lt;a href="https://download.docker.com/linux/static/stable/x86_64/">https://download.docker.com/linux/static/stable/x86_64/&lt;/a> 页面下载 &lt;a href="https://download.docker.com/linux/static/stable/x86_64/docker-20.10.6.tgz">20.10.6&lt;/a> 版本的二进制程序
+解压并将二进制程序放到 $PATH 中&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>tar -zxvf docker-20.10.6.tgz
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cp docker/* /usr/bin/
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="配置-unit-文件-1">配置 Unit 文件&lt;/h3>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.docker.com/config/daemon/systemd/">官方文档，使用 systemd 配置守护进程&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>有两种配置 Docker 的 Unit 文件的方式&lt;/p>
+&lt;h4 id="第一种是官方推荐的">第一种是官方推荐的&lt;/h4>
+&lt;p>从 &lt;a href="https://github.com/moby/moby/tree/master/contrib/init/systemd">GitHub 项目，moby/moby 的 contrib/init/systemd/&lt;/a> 目录中下载如下两个文件&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://raw.githubusercontent.com/moby/moby/master/contrib/init/systemd/docker.service">docker.service&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://raw.githubusercontent.com/moby/moby/master/contrib/init/systemd/docker.socket">docker.socket&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>将上述两个文件放到 /etc/systemd/system/ 目录下&lt;/p>
+&lt;h4 id="第二种是通过包管理器安装后推导出来的">第二种是通过包管理器安装后推导出来的&lt;/h4>
+&lt;p>与官方推荐的不同，docker 的启动参数不是 &lt;code>-H fd://&lt;/code>，而是 &lt;code>--containerd=/run/containerd/containerd.sock&lt;/code>&lt;/p>
+&lt;p>containerd.service&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &amp;gt; /usr/lib/systemd/system/containerd.service &lt;span style="color:#e6db74">&amp;lt;&amp;lt; EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[Unit]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Description=containerd container runtime
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Documentation=https://containerd.io
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">After=network.target local-fs.target
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[Service]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">ExecStartPre=-/sbin/modprobe overlay
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">ExecStart=/usr/bin/containerd
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Type=notify
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Delegate=yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">KillMode=process
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Restart=always
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">RestartSec=5
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># Having non-zero Limit*s causes performance problems due to accounting overhead
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># in the kernel. We recommend using cgroups to do container-local accounting.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">LimitNPROC=infinity
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">LimitCORE=infinity
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">LimitNOFILE=1048576
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># Comment TasksMax if your systemd version does not supports it.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># Only systemd 226 and above support this version.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">TasksMax=infinity
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">OOMScoreAdjust=-999
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[Install]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">WantedBy=multi-user.target
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>docker.service&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &amp;gt; /usr/lib/systemd/system/docker.service &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[Unit]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Description=Docker Application Container Engine
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Documentation=https://docs.docker.com
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">After=network-online.target firewalld.service containerd.service
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Wants=network-online.target
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Requires=containerd.service
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[Service]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Type=notify
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># the default is not to use systemd for cgroups because the delegate issues still
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># exists and systemd currently does not support the cgroup feature set required
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># for containers run by docker
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">ExecStartPost=/usr/sbin/iptables -P FORWARD ACCEPT
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">ExecStart=/usr/bin/dockerd --containerd=/run/containerd/containerd.sock
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">ExecReload=/bin/kill -s HUP $MAINPID
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">TimeoutSec=0
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">RestartSec=2
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Restart=always
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># Note that StartLimit* options were moved from &amp;#34;Service&amp;#34; to &amp;#34;Unit&amp;#34; in systemd 229.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># Both the old, and new location are accepted by systemd 229 and up, so using the old location
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># to make them work for either version of systemd.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">StartLimitBurst=3
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># Note that StartLimitInterval was renamed to StartLimitIntervalSec in systemd 230.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># Both the old, and new name are accepted by systemd 230 and up, so using the old name to make
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># this option work for either version of systemd.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">StartLimitInterval=60s
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># Having non-zero Limit*s causes performance problems due to accounting overhead
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># in the kernel. We recommend using cgroups to do container-local accounting.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">LimitNOFILE=infinity
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">LimitNPROC=infinity
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">LimitCORE=infinity
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># Comment TasksMax if your systemd version does not support it.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># Only systemd 226 and above support this option.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">TasksMax=infinity
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># set delegate yes so that systemd does not reset the cgroups of docker containers
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">Delegate=yes
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"># kill only the docker process, not all processes in the cgroup
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">KillMode=process
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">OOMScoreAdjust=-500
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[Install]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">WantedBy=multi-user.target
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="安装-cli-补全文件">安装 CLI 补全文件&lt;/h3>
+&lt;p>我们可以在 &lt;a href="https://github.com/docker/cli/tree/master/contrib/completion">GitHub 项目，docker/cli 中的 contrib/completion&lt;/a> 目录下找到各种 Shell 的 CLI 补全文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>curl https://raw.githubusercontent.com/docker/cli/master/contrib/completion/bash/docker -o /usr/share/bash-completion/completions/docker
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="配置并启动-docker">配置并启动 Docker&lt;/h1>
+&lt;h2 id="添加-dockerd-配置文件">添加 dockerd 配置文件&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>sudo mkdir -p /etc/docker
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo cat &amp;gt; /etc/docker/daemon.json &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">{
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;#34;registry-mirrors&amp;#34;: [&amp;#34;https://ac1rmo5p.mirror.aliyuncs.com&amp;#34;],
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;#34;exec-opts&amp;#34;: [&amp;#34;native.cgroupdriver=systemd&amp;#34;],
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;#34;live-restore&amp;#34;: true,
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;#34;log-driver&amp;#34;: &amp;#34;json-file&amp;#34;,
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;#34;log-opts&amp;#34;: {
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;#34;max-size&amp;#34;: &amp;#34;5m&amp;#34;,
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;#34;max-file&amp;#34;: &amp;#34;5&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> },
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;#34;storage-driver&amp;#34;: &amp;#34;overlay2&amp;#34;,
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;#34;storage-opts&amp;#34;: [
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;#34;overlay2.override_kernel_check=true&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> ]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">}
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="修改内核参数">修改内核参数&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &amp;gt; /etc/sysctl.d/docker.conf &lt;span style="color:#e6db74">&amp;lt;&amp;lt; EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">net.ipv4.ip_forward = 1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sysctl -p /etc/sysctl.d/*
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="启动-docker">启动 docker&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>systemctl daemon-reload
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>systemctl enable docker --now
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Docker 存储</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E5%AD%98%E5%82%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E5%AD%98%E5%82%A8/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.docker.com/storage/">官方文档，在生产环境运行你的应用-管理应用数据-存储概述&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>当关闭并重启 Container 的时候，其内的数据不受影响；但删除 Docker 容器后，则其内对最上面的可写层操作的内容则全部丢失，这时候会存在几个问题&lt;/p>
+&lt;ul>
+&lt;li>存储于联合文件系统中，不易于宿主机访问&lt;/li>
+&lt;li>容器间数据共享不便&lt;/li>
+&lt;li>删除容器会使数据丢失&lt;/li>
+&lt;/ul>
+&lt;p>为了解决这些问题，可以通过三种 Storage 方式来将文件存储于宿主机中&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>volume&lt;/strong>
+&lt;ul>
+&lt;li>volume 类型的 storage 是通过 docker volume 命令显式得创建一个抽象的内容，创建完一个 volume 会，会在 /var/lib/docker/volumes/* 目录下生成与 volume 同名的目录，在将 volume 挂载进 Container 中时，也就是将 /var/lib/docker/volmes/XXX 目录挂载进去。非 Docker 进程不应修改文件系统的这一部分。卷是在 Docker 中持久保存数据的最佳方法。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>bind mounts&lt;/strong>
+&lt;ul>
+&lt;li>可以存储在主机系统上的任何位置。它们甚至可能是重要的系统文件或目录。Docker 主机或 Docker 容器上的非 Docker 进程可以随时对其进行修改。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>tmpfs mount&lt;/strong>
+&lt;ul>
+&lt;li>仅存储在主机系统的内存中，并且永远不会写入主机系统的文件系统中。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>无论使用哪种方式，目的都是让宿主机上的某个“目录或者文件”绕过联合文件系统，与 Container 中的一个或多个“目录或文件”绑定，对目录中的操作，在 Container 和 Host 中都能看到(i.e.在宿主机目录中创建一个文件，Container 中对应的目录也会看到这个文件)，一个 Volume 可以绑定到多个 Container 上去。&lt;/p>
+&lt;p>这三种方式唯一的差异就是数据在 docker 宿主机上的位置，bind mount 和 volume 会在宿主机的文件系统中、而 tmpfs mount 则在宿主机的内存中。如下图所示：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tg0ypk/1616121977852-96ae1080-9144-4e1d-9e6a-1f06b7f5a73c.png" alt="">
+Note：merged(可读写层) 的目录内无法看到这三种存储方式关联到容器中的任何数据，只能从这些存储类型的源目录看到。&lt;/p>
+&lt;p>数据卷挂载之后的可见性&lt;/p>
+&lt;h2 id="volume">Volume&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.docker.com/storage/volumes/">官方文档，在生产环境运行你的应用-管理应用数据-卷&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>卷是一个逻辑概念，需要手动创建出来之后才能使用，创建出来的卷会关联到一个目录上，对卷的操作就是对该目录的操作，创建出来的卷数据保存在 /var/lib/docker/volumes/* 路径下，其内目录目录名为卷的名字。&lt;/p>
+&lt;p>我们可以通过 docker volume 子命令创建卷&lt;/p>
+&lt;h3 id="syntax语法">Syntax(语法)&lt;/h3>
+&lt;p>&lt;strong>docker volume COMMAND [OPTIONS]&lt;/strong>
+COMMAND：&lt;/p>
+&lt;ul>
+&lt;li>create # 创建一个 volume,若不指定 VolumeName，则会自动生成一串一堆字符为名的 volume name&lt;/li>
+&lt;li>inspect # 显示一个或多个卷的详细信息&lt;/li>
+&lt;li>ls # 列出所有 volume&lt;/li>
+&lt;li>prune # 删除所有未使用的 volumes&lt;/li>
+&lt;li>rm # 删除一个或多个 volumes&lt;/li>
+&lt;/ul>
+&lt;h3 id="inspect">inspect&lt;/h3>
+&lt;p>&lt;strong>docker volume inspect [OPTIONS] [VoumeName]&lt;/strong>
+显示的信息示例如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">~]#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">docker&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">volume&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">inspect&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">volume-test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;CreatedAt&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2020-06-29T13:40:14+08:00&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Driver&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;local&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Labels&amp;#34;&lt;/span>: {},
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">卷的挂载点。也就是在容器引用该卷时，所能使用的目录&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Mountpoint&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/var/lib/docker/volumes/volume-test/_data&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Name&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;volume-test&amp;#34;&lt;/span>, &lt;span style="color:#960050;background-color:#1e0010">#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">卷的名称&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Options&amp;#34;&lt;/span>: {},
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Scope&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;local&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>]
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="bind-mount">bind mount&lt;/h2>
+&lt;blockquote>
+&lt;p>官方文档：&lt;a href="https://docs.docker.com/storage/bind-mounts/">https://docs.docker.com/storage/bind-mounts/&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>bind mount 可以将宿主机上任意目录或者文件，与 Container 共享&lt;/p>
+&lt;p>就像这个类型的名字一样，将 docker 目录与宿主机目录绑定&lt;/p>
+&lt;h2 id="tmpfs-mount">tmpfs mount&lt;/h2>
+&lt;blockquote>
+&lt;p>官方文档：&lt;a href="https://docs.docker.com/storage/tmpfs/">https://docs.docker.com/storage/tmpfs/&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;h1 id="三种类型的-storage-应用在容器中的方法">三种类型的 Storage 应用在容器中的方法&lt;/h1>
+&lt;p>使用 docker run|create 命令时，使用 -v 或者 &amp;ndash;mount ，则可以将 3 种 Storage 应用在 Container 中&lt;/p>
+&lt;p>&lt;strong>docker run &amp;ndash;mount type=TYPE,src=SRC,dst=DST[,OPTIONS] &amp;hellip;&lt;/strong> # 以 IMAGE 启动运行一个容器，并将 SRC 指定的目录绑定或者挂载到容器内的 DST 目录上。Note：src 还可以写成 source，dst 还可以写成 destination、target。&lt;/p>
+&lt;ul>
+&lt;li>TYPE # 挂载类型。可用的有 volume、bind、tmpfs 三种&lt;/li>
+&lt;li>SRC # 宿主机路径(/HOST/PATH) 或者容器卷名称(VolumeName)。
+&lt;ul>
+&lt;li>若不指定 SRC，则 docker 会自动创建一个。若指定路径在宿主机上不存在，则默认在 /var/lib/docker/volumes/ 路径下创建 volume 所用的目录&lt;/li>
+&lt;li>挂载文件时，若指定的 SRC 不存在，则会在本机自动创建一个同名目录。&lt;/li>
+&lt;li>tmpfs 不用指定 SRC&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>DST # 容器内的路径 /CONTAINER/PATH&lt;/li>
+&lt;/ul>
+&lt;p>OPTIONS # 以逗号分隔的选项列表，以 KEY=VALUE 的方式表示。&lt;/p>
+&lt;ul>
+&lt;li>ro=true | false(default) # 指定该 Stroage 是否是只读模式(默认为 false。i.e. rw(读写)模式)。Note: setting readonly for a bind mount does not make its submounts。read-only on the current Linux implementation. See also bind-nonrecursive.&lt;/li>
+&lt;li>适用于 bind 类型 Storage 的选项
+&lt;ul>
+&lt;li>bind-propagation=shared | slave | private | rshared | rslave | rprivate(default) #&lt;/li>
+&lt;li>consistency=consistent(default) | cached | delegated # 该选项目前仅对 mac 版 docker 有用。&lt;/li>
+&lt;li>bind-nonrecursive=true | false(default). 如果为 true，则子挂载不会递归挂载。这个 OPT 对于只读模式很有用&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>适用于 volume 类型 Storage 的选项
+&lt;ul>
+&lt;li>volume-driver: Name of the volume-driver plugin.&lt;/li>
+&lt;li>volume-label: Custom metadata.&lt;/li>
+&lt;li>volume-nocopy=true(default) | false. If set to false, the Engine copies existing files and directories under the mount-path into the volume,allowing the host to access them.如果设置为 false，则引擎会将安装路径下的现有文件和目录复制到该卷中，使主机可以访问它们。&lt;/li>
+&lt;li>volume-opt: specific to a given volume driver.&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>适用于 tmpfs 类型 Storage 的选项
+&lt;ul>
+&lt;li>tmpfs-size=SIZE # tmpfs 类型 Storage 的大小。在 Linux 中默认是无限的。&lt;/li>
+&lt;li>tmpfs-mode=MODE # tmpfs 类型 Storage 的文件模式(e.g. 700 or 0700.)。Linux 中默认为 1777&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>type=bind,source=/path/on/host,destination=/path/in/container&lt;/li>
+&lt;li>type=volume,source=my-volume,destination=/path/in/container,volume-label=&amp;ldquo;color=red&amp;rdquo;,volume-label=&amp;ldquo;shape=round&amp;rdquo;&lt;/li>
+&lt;li>type=tmpfs,tmpfs-size=512M,destination=/path/in/container&lt;/li>
+&lt;/ul>
+&lt;p>docker run -v [SRC:]DST[:OPTS] &amp;hellip; # 原始应用 Storage 的语法，新版本推荐使用 &amp;ndash;mount 选项。&lt;/p>
+&lt;p>-v 和 &amp;ndash;mount 行为之间的区别&lt;/p>
+&lt;p>由于 -v 和 &amp;ndash;volume 标志已经很长时间成为 Docker 的一部分，因此它们的行为无法更改。这意味着 -v 和 &amp;ndash;mount 之间存在一种不同的行为。&lt;/p>
+&lt;p>如果使用 -v 或 &amp;ndash;volume 绑定安装 Docker 主机上尚不存在的文件或目录，请 -v 为您创建端点。始终将其创建为目录。&lt;/p>
+&lt;p>如果使用 &amp;ndash;mount 绑定贴装尚不泊坞窗主机上存在的文件或目录，码头工人也不会自动为您创建它，但会产生一个错误。&lt;/p>
+&lt;p>Note：在使用 -v 方式应用 Storage，并且指定 SRC 为宿主机上的具体路径 ，则该 Storage 信息会记录在 /var/lib/docker/containers/ID/hostconfig.json 文件的 &lt;code>.HostConfig.Binds&lt;/code> 字段下，通过 docker inspect ID 命令查看的容器信息中，也会显示在 .HostConfig.Binds 字段下面。&lt;/p>
+&lt;p>而使用 &amp;ndash;mount 方式应用的 Storage，则会将信息记录在 hostconfig.json 文件的 &lt;code>.HostConfig.Mounts&lt;/code> 下。&lt;/p>
+&lt;p>挂载一个单独文件的方法&lt;/p>
+&lt;p>docker run -v /HOST/PATH/FILE:/CONTAINER/PATH/FILE # 这样就把 host 上的 FILE 挂载到 container 指定路径下的 FILE 上去了。FILE 可以不同名&lt;/p>
+&lt;h1 id="修改-docker--v-挂载的文件时遇到的问题">修改 docker -v 挂载的文件时遇到的问题&lt;/h1>
+&lt;p>在启动 docker 容器时，为了保证一些基础配置与宿主机保持同步，通常需要将这些配置文件挂载进 docker 容器，例如/etc/resolv.conf、/etc/hosts、/etc/localtime 等文件。&lt;/p>
+&lt;p>当这些配置变化时，我们通常会修改这些文件。但是此时遇到了一个问题：&lt;/p>
+&lt;ul>
+&lt;li>当在宿主机上修改这些文件后，docker 容器内查看时，这些文件并未发生对应的修改。&lt;/li>
+&lt;/ul>
+&lt;p>然后通过查阅相关资料，发现该问题是由 docker -v 挂载文件和某些编辑器存储文件的行为共同导致 的。&lt;/p>
+&lt;ul>
+&lt;li>docker 挂载文件时，并不是挂载了某个文件的路径，而是实打实的挂载了对应的文件，即挂载了某 个指定的 inode 文件。&lt;/li>
+&lt;li>某些编辑器(vi)在编辑保存文件时，采用了备份、替换的策略，即编辑过程中，将变更写入新文件， 保存时，再将备份文件替换原文件，此时会导致文件的 inode 发生变化。&lt;/li>
+&lt;li>原 inode 对应的文件其实并没有发生修改。&lt;/li>
+&lt;/ul>
+&lt;p>因此，我们从宿主机上修改这些文件时，应该采用 echo 重定向等操作，避免文件的 inode 发生变化。&lt;/p></description></item><item><title>Docs: Docker 介绍</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E4%BB%8B%E7%BB%8D/</guid><description/></item><item><title>Docs: Docker 命令行工具</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description/></item><item><title>Docs: Docker 配置详解</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.docker.com/engine/reference/commandline/dockerd/">官方文档，参考-命令行参考-Daemon CLI&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://blog.csdn.net/u013948858/article/details/79974796">https://blog.csdn.net/u013948858/article/details/79974796&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Docker 的守护进程为 dockerd，dockerd 可以通过两种方式配置运行时行为&lt;/p>
+&lt;ul>
+&lt;li>通过配置文件 /etc/docker/daemon.json 进行配置&lt;/li>
+&lt;li>使用 dockerd 命令的 flags 进行配置，可以将 flags 添加到 dockerd.service 中。&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>Note：
+配置文件中的配置，也可以通过 dockerd 的命令行参数(也就是 flags)指定，比如配置文件中的 data-root 字段，对应的 dockerd flags 为 &amp;ndash;data-root STRING。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="配置文件示例">配置文件示例&lt;/h2>
+&lt;p>dockerd 配置文件是 JSON 格式，基本常用的配置内容如下。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 指定 docker pull 时，首先去连接的 registry。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;registry-mirrors&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;http://172.38.40.180&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;https://ac1rmo5p.mirror.aliyuncs.com&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 指定运行 docker 操作的不安全的 registry 的列表
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;insecure-registries&amp;#34;&lt;/span>: [&lt;span style="color:#e6db74">&amp;#34;http://172.38.40.180&amp;#34;&lt;/span>],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 指定 docker 运行时其他的选项，这里面指定 docker 的 cgroupdriver 为 systemd
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;exec-opts&amp;#34;&lt;/span>: [&lt;span style="color:#e6db74">&amp;#34;native.cgroupdriver=systemd&amp;#34;&lt;/span>],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 指定 docker 的日志驱动为 json-file
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;log-driver&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;json-file&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 指定 docker 记录容器日志的参数，这里指定容器日志文件大小最大为100m
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;log-opts&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;max-size&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;100m&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 指定 docker 的存储驱动类型为 overlay2
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;storage-driver&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;overlay2&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 指定 docker 存储驱动的其他选项
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;storage-opts&amp;#34;&lt;/span>: [&lt;span style="color:#e6db74">&amp;#34;overlay2.override_kernel_check=true&amp;#34;&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="命令行标志详解">命令行标志详解&lt;/h1>
+&lt;p>绝大部分的命令行标志都可以参考&lt;a href="#%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E8%AF%A6%E8%A7%A3">配置文件详解&lt;/a>进行使用&lt;/p>
+&lt;p>&lt;strong>-H, &amp;ndash;host &amp;lt;LIST&amp;gt;&lt;/strong> # 要连接的守护进程 socket。官方给的 systemd 的 service 中，使用的是 &lt;code>docker -H fd://&lt;/code>，这样的用法必须要先启动 docker.socket&lt;/p>
+&lt;h1 id="配置文件详解">配置文件详解&lt;/h1>
+&lt;h2 id="data-root-string">data-root: STRING&lt;/h2>
+&lt;p>配置 docker info 命令中的 Docker Root Dir，也就是 docker 存储数据的路径。&lt;/p>
+&lt;h2 id="features">features:&lt;/h2>
+&lt;p>一些新的特性可以通过配置该字段来启动或停止&lt;/p>
+&lt;h2 id="hosts---指定-docker-守护进程监听的端口">hosts: [] # 指定 docker 守护进程监听的端口&lt;/h2>
+&lt;p>可以从其他机器使用 &lt;code>docker -H URL&lt;/code> 命令对该设备进行 docker 操作&lt;/p>
+&lt;h2 id="live-restore-bool">live-restore: BOOL&lt;/h2>
+&lt;p>在 docker.service 守护程序停止期间，保持容器状态，说白了就是重启 docker 的时候 Containers 不重启。
+开启该参数后，就算重启 dockerd 服务也不会更改 default-address-pools 参数执行的地址范围&lt;/p>
+&lt;h2 id="log-driver-string--指定-docker-的日志驱动">log-driver: STRING # 指定 docker 的日志驱动&lt;/h2>
+&lt;h2 id="log-opts---指定-docker-记录容器日志的参数">log-opts: {} # 指定 docker 记录容器日志的参数&lt;/h2>
+&lt;h2 id="registry-mirrors---指定-pullpush-镜像时候的加速器地址">registry-mirrors: [] # 指定 pull、push 镜像时候的加速器地址&lt;/h2>
+&lt;h2 id="下面是官网给的配置文件中所有可用字段的说明">下面是官网给的配置文件中所有可用字段的说明&lt;/h2>
+&lt;p>&lt;a href="https://docs.docker.com/engine/reference/commandline/dockerd/#daemon-configuration-file">https://docs.docker.com/engine/reference/commandline/dockerd/#daemon-configuration-file&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;authorization-plugins&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;data-root&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;dns&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;dns-opts&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;dns-search&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;exec-opts&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;exec-root&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;experimental&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;features&amp;#34;&lt;/span>: {},
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;storage-driver&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;storage-opts&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;labels&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;live-restore&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;log-driver&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;json-file&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;log-opts&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;max-size&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10m&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;max-file&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;5&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;labels&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;somelabel&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;env&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;os,customer&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;mtu&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">0&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;pidfile&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;cluster-store&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;cluster-store-opts&amp;#34;&lt;/span>: {},
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;cluster-advertise&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;max-concurrent-downloads&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">3&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;max-concurrent-uploads&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">5&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;default-shm-size&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;64M&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;shutdown-timeout&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">15&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;debug&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 指定docker守护进程监听的端口，可以从其他机器使用docker -H URL命令对该设备进行docker操作
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;hosts&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;log-level&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;tls&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;tlsverify&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;tlscacert&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;tlscert&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;tlskey&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;swarm-default-advertise-addr&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;api-cors-header&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;selinux-enabled&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;userns-remap&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;group&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;cgroup-parent&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;default-ulimits&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;nofile&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Name&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;nofile&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Hard&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">64000&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;Soft&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">64000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;init&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;init-path&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/usr/libexec/docker-init&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;ipv6&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;iptables&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;ip-forward&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;ip-masq&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;userland-proxy&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;userland-proxy-path&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/usr/libexec/docker-proxy&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;ip&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;0.0.0.0&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;bridge&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 指定 docker0 桥的 IP
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;bip&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;fixed-cidr&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;fixed-cidr-v6&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;default-gateway&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;default-gateway-v6&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;icc&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;raw-logs&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;allow-nondistributable-artifacts&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;registry-mirrors&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;seccomp-profile&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 指定不安全仓库，docker 默认无法连接 http 协议的仓库，将仓库的 URL 添加到该字段后，docker 即可连接
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;insecure-registries&amp;#34;&lt;/span>: [],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;no-new-privileges&amp;#34;&lt;/span>: &lt;span style="color:#66d9ef">false&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;default-runtime&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;runc&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;oom-score-adjust&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">-500&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;node-generic-resources&amp;#34;&lt;/span>: [&lt;span style="color:#e6db74">&amp;#34;NVIDIA-GPU=UUID1&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;NVIDIA-GPU=UUID2&amp;#34;&lt;/span>],
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;runtimes&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;cc-runtime&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;path&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/usr/bin/cc-runtime&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;custom&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;path&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/usr/local/bin/my-runc-replacement&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;runtimeArgs&amp;#34;&lt;/span>: [&lt;span style="color:#e6db74">&amp;#34;--debug&amp;#34;&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;default-address-pools&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> { &lt;span style="color:#f92672">&amp;#34;base&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;172.80.0.0/16&amp;#34;&lt;/span>, &lt;span style="color:#f92672">&amp;#34;size&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">24&lt;/span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> { &lt;span style="color:#f92672">&amp;#34;base&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;172.90.0.0/16&amp;#34;&lt;/span>, &lt;span style="color:#f92672">&amp;#34;size&amp;#34;&lt;/span>: &lt;span style="color:#ae81ff">24&lt;/span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: Docker 权限管理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;h1 id="docker-capabilities">Docker Capabilities&lt;/h1>
+&lt;p>Capabilities 详见 [Linux Capabilities 权限管理章节](/docs/IT学习笔记/1.操作系统/5.登录%20Linux%20 与%20 访问控制/Access%20Control(访问控制)/Capabilities(能力)%20 管理.md Linux 与 访问控制/Access Control(访问控制)/Capabilities(能力) 管理.md)&lt;/p>
+&lt;p>我们说 Docker 容器本质上就是一个进程，所以理论上容器就会和进程一样会有一些默认的开放权限，默认情况下 Docker 会删除必须的 &lt;code>capabilities&lt;/code> 之外的所有 &lt;code>capabilities&lt;/code>，因为在容器中我们经常会以 root 用户来运行，使用 &lt;code>capabilities&lt;/code> 现在后，容器中的使用的 root 用户权限就比我们平时在宿主机上使用的 root 用户权限要少很多了，这样即使出现了安全漏洞，也很难破坏或者获取宿主机的 root 权限，所以 Docker 支持 &lt;code>Capabilities&lt;/code> 对于容器的安全性来说是非常有必要的。
+不过我们在运行容器的时候可以通过指定 &lt;code>--privileded&lt;/code> 参数来开启容器的超级权限，这个参数一定要慎用，因为他会获取系统 root 用户所有能力赋值给容器，并且会扫描宿主机的所有设备文件挂载到容器内部，所以是非常危险的操作。
+但是如果你确实需要一些特殊的权限，我们可以通过 &lt;code>--cap-add&lt;/code> 和 &lt;code>--cap-drop&lt;/code> 这两个参数来动态调整，可以最大限度地保证容器的使用安全。下面表格中列出的 &lt;code>Capabilities&lt;/code> 是 Docker 默认给容器添加的，我们可以通过 &lt;code>--cap-drop&lt;/code> 去除其中一个或者多个：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/hlragi/1621522556084-0aa763d8-6f2d-4e2f-8f69-1953f75511be.png" alt="">docker capabilities
+下面表格中列出的 &lt;code>Capabilities&lt;/code> 是 Docker 默认删除的，我们可以通过&lt;code>--cap-add&lt;/code>添加其中一个或者多个：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/hlragi/1621522556093-902979da-99b9-479e-8b11-db55a3d83605.png" alt="">docker drop capabilities&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;code>--cap-add&lt;/code>和&lt;code>--cap-drop&lt;/code> 这两参数都支持&lt;code>ALL&lt;/code>值，比如如果你想让某个容器拥有除了&lt;code>MKNOD&lt;/code>之外的所有内核权限，那么可以执行下面的命令： &lt;code>$ sudo docker run --cap-add=ALL --cap-drop=MKNOD ...&lt;/code>&lt;/p>
+&lt;/blockquote>
+&lt;p>比如现在我们需要修改网络接口数据，默认情况下是没有权限的，因为需要的 &lt;code>NET_ADMIN&lt;/code> 这个 &lt;code>Capabilities&lt;/code> 默认被移除了：&lt;/p>
+&lt;pre>&lt;code>$ docker run -it --rm busybox /bin/sh
+/ # ip link add dummy0 type dummy
+ip: RTNETLINK answers: Operation not permitted
+/ #
+&lt;/code>&lt;/pre>
+&lt;p>所以在不使用 &lt;code>--privileged&lt;/code> 的情况下（不建议）我们可以使用 &lt;code>--cap-add=NET_ADMIN&lt;/code> 将这个 &lt;code>Capabilities&lt;/code> 添加回来：&lt;/p>
+&lt;pre>&lt;code>$ docker run -it --rm --cap-add=NET_ADMIN busybox /bin/sh
+/ # ip link add dummy0 type dummy
+/ #
+&lt;/code>&lt;/pre>
+&lt;p>可以看到已经 OK 了。&lt;/p></description></item><item><title>Docs: 在Docker中使用GPU</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/%E5%9C%A8Docker%E4%B8%AD%E4%BD%BF%E7%94%A8GPU/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/%E5%9C%A8Docker%E4%B8%AD%E4%BD%BF%E7%94%A8GPU/</guid><description>
+&lt;h3 id="docker-1903增加了对--gpus-选项的支持我们在-docker-里面想读取-nvidia-显卡再也不需要额外的安装-nvidia-docker-了下面开始实战">Docker 19.03，增加了对&amp;ndash;gpus 选项的支持，我们在 docker 里面想读取 nvidia 显卡再也不需要额外的安装 nvidia-docker 了，下面开始实战&lt;/h3>
+&lt;ol>
+&lt;li>安装 nvidia-container-runtime：&lt;/li>
+&lt;/ol>
+&lt;p>查看官网（&lt;a href="https://links.jianshu.com/go?to=https%3A%2F%2Fnvidia.github.io%2Fnvidia-container-runtime">https://nvidia.github.io/nvidia-container-runtime&lt;/a>）得知基于 RHEL 的发行版添加源的方式为：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Centos&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>distribution&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">$(&lt;/span>. /etc/os-release;echo $ID$VERSION_ID&lt;span style="color:#66d9ef">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.repo | &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> sudo tee /etc/yum.repos.d/nvidia-container-runtime.repo
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Ubuntu&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>curl -s -L https://nvidia.github.io/nvidia-container-runtime/gpgkey | &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> sudo apt-key add -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>distribution&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">$(&lt;/span>. /etc/os-release;echo $ID$VERSION_ID&lt;span style="color:#66d9ef">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>curl -s -L https://nvidia.github.io/nvidia -container-runtime/$distribution/nvidia-container-runtime.list | &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> sudo tee /etc/apt/sources.list.d/nvidia-container-runtime.list
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo apt-get update
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>添加源后直接 yum 安装：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># centos&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>yum install nvidia-container-runtime
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Ubuntu&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>apt-get install nvidia-container-runtime
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ol start="2">
+&lt;li>安装 docker-19.03&lt;/li>
+&lt;/ol>
+&lt;p>在新主机上首次安装 Docker Engine-Community 之前，需要设置 Docker 存储库。之后，您可以从存储库安装和更新 Docker。&lt;/p>
+&lt;ul>
+&lt;li>2.1 安装所需的软件包。yum-utils 提供了 yum-config-manager 效用，并 device-mapper-persistent-data 和 lvm2 由需要 devicemapper 存储驱动程序。&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>yum install -y yum-utils &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> device-mapper-persistent-data &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> lvm2
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>2.2 使用以下命令来设置稳定的存储库。&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-csharp" data-lang="csharp">&lt;span style="display:flex;">&lt;span>yum-config-manager \
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --&lt;span style="color:#66d9ef">add&lt;/span>-repo \
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> https:&lt;span style="color:#75715e">//download.docker.com/linux/centos/docker-ce.repo&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>2.3 开启 Docker 服务&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>systemctl start docker &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> systemctl enable docker
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>2.4 验证 docker 版本是否安装正常&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ docker version
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Client: Docker Engine - Community
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Version: 19.03.3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> API version: 1.40
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Go version: go1.12.10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Git commit: a872fc2f86
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Built: Tue Oct &lt;span style="color:#ae81ff">8&lt;/span> 00:58:10 &lt;span style="color:#ae81ff">2019&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> OS/Arch: linux/amd64
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Experimental: false
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Server: Docker Engine - Community
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Engine:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Version: 19.03.2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> API version: 1.40 &lt;span style="color:#f92672">(&lt;/span>minimum version 1.12&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Go version: go1.12.8
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Git commit: 6a30dfc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Built: Thu Aug &lt;span style="color:#ae81ff">29&lt;/span> 05:27:34 &lt;span style="color:#ae81ff">2019&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> OS/Arch: linux/amd64
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Experimental: false
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> containerd:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Version: 1.2.10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> GitCommit: b34a5c8af56e510852c35414db4c1f4fa6172339
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> runc:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Version: 1.0.0-rc8+dev
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> GitCommit: 3e425f80a8c931f88e6d94a8c831b9d5aa481657
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> docker-init:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Version: 0.18.0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> GitCommit: fec3683
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ol start="3">
+&lt;li>启动容器&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker run -d -it -p 1518:1518 --name&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;centos&amp;#34;&lt;/span> --gpus all nvidia/cuda:9.1-cudnn7-runtime-centos7 /bin/bash
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 启动导出器&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker run -d --name nvidia --restart always --gpus all -p 9400:9400 nvidia/dcgm-exporter:2.0.13-2.1.1-ubuntu18.04
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>进入容器&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker exec -it centos /bin/bash
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>查看显卡&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>$ nvidia-smi
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Mon Oct &lt;span style="color:#ae81ff">21&lt;/span> 02:15:19 &lt;span style="color:#ae81ff">2019&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-----------------------------------------------------------------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| NVIDIA-SMI 390.59 Driver Version: 390.59 |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>|-------------------------------+----------------------+----------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| GPU Name Persistence-M| Bus-Id Disp.A | Volatile Uncorr. ECC |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| Fan Temp Perf Pwr:Usage/Cap| Memory-Usage | GPU-Util Compute M. |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>|&lt;span style="color:#f92672">===============================&lt;/span>+&lt;span style="color:#f92672">======================&lt;/span>+&lt;span style="color:#f92672">======================&lt;/span>|
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| &lt;span style="color:#ae81ff">0&lt;/span> GeForce GTX 108... Off | 00000000:00:08.0 Off | N/A |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| 29% 33C P0 58W / 250W | 0MiB / 11178MiB | 0% Default |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-------------------------------+----------------------+----------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| &lt;span style="color:#ae81ff">1&lt;/span> GeForce GTX 108... Off | 00000000:00:09.0 Off | N/A |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| 29% 28C P5 12W / 250W | 0MiB / 11178MiB | 0% Default |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-------------------------------+----------------------+----------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| &lt;span style="color:#ae81ff">2&lt;/span> GeForce GTX 108... Off | 00000000:00:0A.0 Off | N/A |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| 29% 27C P5 12W / 250W | 0MiB / 11178MiB | 0% Default |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-------------------------------+----------------------+----------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| &lt;span style="color:#ae81ff">3&lt;/span> GeForce GTX 108... Off | 00000000:00:0B.0 Off | N/A |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| 29% 30C P5 12W / 250W | 0MiB / 11178MiB | 0% Default |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-------------------------------+----------------------+----------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| &lt;span style="color:#ae81ff">4&lt;/span> GeForce GTX 108... Off | 00000000:00:0C.0 Off | N/A |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| 29% 31C P0 58W / 250W | 0MiB / 11178MiB | 0% Default |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-------------------------------+----------------------+----------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| &lt;span style="color:#ae81ff">5&lt;/span> GeForce GTX 108... Off | 00000000:00:0D.0 Off | N/A |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| 29% 23C P5 12W / 250W | 0MiB / 11178MiB | 0% Default |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-------------------------------+----------------------+----------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| &lt;span style="color:#ae81ff">6&lt;/span> GeForce GTX 108... Off | 00000000:00:0E.0 Off | N/A |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| 29% 27C P5 12W / 250W | 0MiB / 11178MiB | 0% Default |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-------------------------------+----------------------+----------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| &lt;span style="color:#ae81ff">7&lt;/span> GeForce GTX 108... Off | 00000000:00:0F.0 Off | N/A |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| 29% 27C P5 12W / 250W | 0MiB / 11178MiB | 3% Default |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-------------------------------+----------------------+----------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-----------------------------------------------------------------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| Processes: GPU Memory |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| GPU PID Type Process name Usage |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>|&lt;span style="color:#f92672">=============================================================================&lt;/span>|
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| No running processes found |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-----------------------------------------------------------------------------+
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>

@@ -1,0 +1,288 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Skaffold</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/DevOps/Skaffold/</link><description>Recent content in Skaffold on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/DevOps/Skaffold/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Skaffold</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/DevOps/Skaffold/Skaffold/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/DevOps/Skaffold/Skaffold/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://skaffold.dev/docs/">官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Skaffold(脚手架) 是一个命令行工具，可以使得 kubernetes 原生应用的持续开发(CI/CD)变得更加简单。skaffold 可以处理构建(代码与 docker 镜像)、推送到仓库、部署到本地或者远程 kubernetes 集群中这一工作流程。使用一个简单的 yaml 配置文件来定义和执行 Pipeline。&lt;/p>
+&lt;p>Skaffold 特性&lt;/p>
+&lt;ol>
+&lt;li>Skaffold 更轻量。与 Drone 和 Jenkins 等工具不同，它仅是一个命令行工具，并没有任何附加的组件。所以 Skaffold 也就无法与 SCM 对接来接收 webhook 消息。
+&lt;ol>
+&lt;li>不过也正是因为这种轻量的特性，可以将 Skaffold 集成在 Jenkins 或 Drone 中，作为 shell 命令来执行 CI/CD 的过程，使得整个流水线更加简洁明了。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>在本地进行 Kubernetes 的快速开发。在 skaffold 运行之后，当在本地修改完代码之后，skaffold 可以自动触发流水线将应用程序部署到本地或者远程的 kubernetes 集群。&lt;/li>
+&lt;/ol>
+&lt;h1 id="skaffold-部署">Skaffold 部署&lt;/h1>
+&lt;p>下载 skaffold 命令行工具的二进制文件，并将其放在$PATH 目录中&lt;/p>
+&lt;ol>
+&lt;li>curl -Lo skaffold &lt;a href="https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64">https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64&lt;/a>&lt;/li>
+&lt;li>chmod +x skaffold&lt;/li>
+&lt;li>mv skaffold /usr/local/bin&lt;/li>
+&lt;/ol>
+&lt;p>完成后，直接使用 skaffold 命令即可&lt;/p>
+&lt;h1 id="skaffold-配置">Skaffold 配置&lt;/h1>
+&lt;p>skaffold.yaml # Skaffold 通过该文件定义来定义 Pipeline 任务。&lt;/p>
+&lt;p>/root/.skaffold/config # 一些&lt;/p>
+&lt;h1 id="skaffold-的基本使用示例">Skaffold 的基本使用示例&lt;/h1>
+&lt;p>示例文件获取方式：&lt;/p>
+&lt;ol>
+&lt;li>git clone &lt;a href="https://github.com/GoogleContainerTools/skaffold">https://github.com/GoogleContainerTools/skaffold&lt;/a>&lt;/li>
+&lt;li>cd examples/getting-started&lt;/li>
+&lt;/ol>
+&lt;p>下面是想让 skaffold 正常工作所需的基本文件&lt;/p>
+&lt;pre>&lt;code>[root@master-1 getting-started]# ls
+Dockerfile k8s-pod.yaml main.go README.md skaffold.yaml
+&lt;/code>&lt;/pre>
+&lt;p>skaffold.yaml # skaffold 遵循该文件内容执行流水线过程&lt;/p>
+&lt;p>main.go # 需要自动构建部署的代码文件&lt;/p>
+&lt;p>Dockerfile # 用于构建 image&lt;/p>
+&lt;p>k8s-pod.yaml # 用于部署到 k8s 的 yaml 文件&lt;/p>
+&lt;p>下面是这几个文件的内容&lt;/p>
+&lt;pre>&lt;code>cat &amp;gt; skaffold.yaml &amp;lt;&amp;lt; EOF
+apiVersion: skaffold/v2alpha1
+kind: Config
+build:
+artifacts:
+- image: lchdzh/skaffold-example # 指定构建完成后要上传的image信息
+deploy:
+kubectl:
+manifests:
+- k8s-*.yaml # 指定上传完images后，通过哪些yaml文件来部署到kubernetes集群中
+EOF
+cat &amp;gt; main.go &amp;lt;&amp;lt;EOF
+package main
+import (
+&amp;quot;fmt&amp;quot;
+&amp;quot;time&amp;quot;
+)
+func main() {
+for {
+fmt.Println(&amp;quot;Hello world!&amp;quot;)
+time.Sleep(time.Second * 1)
+}
+}
+EOF
+cat &amp;gt; Dockerfile &amp;lt;&amp;lt; EOF
+FROM golang:1.14.7 as builder
+COPY main.go .
+RUN go build -o /app main.go
+FROM alpine:3.10
+COPY --from=builder /app .
+CMD [&amp;quot;./app&amp;quot;]
+EOF
+cat &amp;gt; k8s-pod.yaml &amp;lt;&amp;lt; EOF
+apiVersion: v1
+kind: Pod
+metadata:
+name: getting-started
+spec:
+containers:
+- name: getting-started
+image: lchdzh/skaffold-example
+EOF
+&lt;/code>&lt;/pre>
+&lt;h2 id="skaffold-的基本工作流程">skaffold 的基本工作流程&lt;/h2>
+&lt;ol>
+&lt;li>使用 Dockerfile 从源代码构建 image&lt;/li>
+&lt;li>用 sha256 哈希值标记 image&lt;/li>
+&lt;li>使用先前构建的 image 更新 kubernetes 清单&lt;/li>
+&lt;li>使用 kubectl apply -f 部署&lt;/li>
+&lt;li>从已部署的应用输出日志&lt;/li>
+&lt;/ol>
+&lt;h2 id="skaffold-运行效果">skaffold 运行效果&lt;/h2>
+&lt;p>在该目录下执行 skaffold dev 命令，即可开始构建并部署应用，且会持续监控代码变化并以新的代码重新构建并部署&lt;/p>
+&lt;pre>&lt;code>[root@master-1 getting-started]# skaffold dev
+Listing files to watch...
+- lchdzh/skaffold-example
+Generating tags...
+- lchdzh/skaffold-example -&amp;gt; lchdzh/skaffold-example:v1.1.0-29-gd88d5d0-dirty
+Checking cache...
+- lchdzh/skaffold-example: Not found. Building
+Building [lchdzh/skaffold-example]...
+Sending build context to Docker daemon 3.072kB
+Step 1/6 : FROM golang:1.12.9-alpine3.10 as builder
+---&amp;gt; e0d646523991
+Step 2/6 : COPY main.go .
+---&amp;gt; Using cache
+---&amp;gt; 1ba02146234e
+Step 3/6 : RUN go build -o /app main.go
+---&amp;gt; Using cache
+---&amp;gt; f10a56b4422c
+Step 4/6 : FROM alpine:3.10
+---&amp;gt; 965ea09ff2eb
+Step 5/6 : CMD [&amp;quot;./app&amp;quot;]
+---&amp;gt; Using cache
+---&amp;gt; 4171bc10f8b7
+Step 6/6 : COPY --from=builder /app .
+---&amp;gt; Using cache
+---&amp;gt; 175e0527448f
+Successfully built 175e0527448f
+Successfully tagged lchdzh/skaffold-example:v1.1.0-29-gd88d5d0-dirty
+The push refers to repository [docker.io/lchdzh/skaffold-example]
+aa7e6c327313: Preparing
+77cae8ab23bf: Preparing
+77cae8ab23bf: Mounted from library/alpine
+aa7e6c327313: Pushed
+v1.1.0-29-gd88d5d0-dirty: digest: sha256:d5556b91934c1c48e3d67b28f0ef431985f63e6a7d37d121281ebf7dc844b803 size: 739
+Tags used in deployment:
+- lchdzh/skaffold-example -&amp;gt; lchdzh/skaffold-example:v1.1.0-29-gd88d5d0-dirty@sha256:d5556b91934c1c48e3d67b28f0ef431985f63e6a7d37d121281ebf7dc844b803
+Starting deploy...
+- pod/getting-started created
+Watching for changes...
+[getting-started] Hello world!
+[getting-started] Hello world!
+[getting-started] Hello world!
+&lt;/code>&lt;/pre>
+&lt;p>后续会持续输出 hello world，并监控代码变化，当 main.go 文件变化之后，将会触发流水线，并构建部署新的应用，效果如下&lt;/p>
+&lt;pre>&lt;code>[getting-started] Hello world!
+[getting-started] Hello world!
+Generating tags...
+- lchdzh/skaffold-example -&amp;gt; lchdzh/skaffold-example:v1.1.0-29-gd88d5d0-dirty
+Checking cache...
+- lchdzh/skaffold-example: Not found. Building
+Building [lchdzh/skaffold-example]...
+Sending build context to Docker daemon 3.072kB
+Step 1/6 : FROM golang:1.12.9-alpine3.10 as builder
+---&amp;gt; e0d646523991
+Step 2/6 : COPY main.go .
+---&amp;gt; 4e1d88698dab
+Step 3/6 : RUN go build -o /app main.go
+---&amp;gt; Running in 6dc07a2fe012
+---&amp;gt; 35baee78677b
+Step 4/6 : FROM alpine:3.10
+---&amp;gt; 965ea09ff2eb
+Step 5/6 : CMD [&amp;quot;./app&amp;quot;]
+---&amp;gt; Using cache
+---&amp;gt; 4171bc10f8b7
+Step 6/6 : COPY --from=builder /app .
+---&amp;gt; f7cb2f7531a0
+Successfully built f7cb2f7531a0
+Successfully tagged lchdzh/skaffold-example:v1.1.0-29-gd88d5d0-dirty
+The push refers to repository [docker.io/lchdzh/skaffold-example]
+abee0c770898: Preparing
+77cae8ab23bf: Preparing
+77cae8ab23bf: Layer already exists
+abee0c770898: Pushed
+v1.1.0-29-gd88d5d0-dirty: digest: sha256:62029ef04493af6c37d8034f1a592285e9e92c120e47cec439657a84ba9985ba size: 739
+Tags used in deployment:
+- lchdzh/skaffold-example -&amp;gt; lchdzh/skaffold-example:v1.1.0-29-gd88d5d0-dirty@sha256:62029ef04493af6c37d8034f1a592285e9e92c120e47cec439657a84ba9985ba
+Starting deploy...
+- pod/getting-started configured
+Watching for changes...
+[getting-started] Hello Skaffold!
+[getting-started] Hello Skaffold!
+[getting-started] Hello Skaffold!
+&lt;/code>&lt;/pre>
+&lt;p>当我们使用 kubectl 查看当前集群 pod 时，会发现该 pod 已经被部署到集群中了&lt;/p>
+&lt;pre>&lt;code>[root@master-1 ~]# kubectl get pod
+NAME READY STATUS RESTARTS AGE
+getting-started 1/1 Running 1 4h59m
+&lt;/code>&lt;/pre></description></item><item><title>Docs: Skaffold Pipeline 详解</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/DevOps/Skaffold/Skaffold-Pipeline-%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/DevOps/Skaffold/Skaffold-Pipeline-%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://skaffold.dev/docs/design/config/">官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Skaffold 默认通过 yaml 格式的名为 skaffold.yaml 的文件来指定 Pipelines 的行为。该文件应存放在项目目录的根目录中。当在项目的根目录中运行 skaffold 命令时，skaffold 将尝试从当前目录读取 skaffold.yaml 文件，来执行其内定义的 pipeline 任务。对于官方来说，skaffold.yaml 也称为 skaffold 的配置文件。&lt;/p>
+&lt;h2 id="skaffold-pipeline-的工作流程">Skaffold Pipeline 的工作流程&lt;/h2>
+&lt;p>参考：&lt;a href="https://skaffold.dev/docs/pipeline-stages/">官方文档&lt;/a>&lt;/p>
+&lt;p>Skafflod 在执行 Pipeline 时，会经过 &lt;strong>5 个 stages(阶段)&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bxs72m/1616077584593-04a7412c-41f5-49e0-9eb5-bda9543222d7.jpeg" alt="">&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;strong>artifacts(工件)&lt;/strong> 大意就是指工具、物品等。比如 build artifacts(构建工件)，泛指可以执行构建功能的工具，比如 docker、Jib、Bazel 等等&lt;/p>
+&lt;/blockquote>
+&lt;p>运行 skaffold 时，skaffold 会在项目中收集源代码并使用配置文件中指定的构建工件来进行构建。构建成功后使用标记工件为镜像设置 tag，并推送到指定的镜像仓库中。在最后，skaffold 哈可以使用指定的部署工具(kubectl、helm 等)来将构建好的代码部署到 kubernetes 集群中。下面是各个阶段的详细介绍：&lt;/p>
+&lt;p>Init # generate a starting point for Skaffold configuration&lt;/p>
+&lt;p>Build # 根据指定的构建器来构建镜像&lt;/p>
+&lt;p>Tag # 根据指定的策略来为镜像设置 tag&lt;/p>
+&lt;p>Test # test images with structure tests&lt;/p>
+&lt;p>Deploy # 使用 kubectl、kustomize、helm 中的任意一种向 kubernetes 集群进行部署&lt;/p>
+&lt;p>File Sync # sync changed files directly to containers&lt;/p>
+&lt;p>Log Tailing # tail logs from workloads&lt;/p>
+&lt;p>Port Forwarding # forward ports from services and arbitrary resources to localhost&lt;/p>
+&lt;p>Cleanup # 清理执行 pipeline 中生成的 manifests 文件和 images。&lt;/p>
+&lt;h1 id="skaffoldyaml-详解">skaffold.yaml 详解&lt;/h1>
+&lt;p>参考：&lt;a href="https://skaffold.dev/docs/references/yaml/">官方文档&lt;/a>&lt;/p>
+&lt;p>skaffold.yaml 文件由下面几个主要字段组成：&lt;/p>
+&lt;h2 id="apiversion-skaffoldv2beta10--要使用的-skaffold-api-版本当前的-api-版本是-skaffoldv2beta10">apiVersion: skaffold/v2beta10 # 要使用的 Skaffold API 版本。当前的 API 版本是 skaffold/v2beta10&lt;/h2>
+&lt;h2 id="kind-config--kind类型-始终为-config">kind: Config # kind(类型) 始终为 Config&lt;/h2>
+&lt;h2 id="build--指定-skaffold-使用何种方式构建工件标记工件以及推送工件来进行-pipeline-任务">build # 指定 Skaffold 使用何种方式构建工件、标记工件以及推送工件来进行 Pipeline 任务&lt;/h2>
+&lt;p>Skaffold 支持使用本地 Docker 守护程序，Google Cloud Build，Kaniko 或 Bazel 来构建工件。&lt;/p>
+&lt;p>artifacts: &amp;lt;[]Object&amp;gt; # 工件的信息&lt;/p>
+&lt;ul>
+&lt;li>image: STRING # 要构建的工件的镜像名&lt;/li>
+&lt;li>docker
+&lt;ul>
+&lt;li>dockerfile&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>tagPolicy: # 确定如何为镜像添加 TAG。默认为：&lt;code>gitCommit：{variant：Tags}&lt;/code>。&lt;/p>
+&lt;ul>
+&lt;li>envTemplate: # 使用可配置的模板字符串为镜像添加 TAG。
+&lt;ul>
+&lt;li>template: # 用于产生图像名称和标签。参阅 golang 的 &lt;a href="https://golang.org/pkg/text/template/">text/template&lt;/a>。针对当前环境执行模板，并注入这些变量。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>local: # 描述如何在本地 docker 守护程序上进行构建以及如何选择推送到存储库&lt;/p>
+&lt;ul>
+&lt;li>useBuildkit: BOOL # 是否使用 BuildKit 构建 Docker 映像。&lt;code>默认值：false&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;h2 id="test--指定-skaffold-如何测试工件">test # 指定 Skaffold 如何测试工件&lt;/h2>
+&lt;p>Skaffold 支持容器结构测试以测试构建的工件。有关更多信息，请参见测试人员。&lt;/p>
+&lt;h2 id="deploy--指定-skaffold-如何部署工件">deploy # 指定 Skaffold 如何部署工件&lt;/h2>
+&lt;p>Skaffold 支持使用 kubectl，helm 或 kustomize 部署工件。有关更多信息，请参见部署者。&lt;/p>
+&lt;h2 id="profiles--配置文件是一组设置激活这些设置后它们将覆盖当前配置">profiles # 配置文件是一组设置，激活这些设置后，它们将覆盖当前配置&lt;/h2>
+&lt;p>您可以使用配置文件来覆盖 build，test 而 deploy 部分。&lt;/p></description></item><item><title>Docs: Skaffold 命令行工具</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/DevOps/Skaffold/Skaffold-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/DevOps/Skaffold/Skaffold-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/">官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Skaffold 命令行工具提供以下命令&lt;/p>
+&lt;p>End-to-end pipelines:&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-run">skaffold run&lt;/a> # 构建并运行一次&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-dev">skaffold dev&lt;/a> # 进入&lt;code>dev&lt;/code>模式，Skaffold 将监视应用程序的源文件，并在检测到更改时将重建您的映像（或将文件同步到正在运行的容器中），推送所有新映像并将该应用程序重新部署到群集中。&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-debug">skaffold debug&lt;/a> - to run a pipeline in debug mode&lt;/li>
+&lt;/ul>
+&lt;p>Pipeline building blocks for CI/CD:&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-build">skaffold build&lt;/a> - to just build and tag your image(s)&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-deploy">skaffold deploy&lt;/a> - to deploy the given image(s)&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-delete">skaffold delete&lt;/a> - to cleanup the deployed artifacts&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-render">skaffold render&lt;/a> - build and tag images, and output templated Kubernetes manifests&lt;/li>
+&lt;/ul>
+&lt;p>Getting started with a new project:&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-init">skaffold init&lt;/a> # 初始化一个 skaffold.yaml 文件&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-fix">skaffold fix&lt;/a> - to upgrade from&lt;/li>
+&lt;/ul>
+&lt;p>Other Commands:&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-help">skaffold help&lt;/a> - print help&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-version">skaffold version&lt;/a> - get Skaffold version&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-completion">skaffold completion&lt;/a> - setup tab completion for the CLI&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-config">skaffold config&lt;/a> - manage context specific parameters&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-credits">skaffold credits&lt;/a> - export third party notices to given path (./skaffold-credits by default)&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-diagnose">skaffold diagnose&lt;/a> - diagnostics of Skaffold works in your project&lt;/li>
+&lt;li>&lt;a href="https://skaffold.dev/docs/references/cli/#skaffold-schema">skaffold schema&lt;/a> - list and print json schemas used to validate skaffold.yaml configuration&lt;/li>
+&lt;/ul>
+&lt;h1 id="skaffold-dev-flags">skaffold dev [FLAGS]&lt;/h1>
+&lt;p>FLAGS:&lt;/p>
+&lt;ul>
+&lt;li>&amp;ndash;cache-artifacts=BOOL # 是否使用工件的缓存。&lt;code>默认值：true&lt;/code>&lt;/li>
+&lt;li>&amp;ndash;no-prun=BOOL # 是否清理由 Skaffold 购机爱你的镜像和容器。&lt;code>默认值：false&lt;/code>&lt;/li>
+&lt;li>&amp;ndash;render-only=BOOL # 仅打印渲染后的 manifests 文件，而不部署。&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;h1 id="skaffold-run-flags">skaffold run [FLAGS]&lt;/h1></description></item></channel></rss>

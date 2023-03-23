@@ -1,0 +1,304 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Repository(容器镜像仓库)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8%E7%AE%A1%E7%90%86/Repository%E5%AE%B9%E5%99%A8%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93/</link><description>Recent content in Repository(容器镜像仓库) on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8%E7%AE%A1%E7%90%86/Repository%E5%AE%B9%E5%99%A8%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Docker私有仓库</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8%E7%AE%A1%E7%90%86/Repository%E5%AE%B9%E5%99%A8%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93/Docker%E7%A7%81%E6%9C%89%E4%BB%93%E5%BA%93/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8%E7%AE%A1%E7%90%86/Repository%E5%AE%B9%E5%99%A8%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93/Docker%E7%A7%81%E6%9C%89%E4%BB%93%E5%BA%93/</guid><description>
+&lt;h1 id="私有仓库">私有仓库&lt;/h1>
+&lt;p>有时候使用 Docker Hub 这样的公共仓库可能不方便，用户可以创建一个本地仓库供私人使用。&lt;/p>
+&lt;p>本节介绍如何使用本地仓库。&lt;/p>
+&lt;p>docker-registry 是官方提供的工具，可以用于构建私有的镜像仓库。本文内容基于 docker-registry v2.x 版本。&lt;/p>
+&lt;h1 id="安装运行-docker-registry">安装运行 docker-registry&lt;/h1>
+&lt;h2 id="容器运行">容器运行&lt;/h2>
+&lt;p>你可以通过获取官方 registry 镜像来运行。&lt;/p>
+&lt;p>$ docker run -d -p 5000:5000 &amp;ndash;restart=always &amp;ndash;name registry registry&lt;/p>
+&lt;p>这将使用官方的 registry 镜像来启动私有仓库。默认情况下，仓库会被创建在容器的 /var/lib/registry 目录下。你可以通过 -v 参数来将镜像文件存放在本地的指定路径。例如下面的例子将上传的镜像放到本地的 /opt/data/registry 目录。&lt;/p>
+&lt;p>$ docker run -d \ -p 5000:5000 \ -v /opt/data/registry:/var/lib/registry \ registry&lt;/p>
+&lt;h1 id="在私有仓库上传搜索下载镜像">在私有仓库上传、搜索、下载镜像&lt;/h1>
+&lt;p>创建好私有仓库之后，就可以使用 docker tag 来标记一个镜像，然后推送它到仓库。例如私有仓库地址为 127.0.0.1:5000。&lt;/p>
+&lt;p>先在本机查看已有的镜像。&lt;/p>
+&lt;p>$ docker image lsREPOSITORY TAG IMAGE ID CREATED VIRTUAL SIZEubuntu latest ba5877dc9bec 6 weeks ago 192.7 MB&lt;/p>
+&lt;p>使用 docker tag 将 ubuntu:latest 这个镜像标记为 127.0.0.1:5000/ubuntu:latest。&lt;/p>
+&lt;p>格式为 docker tag IMAGE[:TAG] [REGISTRY_HOST[:REGISTRY_PORT]/]REPOSITORY[:TAG]。&lt;/p>
+&lt;p>$ docker tag ubuntu:latest 127.0.0.1:5000/ubuntu:latest$ docker image lsREPOSITORY TAG IMAGE ID CREATED VIRTUAL SIZEubuntu latest ba5877dc9bec 6 weeks ago 192.7 MB127.0.0.1:5000/ubuntu:latest latest ba5877dc9bec 6 weeks ago 192.7 MB&lt;/p>
+&lt;p>使用 docker push 上传标记的镜像。&lt;/p>
+&lt;p>$ docker push 127.0.0.1:5000/ubuntu:latestThe push refers to repository [127.0.0.1:5000/ubuntu]373a30c24545: Pusheda9148f5200b0: Pushedcdd3de0940ab: Pushedfc56279bbb33: Pushedb38367233d37: Pushed2aebd096e0e2: Pushedlatest: digest: sha256:fe4277621f10b5026266932ddf760f5a756d2facd505a94d2da12f4f52f71f5a size: 1568&lt;/p>
+&lt;p>用 curl 查看仓库中的镜像。&lt;/p>
+&lt;p>$ curl 127.0.0.1:5000/v2/_catalog{&amp;ldquo;repositories&amp;rdquo;:[&amp;ldquo;ubuntu&amp;rdquo;]}&lt;/p>
+&lt;p>这里可以看到 {&amp;ldquo;repositories&amp;rdquo;:[&amp;ldquo;ubuntu&amp;rdquo;]}，表明镜像已经被成功上传了。&lt;/p>
+&lt;p>先删除已有镜像，再尝试从私有仓库中下载这个镜像。&lt;/p>
+&lt;p>$ docker image rm 127.0.0.1:5000/ubuntu:latest$ docker pull 127.0.0.1:5000/ubuntu:latestPulling repository 127.0.0.1:5000/ubuntu:latestba5877dc9bec: Download complete511136ea3c5a: Download complete9bad880da3d2: Download complete25f11f5fb0cb: Download completeebc34468f71d: Download complete2318d26665ef: Download complete$ docker image lsREPOSITORY TAG IMAGE ID CREATED VIRTUAL SIZE127.0.0.1:5000/ubuntu:latest latest ba5877dc9bec 6 weeks ago 192.7 MB&lt;/p>
+&lt;h1 id="注意事项">注意事项&lt;/h1>
+&lt;p>如果你不想使用 127.0.0.1:5000 作为仓库地址，比如想让本网段的其他主机也能把镜像推送到私有仓库。你就得把例如 192.168.199.100:5000 这样的内网地址作为私有仓库地址，这时你会发现无法成功推送镜像。&lt;/p>
+&lt;p>这是因为 Docker 默认不允许非 HTTPS 方式推送镜像。我们可以通过 Docker 的配置选项来取消这个限制，或者查看下一节配置能够通过 HTTPS 访问的私有仓库。&lt;/p>
+&lt;p>Ubuntu 14.04, Debian 7 Wheezy&lt;/p>
+&lt;p>对于使用 upstart 的系统而言，编辑 /etc/default/docker 文件，在其中的 DOCKER_OPTS 中增加如下内容：&lt;/p>
+&lt;p>DOCKER_OPTS=&amp;quot;&amp;ndash;registry-mirror=https://registry.docker-cn.com &amp;ndash;insecure-registries=192.168.199.100:5000&amp;quot;&lt;/p>
+&lt;p>重新启动服务。&lt;/p>
+&lt;p>$ sudo service docker restart&lt;/p>
+&lt;p>Ubuntu 16.04+, Debian 8+, centos 7&lt;/p>
+&lt;p>对于使用 systemd 的系统，请在 /etc/docker/daemon.json 中写入如下内容（如果文件不存在请新建该文件）&lt;/p>
+&lt;p>{ &amp;ldquo;registry-mirror&amp;rdquo;: [ &amp;ldquo;&lt;a href="https://registry.docker-cn.com">https://registry.docker-cn.com&lt;/a>&amp;rdquo; ], &amp;ldquo;insecure-registries&amp;rdquo;: [ &amp;ldquo;192.168.199.100:5000&amp;rdquo; ]}&lt;/p>
+&lt;p>注意：该文件必须符合 json 规范，否则 Docker 将不能启动。&lt;/p>
+&lt;p>其他&lt;/p>
+&lt;p>对于 Docker for Windows 、 Docker for Mac 在设置中编辑 daemon.json 增加和上边一样的字符串即可。&lt;/p>
+&lt;p>Harbor&lt;/p>
+&lt;p>从 github 的 releases 下载安装包，然后解压，执行其中 install.sh 脚本&lt;/p></description></item><item><title>Docs: Harbor 云原生注册中心</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8%E7%AE%A1%E7%90%86/Repository%E5%AE%B9%E5%99%A8%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93/Harbor-%E4%BA%91%E5%8E%9F%E7%94%9F%E6%B3%A8%E5%86%8C%E4%B8%AD%E5%BF%83/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8%E7%AE%A1%E7%90%86/Repository%E5%AE%B9%E5%99%A8%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93/Harbor-%E4%BA%91%E5%8E%9F%E7%94%9F%E6%B3%A8%E5%86%8C%E4%B8%AD%E5%BF%83/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/goharbor/harbor">GitHub 项目，goharbor/harbor&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://goharbor.io/">官网&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>一个开源可信的云原生注册中心项目，用于存储、签名、扫描内容。项目地址：&lt;a href="https://github.com/goharbor/harbor">https://github.com/goharbor/harbor&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>云原生注册表：Harbor 支持容器图像和&lt;a href="https://helm.sh/">Helm&lt;/a>图表，可作为容器原生运行时和编排平台等云原生环境的注册表。&lt;/li>
+&lt;li>基于角色的访问控制：用户和存储库通过“项目”进行组织，并且用户可以对项目下的图像或 Helm 图表具有不同的权限。&lt;/li>
+&lt;li>基于策略的复制：可以基于具有多个过滤器（存储库，标签和标签）的策略在多个注册表实例之间复制（同步）图像和图表。如果遇到任何错误，Harbor 会自动重试复制。非常适合负载平衡，高可用性，多数据中心，混合和多云场景。&lt;/li>
+&lt;li>漏洞扫描：Harbor 会定期扫描图像并警告用户存在漏洞。&lt;/li>
+&lt;li>LDAP / AD 支持：Harbor 与现有企业 LDAP / AD 集成以进行用户身份验证和管理，并支持将 LDAP 组导入 Harbor 并为其分配适当的项目角色。&lt;/li>
+&lt;li>OIDC 支持：Harbor 利用 OpenID Connect（OIDC）来验证由外部授权服务器或身份提供者认证的用户的身份。可以启用单点登录以登录 Harbor 门户。&lt;/li>
+&lt;li>图像删除和垃 00000000000000000000000000000000000 圾回收：可以删除图像，并可以回收其空间。&lt;/li>
+&lt;li>公证员：可以确保图像的真实性。&lt;/li>
+&lt;li>图形用户门户：用户可以轻松浏览，搜索存储库和管理项目。&lt;/li>
+&lt;li>审核：跟踪对存储库的所有操作。&lt;/li>
+&lt;li>RESTful API：用于大多数管理操作的 RESTful API，易于与外部系统集成。嵌入式 Swagger UI 可用于探索和测试 API。&lt;/li>
+&lt;li>易于部署：提供在线和离线安装程序。另外，可以使用 Helm Chart 在 Kubernetes 上部署 Harbor。&lt;/li>
+&lt;/ul>
+&lt;h2 id="harbor-组件">Harbor 组件&lt;/h2>
+&lt;p>官方网址：&lt;a href="https://github.com/goharbor/harbor/wiki/Architecture-Overview-of-Harbor">https://github.com/goharbor/harbor/wiki/Architecture-Overview-of-Harbor&lt;/a>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ta9n37/311ye872a70f4de4c6264d9f17007043bd25" alt="">&lt;/p>
+&lt;p>如上图所示，Harbor 一般具有三层结构&lt;/p>
+&lt;p>数据访问层&lt;/p>
+&lt;ul>
+&lt;li>k-v storage：键值存储。一般由 redis 实现，提供数据缓存功能并支持为作业服务临时保留作业元数据。
+&lt;ul>
+&lt;li>所需镜像：redis-photon&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>data storage：支持多个数据持久存储，作为 chart 和 registry 的后端存储&lt;/li>
+&lt;li>Database：存储 Harbor 的相关元数据，e.g.projects、users、roles、replication policies、tag、scanners、charts、images
+&lt;ol>
+&lt;li>所需镜像：harbor-db&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ul>
+&lt;p>基本服务层&lt;/p>
+&lt;ul>
+&lt;li>Proxy：提供 API 路由功能，一般由 Nginx 实现。Harbor 的组件(e.g.core、registry、web portal 等等)都位于此反代之后。Proxy 将来自浏览器和 docker 客户端的请求转发到后端各种服务
+&lt;ul>
+&lt;li>所需镜像：nginx&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Core：Harbor 的核心功能。提供 Web UI 和 RESTful API 以及 Auth 相关功能
+&lt;ul>
+&lt;li>所需镜像：harbor-core、&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Job Service：一种通用执行队列服务，允许其他组件/服务通过简单的静态 API 同时提交运行异步任务的请求。e.g.主备互相同步镜像功能。
+&lt;ul>
+&lt;li>所需镜像：harbor-jobservice&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Logs：日志收集器，负责将其他模块的日志收集到一个单独的地方，一般通过 rsyslog 保存
+&lt;ul>
+&lt;li>所需镜像：harbor-log&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>GC Controller：垃圾收集&lt;/li>
+&lt;li>Chart Museum：第三方 repository 提供 chart 的访问和管理。e.g.通过 dockerhub 来同步镜像所需镜像：&lt;/li>
+&lt;li>Docker Registry：第三方 registry，负责存储 docker 镜像并处理 docker pull 和 push 命令。
+&lt;ul>
+&lt;li>所需镜像：registry-photon、harbor-registryctl&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Notary：第三方内容信任服务，负责安全得发布和验证内容。&lt;/li>
+&lt;/ul>
+&lt;p>消费层&lt;/p>
+&lt;ul>
+&lt;li>Web Portal：图形用户界面，可帮助用户管理 registry 上的 images。
+&lt;ul>
+&lt;li>所需镜像：harbor-portal&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="harbor-部署">Harbor 部署&lt;/h1>
+&lt;p>在 &lt;a href="https://github.com/goharbor/harbor/releases">&lt;strong>Github Releases&lt;/strong>&lt;/a> 中下载 harbor 的部署文件。分为线上版和线下版，分别代表是否需要去公网上 pull 所需镜像。&lt;/p>
+&lt;p>安装 docker、&lt;a href="https://docs.docker.com/compose/install/#install-compose">&lt;strong>docker-compose&lt;/strong>&lt;/a>&lt;/p>
+&lt;p>解压 harbor 的部署文件，得到 4 个文件：&lt;/p>
+&lt;ul>
+&lt;li>harbor.yml # harbor 部署所需配置文件&lt;/li>
+&lt;li>install.sh # harbor 安装脚本&lt;/li>
+&lt;li>LICENSE&lt;/li>
+&lt;li>prepare # 初始化脚本，用于生成 docker-compose 文件和 common 目录&lt;/li>
+&lt;/ul>
+&lt;p>执行 install.sh 即可自动下载 harbor 所需镜像并启动&lt;/p>
+&lt;h2 id="定制-harbor-功能">定制 harbor 功能&lt;/h2>
+&lt;p>可以使用 prepare 脚本来定制 harbor 功能，prepare 脚本 根据 harbor.yaml 文件中的配置，以及参数，生成用于启动 harbor 的 docker-compose.yaml 文件&lt;/p>
+&lt;p>prepare 脚本支持如下参数：&lt;/p>
+&lt;ul>
+&lt;li>&amp;ndash;with-notary&lt;/li>
+&lt;li>&amp;ndash;with-clair&lt;/li>
+&lt;li>&amp;ndash;with-chartmuseum # 为 docker-compose.yaml 文件中添加&lt;/li>
+&lt;/ul>
+&lt;p>Note:在 harobor 目录中，可以使用 ./prepare &amp;ndash;with-notary &amp;ndash;with-clair &amp;ndash;with-chartmuseum 脚本来生成带有其他功能的 docker-compose.yaml 文件&lt;/p>
+&lt;p>比如我想开启 harbor 的 helm chart 功能，则执行 ./prepare &amp;ndash;with-chartmuseum 脚本即可生成&lt;/p>
+&lt;h2 id="harbor-https-部署">harbor https 部署&lt;/h2>
+&lt;p>官方文档：&lt;a href="https://github.com/goharbor/website/blob/master/docs/install-config/configure-https.md">https://github.com/goharbor/website/blob/master/docs/install-config/configure-https.md&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://goharbor.io/docs/latest/install-config/configure-https/">https://goharbor.io/docs/latest/install-config/configure-https/&lt;/a>&lt;/p>
+&lt;p>编辑 harbor.yml 文件，取消 https 配置环境的注释，并更新以下两个字段&lt;/p>
+&lt;ul>
+&lt;li>certificate # 指定 harbor 所用证书的路径&lt;/li>
+&lt;li>private_key # 指定 harbor 所用证书的私钥的路径&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#set hostname&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">hostname: registry-1.tj-test.ehualu.com # Note&lt;/span>: &lt;span style="color:#ae81ff">不同harbor使用不同hostname&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">http&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">80&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">https&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># https port for harbor, default is 443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># The path of cert and key files for nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">certificate&lt;/span>: &lt;span style="color:#ae81ff">/data/cert/ehualu.com.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">private_key&lt;/span>: &lt;span style="color:#ae81ff">/data/cert/ehualu.com.key&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>一共有两种办法来获取证书：&lt;/p>
+&lt;p>其一：去可信机构，够买证书&lt;/p>
+&lt;p>其二：创建自签 CA 证书，但是需要每个与 harbor 互动的 docker 客户端都需要持有 ca 证书&lt;/p>
+&lt;h3 id="方法一够买证书">方法一：够买证书&lt;/h3>
+&lt;h3 id="方法二创建自签-ca-证书">方法二：创建自签 CA 证书&lt;/h3>
+&lt;p>&lt;strong>第一步：在任意设备上执行如下命令，创建 CA 以及 harbor 所用证书&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>openssl genrsa -out ca.key &lt;span style="color:#ae81ff">4096&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl req -x509 -new -nodes -sha512 -days &lt;span style="color:#ae81ff">36500&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -subj &lt;span style="color:#e6db74">&amp;#34;/C=CN/ST=Tianjin/L=Tianjin/O=eHualu/OU=Operations/CN=eHualu&amp;#34;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -key ca.key &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -out ca.crt
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>(可选)使用 CA 创建 harbor 所需证书。也可省略此步骤直接使用 CA 证书作为 harbor 所用。Note：alt_names 使用 3 个域名的原因是为了 harbor 高可用，这样 registry.tj-test.ehualu.com 可以解析为 VIP。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>openssl genrsa -out ehualu.com.key &lt;span style="color:#ae81ff">4096&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl req -sha512 -new &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -subj &lt;span style="color:#e6db74">&amp;#34;/C=CN/ST=Tianjin/L=Tianjin/O=eHualu/OU=Operations/CN=Registry&amp;#34;&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -key ehualu.com.key &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -out ehualu.com.csr
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 注意修改DNS.X中的内容为harbor所使用的hostname&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cat &amp;gt; v3.ext &lt;span style="color:#e6db74">&amp;lt;&amp;lt;-EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">authorityKeyIdentifier=keyid,issuer
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">basicConstraints=CA:FALSE
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">extendedKeyUsage = serverAuth
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">subjectAltName = @alt_names
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[alt_names]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">DNS.1=registry.tj-test.ehualu.com
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">IP.1=172.38.50.127
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">DNS.2=registry-1.tj-test.ehualu.com
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">DNS.3=registry-2.tj-test.ehualu.com
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl x509 -req -sha512 -days &lt;span style="color:#ae81ff">36500&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -extfile v3.ext &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -CA ca.crt -CAkey ca.key -CAcreateserial &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -in ehualu.com.csr &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -out ehualu.com.crt
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>第二步：在 harbor 服务器上执行如下命令，使用证书部署&lt;/strong>&lt;/p>
+&lt;p>Note：如果直接使用 CA 证书，则只需要将 ca 证书拷贝到 docker 的 certs.d 目录下&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 拷贝创建的ca或者harbor证书，到harbor部署时需要读取证书的路径下&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>mkdir -p /data/certs/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cp /PATH/TO/&lt;span style="color:#f92672">{&lt;/span>*.crt,*.key&lt;span style="color:#f92672">}&lt;/span> /data/certs/
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>开始部署&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 生成docker-compose文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>./prepare --with-chartmuseum
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 如果harbor已经存在，则需要执行下面的命令先停止所有容器&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Note:根据问题实例，和下面的harbor配置。来修改docker-compose文件相关参数后再启动容器&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker-compose down -v
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 然后开始部署&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>docker-compose up -d
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>第三步，拷贝证书到 docker 的客户端。i.e.安装了 docker 来使用 harbor 的设备&lt;/strong>&lt;/p>
+&lt;p>在 docker 客户端服务器上创建 docker 认证配置目录。
+Note：certs.d 下的目录需要使用完全限定域名。访问哪个 registry，就要使用该 registry 的主机名或者域名。如果目录名使用错误，则会报错：x509: certificate signed by unknown authority&lt;/p>
+&lt;p>别忘了在 docker 客户端服务器上配置域名解析&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>mkdir -p /etc/docker/certs.d/registry.tj-test.ehualu.com/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>scp CAServerIP:/PATH/TO/ehualu.com.crt /etc/docker/certs.d/registry.tj-test.ehualu.com/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cat &amp;gt;&amp;gt; /etc/hosts &lt;span style="color:#e6db74">&amp;lt;&amp;lt; EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">VIP registry.tj-test.ehualu.com
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">IP1 registry-1.tj-test.ehualu.com
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">IP2 registry-2.tj-test.ehualu.com
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>部署完成，可以在具有证书的 docker 客户端上对 harbor 进行操作了&lt;/p>
+&lt;p>参考：&lt;/p>
+&lt;p>&lt;a href="https://my.oschina.net/u/2306127/blog/785281">https://my.oschina.net/u/2306127/blog/785281&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://ivanzz1001.github.io/records/post/docker/2018/04/09/docker-harbor-https">https://ivanzz1001.github.io/records/post/docker/2018/04/09/docker-harbor-https&lt;/a>&lt;/p>
+&lt;h1 id="harbor-配置">Harbor 配置&lt;/h1>
+&lt;p>/data/registry # 默认的镜像存储路径&lt;/p>
+&lt;p>&lt;strong>配置容器时区&lt;/strong>&lt;/p>
+&lt;p>在 docker-compose 文件中每一个容器下添加如下参数&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">environment&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">TZ=Asia/Shanghai&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="harbor-高可用">Harbor 高可用&lt;/h1>
+&lt;p>使用 keepalived 作为两个 harbor 的负载均衡服务，使用 vip 来访问两个 harbor。Note：所以在申请证书的时候需要填写 3 个域名，VIP 所用域名和两个 harbor 的域名&lt;/p>
+&lt;p>然后在 harbor 的 web 界面即可创建数据同步规则，非常简单&lt;/p>
+&lt;p>第一步：创建仓库&lt;/p>
+&lt;p>在 web 界面创建要同步 harbor 中心信息&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ta9n37/311yd80c0b55a83796f50b73f2b473289b6c" alt="">&lt;/p>
+&lt;p>第二步：创建同步规则，示例为每天 0 点同步一次&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ta9n37/311yac2e4be663e43698e8c6c164c95871ee" alt="">&lt;/p>
+&lt;p>第三步&lt;/p></description></item><item><title>Docs: 问题实例</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8%E7%AE%A1%E7%90%86/Repository%E5%AE%B9%E5%99%A8%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/%E4%BA%91%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8%E7%AE%A1%E7%90%86/Repository%E5%AE%B9%E5%99%A8%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8B/</guid><description>
+&lt;h1 id="harbor-处在-nginx-后面时无法-push-和-从其他仓库连接上去">harbor 处在 nginx 后面时无法 push 和 从其他仓库连接上去&lt;/h1>
+&lt;p>nginx 的配置需要添加 location /v2/&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>server &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> listen 80;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> server_name registry.bj-net.desistdaydream.ltd;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> client_body_in_file_only clean;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> client_body_buffer_size 64K;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> client_max_body_size 40M;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sendfile on;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> send_timeout 300s;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> location / &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy_pass http://172.19.42.218/;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy_set_header Host $http_host;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy_set_header X-Real-IP $remote_addr;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy_set_header X-Forwarded-Proto $scheme;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy_set_header X-Forwarded-Host $host:$server_port;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> location /v2/ &lt;span style="color:#f92672">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy_pass http://172.19.42.218/;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy_set_header Host $http_host;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy_set_header X-Real-IP $remote_addr;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> proxy_set_header X-Forwarded-Proto $scheme;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="harbor-主从报错测试连接失败-failed-to-ping-endpoint">harbor 主从报错，测试连接失败 failed to ping endpoint.&lt;/h1>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/vx7h01/311y62c01de4d8be6da239f1bad9b6b796c0" alt="">&lt;/p>
+&lt;p>&lt;a href="https://github.com/goharbor/harbor/issues/7489">https://github.com/goharbor/harbor/issues/7489&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://github.com/goharbor/harbor/issues/7784">https://github.com/goharbor/harbor/issues/7784&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://www.gitmemory.com/issue/goharbor/harbor/9035/537473782">https://www.gitmemory.com/issue/goharbor/harbor/9035/537473782&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>Nov &lt;span style="color:#ae81ff">26&lt;/span> 15:36:46 172.23.0.1 core&lt;span style="color:#f92672">[&lt;/span>7305&lt;span style="color:#f92672">]&lt;/span>: 2019-11-26T07:36:46Z &lt;span style="color:#f92672">[&lt;/span>ERROR&lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#f92672">[&lt;/span>/replication/adapter/native/adapter.go:143&lt;span style="color:#f92672">]&lt;/span>: failed to ping registry https://registry-2.k8s.cloud.tjiptv.net: Head https://registry-2.k8s.cloud.tjiptv.net/v2/: Get https://registry-2.k8s.cloud.tjiptv.net/v2/: dial tcp: lookup registry-2.k8s.cloud.tjiptv.net on 127.0.0.11:53: no such host
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Nov &lt;span style="color:#ae81ff">26&lt;/span> 15:36:46 172.23.0.1 core&lt;span style="color:#f92672">[&lt;/span>7305&lt;span style="color:#f92672">]&lt;/span>: 2019-11-26T07:36:46Z &lt;span style="color:#f92672">[&lt;/span>ERROR&lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#f92672">[&lt;/span>/common/api/base.go:73&lt;span style="color:#f92672">]&lt;/span>: POST /api/registries/ping failed with error: &lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#e6db74">&amp;#34;code&amp;#34;&lt;/span>:400,&lt;span style="color:#e6db74">&amp;#34;message&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Nov &lt;span style="color:#ae81ff">26&lt;/span> 15:36:46 172.23.0.1 core&lt;span style="color:#f92672">[&lt;/span>7305&lt;span style="color:#f92672">]&lt;/span>: 2019/11/26 07:36:46 &lt;span style="color:#75715e">#033[1;44m[D] [server.go:2774] | 192.168.19.69|#033[43m 400 #033[0m| 24.810903ms| match|#033[46m POST #033[0m /api/registries/ping r:/api/registries/ping#033[0m&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>问题原因：harbor 核心程序的 hosts 文件没有另一个节点的域名解析&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>解决方式：需要修改 docker-compose 文件，给/etc/hosts 额外添加解析记录在，实例如下：&lt;/strong>&lt;/p>
+&lt;p>&lt;a href="https://github.com/goharbor/harbor/issues/2221">https://github.com/goharbor/harbor/issues/2221&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://github.com/goharbor/harbor/issues/2232">https://github.com/goharbor/harbor/issues/2232&lt;/a>&lt;/p>
+&lt;p>在 core 和 jobservice 两个容器中添加 extra_hosts 字段，该字段为 map 类型，使用 &amp;ldquo;域名:IP&amp;rdquo; 的格式来定义&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">core&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">goharbor/harbor-core:v1.9.3&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">container_name&lt;/span>: &lt;span style="color:#ae81ff">harbor-core&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">extra_hosts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;registry-2.k8s.cloud.tjiptv.net:10.10.9.56&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">jobservice&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">goharbor/harbor-jobservice:v1.9.3&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">environment&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">TZ=Asia/Shanghai&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">container_name&lt;/span>: &lt;span style="color:#ae81ff">harbor-jobservice&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">extra_hosts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;registry-2.k8s.cloud.tjiptv.net:10.10.9.56&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Note：还需要修改 docker-compose 下 jobserver 的 hosts 文件，因为在同步时，是使用该容器实现的&lt;/p>
+&lt;p>然后执行命令停止所有容器再重新开启&lt;/p>
+&lt;p>docker-compose down -v&lt;/p>
+&lt;p>docker-compose up -d&lt;/p>
+&lt;p>Note：不要执行 install.sh 脚本，否则 docker-compose 文件将会被重置&lt;/p></description></item></channel></rss>

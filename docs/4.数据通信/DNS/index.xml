@@ -1,0 +1,640 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – DNS</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/</link><description>Recent content in DNS on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: BIND</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/BIND/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/BIND/</guid><description/></item><item><title>Docs: DDNS</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/DDNS/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/DDNS/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Dynamic_DNS">Wiki,DDNS&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>**Dynamic Domain Name System(动态域名系统，简称 DDNS) **是一种方法、概念，这个方法用来动态更新 DNS 中名称对应的 IP。通常情况下，域名都是解析到一个固定的 IP，但 DDNS 系统为动态网域提供一个固定的&lt;a href="https://zh.wikipedia.org/wiki/%E5%90%8D%E7%A8%B1%E4%BC%BA%E6%9C%8D%E5%99%A8">名称服务器&lt;/a>（Name server），透过即时更新，使外界用户能够连上动态用户的网址。&lt;/p>
+&lt;p>比如家庭宽带，获取到的 IP 地址是实时变化的，要想通过域名访问当家庭宽带内部的服务，则必须使用 DDNS。&lt;/p></description></item><item><title>Docs: DNS</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/DNS/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/DNS/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Domain_Name_System">Wiki,DNS&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Name_server">Wiki,Name Server&lt;/a>&lt;/li>
+&lt;li>《DNS 与 BIND》(第 5 版)&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>**Domain Name System(域名系统，简称 DNS)**是一个分层的和去中心化的命名系统，以便人们可以更方便得访问互联网。DNS 主要用来将更容易让人类记忆的 &lt;code>域名&lt;/code> 与 &lt;code>IP地址&lt;/code> 互相映射，以便可以通过域名定位和访问互联网上的服务。自 1985 年以来，域名系统通过提供全球性、分布式的域名服务，已成为 Internet 功能的重要组成部分。&lt;/p>
+&lt;p>从另一个方面说，DNS(域名系统) 其实是一个&lt;strong>分布式的数据库&lt;/strong>。这种结构允许对整体数据库的各个部分进行本地控制，并且在各个部分中的数据通过 C/S 模式变得对整个网络都可用。通过复制和缓存等机制，DNS 将会拥有健壮性和充足的性能。&lt;/p>
+&lt;blockquote>
+&lt;p>注：这段描述不好理解，需要看完后面才能体会。所谓的分布式，其实就是指 DNS 的模式，每个 Name Server 都可以是分布式数据库的一个节点。&lt;/p>
+&lt;/blockquote>
+&lt;p>当我们访问一个网站时，在浏览器上输入 &lt;code>https://www.baidu.com/&lt;/code> 时，&lt;code>www.baidu.com&lt;/code> 就是域名。而管理 域名与 IP 对应关系的系统，就是域名系统。&lt;/p>
+&lt;p>DNS 其实是一个规范、概念，具体想要让 DNS 在世界上应用起来，则至少要保证两个方面&lt;/p>
+&lt;ul>
+&lt;li>其一是服务端，通过 NameServer 为大家提供解析服务、存储域名与 IP 的对应关系，&lt;/li>
+&lt;li>其二是客户端，客户端上的应用程序将会调用符合 DNS 标准的库以便向 NameServer 发起域名查询请求，程序收到解析后的 IP 后将会发起请求。&lt;/li>
+&lt;/ul>
+&lt;h2 id="背景">背景&lt;/h2>
+&lt;p>网络诞生之初并没有 DNS，那时候访问对方只需要 IP 地址就可以了，但是后来接入互联网的主机太多了，IP 没法记，所以研究了 DNS。&lt;/p>
+&lt;p>&lt;strong>Internet Assigned Numbers Authority(互联网数字分配机构，简称 IANA)&lt;/strong> 是负责协调一些使 Internet 正常运作的机构。同时，由于 Internet 已经成为一个全球范围的不受集权控制的全球网络，为了使网络在全球范围内协调，存在对互联网一些关键的部分达成技术共识的需要，而这就是 IANA 的任务&lt;/p>
+&lt;p>IANA 的所有任务可以大致分为三个类型：
+一、域名。IANA 管理 DNS 域名根和.int，.arpa 域名以及 IDN（国际化域名）资源。
+二、数字资源。IANA 协调全球 IP 和 AS（自治系统）号并将它们提供给各区域 Internet 注册机构。
+三、协议分配。IANA 与各标准化组织一同管理协议编号系统。&lt;/p>
+&lt;h2 id="nameserver">NameServer&lt;/h2>
+&lt;p>&lt;strong>NameServer(名称服务器)&lt;/strong> 是 DNS 中最重要的概念，有的时候也称为 &lt;strong>DNS Server&lt;/strong>。Name Server 是 DNS 的一个组件。该组件的最重要功能就是将人类记忆的域名解析为 IP 地址。&lt;/p>
+&lt;blockquote>
+&lt;p>简单得说，想要让全世界都接入 DNS(域名系统)，就需要有一个服务，这个服务就是一个翻译器。比如我要访问谷歌，就会问 NameServer：谷歌在哪。此时这个翻译器(NameServer)就会告诉我谷歌的 IP 地址，这时我再去访问这个 IP 地址即可。&lt;/p>
+&lt;/blockquote>
+&lt;p>可以实现上述的程序有很多，凡是可以实现 DNS 功能的程序，我们一般成为 &lt;strong>NameServer(名称服务器)：&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Bind&lt;/strong> # 最常用 NameServer，Bind 的具体介绍详见 《&lt;a href="https://www.yuque.com/go/doc/33218857">Bind&lt;/a>》章节。&lt;/li>
+&lt;li>&lt;strong>DNSmasq&lt;/strong> # 轻量的 NameServer，用于提供 DNS 缓存功能。&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip; 等等&lt;/li>
+&lt;/ul>
+&lt;p>一个 NameServer 通常包含了整个 DNS 数据库中的某些部分的信息，并让这些信息可以被客户端所用(客户端通常称为 &lt;strong>Resolver(解析器)&lt;/strong>)。解析器通常只是一组 Library，这些库产生查询请求，并将请求通过网络发送给名称服务器。&lt;/p>
+&lt;ul>
+&lt;li>比如 Linux 中 curl、ping 等等命令就会调用 Resolver，毕竟这些命令如何请求一个域名，就需要要知道对应的 IP 才可以。&lt;/li>
+&lt;li>解析器一般是被内嵌在系统中，当在系统中运行任何需要域名解析的程序时，都会调用这个解析器。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>用白话说，Name Server 通常是一个默认监听在 53/UDP 与 53/TCP 上的服务，用来处理客户端发来的域名解析请求(根据自身数据库中&lt;/strong>&lt;a href="#lcTmS">&lt;strong>RR&lt;/strong>&lt;/a>&lt;strong>解析域名)，或者向上级 Name Server 发起域名查询请求。比如 8.8.8.8、114.114.114.114 等等，都属于 NameServer。&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>NameServer 是实现 DNS 的具体实现&lt;/strong>&lt;/p>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>上述描述的都是自建 Name Server。如果我们在一个域名注册商出购买域名后，都需要指定用来处理自己购买域名的 Name Server，只不过通常情况，域名注册商本身自己就有 Name Server，这样也方便进行身份验证(即域名属于自己)。&lt;/li>
+&lt;li>但是也有例外，比如免费的域名注册商 eu.org 就没有自己的 Name Server，在 eu.org 出买的域名必须要指定其他的 Name Server。&lt;/li>
+&lt;/ul>
+&lt;h3 id="nameserver-类型">NameServer 类型&lt;/h3>
+&lt;blockquote>
+&lt;p>这部分内容需要理解域名结构后，再回来看。否则无法理解为什么 NameServer 会有这么多分类&lt;/p>
+&lt;/blockquote>
+&lt;ol>
+&lt;li>主 DNS Server：维护其所负责解析的域内解析库服务器，解析库由管理员维护&lt;/li>
+&lt;li>辅助 DNS Server：从主 DNS Server 或其他辅助 DNS Server 那里复制(区域传送)一份解析库
+&lt;ol>
+&lt;li>序列号：解析库的版本号，主服务器的解析库内容发生变化，其序列号发生变化，当序列号发生变化的时候，辅助 DNS Server 则去复制解析库&lt;/li>
+&lt;li>区域传送：
+&lt;ol>
+&lt;li>全量传送：传送整个解析库&lt;/li>
+&lt;li>增量传送：传送解析库变化的那部分内容&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>刷新时间间隔：辅助 DNS Server 从主 DNS Server 请求同步解析库的时间间隔&lt;/li>
+&lt;li>重试时间间隔：辅助 DNS Server 从主 DNS Server 请求同步解析库失败时，再次尝试的时间间隔&lt;/li>
+&lt;li>过期时长：辅助 DNS Server 始终联系不到主 DNS Server 时，多久之后放弃辅助 DNS Server 职责，变成主服务器&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>缓存 DNS Server：这些服务器上不存放特定域名的配置文件。当客户端请求缓存服务器来解析域名时，该服务器将首先检查其本地缓存。如果找不到匹配项便会询问主服务器。接着这条响应将被缓存起来。您也可以轻松地将自己的系统用作缓存服务器，如果该域内不存在主 DNS 服务器，那么则直接去找根域的 DNS 服务器进行域名解析。&lt;/li>
+&lt;li>转发器 Server：该服务器会转发收到的域名解析请求到别的服务器，这杯被转发到的服务器需要能够为请求做递归处理，否则，转发请求不予进行
+&lt;ol>
+&lt;li>全部转发：凡是对非本机所有负责解析的区域的请求，统统转发给指定的服务器&lt;/li>
+&lt;li>区域转发：仅转发对特定的区域的请求至某服务器&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;h1 id="dns-架构与概念">DNS 架构与概念&lt;/h1>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1617092212523-dcc0c65c-8807-4964-8766-8613f94c8cd0.png" alt="1024px-Domain_name_space.svg.png">
+DNS(域名系统) 是一个树型架构，这颗大树被称为 **Domain Namespace(域名称空间)，**树中的每个节点都具有 &lt;strong>Label(标签)&lt;/strong> 和 0 个或多个 &lt;strong>ResourceRecords(资源记录，简称 RR)&lt;/strong>，其中保存与域名相关联的信息。域名本身由 Label(标签) 组成，多个标签通过 &lt;code>.&lt;/code> 符号串联而成，&lt;code>.&lt;/code> 符号右侧的标签就是其左侧标签的父节点名称。&lt;/p>
+&lt;blockquote>
+&lt;p>这里所描述的树形结构中的节点，实际上就是一个个的 NameSever&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="domain域-的概念">Domain(域) 的概念&lt;/h2>
+&lt;p>根负责管理他下面的一些域，这些域再负责其所在域的管理，依次类推，域就是该 NameServer 可管辖的范围。而被管的域则称为 &lt;strong>SubDomain(子域)&lt;/strong>。在树型结构中，也可以说低级节点就是高级节点的 SubDomain(子域)。&lt;/p>
+&lt;p>Domain 还可以用现实中的地理来类比，比如我前文所说的我的名字”四.李.海淀区.北京市.中国.“，根域里包括多个国家域，每个国家域又包括很多城市域，每个城市域包括很多区域，每个区域里有很多姓氏域，姓氏域中，名为李姓氏域中，叫四的就是我(某台设备的名字就是这个区域的一台)&lt;/p>
+&lt;p>我们光有 Domain 的概念还不行，在真正使用上，还需要给每个域起一个名称，就叫 &lt;strong>DomainName(域名)&lt;/strong>。所以，DNS 这整套系统，就是围绕着 Domain 来进行的。而&lt;strong>每个 Domain 的名称，就是其 Label 的名称。&lt;/strong>&lt;/p>
+&lt;h2 id="zone区-的概念">Zone(区) 的概念&lt;/h2>
+&lt;p>DNS 这个树型结构还使用了一个 &lt;strong>Zone(区)&lt;/strong> 的概念来进行分区管理，一个 Zone 可以包含一个域，也可以包含很多域及其子域。Zone 可以包含的内容具体取决于 &lt;strong>Delegation(授权)&lt;/strong>。
+详见：&lt;a href="https://www.yuque.com/go/doc/33890339">Zone 与 Domain 详解&lt;/a>&lt;/p>
+&lt;h2 id="domainname域名-的结构">DomainName(域名) 的结构&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1616161023756-88e23654-7efc-4c25-826f-632042129088.jpeg" alt="">
+域名由一个或多个部分组成，每个部分由 &lt;code>.&lt;/code> 符号连接。组成域名的每个部分称为 &lt;strong>Label(标签)&lt;/strong>。这个 Label 就是 NameServer 的 Label。
+结构如下：&lt;code>Label-N...Label-3.Label-2.Label-1.&lt;/code>
+最右侧的空标签是为 root 保留的，长度为 0。其余每个 Label 最多可以写 63 个文本字符。&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>RootDomain(根域名)&lt;/strong># 空标签，管理根以下的所有顶级域名，全世界一共有 13 组根域名 Server，不包括中国
+&lt;ol>
+&lt;li>实际上，当你访问任何网站时，浏览器会默认在域的末尾添加一个不可见的点，因此域名像 &lt;code>www.baidu.com.&lt;/code> 一样。 最后边的点被称为根域。&lt;/li>
+&lt;li>注意，任何 NameServer 在本地数据库没有查到请求的域名的时候，必然会去根 NameServer 请求，不会去顶级或者二级直接发请求，这是规定&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>&lt;strong>Top-Level Domain(顶级域名)&lt;/strong> #** **Label-1，管理该域名下的所有二级域名。比如 &lt;code>com.&lt;/code>、&lt;code>net.&lt;/code> 等都是顶级域名&lt;/li>
+&lt;li>&lt;strong>二级域名&lt;/strong># Label-2，常用来标识该网站名称，比如 baidu.com、google.com&lt;/li>
+&lt;li>&lt;strong>三级域名&lt;/strong># Label-3，常用来标识域名作用的，比如提供网页服务的用 &lt;a href="https://www.baidu.com">www.baidu.com&lt;/a>、提供邮箱服务的用 mail.baidu.com&lt;/li>
+&lt;li>&lt;strong>其他级域名&lt;/strong> # 理论上来说，一共可以划分 127 个等级。&lt;/li>
+&lt;/ol>
+&lt;p>比如 &lt;code>www.baidu.com&lt;/code> 实际上就是 &lt;code>www.baidu.com.&lt;/code>。baidu.com. 就是二级域名，www.baidu.com. 就是三级域名。&lt;/p>
+&lt;blockquote>
+&lt;p>这就好比 Linux 的目录树结构一样，只不过 Linux 中，域 称为 目录，子域 称为 子目录。最顶层的称为 根目录，而且分隔符是 &lt;code>/&lt;/code>。只不过 Linux 的结构是从左至右的。
+域名就是区域的名字，就好像本人的名字李四一样，我是四.李.南开区.天津市.中国.，域名就是这样的结构。&lt;/p>
+&lt;/blockquote>
+&lt;p>比如我现在想知道 &lt;code>www.baidu.com&lt;/code> 在哪：&lt;/p>
+&lt;ol>
+&lt;li>该域名查询的时候，先去问根.，根告诉我这个归 .com 管&lt;/li>
+&lt;li>然后去问 .com，.com 告诉我这个域名归 baidu 管&lt;/li>
+&lt;li>然后去问 .baidu，.baidu 告诉我，这是他们的 web 服务器，IP 地址是这个，然后我就可以跟 &lt;a href="https://www.baidu.com">www.baidu.com&lt;/a> 建立链接了&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>Fully Qualified Domain Name(完全限定域名，简称 FQDN)&lt;/strong> 。类似于 &lt;code>www.baidu.com.&lt;/code> 就是完全限定域名，即该域名直接代表一台提供业务服务的设备。这就好比 Linux 中的绝对路径概念一样。其他的都是相对域名&lt;/p>
+&lt;h2 id="resource-record资源记录">Resource Record(资源记录)&lt;/h2>
+&lt;p>与域名相关的数据都被保存在每个 NameServer 的 &lt;strong>ResourceRecord(资源记录，简称 RR)&lt;/strong> 中。域名与 IP 之间的对应关系，称为 &lt;strong>Record(记录)&lt;/strong>。&lt;/p>
+&lt;p>RR 用于标示 NameServer 解析库中每一个解析条目的具体类型，比如本域的域名与 IP 的对应关系，下级域的域名中的资源等等，标注出这些资源，以便用这些资源解析用户的 DNS 请求&lt;/p>
+&lt;p>RR 具有标准格式，遵守 RFC1035，每一条记录都可以包含如下几个字段：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>NAME&lt;/strong> # 本条记录中节点的完全限定域名&lt;/li>
+&lt;li>&lt;strong>CLASS&lt;/strong> # 本条记录的类。对于互联网来说，通常为 IN&lt;/li>
+&lt;li>&lt;strong>TYPE&lt;/strong># 本条记录的类型&lt;/li>
+&lt;li>&lt;strong>TTL&lt;/strong># 本条记录的保存时长&lt;/li>
+&lt;li>&lt;strong>RDLENGTH&lt;/strong># RDATA 字段的长度&lt;/li>
+&lt;li>&lt;strong>RDATA&lt;/strong># 本条记录的额外内容&lt;/li>
+&lt;li>&lt;strong>VALUE&lt;/strong> # 本条记录的具体内容。不同的记录类型，该字段的内容也不同。&lt;/li>
+&lt;/ul>
+&lt;p>RR 定义的格式：NAME [TTL] CLASS RR-TYPE VALUE（注意：格式中的域名都要带根域名，即域名最后都要加一个 . ）&lt;/p>
+&lt;ul>
+&lt;li>NAME 和 VALUE # 不同的 RR-TYPE 有不同的格式&lt;/li>
+&lt;li>CLASS：IN&lt;/li>
+&lt;li>TYPE 资源记录类型：A，AAAA，PTR，SOA，NS，CNAME，MX 等：
+&lt;ul>
+&lt;li>SRV：域名系统中用于指定服务器提供服务的位置（如主机名和端口）
+&lt;ul>
+&lt;li>name # _服务._协议.名称.&lt;/li>
+&lt;li>value # 优先级 权重 端口 主机.&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>SOA：Start Of Authority：起始授权记录，一个区域解析库有且只能有一个 SOA 记录，而且必须为解析库第一条记录
+&lt;ul>
+&lt;li>name # 域名，例如”baidu.com.“&lt;/li>
+&lt;li>value # (属性)
+&lt;ul>
+&lt;li>当前区域的主 DNS 服务器的 FQDN，也可以使用当前区域的名字&lt;/li>
+&lt;li>当前区域管理员的邮箱地址，但是地址中不能用@符号，@符号用.替换&lt;/li>
+&lt;li>（主从服务协调属性的定义以及否定结果的统一的 TTL）&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>NS：Name Server：专用于标明当前区域的 DNS 服务器
+&lt;ul>
+&lt;li>name # 域名&lt;/li>
+&lt;li>value # 当前区域的某 DNS 服务器的名字，例如 ns.baidu.com.;(一个区域可以有多个 NS 记录)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>MX：Mail eXchanger：邮件交换器
+&lt;ul>
+&lt;li>TTL 可以从全局继承&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>A/AAAA：Address，A 格式用于实现将 FQDN 解析为 IPv4(AAAA 格式用于将 FQDN 解析为 IPv6)
+&lt;ul>
+&lt;li>name # 域名&lt;/li>
+&lt;li>value # 域名对应的 IP 地址&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>PTR：PoinTeR，用于将 IP 解析为 FQDN
+&lt;ul>
+&lt;li>name # IP，特殊格式，反写 IP，比如 1.2.3.4 要写成 4.3.2.1，跟后缀 in-addr.arpa.&lt;/li>
+&lt;li>value # FQDN&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>CNAME：Canonical Name，别名记录
+&lt;ul>
+&lt;li>name # 别名的 FQDN&lt;/li>
+&lt;li>value # 正式名字的 FQDN&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>注意：
+&lt;ul>
+&lt;li>@可用于引用当前区域的名字&lt;/li>
+&lt;li>相邻的两个资源记录的 name 相同时，后续的可省略&lt;/li>
+&lt;li>同一个名字可以通过多条记录定义多个不同的值，此时 DNS 服务器会轮循响应&lt;/li>
+&lt;li>同一个值也有可能有多个不同的定义名字，通过多个不同的名字指向同一个&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="example">EXAMPLE&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>baidu.com &lt;span style="color:#ae81ff">86499&lt;/span> IN SOA ns.baidu.com. lichenhao.qq.com. （
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">2018072001&lt;/span> &lt;span style="color:#75715e">#序列号，当序列号变化时，即代表资源有变化，主DNS会主动同步数据给备&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 2H &lt;span style="color:#75715e">#刷新时间，2小时&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 10M &lt;span style="color:#75715e">#重试时间，10分钟&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 1W &lt;span style="color:#75715e">#过期时间，1周&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 1D ） &lt;span style="color:#75715e">#否定结果的TTL值，1天&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>baidu.com. IN NS ns1.baidu.com
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ns1.baidu.com IN A 1.1.1.0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>www.baidu.com IN A 1.1.1.1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> IN A 1.1.1.2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>baidu.com. IN MX &lt;span style="color:#ae81ff">10&lt;/span> mx1.baidu.com
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> IN MX &lt;span style="color:#ae81ff">20&lt;/span> mx2.baidu.com
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>4.3.2.1.in-addr.arpa. IN PTR www.baidu.com
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>web.baidu.com. IN CNAME www.baidu.com.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>子域授权：每个域的 DNS 服务器，都是通过在其上级 DNS 服务器中的解析库添加该域的 DNS 服务器信息进行授权&lt;/p>
+&lt;p>EXAMPLE，在根域的 DNS 服务器中，记录了.com.域的资源记录，类似下面的方式，不是绝对的
+.com. IN NS ns1.com. 定义.com.域的域名服务器为 ns1.com.
+.com. IN NS ns2.com.
+ns1.com. IN A 2.2.2.1 定于.com.域中的域名服务器 ns1.com.的 IP 地址为 2.2.2.1
+ns2.com. IN A 2.2.2.2&lt;/p>
+&lt;p>当www.baidu.com.的DNS请求到根的DNS服务器的时候，根的DNS服务器查找自己解析库中.com的域中的DNS服务器资源，然后看到该DNS服务器所对应的IP，然后把该请求转发到.com域中的DNS服务器进行下一步解析，然后.com域的DNS服务器在从解析库中找到baidu的资源再转发到baidu的DNS服务器上(或者直接返回baidu的IP地址)&lt;/p>
+&lt;p>以上例子是.com 域在.根域中解析库中的资源记录，如果还有 baidu.com 的域名，则该域的资源记录写在.com 域中的解析库，以此类推&lt;/p>
+&lt;p>反向区域：&lt;/p>
+&lt;p>区域名称：网络地址反写.in-addr-arpa.&lt;/p>
+&lt;p>EXAMPLE：172.16.100. 写成 100.16.172.in-addr-arpa.&lt;/p>
+&lt;h1 id="dns-解析过程">DNS 解析过程&lt;/h1>
+&lt;p>DNS 查询过程：主机发送请求到根域名解析服务器，然后重定向到二级域名解析服务器，再重定向到三级域名解析服务器，以此类推&lt;/p>
+&lt;ul>
+&lt;li>在本机上查询 DNS 的配置文件(比如/etc/hosts)，有没有 IP 地址与 Domain Name 的对应关系
+&lt;ul>
+&lt;li>EXAMPLE：如果把本机 IP 的对应域名改 baidu.com.，那么在访问百度的时候，就只会访问本机了&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>如果在本机无法查询到 Domain Name 与 IP 的对应关系，那么需要通过 DNS 代理来进行查询，总共分为两种查询类型
+&lt;ul>
+&lt;li>递归查询：主机只发送一次 DNS 解析请求，就获得最后的结果。
+&lt;ul>
+&lt;li>在本机配置一个运行 DNS 服务的 Server 的 IP 地址，把请求直接发送给该 server，&lt;/li>
+&lt;li>由该 server 去找.根域名服务器进行查询，然后.根域名服务器再根据该请求中的顶级域名把该请求重定向到顶级域名服务器上&lt;/li>
+&lt;li>如果该请求还有二级域名，那么顶级域名 server 会 再把该请求重定向二级域名 server 上&lt;/li>
+&lt;li>直到查询到最终结果后，把该结果返回给 DNS Server，然后 DNS Server 把结果直接告诉发送请求的主机&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>迭代查询：主机发送一次 DNS 解析请求后，被重定向到另一台 DNS 服务器继续发送请求，直到获得最后结果。
+&lt;ul>
+&lt;li>该查询主机直接发送请求到.根域名 server，然后进行递归查询中的 2,3,4 步骤&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>一次完整的查询请求经过的流程&lt;/p>
+&lt;ul>
+&lt;li>首先，客户端查询本地的 DNS 服务器。默认情况下，即/etc/resolv.conf 文件中所列的第一个名称服务器。&lt;/li>
+&lt;li>接着本地名称服务器会查询本地解析库和缓存，如果本地数据库中有该资源记录（该名称服务器对该域进行权威解析），则返回查询结果。&lt;/li>
+&lt;li>如果没有，则查询缓存，看看缓存中是否有以前对该资源记录的查询结果，如有，则返回查询结果；如果仍然没有，则会向其他 DNS 服务器进行递归解析。&lt;/li>
+&lt;li>进入递归解析，本地 DNS 服务器向根域 DNS 服务器（Root Nameserver）提出查询请求，根域 DNS 服务器会返回顶级域（TLD）DNS 服务器地址（例如.com 的 DNS 服务器地址）；本地 DNS 服务器再次向 TLD Nameserver 发出查询请求，TLD Nameserver 会返回下一级域的 DNS 服务器地址；依此类推，直到查询到权威的名称服务器（Authoritative Nameserver）;&lt;/li>
+&lt;/ul>
+&lt;p>解析类型：&lt;/p>
+&lt;ol>
+&lt;li>Name &amp;ndash;&amp;gt; IP 正向解析&lt;/li>
+&lt;li>IP &amp;ndash;&amp;gt; Name 反向解析&lt;/li>
+&lt;/ol>
+&lt;h2 id="域名解析结果">域名解析结果&lt;/h2>
+&lt;p>DNS-Rcode 作为 DNS 应答报文中有效的字段，主要用来说明 DNS 应答状态，这可是小编排查域名解析失败的重要指标。通常常见的 Rcode 值如下：&lt;/p>
+&lt;ul>
+&lt;li>Rcode 值为 0，对应的 DNS 应答状态为 NOERROR，意思是成功的响应，即这个域名解析是成功&lt;/li>
+&lt;li>Rcode 值为 2，对应的 DNS 应答状态为 SERVFAIL，意思是服务器失败，也就是这个域名的权威服务器拒绝响应或者响应 REFUSE，递归服务器返回 Rcode 值为 2 给 CLIENT&lt;/li>
+&lt;li>Rcode 值为 3，对应的 DNS 应答状态为 NXDOMAIN，意思是不存在的记录，也就是这个具体的域名在权威服务器中并不存在&lt;/li>
+&lt;li>Rcode 值为 5，对应的 DNS 应答状态为 REFUSE，意思是拒绝，也就是这个请求源 IP 不在服务的范围内&lt;/li>
+&lt;/ul>
+&lt;h3 id="dns-请求失败的具体分析">DNS 请求失败的具体分析&lt;/h3>
+&lt;p>常见的请求失败包括：
+1、域名记录不存在，即 Rcode 值为 3（NXDOMAIN）的情况，这种情况下域名权威服务器及托管的主域名均正常，但是权威并不存在这条具体的域名记录，于是权威返回了 NXDOMAIN，值的注意的是这个 NXDOMAIN 的报文中会包含一个 AUTHORITY SECTION，内容为改主域名的 SOA 记录，这个应答结果会在递归服务器中被缓存，缓存时间周期为域名的 SOA 记录的 TTL：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1616161023846-76ea5416-093f-4be5-93ca-8f2ec94d745e.jpeg" alt="">
+2、权威解析失败，即 Rcode 值为 2（SERVFAIL）的情况，递归服务器会给请求源这个结果的原因是向权威解释请求异常，包括且不限于权威不响应/或者权威返回 refuse/或者权威返回 servfail，这个 SERVFAIL 的应答结果当然是一个空结果，不过 BIND 会强制给这个结果增加一个 1S 的 TTL，所以 SERVFAIL 的应答会在递归服务器中被缓存，缓存时间周期为 1S&lt;/p>
+&lt;ul>
+&lt;li>2.1）权威不响应。包括递归服务器至权威服务器中间的网络异常在内，递归服务器在发出递归请求并完成重试超时后，给请求源一个 SERVFAIL 的应答，并缓存 1S ：&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1616161023768-36d66d1b-0e60-4295-9fd7-899f67b2fe9b.jpeg" alt="">&lt;/p>
+&lt;ul>
+&lt;li>2.2）权威向递归服务器应答 REFUSE。当权威服务器不存在主域名及对应的 SOA 记录时，权威会向递归服务器返回 REFUSE，即不在我服务的范围内拒绝，递归服务器在收到这个 REFUSE 应答后，给请求源一个 SERVFAIL 的应答，并缓存 1S：&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1616161023786-286f827b-fc20-42ba-8997-e83267a91a55.jpeg" alt="">&lt;/p>
+&lt;ul>
+&lt;li>2.3）权威向递归服务器应答 SERVFAIL。当权威服务器存在主域名但是由于 zonefile 被破坏导致权威服务器上域名的 NS 记录异常时，权威会向递归服务器返回 SERVFAIL，即解析失败，递归服务器在收到这个 SERVFAIL 应答后，给请求源一个 SERVFAIL 的应答，并缓存 1S：&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1616161023782-ace75691-f594-4871-a17a-ee667e422bde.jpeg" alt="">&lt;/p>
+&lt;ul>
+&lt;li>2.4）权威向递归服务器应答其他的错误 Rcode。由于不常见本文就不展开了，递归服务器在收到其他错误应答后，给请求源一个 SERVFAIL 的应答，并缓存 1S：&lt;/li>
+&lt;/ul>
+&lt;p>3、拒绝服务，即 Rcode 值为 5（REFUSE）的情况。除了记录不存在（NXDOMAIN）和解析失败（SERVFAIL）以外，如果请求源不在递归服务器的服务范围内，这种情况下递归服务器会直接给请求源一个 REFUSE 的应答，本地直接应答无缓存：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1616161023827-0e3a338b-f567-46de-96fc-bf08dbd86720.jpeg" alt="">
+4、响应成功，但是没有解析结果，这是一种比较特殊的情况，这种情况是 Rcode 值为 0（NOERROR）的情况。这种情况下域名权威服务器及托管的主域名均正常，权威本身也存在这条具体的域名记录，但是没有对应的记录类型（不包含 CNAME，CNAME 是特殊情况，可以响应任意类型的请求），这是权威返回了 NOERROR，值的注意的是这个 NOERROR 的报文中没有 ANSWER SECTION。但是会包含一个 AUTHORITY SECTION，内容为改主域名的 SOA 记录，这个应答结果会在递归服务器中被缓存，缓存时间周期为域名的 SOA 记录的 TTL：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1616161023799-a2ec8dd5-576d-42db-8c4f-224070eb0e21.jpeg" alt="">
+5、还有最后的一种情况，就是递归服务器本身不响应了，这个比较容易理解，如果递归服务器不响应，那么请求段收不到任何应答，这个时候请求端终端如果有超时机制则会跑出一个 dns 请求 timeout 的结果：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1616161023809-badb7042-8c8f-44c0-888f-802672eddd6b.jpeg" alt="">
+结论：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1616161023767-6dcbac05-682c-4b55-8225-1e50694e0f68.jpeg" alt="">&lt;/p>
+&lt;h1 id="domain-name-registrar域名注册商">Domain name registrar(域名注册商)&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Domain_name_registrar">Wiki,Domain name registrar&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.name.com/">Name.com&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://nic.eu.org/arf/en/">eu.org&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://iweec.com/144.html">https://iweec.com/144.html&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Domain name registrar(域名注册商&lt;/strong>) 是一个商业实体或组织，它们由&lt;a href="https://zh.wikipedia.org/wiki/%E4%BA%92%E8%81%94%E7%BD%91%E5%90%8D%E7%A7%B0%E4%B8%8E%E6%95%B0%E5%AD%97%E5%9C%B0%E5%9D%80%E5%88%86%E9%85%8D%E6%9C%BA%E6%9E%84">互联网名称与数字地址分配机构&lt;/a>（ICANN）或者一个国家性的 &lt;a href="https://en.wikipedia.org/wiki/Country_code_top-level_domain">Country code top-level domain&lt;/a> (国家代码顶级域名，简称 ccTLD) &lt;a href="https://zh.wikipedia.org/wiki/%E5%9F%9F%E5%90%8D%E6%B3%A8%E5%86%8C%E5%B1%80">域名注册局&lt;/a>委派，以在指定的&lt;a href="https://zh.wikipedia.org/wiki/%E5%9F%9F%E5%90%8D%E6%B3%A8%E5%86%8C%E6%95%B0%E6%8D%AE%E5%BA%93">域名注册数据库&lt;/a>中管理&lt;a href="https://zh.wikipedia.org/wiki/%E4%BA%92%E8%81%94%E7%BD%91">互联网&lt;/a>&lt;a href="https://zh.wikipedia.org/wiki/%E5%9F%9F%E5%90%8D">域名&lt;/a>，向公众提供此类服务。&lt;/p>
+&lt;p>国内域名注册商：&lt;/p>
+&lt;ul>
+&lt;li>万网&lt;/li>
+&lt;li>新网&lt;/li>
+&lt;li>DNSPod&lt;/li>
+&lt;/ul>
+&lt;p>国外域名注册商：&lt;/p>
+&lt;ul>
+&lt;li>eu.org # 没有自己的 Name Server&lt;/li>
+&lt;li>godaddy&lt;/li>
+&lt;li>Name.com&lt;/li>
+&lt;li>freenom&lt;/li>
+&lt;/ul>
+&lt;p>我的域名：&lt;/p>
+&lt;ul>
+&lt;li>Name.com
+&lt;ul>
+&lt;li>102205.xyz&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>阿里
+&lt;ul>
+&lt;li>desistdaydream.ltd&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>eu.org #&lt;/li>
+&lt;/ul>
+&lt;h2 id="euorg-注册方式">eu.org 注册方式&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://iweec.com/363.html">https://iweec.com/363.html&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.bilibili.com/video/BV1JB4y1m7e9">https://www.bilibili.com/video/BV1JB4y1m7e9&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>eu.org 免费域名从 1996 年就有了，由此可见是非常非常早，计划是专门给无力承担费用的一些组织使用的，现在我们来申请一个。
+注册地址：&lt;a href="https://nic.eu.org/arf/en/login/?next=/arf/en/">https://nic.eu.org/arf/en/login/?next=/arf/en/&lt;/a>
+点击：Register
+填表挺简单的，可以参考我的视频教程。
+B 站：&lt;a href="https://www.bilibili.com/video/BV1JB4y1m7e9/">https://www.bilibili.com/video/BV1JB4y1m7e9/&lt;/a>
+Youtube：&lt;a href="https://www.youtube.com/watch?v=xWgeCUpM81I">https://www.youtube.com/watch?v=xWgeCUpM81I&lt;/a>
+然后成功后到邮箱（垃圾箱）找到邮件、激活，然后登录。
+点击登录，然后点击：New domain
+填写理想的完整域名例如：abcde.eu.org 同意协议；
+域名服务器建议填写下面两个 dnspod，否则无法转到 cloudflare。
+edmund.dnspod.net
+dempsey.dnspod.net
+这里先只选择 server names，然后 Submit，注意看检查页面，如果出现 No error,Done.说明成功了~
+如果有错误，请返回修改！
+域名审核 1 天——30 天都有可能，所以慢慢等吧，经过我的测试，一个账号内最多可以申请 4 个免费域名。
+域名投资参考：&lt;a href="https://iweec.com/144.html">https://iweec.com/144.html&lt;/a>
+eu.org 域名通过后是有邮件通知的，但是都在垃圾箱。若是想转到 cloudflare 出现问题，请参考视频：
+Bilibili：&lt;a href="https://www.bilibili.com/video/BV1ST4y1z7Ra/">https://www.bilibili.com/video/BV1ST4y1z7Ra/&lt;/a>
+Youtube：&lt;a href="https://www.youtube.com/watch?v=EOsBJxtiOho">https://www.youtube.com/watch?v=EOsBJxtiOho&lt;/a>&lt;/p>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>eu.org 本身没有自己的 Name Server，在这里免费获取到域名后，需要指定其他的 Name Server(比如 DNSPod 中的 NameServer)&lt;/li>
+&lt;/ul>
+&lt;h2 id="可以为其他域名提供-nameserver-的域名注册商">可以为其他域名提供 NameServer 的域名注册商&lt;/h2>
+&lt;p>DNSPod&lt;/p>
+&lt;h1 id="国内域名备案说明">国内域名备案说明&lt;/h1>
+&lt;p>在国内的域名注册机构是必须要备案的，备案时需要关联自己的服务器或者通过公司进行备案。如果不备案，那么域名只有解析 IP 的功能，无法在公网被访问，效果如下：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1654614073447-ad968e6f-5cda-4fa1-a31a-84c148d8e6a8.png" alt="image.png">
+若访问的是 https，则会提示
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/msw4yv/1656167438257-cf4f1287-4ce6-4ca1-b7b7-3814937ebe74.png" alt="image.png">
+这个是由于在国内的服务器，都会收到服务器所在 IDC 的限制，这些 IDC 会在最外层部署一套检测服务，用以检查每个标准端口(80 和 443)的请求域名是否已经备案，若没有备案，该请求 IDC 则不会放行到服务器上。&lt;/p>
+&lt;p>DNS 污染、GFW、阻断，这是三座大山&lt;/p></description></item><item><title>Docs: DNSmasq</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/DNSmasq/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/DNSmasq/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html">Manual(手册)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>DNSmasq 是一个轻量的 DHCP 和 DNS 缓存 服务。&lt;/p>
+&lt;h1 id="dns-泛解析实例">DNS 泛解析实例&lt;/h1>
+&lt;p>最近遇到一个问题，需要在服务器上对域名进行泛解析，比如访问百度的域名统统解析到 6.6.6.6，然而发现 hosts 文件根本就不支持类似 *.baidu.com 的这种写法。&lt;/p>
+&lt;p>于是乎就在网上找了下资料，发现可以通过 Dnsmasq 来解决这个问题，原理其实就是本机的 DNS 指向 Dnsmasq 服务器，然后 Dnsmasq 通过类似通配符 (&lt;em>) 的方式进行匹配，凡是匹配到&lt;/em>.baidu.com 的都解析到 6.6.6.6。 &lt;strong>利用 Dnsmasq 实现 hosts 泛解析&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>环境介绍&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>$ uname \-a
+Linux ansheng 3.10.0\-957.1.3.el7.x86\_64 #1 SMP Thu Nov 29 14:49:43 UTC 2018 x86\_64 x86\_64 x86\_64 GNU/Linux
+$ whoami
+root
+$ cat /etc/redhat\-release
+CentOS Linux release 7.6.1810 (Core)
+&lt;/code>&lt;/pre>
+&lt;h2 id="安装-dnsmasq">&lt;strong>安装 Dnsmasq&lt;/strong>&lt;/h2>
+&lt;p>安装非常简单，通过 yum 即可。&lt;/p>
+&lt;pre>&lt;code>yum install dnsmasq \-y
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>配置 Dnsmasq&lt;/strong>
+先把配置文件备份一份&lt;/p>
+&lt;pre>&lt;code>cp /etc/dnsmasq.conf /etc/dnsmasq.conf\_bak
+&lt;/code>&lt;/pre>
+&lt;p>Dnsmasq 的配置在配置文件中都有详细的说明，你可以通过阅读配置文件的注释更改自己想要的配置，我只是想做泛解析，所以我的配置如下：&lt;/p>
+&lt;pre>&lt;code>$ vim /etc/dnsmasq.conf
+# 严格按照 resolv\-file 文件中的顺序从上到下进行 DNS 解析, 直到第一个成功解析成功为止
+strict\-order
+# 监听的 IP 地址
+listen\-address\=127.0.0.1
+# 设置缓存大小
+cache\-size\=10240
+# 泛域名解析，访问任何 baidu.com 域名都会被解析到 6.6.6.6
+address\=/baidu.com/6.6.6.6
+&lt;/code>&lt;/pre>
+&lt;p>&lt;a href="https://cloud.tencent.com/product/cns?from=10680">域名解析&lt;/a>默认读取 /etc/hosts 文件到本地域名配置文件（不支持泛域名）。&lt;/p>
+&lt;p>DNS 配置默认读取 /etc/resolv.conf 上游 DNS 配置文件，如果读取不到 /etc/hosts 的地址解析，就会转发给 resolv.conf 进行解析地址。&lt;/p>
+&lt;ul>
+&lt;li>DNS 配置文件
+$ vim /etc/resolv.conf 这些都是常用的 DNS，可以配置很多&lt;/li>
+&lt;/ul>
+&lt;p>nameserver 127.0.0.1  # 一定要放在第一个
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+nameserver 1.1.1.1&lt;/p>
+&lt;ul>
+&lt;li>启动服务
+$ systemctl enable &amp;ndash;now dnsmasq
+Created symlink from /etc/systemd/system/multi-user.target.wants/dnsmasq.service to /usr/lib/systemd/system/dnsmasq.service.
+查看运行状态
+$ systemctl status dnsmasq
+● dnsmasq.service - DNS caching server.
+Loaded: loaded (/usr/lib/systemd/system/dnsmasq.service; enabled; vendor preset: disabled)
+Active: active (running) since 日 2018-12-23 09:00:12 UTC; 3s ago
+Main PID: 3844 (dnsmasq)
+CGroup: /system.slice/dnsmasq.service
+└─3844 /usr/sbin/dnsmasq -k
+12 月 23 09:00:12 ansheng systemd[1]: Started DNS caching server..
+12 月 23 09:00:12 ansheng dnsmasq[3844]: started, version 2.76 cachesize 10000
+12 月 23 09:00:12 ansheng dnsmasq[3844]: compile time options: IPv6 GNU-getopt DBus no-i18n IDN DHCP DHCPv6 no-Lua TFTP no-conntrack ipset auth no-DNSSEC loop-detect inotify
+12 月 23 09:00:12 ansheng dnsmasq[3844]: reading /etc/resolv.conf
+12 月 23 09:00:12 ansheng dnsmasq[3844]: ignoring nameserver 127.0.0.1 - local interface
+12 月 23 09:00:12 ansheng dnsmasq[3844]: using nameserver 8.8.8.8#53
+12 月 23 09:00:12 ansheng dnsmasq[3844]: using nameserver 8.8.4.4#53
+12 月 23 09:00:12 ansheng dnsmasq[3844]: using nameserver 1.1.1.1#53
+12 月 23 09:00:12 ansheng dnsmasq[3844]: read /etc/hosts - 6 addresses&lt;/li>
+&lt;/ul>
+&lt;h2 id="测试">&lt;strong>测试&lt;/strong>&lt;/h2>
+&lt;pre>&lt;code>$ ping baidu.com
+PING baidu.com (6.6.6.6) 56(84) bytes of data.
+^C
+--\- baidu.com ping statistics --\-
+2 packets transmitted, 0 received, 100% packet loss, time 1000ms
+$ ping www.baidu.com
+PING www.baidu.com (6.6.6.6) 56(84) bytes of data.
+^C
+--\- www.baidu.com ping statistics --\-
+2 packets transmitted, 0 received, 100% packet loss, time 999ms
+$ ping pan.baidu.com
+PING pan.baidu.com (6.6.6.6) 56(84) bytes of data.
+^C
+--\- pan.baidu.com ping statistics --\-
+2 packets transmitted, 0 received, 100% packet loss, time 999ms
+&lt;/code>&lt;/pre>
+&lt;p>由上可以看到，几乎访问任何 baidu.com 的域名都会被解析到 6.6.6.6，基本上就达到了我们最初的目的。&lt;/p>
+&lt;h2 id="利用-dnsmasq-缓存特性实现-dns-加速">&lt;strong>利用 Dnsmasq 缓存特性实现 DNS 加速&lt;/strong>&lt;/h2>
+&lt;p>Dnsmasq 还有一项非常有用的功能就是可以对已经解析过的域名进行缓存，下次在访问这个域名的时候就可以直接返回 IP 地址，而不再需要经过 DNS 查询，这对于扶墙的来说，其实也算是一点优化，默认已经配置好了，我们只需要来演示下缓存的效果。&lt;/p>
+&lt;ul>
+&lt;li>安装 dig 工具&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>yum install bind-utils -y
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>演示效果&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ dig www.centos.com | grep &lt;span style="color:#e6db74">&amp;#34;Query time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>;; Query time: &lt;span style="color:#ae81ff">88&lt;/span> msec
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ dig www.centos.com | grep &lt;span style="color:#e6db74">&amp;#34;Query time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>;; Query time: &lt;span style="color:#ae81ff">0&lt;/span> msec
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ dig www.centos.com | grep &lt;span style="color:#e6db74">&amp;#34;Query time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>;; Query time: &lt;span style="color:#ae81ff">0&lt;/span> msec
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ dig www.centos.com | grep &lt;span style="color:#e6db74">&amp;#34;Query time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>;; Query time: &lt;span style="color:#ae81ff">0&lt;/span> msec
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ dig www.youtube.com | grep &lt;span style="color:#e6db74">&amp;#34;Query time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>;; Query time: &lt;span style="color:#ae81ff">28&lt;/span> msec
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ dig www.youtube.com | grep &lt;span style="color:#e6db74">&amp;#34;Query time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>;; Query time: &lt;span style="color:#ae81ff">0&lt;/span> msec
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ dig www.qq.com | grep &lt;span style="color:#e6db74">&amp;#34;Query time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>;; Query time: &lt;span style="color:#ae81ff">71&lt;/span> msec
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ dig www.qq.com | grep &lt;span style="color:#e6db74">&amp;#34;Query time&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>;; Query time: &lt;span style="color:#ae81ff">0&lt;/span> msec
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>看看上面的对比，查询时间缩小了不少倍，可见缓存已经产生作用。&lt;/p>
+&lt;blockquote>
+&lt;p>来源：&lt;em>安生博客&lt;/em> 原文：&lt;a href="http://t.cn/AiCohacf">&lt;em>http://t.cn/AiCohacf&lt;/em>&lt;/a> 题图：&lt;em>来自谷歌图片搜索&lt;/em> 版权：&lt;em>本文版权归原作者所有&lt;/em> 投稿：_欢迎投稿，投稿邮箱: _&lt;a href="mailto:editor@hi-linux.com">&lt;em>editor@hi-linux.com&lt;/em>&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>本文分享自微信公众号 - 运维之美（Hi-Linux），作者：ansheng&lt;/p>
+&lt;p>原文出处及转载信息见文内详细说明，如有侵权，请联系 &lt;a href="mailto:yunjia_community@tencent.com">yunjia_community@tencent.com&lt;/a> 删除。&lt;/p>
+&lt;p>原始发表时间：2019-11-02&lt;/p>
+&lt;p>本文参与&lt;a href="https://cloud.tencent.com/developer/support-plan">腾讯云自媒体分享计划&lt;/a>，欢迎正在阅读的你也加入，一起分享。
+&lt;a href="https://cloud.tencent.com/developer/article/1534150">https://cloud.tencent.com/developer/article/1534150&lt;/a>&lt;/p></description></item><item><title>Docs: Resource Record(资源记录)</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/Resource-Record%E8%B5%84%E6%BA%90%E8%AE%B0%E5%BD%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/Resource-Record%E8%B5%84%E6%BA%90%E8%AE%B0%E5%BD%95/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;/blockquote>
+&lt;p>RR 定义的格式：NAME [TTL] CLASS RR-TYPE VALUE（注意：格式中的域名都要带根域名，即域名最后都要加一个 . ）&lt;/p>
+&lt;ol>
+&lt;li>NAME 和 VALUE # 不同的 RR-TYPE 有不同的格式&lt;/li>
+&lt;li>CLASS：IN&lt;/li>
+&lt;li>TYPE 资源记录类型：A，AAAA，PTR，SOA，NS，CNAME，MX 等：
+&lt;ol>
+&lt;li>SRV 格式：域名系统中用于指定服务器提供服务的位置（如主机名和端口）
+&lt;ol>
+&lt;li>name：_服务._协议.名称.&lt;/li>
+&lt;li>value：优先级 权重 端口 主机.&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>SOA 格式：Start Of Authority：起始授权记录，一个区域解析库有且只能有一个 SOA 记录，而且必须为解析库第一条记录
+&lt;ol>
+&lt;li>name：当前区域的名字，例如”baidu.com.“&lt;/li>
+&lt;li>value (属性)
+&lt;ol>
+&lt;li>当前区域的主 DNS 服务器的 FQDN，也可以使用当前区域的名字&lt;/li>
+&lt;li>当前区域管理员的邮箱地址，但是地址中不能用@符号，@符号用.替换&lt;/li>
+&lt;li>（主从服务协调属性的定义以及否定结果的统一的 TTL）&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>NS 格式：Name Server：专用于标明当前区域的 DNS 服务器
+&lt;ol>
+&lt;li>name：当前区域的名字&lt;/li>
+&lt;li>value：当前区域的某 DNS 服务器的名字，例如 ns.baidu.com.;(一个区域可以有多个 NS 记录)&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>MX 格式：Mail eXchanger：邮件交换器
+&lt;ol>
+&lt;li>TTL 可以从全局继承&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>A/AAAA 格式：Address，A 格式用于实现将 FQDN 解析为 IPv4(AAAA 格式用于将 FQDN 解析为 IPv6)
+&lt;ol>
+&lt;li>name:&lt;/li>
+&lt;li>value:&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>PTR 格式：PoinTeR，用于将 IP 解析为 FQDN
+&lt;ol>
+&lt;li>name：IP，特殊格式，反写 IP，比如 1.2.3.4 要写成 4.3.2.1，跟后缀 in-addr.arpa.&lt;/li>
+&lt;li>value:FQDN&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>CNAME 格式：Canonical Name，别名记录
+&lt;ol>
+&lt;li>name：别名的 FQDN&lt;/li>
+&lt;li>value：正式名字的 FQDN&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>注意：
+&lt;ol>
+&lt;li>@可用于引用当前区域的名字&lt;/li>
+&lt;li>相邻的两个资源记录的 name 相同时，后续的可省略&lt;/li>
+&lt;li>同一个名字可以通过多条记录定义多个不同的值，此时 DNS 服务器会轮循响应&lt;/li>
+&lt;li>同一个值也有可能有多个不同的定义名字，通过多个不同的名字指向同一个&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;h3 id="example">EXAMPLE&lt;/h3>
+&lt;pre>&lt;code>baidu.com 86499 IN SOA ns.baidu.com. lichenhao.qq.com. （
+2018072001 #序列号，当序列号变化时，即代表资源有变化，主DNS会主动同步数据给备
+2H #刷新时间，2小时
+10M #重试时间，10分钟
+1W #过期时间，1周
+1D ） #否定结果的TTL值，1天
+baidu.com. IN NS ns1.baidu.com
+ns1.baidu.com IN A 1.1.1.0
+www.baidu.com IN A 1.1.1.1
+IN A 1.1.1.2
+baidu.com. IN MX 10 mx1.baidu.com
+IN MX 20 mx2.baidu.com
+4.3.2.1.in-addr.arpa. IN PTR www.baidu.com
+web.baidu.com. IN CNAME www.baidu.com.
+&lt;/code>&lt;/pre>
+&lt;p>子域授权：每个域的 DNS 服务器，都是通过在其上级 DNS 服务器中的解析库添加该域的 DNS 服务器信息进行授权&lt;/p>
+&lt;p>EXAMPLE，在根域的 DNS 服务器中，记录了.com.域的资源记录，类似下面的方式，不是绝对的
+.com. IN NS ns1.com. 定义.com.域的域名服务器为 ns1.com.
+.com. IN NS ns2.com.
+ns1.com. IN A 2.2.2.1 定于.com.域中的域名服务器 ns1.com.的 IP 地址为 2.2.2.1
+ns2.com. IN A 2.2.2.2&lt;/p>
+&lt;p>当www.baidu.com.的DNS请求到根的DNS服务器的时候，根的DNS服务器查找自己解析库中.com的域中的DNS服务器资源，然后看到该DNS服务器所对应的IP，然后把该请求转发到.com域中的DNS服务器进行下一步解析，然后.com域的DNS服务器在从解析库中找到baidu的资源再转发到baidu的DNS服务器上(或者直接返回baidu的IP地址)&lt;/p>
+&lt;p>以上例子是.com 域在.根域中解析库中的资源记录，如果还有 baidu.com 的域名，则该域的资源记录写在.com 域中的解析库，以此类推&lt;/p>
+&lt;p>反向区域：&lt;/p>
+&lt;p>区域名称：网络地址反写.in-addr-arpa.&lt;/p>
+&lt;p>EXAMPLE：172.16.100. 写成 100.16.172.in-addr-arpa.&lt;/p></description></item><item><title>Docs: Zone 与 Domain</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/Zone-%E4%B8%8E-Domain/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/Zone-%E4%B8%8E-Domain/</guid><description>
+&lt;h1 id="delegation授权">Delegation(授权)&lt;/h1>
+&lt;p>Zone 是通过授权实现的，而授权，主要授予的就是 Domain 的管理权。&lt;/p>
+&lt;p>管理域的组织可以将域进一步划分成子域。每个子域都可以被授权给其他组织来管理，这意味着这些被授权的组织得负责维护子域中所有的数据。他们可以自由地 改变域中的数据，甚至将子域进一步划分成更多的子域，然后再授权给其他组织管理。父域仅仅保留指向子域数据来源的指针，这样父域便可将查询者引到该处。例如，stanford.edu 域被授权给在斯坦福大学的人，由他们负责管理校园网络。&lt;/p>
+&lt;p>比如，我想买一个域名 desistdaydream.com，我就需要去找管理 com 域的组织购买，我付给他们钱后，他们就给我授权，让我可以管理 desistdaydream.com 域。此时，该域的管理权则由我全权负责，而我还可以对 desistdaydream.com 域再次划分，比如 a.desistdaydream.com、b.desistdaydream.com、c.desistdaydream.com 等等，然后将这些域授权出去。&lt;/p>
+&lt;blockquote>
+&lt;p>同时，我还可以只授权一个域，比如我只授权某人管理 a.b.desistdaydream.com 域，那么某人则无法将 a.b.desistdaydream.com 域再进行子域划分。&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>所以，授权就是指将管理子域的责任交给另一个组织的行为。&lt;/strong>&lt;/p>
+&lt;p>**zone **和 **domain **的区别&lt;/p>
+&lt;ol>
+&lt;li>zone 是同 Delegation(授权) 联系在一起的，为了管理上的方便，我们把域的某部分授权出去让别人代为管理，这部分就是一个 zone 。为什么说是为了管理上的方便呢？因为这样一个很大的域就可以实现分散管理，而不是集中由一两台服务器来管理。而 zone 的划分就是通过 “授权机制”来实现的。这也是 设计 DNS 系统得初衷。&lt;/li>
+&lt;li>并不能说 domain 就比 zone 大，反过来也一样。例如 edu 域可以包含多个 zone ：berkeley.edu 、purdue.edu 。但 edu 也可以看成是根域 &amp;ldquo;.&amp;rdquo; 下的一个被授权出去的 zone ，它含有 berkeley.edu 、purdue.edu 等几个域。&lt;/li>
+&lt;li>域是以域名进行分界的，而 zone 是以授权范围来定界的。一个 zone 有可能跨域多个域名。例如 berkeley 域是所有以 berkeley.edu 结尾的域名空间；而 edu zone 可以包括 berkey 和 purdue 这两个域，都统一归 edu 这个 zone 管理。&lt;/li>
+&lt;li>一个域和一个 zone 可能具有相同的域名，但包含的节点却不同。例如使用了授权的域&lt;/li>
+&lt;li>Name Server 在加载数据时是以 zone 为单位，而不是以 Domain 为单位。&lt;/li>
+&lt;/ol>
+&lt;p>总结：
+domain 这是从逻辑上进行划分，体现域名的树性结构，根域、com 域、edu 域等；&lt;/p>
+&lt;p>上图中 虚线 内就是一个 Zone&lt;/p>
+&lt;p>Note：ZONE 文件是 DNS 上保存域名配置的文件，对 BIND 来说一个域名对应一个 ZONE 文件，现以 abc.com 的 ZONE 文件为例展开(该 ZONE 存在于权威 DNS 上)。&lt;/p></description></item><item><title>Docs: 反向解析原理</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/%E5%8F%8D%E5%90%91%E8%A7%A3%E6%9E%90%E5%8E%9F%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/%E5%8F%8D%E5%90%91%E8%A7%A3%E6%9E%90%E5%8E%9F%E7%90%86/</guid><description>
+&lt;h1 id="heading">&lt;/h1>
+&lt;pre>&lt;code>我们都知道DNS解析是把域名解析到IP，你知道怎么把IP解析到域名吗？知道反向解析的工作原理吗？
+上一篇博客DNS解析原理讲解了域名到IP的解析流程，本篇着重讲解一下从IP到域名的解析流程。
+首先，简单聊一下反向解析的使用场景，当前使用最多的是用于邮箱服务器IP配置反向解析指向邮箱域名。比如一个邮箱服务器，每天会收到来自互联网IP发送大量邮件，并不是每封邮件都要接收的，否则邮箱会被垃圾邮件刷爆的。所以邮箱服务器通常都有自己的反垃圾邮件规则。比如收到某个IP服务器发过来的邮件，首先会判断此IP是否在反垃圾邮件联盟的黑名单里，如果IP在黑名单就直接拒收邮件了。然后会判断邮箱域名信誉度是否良好，是否在黑名单。怎么获取邮箱域名呢，就是通过检测IP的反向解析来获取邮箱域名。所以说，对于自己搭建邮箱服务器，IP设置反向解析指向域名是重要的一步。
+那IP的解析流程是怎样的呢？
+要知道这个答案首先要知道IP在全球是怎么管理分配的。ICANN负责全球IP地址的编号分配，将部分商用IP分配给RIR(Regional Internet Registry，地区性 Internet 注册机构)来负责管理。全球一共有5个RIR：
+&lt;/code>&lt;/pre>
+&lt;p>ARIN 主要负责北美地区业务&lt;/p>
+&lt;p>RIPE 主要负责欧洲地区业务&lt;/p>
+&lt;p>LACNIC 主要负责拉丁美洲美洲业务&lt;/p>
+&lt;p>AfriNIC 负责非洲地区业务&lt;/p>
+&lt;p>APNIC 负责亚太地区业务&lt;/p>
+&lt;p>RIR 再授权给国家级注册机构负责管理各国家内的 IP 管理，比如 APNIC 下面的 CNNIC，JPNIC 等。CNNIC 再把 IP 授权给不同服务商，比如华为云，其他运营商等等。&lt;/p>
+&lt;pre>&lt;code>对于一个域名，例如www.huawei.com，我们知道是com顶级域，那假如一个IP 117.78.61.19，是怎么判断是哪个顶级域呢？
+反向解析也有一个顶级域是in-addr.arpa，对于IP 117.78.61.19实际对应的反向域名是19.61.78.117.in-addr.arpa，反向顶级域把117.in-addr.arpa这个A类授权给APNIC来管理，APNIC把78.117.in-addr.arpa这个B类授权给CNNIC来管理，CNNIC把下面的部分C类地址给华为云；
+通过dig命令加 -x参数可以查看反向解析流程，大致类似于域名的解析流程。
+&lt;/code>&lt;/pre>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pg3qpr/1616160967075-291efb58-74ef-4ca6-bc37-929f11410605.jpeg" alt="">&lt;/p>
+&lt;pre>&lt;code>知道了域名，IP的解析流程，对于我们定位解析不生效判断就更好理解了。可以查看是到哪一步中断，具体再去分析。希望以上分享对你有一定帮助
+&lt;/code>&lt;/pre></description></item></channel></rss>
