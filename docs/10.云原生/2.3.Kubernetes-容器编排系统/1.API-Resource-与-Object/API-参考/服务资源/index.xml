@@ -114,30 +114,37 @@
 &lt;p>参考：&lt;/p>
 &lt;ul>
 &lt;li>&lt;a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#service-v1-core">API 文档单页&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://kubernetes.io/docs/reference/kubernetes-api/service-resources/service-v1/">API 参考-Service&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://kubernetes.io/docs/reference/kubernetes-api/service-resources/endpoints-v1/">API 参考-Endpoint&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/kubernetes-api/service-resources/service-v1/">官方文档，参考-Kubernetes API-服务资源-Service&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/kubernetes-api/service-resources/endpoints-v1/">官方文档，参考-Kubernetes API-服务资源-Endpoint&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
 &lt;h1 id="service-manifests-详解">Service Manifests 详解&lt;/h1>
-&lt;h2 id="apiversion-v1--api-版本基础字段必须要有">apiVersion: v1 # API 版本，基础字段必须要有&lt;/h2>
-&lt;h2 id="kind-service--指明要创建的资源类型为-service基础字段必须要有">kind: Service # 指明要创建的资源类型为 Service，基础字段必须要有&lt;/h2>
-&lt;h2 id="metadata--指明该-service-资源的元数据其中-name-是必须要写明的元数据项">metadata: # 指明该 Service 资源的元数据，其中 name 是必须要写明的元数据项&lt;/h2>
-&lt;p>name: NAME # 指定该资源的名字&lt;/p>
-&lt;h2 id="sepc--指明该-service-的规格specification">sepc:  # 指明该 Service 的规格(specification)&lt;/h2>
-&lt;p>clusterIP: XXX.XXX.XXX.XXX # 手动给该 Service 分配 IP，该 IP 在服务创建后无法手动修改，可以设置为 None，变成无头 service，这时候请求不由 service 处理，直接通过 service 名称转发到后端的 Pod
- ports:
- - protocol: TCP # 将 service 的端口映射到 pod 的端口，使用 TCP 协议
+&lt;h2 id="manifest-中的顶层字段">Manifest 中的顶层字段&lt;/h2>
+&lt;ul>
+&lt;li>apiVersion: v1 # API 版本，基础字段必须要有&lt;/li>
+&lt;li>kind: Service # 指明要创建的资源类型为 Service，基础字段必须要有&lt;/li>
+&lt;li>&lt;a href="#metadata">metadata: &amp;lt;Object&amp;gt;&lt;/a>&lt;/li>
+&lt;li>&lt;a href="#spec">spec: &amp;lt;Object&amp;gt;&lt;/a>&lt;/li>
+&lt;li>&lt;a href="#status">status: &amp;lt;Object&amp;gt;&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h2 id="metadata">metadata&lt;/h2>
+&lt;p>&lt;strong>metadata&lt;/strong> 字段描述该 Service 资源的元数据，其中 name 是必须要写明的元数据项。该字段内容详见通用定义的 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes%20%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/1.API%20Resource%20%E4%B8%8E%20Object/API%20%E5%8F%82%E8%80%83/Common%20Definitions(%E9%80%9A%E7%94%A8%E5%AE%9A%E4%B9%89)/ObjectMeta.md">ObjectMeta&lt;/a>&lt;/p>
+&lt;p>&lt;strong>name: STRING&lt;/strong> # 指定该资源的名字&lt;/p>
+&lt;h2 id="spec">spec&lt;/h2>
+&lt;p>&lt;strong>spec&lt;/strong> 字段描述该 Service 的规格(specification)&lt;/p>
+&lt;p>&lt;strong>clusterIP: STRING&lt;/strong> # 手动给该 Service 分配 IP，该 IP 在服务创建后无法手动修改，可以设置为 None，变成无头 service，这时候请求不由 service 处理，直接通过 service 名称转发到后端的 Pod&lt;/p>
+&lt;p>&lt;strong>ports: &amp;lt;[]OBJECT&amp;gt;&lt;/strong>&lt;/p>
+&lt;p> - protocol: TCP # 将 service 的端口映射到 pod 的端口，使用 TCP 协议
    nodePort: NUM # 指明 Service 通过 k8s 集群中的那个端口对外提供服务，默认随机从 30000-32767 中随机分配(注：该字段只有 type 为 NodePort 的时候才有作用)
    port: NUM # 指明该 service 所使用的端口
-   targetPort: XXX # 指明后端 Pod 的端口
- selector: # 标签选择器 label selector 简称 selector，选择哪些 Pod 是该 Service 的后端
-   run: httpd # 指明挑选那些 label 为 run:httpd 的 pod 作为该 service 的后端
- sessionAffinity: &amp;lt;ClientIP|None&amp;gt; # 设置会话亲和度，当为 None 的时候为同一个客户端的访问都会指向同一个 Pod，ClientIP 为进行负载调度
- type: TYPE&lt;/p>
+   targetPort: XXX # 指明后端 Pod 的端口&lt;/p>
+&lt;p>&lt;strong>selector: &amp;lt;map[STRING][STRING]&amp;gt;&lt;/strong> # 通过&lt;a href="docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes%20%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/1.API%20Resource%20%E4%B8%8E%20Object/Object%20%E7%AE%A1%E7%90%86/Label%20and%20Selector(%E6%A0%87%E7%AD%BE%E5%92%8C%E9%80%89%E6%8B%A9%E5%99%A8)/Label%20and%20Selector(%E6%A0%87%E7%AD%BE%E5%92%8C%E9%80%89%E6%8B%A9%E5%99%A8).md">Label and Selector(标签和选择器)&lt;/a> 选择哪些 Pod 是该 Service 的后端。&lt;/p>
+&lt;p>&lt;strong>sessionAffinity: &amp;lt;ClientIP|None&amp;gt;&lt;/strong> # 设置会话亲和度，当为 None 的时候为同一个客户端的访问都会指向同一个 Pod，ClientIP 为进行负载调度&lt;/p>
+&lt;p>&lt;strong>type: STRING&lt;/strong> #&lt;/p>
 &lt;h1 id="endpoints-manifests-详解">Endpoints Manifests 详解&lt;/h1>
 &lt;h2 id="apiversion-v1">apiVersion: v1&lt;/h2>
 &lt;h2 id="kind-endpoints">kind: Endpoints&lt;/h2>
-&lt;h2 id="metadata">metadata&lt;/h2>
+&lt;h2 id="metadata-1">metadata&lt;/h2>
 &lt;p>name: NAME # 与 Endpoints 所关联的 Service 的 name 想同&lt;/p>
 &lt;h2 id="subsets--指定子集">subsets: # 指定子集&lt;/h2>
 &lt;ul>
