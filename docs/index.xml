@@ -249,11 +249,9 @@ initrd 是 2.4 及更早的用法（现在你能见到的 initrd 文件实际差
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span>;
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在普通用户下编译运用，输出结果为：&lt;/p>
-&lt;pre>&lt;code>chmod failed, errno = 1
-&lt;/code>&lt;/pre>
+&lt;p>&lt;code>chmod failed, errno = 1&lt;/code>&lt;/p>
 &lt;p>上面系统调用返回的值为-1，说明系统调用失败，错误码为 1，在 /usr/include/asm-generic/errno-base.h 文件中有如下错误代码说明：&lt;/p>
-&lt;pre>&lt;code>#define EPERM 1 /* Operation not permitted */
-&lt;/code>&lt;/pre>
+&lt;p>&lt;code>#define EPERM 1 /* Operation not permitted */&lt;/code>&lt;/p>
 &lt;p>即无权限进行该操作，我们以普通用户权限是无法修改 /etc/passwd 文件的属性的，结果正确。&lt;/p>
 &lt;h2 id="使用指定的-syscallname-直接调用">使用指定的 SyscallName 直接调用&lt;/h2>
 &lt;p>使用上面的方法有很多好处，首先你无须知道更多的细节，如 chmod 系统调用号，你只需了解 glibc 提供的 API 的原型；其次，该方法具有更好的移植性，你可以很轻松将该程序移植到其他平台，或者将 glibc 库换成其它库，程序只需做少量改动。&lt;/p>
@@ -265,22 +263,21 @@ initrd 是 2.4 及更早的用法（现在你能见到的 initrd 文件实际差
 &lt;li>返回值 该函数返回值为特定系统调用的返回值，在系统调用成功之后你可以将该返回值转化为特定的类型，如果系统调用失败则返回 -1，错误代码存放在 errno 中。&lt;/li>
 &lt;/ul>
 &lt;p>还以上面修改 /etc/passwd 文件的属性为例，这次使用 syscall 直接调用：&lt;/p>
-&lt;pre>&lt;code>#include &amp;lt;stdio.h&amp;gt;
-#include &amp;lt;unistd.h&amp;gt;
-#include &amp;lt;sys/syscall.h&amp;gt;
-#include &amp;lt;errno.h&amp;gt;
-int main()
-{
-int rc;
-rc = syscall(SYS_chmod, &amp;quot;/etc/passwd&amp;quot;, 0444);
-if (rc == -1)
-fprintf(stderr, &amp;quot;chmod failed, errno = %d\n&amp;quot;, errno);
-else
-printf(&amp;quot;chmod succeess!\n&amp;quot;);
-return 0;
-}
-&lt;/code>&lt;/pre>
-&lt;p>在普通用户下编译执行，输出的结果与上例相同。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;stdio.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;unistd.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;sys/syscall.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;errno.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>()
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">int&lt;/span> rc;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> rc &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">syscall&lt;/span>(SYS_chmod, &lt;span style="color:#e6db74">&amp;#34;/etc/passwd&amp;#34;&lt;/span>, &lt;span style="color:#ae81ff">0444&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">if&lt;/span> (rc &lt;span style="color:#f92672">==&lt;/span> &lt;span style="color:#f92672">-&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">fprintf&lt;/span>(stderr, &lt;span style="color:#e6db74">&amp;#34;chmod failed, errno = %d&lt;/span>&lt;span style="color:#ae81ff">\n&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>, errno);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">else&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">printf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;chmod succeess!&lt;/span>&lt;span style="color:#ae81ff">\n&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在普通用户下编译执行，输出的结果与上例相同。&lt;/p>
 &lt;h2 id="通过-syscall-间接调用">通过 syscall() 间接调用&lt;/h2>
 &lt;h2 id="通过-int-指令陷入">通过 int 指令陷入&lt;/h2>
 &lt;p>如果我们知道系统调用的整个过程的话，应该就能知道用户态程序通过软中断指令 int 0x80 来陷入内核态（在 Intel Pentium II 又引入了 sysenter 指令），参数的传递是通过寄存器，eax 传递的是系统调用号，ebx、ecx、edx、esi 和 edi 来依次传递最多五个参数，当系统调用返回时，返回值存放在 eax 中。&lt;/p>
