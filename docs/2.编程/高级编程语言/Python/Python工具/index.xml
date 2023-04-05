@@ -32,8 +32,21 @@ OPTIONS&lt;/p>
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>&lt;strong>Package Installer for Python(Python 的包安装器，简称 PIP)&lt;/strong> 是 Python 的包管理程序。可以使用它来安装来自 Python 包索引和其他索引的包。从 Python 3.4 开始，它默认包含在 Python 二进制安装程序中。&lt;/p>
+&lt;h1 id="pip-安装包逻辑">pip 安装包逻辑&lt;/h1>
+&lt;p>先下载到 /tmp/pip-unpack-随机数/包名-XXX.whl，然后默认情况下，将这些文件安装到 site-packages 目录。&lt;/p>
+&lt;h2 id="有关---taget-选项的说明">有关 &amp;ndash;taget 选项的说明&lt;/h2>
+&lt;p>当我们使用 &lt;code>--target TARGET_DIR&lt;/code> 选项指定包的安装路径时，则会将随包带的可执行文件安装到 &lt;code>TARGET_DIR/bin/&lt;/code> 目录下，若两个具有可执行文件的包被同事安装到同一个 TARGET_DIR 中，则后安装的包的二进制文件将不会成功，并且有警告信息：&lt;/p>
+&lt;pre tabindex="0">&lt;code>WARNING: Target directory /root/pythonpath/bin already exists. Specify --upgrade to force replacement.
+&lt;/code>&lt;/pre>&lt;p>假如现在想要安装 black 和 pipreqs 两个包，先安装 black，那么 pipreqs 可执行文件将不会安装成功，除非使用 &amp;ndash;upgrade 选项，此时，bin/ 目录下的 black 可执行文件将被删除，并替换为 pipreqs 可执行文件。&lt;/p>
+&lt;p>综上所述：&amp;ndash;target 选项不适合指定为 PYTHONPATH，而是为每个包指定一个独立的目录，并且每个目录下的 bin 目录都要添加到 $PATH 才可以，这是一个很鸡肋的选项。&lt;/p>
+&lt;p>详见 &lt;a href="https://github.com/pypa/pip/issues/8063">pip issue 8063&lt;/a>&lt;/p>
 &lt;h1 id="安装-pip">安装 PIP&lt;/h1>
 &lt;p>通常来说，安装 Python 时，会自动安装 PIP&lt;/p>
+&lt;p>pip 包通常包含两个目录&lt;/p>
+&lt;ul>
+&lt;li>pip&lt;/li>
+&lt;li>pip-${VERSION}.dist-info&lt;/li>
+&lt;/ul>
 &lt;h1 id="关联文件与配置">关联文件与配置&lt;/h1>
 &lt;h2 id="windows">Windows&lt;/h2>
 &lt;p>全局配置&lt;/p>
@@ -143,6 +156,7 @@ OPTIONS&lt;/p>
 &lt;li>&lt;strong>-r, &amp;ndash;requirement &amp;lt;FILE&amp;gt;&lt;/strong> # 安装指定 requirement 文件中的 Python 包。&lt;/li>
 &lt;li>&lt;strong>-t, &amp;ndash;target &amp;lt;DIR&amp;gt;&lt;/strong> # 将 Python 包安装到 DIR 目录中。可以添加 &amp;ndash;upgrade 选项将现有包替换为 DIR 目录中的新版本。&lt;/li>
 &lt;li>&lt;strong>-U, &amp;ndash;upgrade&lt;/strong> # 将指定的所有 Python 包升级到最新的可用版本。&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;user&lt;/strong> # 将包安装到 user 的 site-packages 目录下。&lt;/li>
 &lt;/ul>
 &lt;h1 id="最佳实践">最佳实践&lt;/h1>
 &lt;p>安装、下载包时，指定包源&lt;/p>
@@ -175,17 +189,5 @@ OPTIONS&lt;/p>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Add-Content $env:APPDATA\pip\pip.ini &lt;span style="color:#e6db74">&amp;#34;[global]&amp;#34;&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Add-Content $env:APPDATA\pip\pip.ini &lt;span style="color:#e6db74">&amp;#34;index-url = https://mirrors.aliyun.com/pypi/simple/&amp;#34;&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="配置默认安装路径">配置默认安装路径&lt;/h2>
-&lt;p>由于 Python 自身还会使用一些第三方模块作为自己的核心功能，比如 pip。为了方式我们项目依赖的模块与这些模块在同一个目录导致不好管理。&lt;/p>
-&lt;p>我个人推荐将 pip 安装的模块默认改到 PYTHONPATH 目录中，前提是设置 PYTHONPATH 环境变量。&lt;/p>
-&lt;p>这里面的设置方式还需要验证在 Linux 中有没有其他的影响，不过应该没啥问题，毕竟 Linux 中没有自带 pip，咱只是修改了 pip 默认安装的，不管 linux 中使用 apt、yum 安装的包如何依赖 python 的包，由于不会涉及到 pip，应该是没有影响的。&lt;/p>
-&lt;p>Linux&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>tee /etc/profile.d/python.sh &amp;gt; /dev/null &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">export PYTHONPATH=&amp;#34;/root/pythonpath&amp;#34;
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>echo &lt;span style="color:#e6db74">&amp;#34;target = /root/pythonpath&amp;#34;&lt;/span> &amp;gt;&amp;gt; ~/.pip/pip.conf
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Windows&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-powershell" data-lang="powershell">&lt;span style="display:flex;">&lt;span>[&lt;span style="color:#66d9ef">Environment&lt;/span>]::SetEnvironmentVariable(&lt;span style="color:#e6db74">&amp;#34;PYTHONPATH&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;D:\Tools\Python\pythonpath&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;User&amp;#34;&lt;/span>)
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Add-Content $env:APPDATA\pip\pip.ini &lt;span style="color:#e6db74">&amp;#34;target=D:\Tools\Python\pythonpath&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>
+&lt;p>TODO: &amp;ndash;target 没效果，修改 user 的 site-packages 没效果。。。。o(╯□╰)o&lt;/p>
+&lt;p>先用 &lt;a href="docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Python/Python%20%E7%8E%AF%E5%A2%83%E5%AE%89%E8%A3%85%E4%B8%8E%E4%BD%BF%E7%94%A8/Python%20%E6%A8%A1%E5%9D%97%E4%B8%8E%E5%8C%85.md#Python%20%E8%99%9A%E6%8B%9F%E7%8E%AF%E5%A2%83">Python 虚拟环境&lt;/a>吧&lt;/p></description></item></channel></rss>
