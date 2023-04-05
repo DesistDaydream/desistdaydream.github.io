@@ -791,7 +791,6 @@ return n1 + n2
 &lt;li>2、汇编器：通过 go 汇编器将编译器生成的 _.s 汇编语言转换为机器代码，并写出最终的目标程序 _.o 文件，src/cmd/internal/obj 包实现了 go 汇编器；&lt;/li>
 &lt;li>3、链接器：汇编器生成的一个个 *.o 目标文件通过链接处理得到最终的可执行程序，src/cmd/link/internal/ld 包实现了链接器；&lt;/li>
 &lt;/ul>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/64702256-7b44-4118-a751-c1856ee08205/640" alt="">&lt;/p>
 &lt;h4 id="二运行">二、运行&lt;/h4>
 &lt;p>go 源码通过上述几个步骤生成可执行文件后，二进制文件在被操作系统加载起来运行时会经过如下几个阶段：&lt;/p>
 &lt;ul>
@@ -845,7 +844,6 @@ return n1 + n2
 &lt;/li>
 &lt;/ul>
 &lt;p>执行完以上指令后，进程内存空间布局如下所示：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/64702256-7b44-4118-a751-c1856ee08205/640" alt="">&lt;/p>
 &lt;p>然后开始执行获取 cpu 信息的指令以及与 cgo 初始化相关的，此段代码暂时可以不用关注。&lt;/p>
 &lt;pre>&lt;code>    // 执行CPUID指令，尝试获取CPU信息，探测 CPU 和 指令集的代码    MOVL    $0, AX    CPUID    MOVL    AX, SI    CMPL    AX, $0    JE  nocpuinfo    // Figure out how to serialize RDTSC.    // On Intel processors LFENCE is enough. AMD requires MFENCE.    // Don't know about the rest, so let's do MFENCE.    CMPL    BX, $0x756E6547  // &amp;quot;Genu&amp;quot;    JNE notintel    CMPL    DX, $0x49656E69  // &amp;quot;ineI&amp;quot;    JNE notintel    CMPL    CX, $0x6C65746E  // &amp;quot;ntel&amp;quot;    JNE notintel    MOVB    $1, runtime·isIntel(SB)    MOVB    $1, runtime·lfenceBeforeRdtsc(SB)notintel:    // Load EAX=1 cpuid flags    MOVL    $1, AX    CPUID    MOVL    AX, runtime·processorVersionInfo(SB)nocpuinfo:    // cgo 初始化相关，_cgo_init 为全局变量    MOVQ    _cgo_init(SB), AX    // 检查 AX 是否为 0    TESTQ   AX, AX    // 跳转到 needtls    JZ  needtls    // arg 1: g0, already in DI    MOVQ    $setg_gcc&amp;lt;&amp;gt;(SB), SI // arg 2: setg_gcc    CALL    AX    // 如果开启了 CGO 特性，则会修改 g0 的部分字段    MOVQ    $runtime·g0(SB), CX    MOVQ    (g_stack+stack_lo)(CX), AX    ADDQ    $const__StackGuard, AX    MOVQ    AX, g_stackguard0(CX)    MOVQ    AX, g_stackguard1(CX)
 &lt;/code>&lt;/pre>
