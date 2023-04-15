@@ -84,22 +84,25 @@
 &lt;p>原文链接：&lt;a href="https://blog.51cto.com/u_14227204/2514434">https://blog.51cto.com/u_14227204/2514434&lt;/a>&lt;/p>
 &lt;h1 id="kvm-虚拟机的迁移方式">KVM 虚拟机的迁移方式&lt;/h1>
 &lt;blockquote>
-&lt;p>&lt;strong>KVM 虚拟机的迁移有两种方法：&lt;/strong> &amp;gt; **1、静态迁移（冷迁移）：**对于冷迁移，就是在虚拟机关闭状态下，将虚拟机的磁盘文件及.xml 配置文件（这两个文件组成了一个虚拟机）复制到要迁移到的目标主机上，然后在目标主机上使用“virsh define *.xml”命令重新定义虚拟机即可。
-**2、动态迁移（热迁移）：**对于热迁移，比较常用，通常是这台服务器上正在跑着一些业务，而这些业务又不允许中断，那么就需要使用热迁移了，这篇博文将详细写出热迁移的步骤。&lt;/p>
+&lt;p>KVM 虚拟机的迁移有两种方法：&lt;/p>
+&lt;ul>
+&lt;li>静态迁移（冷迁移）：对于冷迁移，就是在虚拟机关闭状态下，将虚拟机的磁盘文件及.xml 配置文件（这两个文件组成了一个虚拟机）复制到要迁移到的目标主机上，然后在目标主机上使用“virsh define *.xml”命令重新定义虚拟机即可。&lt;/li>
+&lt;li>动态迁移（热迁移）：对于热迁移，比较常用，通常是这台服务器上正在跑着一些业务，而这些业务又不允许中断，那么就需要使用热迁移了，这篇博文将详细写出热迁移的步骤。&lt;/li>
+&lt;/ul>
 &lt;/blockquote>
-&lt;p>&lt;strong>1、冷迁移&lt;/strong>
-通常我们存放虚拟机磁盘的目录都是挂在的一个 nfs 文件系统的磁盘，而这个磁盘通常是 LVM 文件系统。所以需要进行冷迁移时，只要在目标主机上挂载这个 nfs 文件系统，就可以看到要迁移的那个虚拟机的磁盘文件，通常以.qcow2 或.raw 结尾的，然后，只需将虚拟机的.xml 配置文件发送到目标服务器上，然后重新定义一下即可通过“virsh list &amp;ndash;all”命令查看到迁移过来的虚拟机。
-&lt;strong>2、热迁移&lt;/strong>
-如果源宿主机和目的宿主机共享存储系统，则只需要通过网络发送客户机的 vCPU 执行状
-态、内存中的内容、虚机设备的状态到目的主机上。否则，还需要将客户机的磁盘存储发到目的主
-机上。共享存储系统指的是源和目的虚机的镜像文件目录是在一个共享的存储上的。&lt;/p>
+&lt;p>&lt;strong>1、冷迁移&lt;/strong>&lt;/p>
+&lt;p>通常我们存放虚拟机磁盘的目录都是挂在的一个 nfs 文件系统的磁盘，而这个磁盘通常是 LVM 文件系统。所以需要进行冷迁移时，只要在目标主机上挂载这个 nfs 文件系统，就可以看到要迁移的那个虚拟机的磁盘文件，通常以.qcow2 或.raw 结尾的，然后，只需将虚拟机的.xml 配置文件发送到目标服务器上，然后重新定义一下即可通过“virsh list &amp;ndash;all”命令查看到迁移过来的虚拟机。&lt;/p>
+&lt;p>&lt;strong>2、热迁移&lt;/strong>&lt;/p>
+&lt;p>如果源宿主机和目的宿主机共享存储系统，则只需要通过网络发送客户机的 vCPU 执行状态、内存中的内容、虚机设备的状态到目的主机上。否则，还需要将客户机的磁盘存储发到目的主机上。共享存储系统指的是源和目的虚机的镜像文件目录是在一个共享的存储上的。&lt;/p>
 &lt;h2 id="在基于-共享存储系统-时kvm-动态迁移的具体过程为">在基于 共享存储系统 时，KVM 动态迁移的具体过程为&lt;/h2>
-&lt;p>1、迁移开始时，客户机依然在宿主机上运行，与此同时，客户机的内存页被传输到目的主机上。
-2、QEMU/KVM 会监控并记录下迁移过程中所有已被传输的内页的任何修改，并在所有内存页都传输完成后即开始传输在前面过程中内存页的更改内容。
-3、QEMU/KVM 会估计迁移过程中的传输速度，当剩余的内存数据量能够在一个可以设定的时间周期（默认 30 毫秒）内传输完成时，QEMU/KVM 会关闭源宿主机上的客户机，再将剩余的数据量传输到目的主机上，最后传输过来的内存内容在目的宿主机上恢复客户机的运行状态。
-4、至此，KVM 的动态迁移操作就完成了。迁移后的客户机尽可能与迁移前一致，除非目的主机上缺少一些配置，比如网桥等。注意，当客户机中内存使用率非常大而且修改频繁时，内存中数据不断被修改的速度大于 KVM 能够传输的内存速度时，动态迁移的过程是完成不了的，这时候只能静态迁移。
-&lt;strong>3、迁移的注意事项&lt;/strong>
-无论是冷迁移还是热迁移，注意事项大都差不多&lt;/p>
+&lt;ol>
+&lt;li>迁移开始时，客户机依然在宿主机上运行，与此同时，客户机的内存页被传输到目的主机上。&lt;/li>
+&lt;li>QEMU/KVM 会监控并记录下迁移过程中所有已被传输的内页的任何修改，并在所有内存页都传输完成后即开始传输在前面过程中内存页的更改内容。&lt;/li>
+&lt;li>QEMU/KVM 会估计迁移过程中的传输速度，当剩余的内存数据量能够在一个可以设定的时间周期（默认 30 毫秒）内传输完成时，QEMU/KVM 会关闭源宿主机上的客户机，再将剩余的数据量传输到目的主机上，最后传输过来的内存内容在目的宿主机上恢复客户机的运行状态。&lt;/li>
+&lt;li>至此，KVM 的动态迁移操作就完成了。迁移后的客户机尽可能与迁移前一致，除非目的主机上缺少一些配置，比如网桥等。注意，当客户机中内存使用率非常大而且修改频繁时，内存中数据不断被修改的速度大于 KVM 能够传输的内存速度时，动态迁移的过程是完成不了的，这时候只能静态迁移。&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>3、迁移的注意事项&lt;/strong>&lt;/p>
+&lt;p>无论是冷迁移还是热迁移，注意事项大都差不多&lt;/p>
 &lt;blockquote>
 &lt;p>&lt;strong>迁移前目标服务器的要求如下：&lt;/strong>&lt;/p>
 &lt;ul>
@@ -112,33 +115,29 @@
 &lt;/blockquote>
 &lt;p>.&lt;/p>
 &lt;blockquote>
-&lt;p>&lt;strong>1、静态迁移&lt;/strong>
-拷贝镜像文件和虚拟机配置文件；
-重新定义此虚拟机。
-&lt;strong>2、动态迁移&lt;/strong>
-创建共享存储；
-两台机器挂载共享存储(手工挂载；使用资源池)；
-启动动态迁移；
-创建迁移后的虚拟机配置文件；
-重新定义虚拟机。&lt;/p>
+&lt;p>&lt;strong>1、静态迁移&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>拷贝镜像文件和虚拟机配置文件；&lt;/li>
+&lt;li>重新定义此虚拟机。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>2、动态迁移&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>创建共享存储；&lt;/li>
+&lt;li>两台机器挂载共享存储(手工挂载；使用资源池)；&lt;/li>
+&lt;li>启动动态迁移；&lt;/li>
+&lt;li>创建迁移后的虚拟机配置文件；&lt;/li>
+&lt;li>重新定义虚拟机。&lt;/li>
+&lt;/ul>
 &lt;/blockquote>
 &lt;p>&lt;strong>冷迁移呢，比较简单，可以理解为就是在一台电脑上将虚拟机的配置文件复制到另一台电脑上&lt;/strong>&lt;/p>
-&lt;pre>&lt;code>#将虚拟机磁盘文件和配置文件都复制到一台新设备上
-[root@kvm-test ~]# scp /kvm/disk/test1.raw root@192.168.171.10:/kvm/disk/
-[root@kvm-test ~]# scp /etc/libvirt/qemu/test1.xml root@192.168.171.10:/etc/libvirt/qemu/
-# 在新设备上可以将配置文件中的UUID上删除掉
-#然后直接在新设备上定义配置文件
-[root@kvm2 ~]# virsh define test1.xml
-#之后就可以启动了
-• 1.
-• 2.
-• 3.
-• 4.
-• 5.
-• 6.
-• 7.
-&lt;/code>&lt;/pre>
-&lt;h1 id="kvm-虚拟机热迁移配置实例">kvm 虚拟机热迁移配置实例&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#将虚拟机磁盘文件和配置文件都复制到一台新设备上&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@kvm-test ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># scp /kvm/disk/test1.raw root@192.168.171.10:/kvm/disk/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@kvm-test ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># scp /etc/libvirt/qemu/test1.xml root@192.168.171.10:/etc/libvirt/qemu/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 在新设备上可以将配置文件中的UUID上删除掉&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#然后直接在新设备上定义配置文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@kvm2 ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># virsh define test1.xml&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#之后就可以启动了&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="kvm-虚拟机热迁移配置实例">kvm 虚拟机热迁移配置实例&lt;/h1>
 &lt;p>&lt;strong>环境如下：&lt;/strong>&lt;/p>
 &lt;table>
 &lt;thead>
@@ -166,8 +165,8 @@
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
-&lt;p>&lt;strong>如果没有 kvm 环境可参考：&lt;a href="https://blog.51cto.com/14227204/2514055">KVM 虚拟化&lt;/a> 进行搭建&lt;/strong>
-&lt;strong>1、配置 NFS 共享存储&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>如果没有 kvm 环境可参考：&lt;a href="https://blog.51cto.com/14227204/2514055">KVM 虚拟化&lt;/a> 进行搭建&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>1、配置 NFS 共享存储&lt;/strong>&lt;/p>
 &lt;pre>&lt;code>[root@nfs ~]# yum -y install nfs-utils rpcbind # 安装nfs
 [root@nfs ~]# systemctl enable nfs # 设置为开机自启
 [root@nfs ~]# systemctl enable rpcbind
@@ -192,9 +191,9 @@ Export list for nfs:
 [root@nfs ~]# firewall-cmd --add-service=mountd --permanent
 [root@nfs ~]# systemctl restart firewalld #重启防火墙，使配置生效
 &lt;/code>&lt;/pre>
-&lt;p>我这里的迁移操作依赖于桌面图形化环境，命令热迁移暂时没研究过。
-&lt;strong>2、两台 KVM 服务器配置如下（两台 kvm 主机都需要进行下面的配置）：&lt;/strong>
-安装 rpcbind 软件包，并启动 rpcbind 服务&lt;/p>
+&lt;p>我这里的迁移操作依赖于桌面图形化环境，命令热迁移暂时没研究过。&lt;/p>
+&lt;p>&lt;strong>2、两台 KVM 服务器配置如下（两台 kvm 主机都需要进行下面的配置）：&lt;/strong>&lt;/p>
+&lt;p>安装 rpcbind 软件包，并启动 rpcbind 服务&lt;/p>
 &lt;pre>&lt;code>[root@kvm1 ~]# yum -y install nfs-utils rpcbind
 [root@kvm1 ~]# systemctl enable rpcbind
 [root@kvm1 ~]# systemctl start rpcbind
@@ -318,8 +317,8 @@ ifcfg-br0
 &lt;strong>现在去目标 kvm 服务器上，打开新迁移过去的虚拟机（会发现 ping 命令还在继续，压根就没有中断过）：&lt;/strong>
 &lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/fp1mca/1624238952705-200fb037-f0dd-4c6f-8331-cd87f3f180d2.png" alt="">&lt;/p></description></item><item><title>Docs: 多宿主机集中管理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86%E6%A1%88%E4%BE%8B/%E5%A4%9A%E5%AE%BF%E4%B8%BB%E6%9C%BA%E9%9B%86%E4%B8%AD%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86%E6%A1%88%E4%BE%8B/%E5%A4%9A%E5%AE%BF%E4%B8%BB%E6%9C%BA%E9%9B%86%E4%B8%AD%E7%AE%A1%E7%90%86/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
-&lt;p>除了 OpenStack 以外，市面上没有多少可以批量管理 KVM 主机的项目&lt;del>&lt;del>o(╯□╰)o&lt;/del>&lt;/del> 唯一能搜到的只有一个 WebVirtCloud ~~~~
-为什么要用 Python 写前端呢。。。裂开了。。。。o(╯□╰)o&lt;/p>
+&lt;p>除了 OpenStack 以外，市面上没有多少可以批量管理 KVM 主机的项目&lt;del>&lt;del>o(╯□╰)o&lt;/del>&lt;/del> 唯一能搜到的只有一个 WebVirtCloud ~~~~&lt;/p>
+&lt;p>为什么要用 Python 写前端呢。。。裂开了。。。。o(╯□╰)o&lt;/p>
 &lt;h1 id="webvirtcloud">WebVirtCloud&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
