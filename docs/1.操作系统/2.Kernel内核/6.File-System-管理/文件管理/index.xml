@@ -1,0 +1,499 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 文件管理</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/6.File-System-%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/</link><description>Recent content in 文件管理 on 断念梦</description><generator>Hugo -- gohugo.io</generator><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/6.File-System-%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 文件管理</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/6.File-System-%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/6.File-System-%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Computer_file">Wiki,Computer file&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Category:Computer_files">Wiki-Category,Computer files&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/End-of-file">Wiki,End of file&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/qJdoXTv_XS_4ts9YuzMNIw">公众号，小林 coding-一口气搞懂「文件系统」，就靠这 25 张图了&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/tXEfsLqdePjcPS6FKa-qzg">另一个公众号&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>从[文件系统](&amp;lt;/docs/1.操作系统/2.Kernel(内核)/6.File%20System%20 管理/6.File%20System%20 管理.md&amp;raquo;)文章可以看出来，File(文件) 是一个组织存储在计算机中数据的逻辑概念，以便让人们可以清楚得知道每一段数据的起始位置、结束位置，甚至可以通过为文件命名来立刻反应过来这段数据的作用。&lt;/p>
+&lt;p>所谓的查看文件，其实是指找到一段数据的开头和结尾，并查看这段数据。对于程序员来说文件是一个很简单的概念，我们只需要将其理解为一个 N byte 的序列就可以了：**b1, b2, b3, b4, &amp;hellip;&amp;hellip;. bN。**程序员使用 I/O 最终都逃不过文件。&lt;/p>
+&lt;p>所有的 I/O 设备都被抽象为了文件这个概念，&lt;strong>Everything is File(一切皆文件)&lt;/strong>，磁盘、网络数据、终端，甚至进程间通信工具管道等都被当做文件对待。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167656114-9b5d8779-6322-4740-aa6c-47ef53a1aef6.jpeg" alt="">
+所有的 I/O 操作也都是通过文件读写来实现的，&lt;strong>这一非常优雅的抽象可以让程序员使用一套接口就能实现所有 I/O 操作&lt;/strong>。
+常用的 I/O 操作接口一般有以下几类：&lt;/p>
+&lt;ul>
+&lt;li>打开文件，open&lt;/li>
+&lt;li>改变读写位置，seek&lt;/li>
+&lt;li>文件读写，read、write&lt;/li>
+&lt;li>关闭文件，close&lt;/li>
+&lt;/ul>
+&lt;p>程序员通过这几个接口几乎可以实现所有 I/O 操作，这就是文件这个概念的强大之处。
+在 Linux 中一切皆文件，目录也是文件的一种类型，就连块设备、套接字、终端、管道等等，都被当做 File(文件)来对待。
+下面是一个在 Linux 中最常见的列出文件的命令 &lt;code>[ls -l](https://www.yuque.com/desistdaydream/learning/ynhtw7#bmqgU)&lt;/code> 所能查看的文件基本信息&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls -lh&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total 20K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx. &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">7&lt;/span> May &lt;span style="color:#ae81ff">24&lt;/span> &lt;span style="color:#ae81ff">2019&lt;/span> bin -&amp;gt; usr/bin
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dr-xr-xr-x. &lt;span style="color:#ae81ff">5&lt;/span> root root 4.0K May &lt;span style="color:#ae81ff">24&lt;/span> &lt;span style="color:#ae81ff">2019&lt;/span> boot
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">20&lt;/span> root root 3.1K May &lt;span style="color:#ae81ff">14&lt;/span> 09:38 dev
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x. &lt;span style="color:#ae81ff">82&lt;/span> root root 8.0K Jun &lt;span style="color:#ae81ff">21&lt;/span> 19:42 etc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>类型与权限&lt;/th>
+&lt;th>硬连接数&lt;/th>
+&lt;th>所属主&lt;/th>
+&lt;th>所属组&lt;/th>
+&lt;th>大小&lt;/th>
+&lt;th>时间&lt;/th>
+&lt;th>文件名&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>lrwxrwxrwx.&lt;/td>
+&lt;td>1&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>7&lt;/td>
+&lt;td>May 24 2019&lt;/td>
+&lt;td>bin -&amp;gt; usr/bin&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>dr-xr-xr-x.&lt;/td>
+&lt;td>5&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>4.0K&lt;/td>
+&lt;td>May 24 2019&lt;/td>
+&lt;td>boot&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>drwxr-xr-x&lt;/td>
+&lt;td>20&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>root&lt;/td>
+&lt;td>3.1K&lt;/td>
+&lt;td>May 14 09:38&lt;/td>
+&lt;td>dev&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>&lt;code>类型与权限&lt;/code>这一列一共 11 个字符，共分为 3 个部分：&lt;/p>
+&lt;ul>
+&lt;li>第一部分 # 第 1 个字符为 &lt;a href="#%E6%96%87%E4%BB%B6%E7%9A%84%E7%B1%BB%E5%9E%8B">文件的类型&lt;/a>，具体类型含义见下文&lt;/li>
+&lt;li>第二部分 # 中间 9 个字符。用来表示文件的基本权限，详见&lt;a href="#%E6%96%87%E4%BB%B6%E7%9A%84%E6%9D%83%E9%99%90">文件的权限&lt;/a>部分。
+&lt;ul>
+&lt;li>第一组为文件拥有者的权限&lt;/li>
+&lt;li>第二组是文件所属组的权限&lt;/li>
+&lt;li>第三组是其他的权限。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>第三部分 # 最后 1 个字符。用来表示该文件是否有其他权限特殊权限管理该文件的访问。
+&lt;ul>
+&lt;li>&lt;code>+&lt;/code> # 具有 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95%20Linux%20%E4%B8%8E%20%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Access%20Control(%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6)/ACL.md">ACL&lt;/a> 的文件。&lt;/li>
+&lt;li>&lt;code>.&lt;/code> # 具有 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95%20Linux%20%E4%B8%8E%20%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/SELinux/SELinux.md">SELinux&lt;/a> 安全上下文的文件。若没有 &lt;code>.&lt;/code>，则该文件不受 SELinux 控制。&lt;/li>
+&lt;li>注意：
+&lt;ul>
+&lt;li>当添加了 ACL 权限后，只显示 &lt;code>+&lt;/code>，&lt;code>.&lt;/code> 看不到了。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>简单示例：
+&lt;ul>
+&lt;li>比如上面例子中 boot 文件第一列属性为 &lt;code>dr-xr-xr-x.&lt;/code> 表示该文件是一个目录，文件的拥有者、属组、其他，都具有 r 和 x 权限(i.e.读和执行权限)，由 SELinux 管理。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;code>时间&lt;/code> 这一列中包含如下几种：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>atime&lt;/strong> # 访问时间。读取文件或者执行文件时，该时间会变化&lt;/li>
+&lt;li>&lt;strong>ctime&lt;/strong> # 在写入文件、更改所有者、权限或链接设置时随 Inode 的内容更改而更改的时间&lt;/li>
+&lt;li>&lt;strong>mtime&lt;/strong> # 在写入文件时随文件内容的更改而更改的时间。&lt;code>默认限制这个时间&lt;/code>。&lt;/li>
+&lt;/ul>
+&lt;h2 id="文件的类型">文件的类型&lt;/h2>
+&lt;p>Linux 中的文件有下面几种类型(左侧是该类型文件的标识符)：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-&lt;/strong># 普通文件&lt;/li>
+&lt;li>&lt;strong>b&lt;/strong> # 块设备&lt;/li>
+&lt;li>&lt;strong>c&lt;/strong> # 字符设备&lt;/li>
+&lt;li>&lt;strong>d&lt;/strong> # 目录&lt;/li>
+&lt;li>&lt;strong>D&lt;/strong> # door(Solaris) 这是啥？~&lt;/li>
+&lt;li>&lt;strong>l&lt;/strong> # 符号链接&lt;/li>
+&lt;li>&lt;strong>M&lt;/strong> # off-line(migrated) 文件（Cray DMF） 这是啥？~&lt;/li>
+&lt;li>&lt;strong>n&lt;/strong> # 网络专用文件&lt;/li>
+&lt;li>&lt;strong>p&lt;/strong> # FIFO(管道)&lt;/li>
+&lt;li>&lt;strong>P&lt;/strong> # 端口&lt;/li>
+&lt;li>&lt;strong>s&lt;/strong># 套接字&lt;/li>
+&lt;li>&lt;strong>?&lt;/strong> # 其他文件类型&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>Note：占用存储空间的类型：文件、目录、符号链接(符号链接记录的是路径路径不长时存在 innode 里面)。其他四种：套接字、块设备、字符设备、管道是伪文件，不占用磁盘空间。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="文件的权限">文件的权限&lt;/h2>
+&lt;p>文件最基本的权限详见 《&lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95%20Linux%20%E4%B8%8E%20%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Access%20Control(%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6)/Access%20Control(%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6).md">Access Control(访问控制)&lt;/a>》章节，Linux 中的所有文件都可以被三个拥有者拥有，每个拥有者又可以具有 3 个权限
+除了上述基于角色的权限以外，文件还可以具有高级权限，比如 ACL、SUID、SGID、SBIT、chattr 命令添加的权限、SELinux 控制的权限，等等等。&lt;/p>
+&lt;h1 id="文件的使用">文件的使用&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Hard_link">Wiki,Hard link&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Symbolic_link">WIki,Symbolic link&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>从&lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File%20System%20%E7%AE%A1%E7%90%86/6.File%20System%20%E7%AE%A1%E7%90%86.md#%E6%96%87%E4%BB%B6%E7%BB%84%E7%BB%87%E7%BB%93%E6%9E%84">文件系统章节中的文件组织结构&lt;/a>可知，我们使用 &lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File%20System%20%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/Inode.md">Inode(索引节点)&lt;/a> 定位一个文件。而打开文件后，我们可以获取到文件的 [FileDesc(文件描述符)](/docs/1.操作系统/2.Kernel(内核)/6.File%20System%20管理/文件管理/File%20Descriptor(文件描述符).md Descriptor(文件描述符).md)，所有对文件的读写操作，都是基于文件描述符进行的。&lt;/p>
+&lt;p>&lt;strong>我们平时看到的人类可读的文件名，实际上是一个指向 Inode 的硬连接&lt;/strong>。&lt;/p>
+&lt;h2 id="symbolic-link符合链接-与-hard-link硬链接">Symbolic link(符合链接) 与 Hard link(硬链接)&lt;/h2>
+&lt;p>在计算机中 **Symbolic link(符号链接，也称为 软连接)**与 &lt;strong>Hard link(硬连接)&lt;/strong> 都是用以指向一个目标的文件或路径。&lt;/p>
+&lt;ul>
+&lt;li>Hard link 是将名称与文件相关联的 directory entry(目录项)，目录项概念详见《&lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File%20System%20%E7%AE%A1%E7%90%86/_index.md">文件系统管理&lt;/a>》章节&lt;/li>
+&lt;li>Symbolic link 是一个文件，通过指定路径指向一个目标(文件或目录)&lt;/li>
+&lt;/ul>
+&lt;p>在文件系统中，人类看到的每个文件都是一个 inode 的硬连接。为文件创建额外的硬链接使得该文件的内容可以通过额外的路径访问（即通过不同的名称或在不同的目录中）。但是并不一定需要软链接，软链接与目标文件本质上是两个完全不通的文件。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~/tmp&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls -il&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">917508&lt;/span> -rw-r--r-- &lt;span style="color:#ae81ff">2&lt;/span> root root &lt;span style="color:#ae81ff">0&lt;/span> Dec &lt;span style="color:#ae81ff">15&lt;/span> 13:15 hard
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">917509&lt;/span> lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">4&lt;/span> Dec &lt;span style="color:#ae81ff">15&lt;/span> 13:15 hardln -&amp;gt; hard
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">917508&lt;/span> -rw-r--r-- &lt;span style="color:#ae81ff">2&lt;/span> root root &lt;span style="color:#ae81ff">0&lt;/span> Dec &lt;span style="color:#ae81ff">15&lt;/span> 13:15 hardln2
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在这里 hard 是原始文件，inode 为 917508&lt;/p>
+&lt;ul>
+&lt;li>hardln 是一个软链接，inode 为 917509，hardln 指向的 hard 文件的 inode 则是 917508&lt;/li>
+&lt;li>hardln2 与 hard 本质上都是 inode 为 917508 的文件
+&lt;ul>
+&lt;li>可以这么说， hard 与 hardln2 都是一个指向 inode 为 917508 的硬连接。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>硬链接是&lt;strong>多个目录项中的 inode(索引节点)指向一个文件&lt;/strong>，也就是指向同一个 inode，但是 inode 是不可能跨越文件系统的，每个文件系统都有各自的 inode 数据结构和列表，所以&lt;strong>硬链接是不可用于跨文件系统的&lt;/strong>。由于多个目录项都是指向一个 inode，那么&lt;strong>只有删除文件的所有硬链接以及源文件时，系统才会彻底删除该文件。&lt;/strong>
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167677117-992b018e-1ff6-4d7e-88f2-5783e0d0dadc.png" alt="">
+如何查看硬链接的文件都在哪：&lt;/p>
+&lt;ul>
+&lt;li>使用 &lt;code>ls -i&lt;/code>，查看该硬链接的索引节点号。&lt;/li>
+&lt;li>使用 &lt;code>find / -inum XXXX&lt;/code>，查看具有该索引节点号的所有文件所在位置。&lt;/li>
+&lt;/ul>
+&lt;p>注：&lt;code>rm ${find ./ -inum 2310630}&lt;/code> 搜索节点 2310630 的文件，并删除。&lt;/p>
+&lt;p>软链接相当于重新创建一个文件，这个文件有&lt;strong>独立的 inode&lt;/strong>，但是这个&lt;strong>文件的内容是另外一个文件的路径&lt;/strong>，所以访问软链接的时候，实际上相当于访问到了另外一个文件，所以&lt;strong>软链接是可以跨文件系统的&lt;/strong>，甚至&lt;strong>目标文件被删除了，链接文件还是在的，只不过指向的文件找不到了而已。&lt;/strong>
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167677115-040a0c08-44ba-46b8-900a-db111dc7c93c.png" alt="">
+软链接目标文件只能是一个文件，通过该文件指向源文件或者文件夹，类似于 windows 的快捷方式，软连接会创建一个单独的 inode。&lt;/p>
+&lt;p>如何查看软连接的文件都在哪：&lt;/p>
+&lt;ul>
+&lt;li>find -type l # 查看当前目录下的所有软连接文件&lt;/li>
+&lt;li>ls -l ${find -type l} # 通过反引号先执行查找命令，然后查找到的结果用 ls -l 显示详细信息&lt;/li>
+&lt;li>find /etc -type l -exec ls -l {} ; | grep ifcfg-eth1 # 查找/etc 下的软链接文件，并且显示详细信息，然后筛选这些信息中包含 ifcfg-eth1 的条目&lt;/li>
+&lt;/ul>
+&lt;h2 id="文件的读写过程">文件的读写过程&lt;/h2>
+&lt;p>我们从用户角度来看文件的话，就是我们要怎么使用文件？首先，我们得通过系统调用来打开一个文件。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167677045-043724c9-8f38-483d-b322-1e474f0568d1.png" alt="">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>fd &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">open&lt;/span>(name, flag); &lt;span style="color:#960050;background-color:#1e0010">#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">打开文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...&lt;span style="color:#a6e22e">write&lt;/span>(fd,...); &lt;span style="color:#960050;background-color:#1e0010">#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">写数据&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...&lt;span style="color:#a6e22e">close&lt;/span>(fd); &lt;span style="color:#960050;background-color:#1e0010">#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">关闭文件&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面简单的代码是读取一个文件的过程：&lt;/p>
+&lt;ul>
+&lt;li>首先用 &lt;code>open&lt;/code> 系统调用打开文件，&lt;code>open&lt;/code> 的参数中包含文件的路径名和文件名。&lt;/li>
+&lt;li>使用 &lt;code>write&lt;/code> 写数据，其中 &lt;code>write&lt;/code> 使用 &lt;code>open&lt;/code> 所返回的&lt;strong>文件描述符&lt;/strong>，并不使用文件名作为参数。&lt;/li>
+&lt;li>使用完文件后，要用 &lt;code>close&lt;/code> 系统调用关闭文件，避免资源的泄露。&lt;/li>
+&lt;/ul>
+&lt;p>我们打开了一个文件后，操作系统会跟踪进程打开的所有文件，所谓的跟踪呢，就是操作系统为每个进程维护一个打开文件表，文件表里的每一项代表「&lt;strong>文件描述符&lt;/strong>」，所以说文件描述符是打开文件的标识。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167677065-7a31a536-72df-48b0-adcf-06883b40ed19.png" alt="">
+操作系统在打开文件表中维护着打开文件的状态和信息：&lt;/p>
+&lt;ul>
+&lt;li>文件指针：系统跟踪上次读写位置作为当前文件位置指针，这种指针对打开文件的某个进程来说是唯一的；&lt;/li>
+&lt;li>文件打开计数器：文件关闭时，操作系统必须重用其打开文件表条目，否则表内空间不够用。因为多个进程可能打开同一个文件，所以系统在删除打开文件条目之前，必须等待最后一个进程关闭文件，该计数器跟踪打开和关闭的数量，当该计数为 0 时，系统关闭文件，删除该条目；&lt;/li>
+&lt;li>文件磁盘位置：绝大多数文件操作都要求系统修改文件数据，该信息保存在内存中，以免每个操作都从磁盘中读取；&lt;/li>
+&lt;li>访问权限：每个进程打开文件都需要有一个访问模式（创建、只读、读写、添加等），该信息保存在进程的打开文件表中，以便操作系统能允许或拒绝之后的 I/O 请求；&lt;/li>
+&lt;/ul>
+&lt;p>在用户视角里，文件就是一个持久化的数据结构，但操作系统并不会关心你想存在磁盘上的任何的数据结构，操作系统的视角是如何把文件数据和磁盘块对应起来。&lt;/p>
+&lt;p>所以，用户和操作系统对文件的读写操作是有差异的，用户习惯以字节的方式读写文件，而操作系统则是以数据块来读写文件，那屏蔽掉这种差异的工作就是文件系统了。&lt;/p>
+&lt;p>我们来分别看一下，读文件和写文件的过程：&lt;/p>
+&lt;ul>
+&lt;li>当用户进程从文件读取 1 个字节大小的数据时，文件系统则需要获取字节所在的数据块，再返回数据块对应的用户进程所需的数据部分。&lt;/li>
+&lt;li>当用户进程把 1 个字节大小的数据写进文件时，文件系统则找到需要写入数据的数据块的位置，然后修改数据块中对应的部分，最后再把数据块写回磁盘。&lt;/li>
+&lt;/ul>
+&lt;p>所以说，&lt;strong>文件系统的基本操作单位是数据块&lt;/strong>。&lt;/p>
+&lt;h1 id="目录的存储">目录的存储&lt;/h1>
+&lt;p>基于 Linux 一切皆文件的设计思想，目录其实也是个文件，你甚至可以通过 &lt;code>vim&lt;/code> 打开它，它也有 inode，inode 里面也是指向一些块。&lt;/p>
+&lt;p>和普通文件不同的是，&lt;strong>普通文件的块里面保存的是文件数据，而目录文件的块里面保存的是目录里面一项一项的文件信息。&lt;/strong>&lt;/p>
+&lt;p>在目录文件的块中，最简单的保存格式就是&lt;strong>列表&lt;/strong>，就是一项一项地将目录下的文件信息（如文件名、文件 inode、文件类型等）列在表里。&lt;/p>
+&lt;p>列表中每一项就代表该目录下的文件的文件名和对应的 inode，通过这个 inode，就可以找到真正的文件。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/tudy8a/1616167677111-6682b310-2f92-4f63-b22a-9821ba99345c.png" alt="">
+目录格式哈希表通常，第一项是「&lt;code>.&lt;/code>」，表示当前目录，第二项是「&lt;code>..&lt;/code>」，表示上一级目录，接下来就是一项一项的文件名和 inode。&lt;/p>
+&lt;p>如果一个目录有超级多的文件，我们要想在这个目录下找文件，按照列表一项一项的找，效率就不高了。&lt;/p>
+&lt;p>于是，保存目录的格式改成&lt;strong>哈希表&lt;/strong>，对文件名进行哈希计算，把哈希值保存起来，如果我们要查找一个目录下面的文件名，可以通过名称取哈希。如果哈希能够匹配上，就说明这个文件的信息在相应的块里面。&lt;/p>
+&lt;p>Linux 系统的 ext 文件系统就是采用了哈希表，来保存目录的内容，这种方法的优点是查找非常迅速，插入和删除也较简单，不过需要一些预备措施来避免哈希冲突。&lt;/p>
+&lt;p>目录查询是通过在磁盘上反复搜索完成，需要不断地进行 I/O 操作，开销较大。所以，为了减少 I/O 操作，把当前使用的文件目录缓存在内存，以后要使用该文件时只要在内存中操作，从而降低了磁盘操作次数，提高了文件系统的访问速度。&lt;/p></description></item><item><title>Docs: Archive File(归档文件)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/6.File-System-%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/Archive-File%E5%BD%92%E6%A1%A3%E6%96%87%E4%BB%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/6.File-System-%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/Archive-File%E5%BD%92%E6%A1%A3%E6%96%87%E4%BB%B6/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Tar_(computing)">Wiki,Tar&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Archive_file">Wiki,Archive_file&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在计算机中，&lt;strong>Archive File(存档文件)&lt;/strong> 是由一个或多个文件及元数据组成的一个计算机文件。归档文件用于将多个数据文件放在一起收集到一个文件中，以便于移植和存储。归档文件通常存储目录结构、错误检测和纠正信息、任意注释，有时还使用内置加密。&lt;/p>
+&lt;h2 id="归档与压缩的概念">归档与压缩的概念&lt;/h2>
+&lt;p>首先要弄清两个概念：打包和压缩。打包是指将一大堆文件或目录变成一个总的文件；压缩则是将一个大的文件通过一些压缩算法变成一个小文件。&lt;/p>
+&lt;p>为什么要区分这两个概念呢？这源于 Linux 中很多压缩程序只能针对一个文件进行压缩，这样当你想要压缩一大堆文件时，你得先将这一大堆文件先打成一个包（tar 命令），然后再用压缩程序进行压缩（gzip bzip2 命令）。&lt;/p>
+&lt;h2 id="归档程序">归档程序&lt;/h2>
+&lt;p>Tar 是一种计算机应用程序，用于将许多文件汇集到一个 &lt;strong>Archive file(归档文件)&lt;/strong> 中，通常称为 &lt;strong>Tarball&lt;/strong>。该名称源于 Tape Archive(磁带存档)，取 Tape 中的 t 和 Archive 中的 ar。&lt;/p>
+&lt;p>利用 tar 命令，可以把一大堆的文件和目录全部打包成一个文件，这对于备份文件或将几个文件组合成为一个文件以便于网络传输是非常有用的。利用 tar，可以为某一特定文件创建档案（备份文件），也可以在档案中改变文件，或者向档案中加入新的文件。tar 最初被用来在磁带上创建档案，现在，用户可以在任何设备上创建档案。&lt;/p>
+&lt;h1 id="数据压缩">数据压缩&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Data_compression">Wiki,Data compression&lt;/a>(数据压缩)&lt;/li>
+&lt;/ul>
+&lt;/blockquote></description></item><item><title>Docs: File Descriptor(文件描述符)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/6.File-System-%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/File-Descriptor%E6%96%87%E4%BB%B6%E6%8F%8F%E8%BF%B0%E7%AC%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/6.File-System-%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/File-Descriptor%E6%96%87%E4%BB%B6%E6%8F%8F%E8%BF%B0%E7%AC%A6/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/File_descriptor">Wiki,FileDescriptor&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://blog.csdn.net/cywosp/article/details/38965239">CSDN，Linux 中的文件描述符与打开文件之间的关系&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>File Descriptor(文件描述符，简称 FD，&lt;strong>有的地方也称为&lt;/strong>Handle(句柄))&lt;/strong> 是一个抽象的指示符(也可以称为&lt;strong>索引&lt;/strong>)，用于应用程序便捷得访问文件或其他 I/O 资源。&lt;/p>
+&lt;p>在 Linux 系统中一切皆可以看成是文件，文件又可分为：普通文件、目录文件、链接文件、设备文件等等。&lt;strong>File Descriptor(文件描述符)&lt;/strong> 是内核为了高效管理&lt;strong>已被打开&lt;/strong>的文件所创建的&lt;strong>索引值&lt;/strong>，其是一个非负整数（通常是小整数），用于指代被打开的文件，所有执行 I/O 操作的系统调用都通过文件描述符。&lt;/p>
+&lt;p>每个进程(除了 Daemon 进程)，一般总是会打开三个文件(/dev/null 或 /dev/pts/0 或其他等等)，并占用前三个文件描述符，0 是标准输入，1 是标准输出，2 是标准错误。比如现在有这么一个程序，我们打开它:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &amp;gt; test-fd.sh &lt;span style="color:#e6db74">&amp;lt;&amp;lt;EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">#!/bin/bash
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">while true; do
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> date
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> sleep 10
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">done
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>chmod &lt;span style="color:#ae81ff">755&lt;/span> test-fd.sh
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>bash test-fd.sh
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 查看该进程的 fd 目录可以看到有如下几个文件&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ll /proc/4082/fd&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwx------ &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">64&lt;/span> Nov &lt;span style="color:#ae81ff">22&lt;/span> 18:27 &lt;span style="color:#ae81ff">0&lt;/span> -&amp;gt; /dev/pts/0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwx------ &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">64&lt;/span> Nov &lt;span style="color:#ae81ff">22&lt;/span> 18:27 &lt;span style="color:#ae81ff">1&lt;/span> -&amp;gt; /dev/pts/0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwx------ &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">64&lt;/span> Nov &lt;span style="color:#ae81ff">22&lt;/span> 18:27 &lt;span style="color:#ae81ff">2&lt;/span> -&amp;gt; /dev/pts/0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lr-x------ &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">64&lt;/span> Nov &lt;span style="color:#ae81ff">22&lt;/span> 18:27 &lt;span style="color:#ae81ff">255&lt;/span> -&amp;gt; /root/test-fd.sh
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 其实，正常情况下,第四个文件描述符的编号应该是3，但是 bash 命令比较不同，直接占用了 255 号&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>POSIX 标准要求每次打开文件时（含 socket）必须使用当前进程中最小可用的文件描述符号码，因此，在网络通信过程中稍不注意就有可能造成串话。标准文件描述符图如下：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/thtg9e/1616167666390-f897f58e-e359-475d-bb6d-32dc733bb0c5.jpeg" alt="">
+文件描述与打开的文件对应模型如下图：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/thtg9e/1616167666236-6602a2d4-45dd-45b9-a112-ec3ffe7b4708.png" alt="">
+要想读取比如磁盘数据我们需要指定一个 buff 用来装入数据，是这样用的：&lt;/p>
+&lt;pre>&lt;code>read(buff);
+&lt;/code>&lt;/pre>
+&lt;p>但是这里我们忽略了一个问题，那就是虽然我们执行了往哪里写数据，但是我们该从哪里读数据呢？从上一节中我们知道，通过文件这个概念我们能实现几乎所有 I/O 操作，&lt;strong>因此这里少的一个主角就是文件&lt;/strong>。&lt;/p>
+&lt;p>那么我们一般都这么使用文件呢？&lt;/p>
+&lt;p>如果你周末去比较火的餐厅吃饭应该会有体会，一般周末这样的餐厅都会排队，然后服务员会给你一个排队序号，通过这个序号服务员就能找到你，这里的好处就是服务员无需记住你是谁、你的名字是什么、是不是保护环境爱好小动物等等，这里的关键点就是&lt;strong>服务员对你一无所知，但是依然可以通过一个号码就能找到你&lt;/strong>。&lt;/p>
+&lt;p>同样的，在 Linux 世界使用文件，我们也需要借助一个号码，根据“弄不懂原则”，这个号码就被称为了文件描述符&lt;strong>file&lt;/strong> &lt;strong>descriptors&lt;/strong>，在 Linux 世界中鼎鼎大名，其道理和上面那个排队号码一样。&lt;/p>
+&lt;p>因此，文件描述仅仅就是一个数字而已，但是通过这个数字我们可以操作一个打开的文件，这一点要记住。&lt;/p>
+&lt;p>有了文件描述符，进程对文件一无所知，比如文件在磁盘的什么位置上、内存是如何管理文件的等等，这些信息属于操作系统，进程无需关心，操作系统只需要给进程一个文件描述符就足够了。&lt;/p>
+&lt;p>因此我们来完善上述程序：&lt;/p>
+&lt;pre>&lt;code>int fd = open(file_name);
+read(fd, buff);
+&lt;/code>&lt;/pre>
+&lt;h2 id="文件描述限制">文件描述限制&lt;/h2>
+&lt;p>在编写文件操作的或者网络通信的软件时，可能会遇到“Too many open files”的问题。这主要是因为文件描述符是系统的一个重要资源，虽然说系统内存有多少就可以打开多少的文件描述符，但是在实际实现过程中内核是会做相应的处理的，一般最大打开文件数会是系统内存的 10%（以 KB 来计算）（称之为系统级限制），查看系统级别的最大打开文件数可以使用 &lt;code>sysctl -a | grep fs.file-max&lt;/code> 命令查看。与此同时，内核为了不让某一个进程消耗掉所有的文件资源，其也会对单个进程最大打开文件数做默认值处理（称之为用户级限制），默认值一般是 1024，使用 &lt;code>ulimit -n&lt;/code> 命令可以查看。在 Web 服务器中，通过更改系统默认值文件描述符的最大值来优化服务器是最常见的方式之一，具体优化方式请查看&lt;a href="http://blog.csdn.net/kumu_linux/article/details/7877770">http://blog.csdn.net/kumu_linux/article/details/7877770&lt;/a>。&lt;/p>
+&lt;h2 id="文件描述符和打开文件之间的关系">文件描述符和打开文件之间的关系&lt;/h2>
+&lt;p>每一个文件描述符会与一个打开文件相对应，同时，不同的文件描述符也会指向同一个文件。相同的文件可以被不同的进程打开也可以在同一个进程中被多次打开。系统为每一个进程维护了一个文件描述符表，该表的值都是从 0 开始的，所以在不同的进程中你会看到相同的文件描述符，这种情况下相同文件描述符有可能指向同一个文件，也有可能指向不同的文件。具体情况要具体分析，要理解具体其概况如何，需要查看由内核维护的 3 个数据结构。&lt;/p>
+&lt;ul>
+&lt;li>进程级的文件描述符表&lt;/li>
+&lt;li>系统级的打开文件描述符表&lt;/li>
+&lt;li>文件系统的 inode 表&lt;/li>
+&lt;/ul>
+&lt;p>进程级的描述符表的每一条目记录了单个文件描述符的相关信息。&lt;/p>
+&lt;ul>
+&lt;li>控制文件描述符操作的一组标志。（目前，此类标志仅定义了一个，即 close-on-exec 标志）&lt;/li>
+&lt;li>对打开文件句柄的引用&lt;/li>
+&lt;/ul>
+&lt;p>内核对所有打开的文件的文件维护有一个系统级的描述符表格（open file description table）。有时，也称之为打开文件表（open file table），并将表格中各条目称为打开文件句柄（open file handle）。一个打开文件句柄存储了与一个打开文件相关的全部信息，如下所示：&lt;/p>
+&lt;ul>
+&lt;li>当前文件偏移量（调用 &lt;code>read()&lt;/code> 和 &lt;code>write()&lt;/code> 时更新，或使用 lseek()直接修改）&lt;/li>
+&lt;li>打开文件时所使用的状态标识（即，&lt;code>open()&lt;/code> 的 flags 参数）&lt;/li>
+&lt;li>文件访问模式（如调用 &lt;code>open()&lt;/code> 时所设置的只读模式、只写模式或读写模式）&lt;/li>
+&lt;li>与信号驱动相关的设置&lt;/li>
+&lt;li>对该文件 i-node 对象的引用&lt;/li>
+&lt;li>文件类型（例如：常规文件、套接字或 FIFO）和访问权限&lt;/li>
+&lt;li>一个指针，指向该文件所持有的锁列表&lt;/li>
+&lt;li>文件的各种属性，包括文件大小以及与不同类型操作相关的时间戳&lt;/li>
+&lt;/ul>
+&lt;p>下图展示了文件描述符、打开的文件句柄以及 inode 之间的关系，图中，两个进程拥有诸多打开的文件描述符。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/thtg9e/1616167666232-4da27112-018a-4ff6-bbec-f08930c5110e.jpeg" alt="">
+在进程 A 中，文件描述符 1 和 30 都指向了同一个打开的文件句柄（标号 23）。这可能是通过调用 dup()、dup2()、fcntl()或者对同一个文件多次调用了 open()函数而形成的。&lt;/p>
+&lt;p>进程 A 的文件描述符 2 和进程 B 的文件描述符 2 都指向了同一个打开的文件句柄（标号 73）。这种情形可能是在调用 fork()后出现的（即，进程 A、B 是父子进程关系），或者当某进程通过 UNIX 域套接字将一个打开的文件描述符传递给另一个进程时，也会发生。再者是不同的进程独自去调用 open 函数打开了同一个文件，此时进程内部的描述符正好分配到与其他进程打开该文件的描述符一样。&lt;/p>
+&lt;p>此外，进程 A 的描述符 0 和进程 B 的描述符 3 分别指向不同的打开文件句柄，但这些句柄均指向 i-node 表的相同条目（1976），换言之，指向同一个文件。发生这种情况是因为每个进程各自对同一个文件发起了 open()调用。同一个进程两次打开同一个文件，也会发生类似情况。&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;ul>
+&lt;li>由于进程级文件描述符表的存在，不同的进程中会出现相同的文件描述符，它们可能指向同一个文件，也可能指向不同的文件&lt;/li>
+&lt;li>两个不同的文件描述符，若指向同一个打开文件句柄，将共享同一文件偏移量。因此，如果通过其中一个文件描述符来修改文件偏移量（由调用 read()、write()或 lseek()所致），那么从另一个描述符中也会观察到变化，无论这两个文件描述符是否属于不同进程，还是同一个进程，情况都是如此。&lt;/li>
+&lt;li>要获取和修改打开的文件标志（例如：O_APPEND、O_NONBLOCK 和 O_ASYNC），可执行 fcntl()的 F_GETFL 和 F_SETFL 操作，其对作用域的约束与上一条颇为类似。&lt;/li>
+&lt;li>文件描述符标志（即，close-on-exec）为进程和文件描述符所私有。对这一标志的修改将不会影响同一进程或不同进程中的其他文件描述符&lt;/li>
+&lt;/ul>
+&lt;p>参考
+[1] &lt;a href="http://blog.chinaunix.net/uid-20633888-id-2747146.html">http://blog.chinaunix.net/uid-20633888-id-2747146.html&lt;/a>
+[2] &lt;a href="http://www.cppblog.com/guojingjia2006/archive/2012/11/21/195450.html">http://www.cppblog.com/guojingjia2006/archive/2012/11/21/195450.html&lt;/a>
+[3] &lt;a href="http://blog.csdn.net/kumu_linux/article/details/7877770">http://blog.csdn.net/kumu_linux/article/details/7877770&lt;/a>
+[4] 《Linux/UNIX 系统编程手册》&lt;/p>
+&lt;h1 id="file-descriptor-关联文件与配置">File Descriptor 关联文件与配置&lt;/h1>
+&lt;p>&lt;strong>/proc/PID/fd/*&lt;/strong> # 其中包含 PID 进程 打开的每个文件的一个条目，该条目由其文件描述符命名，并且是指向实际文件的符号链接。 因此，0 是标准输入，1 是标准输出，2 是标准错误，依此类推。
+&lt;strong>/proc/PID/fdinfo/*&lt;/strong> # 其中包含 PID 进程 打开的每个文件的一个条目，该条目由其文件描述符命名。 该目录中的文件仅由进程所有者读取。 可以读取每个文件的内容以获得有关相应文件描述符的信息。 内容取决于相应文件描述符所引用的文件类型。&lt;/p>
+&lt;p>不过，每个条目中，都有 3 个基本信息：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>pos&lt;/strong> # 这是一个十进制数字，显示文件偏移量。This is a decimal number showing the file offset.&lt;/li>
+&lt;li>&lt;strong>flags&lt;/strong># 这是一个八进制数字，显示文件访问模式和文件状态标志（请参阅 open（2））。如果设置了执行时关闭文件描述符标志，则标志还将包含值 O_CLOEXEC。This is an octal number that displays the file access mode and file status flags (see open(2)). If the close-on-exec file descriptor flag is set, then flags will also include the value O_CLOEXEC.&lt;/li>
+&lt;li>&lt;strong>mnt_id&lt;/strong> # 从 Linux 3.15 开始出现的此字段是包含此文件的安装点的 ID。请参见/ proc / [pid] / mountinfo 的描述。This field, present since Linux 3.15, is the ID of the mount point containing this file. See the description of /proc/[pid]/mountinfo.&lt;/li>
+&lt;/ul>
+&lt;p>根据该描述符所引用的文件类型，还有不同的信息会显示
+/dev/net/tun 设备&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>iff&lt;/strong> # PID 进程打开的 tun/tap 设备的名称&lt;/li>
+&lt;/ul></description></item><item><title>Docs: Inode</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/6.File-System-%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/Inode/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel%E5%86%85%E6%A0%B8/6.File-System-%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/Inode/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Inode">Wiki,Inode&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/78724124">知乎，本地文件系统小计（二）：inode&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Index node(索引节点，简称 inode)&lt;/strong> 是 Unix 风格的文件系统中的一种数据结构。每个索引节点保存了文件系统中的一个文件系统对象(i.e.文件、目录等)的元信息数据，但不包括数据内容或者文件名。&lt;/p>
+&lt;p>注：数据的内容存放在硬盘的一个 block(区域块) 中，通过 inode(索引节点) 来访问 block，每个索引节点都会命名一个文件名。文件的索引节点通过 &lt;code>ls -i&lt;/code> 命令查看&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls -i /&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">12&lt;/span> bin &lt;span style="color:#ae81ff">1&lt;/span> dev &lt;span style="color:#ae81ff">6029313&lt;/span> home &lt;span style="color:#ae81ff">14&lt;/span> lib32 &lt;span style="color:#ae81ff">16&lt;/span> libx32 &lt;span style="color:#ae81ff">2097153&lt;/span> media &lt;span style="color:#ae81ff">1572865&lt;/span> opt &lt;span style="color:#ae81ff">1048577&lt;/span> root &lt;span style="color:#ae81ff">17&lt;/span> sbin &lt;span style="color:#ae81ff">1966081&lt;/span> srv &lt;span style="color:#ae81ff">1&lt;/span> sys &lt;span style="color:#ae81ff">4325377&lt;/span> usr
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">2&lt;/span> boot &lt;span style="color:#ae81ff">1835009&lt;/span> etc &lt;span style="color:#ae81ff">13&lt;/span> lib &lt;span style="color:#ae81ff">15&lt;/span> lib64 &lt;span style="color:#ae81ff">11&lt;/span> lost+found &lt;span style="color:#ae81ff">4063233&lt;/span> mnt &lt;span style="color:#ae81ff">1&lt;/span> proc &lt;span style="color:#ae81ff">1&lt;/span> run &lt;span style="color:#ae81ff">4980737&lt;/span> snap &lt;span style="color:#ae81ff">18&lt;/span> swap.img &lt;span style="color:#ae81ff">3801089&lt;/span> tmp &lt;span style="color:#ae81ff">1179649&lt;/span> var
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>所以，linux 里的所有文件，都相当于一个硬链接，链接到 inode 号上，展现在屏幕上的只是该文件内容的文件名。就算几个文件名字不一样的文件只要节点号相同，那么这几个文件的内容是就是相同的。想查看文件内容，就要找到该文件名对应的 inode 然后通过 inode 找到 block，找到 block 就能看到其中的内容了。&lt;/p>
+&lt;p>实际例子：我家里的内容有什么就是 block，我家的门牌号就是 inode，我家叫什么名字，比如叫“DesistDaydream 的家“这几个字就是文件名，通过文件名找到门牌号，找到了门牌号才能开门看到我家中的内容。（能不能开门就是权限决定的了）&lt;/p>
+&lt;h2 id="inode-的计算">Inode 的计算&lt;/h2>
+&lt;p>不同文件系统，有不同的计算方式，详情可以参考各类文件系统中的章节&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File%20System%20%E7%AE%A1%E7%90%86/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/EXT%20FileSystem.md#%E5%9D%97%E3%80%81%E5%9D%97%E7%BB%84%E3%80%81Inode%20%E8%AE%A1%E7%AE%97">EXT FileSystem&lt;/a>&lt;/li>
+&lt;li>&lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel(%E5%86%85%E6%A0%B8)/6.File%20System%20%E7%AE%A1%E7%90%86/%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/XFS.md">XFS&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>总得来说，所以我们可以&lt;!-- raw HTML omitted -->通过降低 BytesPerInode 的值以提高 Inode 数量&lt;!-- raw HTML omitted -->&lt;/p>
+&lt;h2 id="索引区和数据区">索引区和数据区&lt;/h2>
+&lt;p>文件系统怎样从文件名索引到存放文件内容的 Block？&lt;/p>
+&lt;p>解答这个问题，先了解下 inode。&lt;/p>
+&lt;p>linux 文件系统在磁盘分区格式化后可以简单认为会划分&lt;strong>两个区域&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>一个是&lt;strong>索引区&lt;/strong>（inode 区），用来存放文件的 inode（inode 包含文件的各种属性，统称为元数据），索引区存放的 inode 个数是有上限的，在格式化的时候会分配好&lt;/li>
+&lt;li>另一个是&lt;strong>数据区&lt;/strong>，存放文件数据，即文件里面的真实内容。&lt;/li>
+&lt;/ul>
+&lt;p>如果文件系统太大，将所有的 inode 与 block 放在一起很难管理，因此 Ext2 文件系统在格式化的时候基本上是区分为多个 &lt;strong>block group(块组)&lt;/strong>，每个块组都有独立的 inode/block/super block 系统。&lt;/p>
+&lt;p>inode 的大小和 block 的大小可以使用命令来看，inode 的大小一般为 256 Bytes，block 的大小一般为 4096 Bytes。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>export DEVICE&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;/dev/vdb&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dumpe2fs &lt;span style="color:#e6db74">${&lt;/span>DEVICE&lt;span style="color:#e6db74">}&lt;/span> | egrep -i &lt;span style="color:#e6db74">&amp;#34;Block size|Inode size&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>inode 会有一个总量，如果 inode 数耗尽了（小文件很多），磁盘就使用不了了。inode 的总量和使用量可以用 &lt;code>df -i&lt;/code> 命令查看&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xz4nq5/1627368676221-0f8a3d6d-1159-4806-85d6-20fa8f3c9801.png" alt="image.png">&lt;/p>
+&lt;p>/dev/sdb 中可以看到 Inodes 的具体总数，使用情况和可用个数&lt;/p>
+&lt;p>inode 总数有一个简单的计算公式，如下所示。假设 bytes-per-inode 为 1024，一个 1GB 的磁盘，inode 的总数可能有 1024 * 1024 个，如果 inode 的大小为 256 字节，那么索引区的大小会达到 256M。&lt;/p>
+&lt;p>&lt;code>inode_count = 磁盘大小 / bytes-per-inode&lt;/code>&lt;/p>
+&lt;p>其中 bytes-per-inode 在格式化的时候可以指定，例如&lt;/p>
+&lt;p>&lt;code>mkfs.ext4 -i bytes-per-inode /dev/sda2&lt;/code>&lt;/p>
+&lt;p>不管是什么文件类型（包括目录），都会给它分配一个 inode，每个 inode 都有一个唯一的编号，文件系统就用 inode 号码来识别不同的文件。inode 结构体包含文件的元信息，简单来说有以下内容：文件大小、所属组、读写执行权限、时间戳、链接数（硬链接），&lt;strong>文件数据 block 的地址&lt;/strong>。&lt;/p>
+&lt;p>inode 里面存有文件数据 block 的地址，所以要想获取文件的数据，必须要得到对应 inode。但是 inode 里面并没有保存文件名，文件名和 inode 号是存在于上一级目录的内容里面，所以得获取到目录的内容。目录的内容也至少占用一个 block，可以做一个实验来证明。分配一个 100M 的磁盘，然后格式化成 ext4 文件系统，block size 设置为 4K，并挂载。&lt;/p>
+&lt;p>&lt;code>mkfs.ext4 -b 4096 /dev/sdk mount /dev/sdk /mnt/test4&lt;/code>&lt;/p>
+&lt;p>在往 /mnt/test3 目录下创建 20480 个目录前后，分别统计下 df 命令输出的结果如下&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xz4nq5/1627368676228-626187af-52ac-4225-b43a-1f0b72b5b0c1.png" alt="image.png">&lt;/p>
+&lt;p>创建 20480 个目录前后，blocks 已用的个数对比&lt;/p>
+&lt;p>可以看到已用的 blocks 个数 82444/4 = 20611 个，这里面有 20480 个是存的是 20480 个目录的内容。&lt;/p>
+&lt;h1 id="源码解析">源码解析&lt;/h1>
+&lt;h2 id="inode-中判断是文件还是目录">inode 中判断是文件还是目录&lt;/h2>
+&lt;p>在 linux 中一切皆文件，目录也是文件。虽然都是文件，但类型不同，可以通过 inode 结构体中的 &lt;code>umode*t i_mode&lt;/code> 成员来判断是目录文件，还是普通文件。&lt;/p>
+&lt;p>&lt;code>typedef unsigned short umode_t&lt;/code>&lt;/p>
+&lt;p>umode_t 是 16 位的 2 进制数，保存的就是文件类型及用户权限信息&lt;/p>
+&lt;ul>
+&lt;li>第 0-3 位&amp;mdash;文件类型位&lt;/li>
+&lt;li>第 4 位 &amp;ndash; suid 位&lt;/li>
+&lt;li>第 5 位 &amp;ndash; sgid 位&lt;/li>
+&lt;li>第 6 位 &amp;ndash; sticky 位&lt;/li>
+&lt;li>第 7-9 位 &amp;ndash; 文件所属主权限位&lt;/li>
+&lt;li>第 10-12 位 &amp;ndash; 文件所属组权限位&lt;/li>
+&lt;li>第 13-15 位 &amp;ndash; 其他用户权限位&lt;/li>
+&lt;/ul>
+&lt;p>1，文件类型位&lt;/p>
+&lt;p>用来判断文件类型&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#define S_IFMT 0170000 &lt;/span>&lt;span style="color:#75715e">/* type of file ，文件类型掩码*/&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#define S_IFREG 0100000 &lt;/span>&lt;span style="color:#75715e">/* regular 普通文件*/&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#define S_IFBLK 0060000 &lt;/span>&lt;span style="color:#75715e">/* block special 块设备文件*/&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#define S_IFDIR 0040000 &lt;/span>&lt;span style="color:#75715e">/* directory 目录文件*/&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#define S_IFCHR 0020000 &lt;/span>&lt;span style="color:#75715e">/* character special 字符设备文件*/&lt;/span>&lt;span style="color:#75715e">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>......
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>S_IFMT 是文件类型掩码，其值是 0170000，转换成二进制就是 1111 0000 0000 0000，&lt;/p>
+&lt;p>S_IFMT 就是用来取 mode 的 0&amp;ndash;3 位&lt;/p>
+&lt;p>所以判断文件还是目录的方法就出来了，如下。ceph 文件系统的用户态客户端中 struc Inode 结构体中 uint32_t mode 成员来判断是目录还是文件：is_dir()函数判断是否是目录&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#define S_ISDIR(m) (((m) &amp;amp; S_IFMT) == S_IFDIR) &lt;/span>&lt;span style="color:#75715e">// 判断是否是目录文件
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#75715e">#define S_ISREG(m) (((m) &amp;amp; S_IFMT) == S_IFREG) &lt;/span>&lt;span style="color:#75715e">// 判断是否是普通文件
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;em>2，SUID，SGID，sticky 位&lt;/em>&lt;/p>
+&lt;p>SUID 是 Set User ID, SGID 是 Set Group ID 的意思。具体怎么用，暂时不研究&lt;/p>
+&lt;p>&lt;em>3，文件权限&lt;/em>&lt;/p>
+&lt;p>文件权限分为属主权限、属主组权限和其他用户权限，即我们所知的 rwxrwxrwx（777）之类&lt;/p>
+&lt;h2 id="目录项ext4_dir_entry">目录项：ext4_dir_entry&lt;/h2>
+&lt;p>普通文件的 inode 指向的数据块存的是它自己的数据的，而目录的 inode 指向的数据块存的是位于该目录下的目录项的，即目录下的&lt;strong>子目录和文件的目录项&lt;/strong>，&lt;strong>这里注意此目录项并不是 dentry&lt;/strong>，dentry 是 vfs 层的，只存在于&lt;strong>内存&lt;/strong>中，而各个实际的文件系统都有自己的目录项，这都是存在&lt;strong>磁盘&lt;/strong>上的，比如 ext4 文件系统的目录项是&lt;strong>ext4_dir_entry&lt;/strong>，里面有 inode 号，文件名。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">struct&lt;/span> ext4_dir_entry {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 inode; &lt;span style="color:#75715e">/* Inode number */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le16 rec_len; &lt;span style="color:#75715e">/* Directory entry length */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le16 name_len; &lt;span style="color:#75715e">/* Name length */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">char&lt;/span> name[EXT4_NAME_LEN]; &lt;span style="color:#75715e">/* File name */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>};
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>根据 inode 号，再找到存于索引区的 inode 数据。&lt;/p>
+&lt;p>inode 里面不会存在文件名，文件名存在上一级目录的 block 里面，删除文件实际上只删除了上一级目录中该文件名的记录，即对应的 &lt;code>ext4*dir_entry&lt;/code> 目录项。如果文件在使用的情况下（被服务占用），删除文件，仅仅是删除了文件名，空间是没有释放掉（之前遇到过，ceph-mon 产生了很大的日志文件，将日志文件删掉后，发现空间仍然没有释放），可以通过命令&lt;/p>
+&lt;p>lsof | grep deleted&lt;/p>
+&lt;p>可以看到被占用的文件.&lt;/p>
+&lt;p>这里注意：vfs 和各个实际文件系统都有 inode，vfs 的是 struct inode，这部分数据只存在于内存中，而具体存于磁盘上的是具体文件系统的 inode，比如 ext4 文件系统中是 &lt;code>struct ext4*inode&lt;/code>，ceph 文件系统中是 &lt;code>struct ceph_inode_info&lt;/code>。&lt;/p>
+&lt;h2 id="根据文件名索引到文件内容">根据文件名索引到文件内容&lt;/h2>
+&lt;p>表面上，用户通过文件名，打开文件。实际上，系统内部这个过程分成三步：首先，系统找到这个文件名对应的 inode 号码；其次，通过 inode 号码，获取 inode 信息；最后，根据 inode 信息，找到文件数据所在的 block，读出数据。&lt;/p>
+&lt;p>现在举一个具体的例子，来说明文件是怎么读取到的，比如读取/home/bzw/test 里的内容，目录结构如下图&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xz4nq5/1627368676172-1255beef-a616-4a70-8edb-b34cf4038201.png" alt="image.png">
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xz4nq5/1627368676862-227a6bd6-c0a7-4a8e-8dae-bcdf9b042f6d.png" alt="image.png">
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xz4nq5/1627368676840-ce833059-9860-4974-a7d7-57704bac2ed6.png" alt="image.png">&lt;/p>
+&lt;p>假设文件系统的的简单分区如下&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xz4nq5/1627368677025-108015bd-75b2-4abe-98b1-bf8d6c967f91.png" alt="image.png">&lt;/p>
+&lt;ul>
+&lt;li>获取 home 对应的 inode 号：先找根目录&amp;rsquo;/&amp;lsquo;的 inode（不考虑缓存）：根目录的 inode 号可以从 super_block 中获取，ext4 文件系统的根目录 inode 号为 2（xfs 文件系统根目录 inode 号是 64，ceph 文件系统根目录 inode 号是 1），所以在索引区读取 inode 号为 2 存的 inode 内容。假如 inode 中存的 block 地址是_1000_，那么去数据区读取地址为_1000_的 block 存的内容，内容如下图所示。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xz4nq5/1627368677348-ef597c30-1973-4696-baae-ebe253a1bb64.png" alt="image.png">&lt;/p>
+&lt;p>地址为 1000 的 block 存的内容&lt;/p>
+&lt;p>地址为 1000 的 block 里面存了 20 个目录项（struct ext4*dir_entry）,可以找到***目录 home 对应的 inode 号为 100_**。&lt;/p>
+&lt;ul>
+&lt;li>获取 bzw 对应的 inode 号：上一步获取到了目录 home 的 inode 号，在索引区读取 inode 号为_100_存的 inode 内容。假如 inode 中存的 block 地址为_2000_，那么去读地址为_2000_的 block 存的内容，内容如下图所示。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xz4nq5/1627368677456-031fdb40-9076-4165-a80e-ebf6d422b349.png" alt="image.png">&lt;/p>
+&lt;p>地址为 2000 的 block 存的内容&lt;/p>
+&lt;p>地址为 2000 的 block 里面存了 3 个目录项（struct ext4*dir_entry）,可以找到***目录 bzw 对应的 inode 号为 200_**。&lt;/p>
+&lt;ul>
+&lt;li>获取 test 对应的 inode 号：上一步获取到了目录 bzw 的 inode 号，在索引区读取 inode 号为_200_存的 inode 内容。假如 inode 中存的 block 地址为_3000_，那么去读地址为_3000_的 block 存的内容，内容如下图所示。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/xz4nq5/1627368677627-211f81db-d5cb-4eb7-95bc-b682d43bbc54.png" alt="image.png">&lt;/p>
+&lt;p>地址为 3000 的 block 存的内容&lt;/p>
+&lt;p>地址为 3000 的 block 里面存了 2 个目录项（struct ext4*dir_entry）,可以找到***文件 test 对应的 inode 号为 300_**。&lt;/p>
+&lt;ul>
+&lt;li>获取 test 对应的内容：上一步获取到了文件 test 的 inode 号，在索引区读取 inode 号为_300_存的 inode 内容。假如 inode 中存的 block 地址为_4000_，那么去读地址为_4000_的 block 存的内容。这个时候就完成了操作。&lt;/li>
+&lt;/ul>
+&lt;p>这里注意如果 test 内容很大，那么在 inode 里面存的 block 地址就不止一个了。&lt;/p>
+&lt;p>可以以 ext4 中的 struct ext4_inode 为例&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">struct&lt;/span> ext4_inode {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le16 i_mode; &lt;span style="color:#75715e">/* File mode */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le16 i_uid; &lt;span style="color:#75715e">/* Low 16 bits of Owner Uid */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_size_lo; &lt;span style="color:#75715e">/* Size in bytes */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_atime; &lt;span style="color:#75715e">/* Access time */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_ctime; &lt;span style="color:#75715e">/* Inode Change time */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_mtime; &lt;span style="color:#75715e">/* Modification time */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_dtime; &lt;span style="color:#75715e">/* Deletion Time */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le16 i_gid; &lt;span style="color:#75715e">/* Low 16 bits of Group Id */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le16 i_links_count; &lt;span style="color:#75715e">/* Links count */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_blocks_lo; &lt;span style="color:#75715e">/* Blocks count */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_flags; &lt;span style="color:#75715e">/* File flags */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_block[EXT4_N_BLOCKS];&lt;span style="color:#75715e">/* Pointers to blocks */&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">这里面存的就是&lt;/span>block&lt;span style="color:#960050;background-color:#1e0010">的地址&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_generation; &lt;span style="color:#75715e">/* File version (for NFS) */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_file_acl_lo; &lt;span style="color:#75715e">/* File ACL */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_size_high;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_obso_faddr; &lt;span style="color:#75715e">/* Obsoleted fragment address */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le16 i_extra_isize;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le16 i_checksum_hi; &lt;span style="color:#75715e">/* crc32c(uuid+inum+inode) BE */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_ctime_extra; &lt;span style="color:#75715e">/* extra Change time (nsec &amp;lt;&amp;lt; 2 | epoch) */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_mtime_extra; &lt;span style="color:#75715e">/* extra Modification time(nsec &amp;lt;&amp;lt; 2 | epoch) */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_atime_extra; &lt;span style="color:#75715e">/* extra Access time (nsec &amp;lt;&amp;lt; 2 | epoch) */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_crtime; &lt;span style="color:#75715e">/* File Creation time */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_crtime_extra; &lt;span style="color:#75715e">/* extra FileCreationtime (nsec &amp;lt;&amp;lt; 2 | epoch) */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_version_hi; &lt;span style="color:#75715e">/* high 32 bits for 64-bit version */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> __le32 i_projid; &lt;span style="color:#75715e">/* Project ID */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>};
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="inode_hashtable">inode_hashtable&lt;/h2>
+&lt;p>文件系统中的位于内存中的所有 inode 存放在一个名为 inode_hashtable 的全局哈希表中（如果 inode 还在磁盘，尚未读入内存中，则不会加入到全局哈希表中）。另一方面，所有的 inode 还存放在超级块中的 s_inode 链表中。&lt;/p>
+&lt;p>&lt;code>static struct hlist_head *inode_hashtable __read_mostly;&lt;/code>&lt;/p>
+&lt;p>在上面进行文件索引时，并没有讲根目录 inode 号为 2 是怎么获取的，这将下一章中讲解。&lt;/p></description></item></channel></rss>
