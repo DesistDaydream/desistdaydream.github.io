@@ -1,0 +1,538 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 多用途模块的指令</title><link>https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/</link><description>Recent content in 多用途模块的指令 on 断念梦</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: geo/geoip 模块指令</title><link>https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/geo_geoip-%E6%A8%A1%E5%9D%97%E6%8C%87%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/geo_geoip-%E6%A8%A1%E5%9D%97%E6%8C%87%E4%BB%A4/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="http://nginx.org/en/docs/http/ngx_http_geo_module.html">http 模块下的 geo 模块&lt;/a>、&lt;a href="http://nginx.org/en/docs/http/ngx_http_geoip_module.html">geoip 模块&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://nginx.org/en/docs/stream/ngx_stream_geo_module.html">stream 模块下的 geo 模块&lt;/a>、&lt;a href="http://nginx.org/en/docs/stream/ngx_stream_geoip_module.html">geoip 模块&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>geo 与 geoip 模块会根据 客户端的 IP 地址 来创建新的变量。这些变量用来表示 IP 地址所属国际、所属城市、所在经/纬度 等等。&lt;/p>
+&lt;p>不同之处在于：&lt;/p>
+&lt;ul>
+&lt;li>geo 手动设置变量及其值&lt;/li>
+&lt;li>geoip 根据 &lt;a href="http://www.maxmind.com/">MaxMind&lt;/a> 数据库中的信息，创建一系列的变量&lt;/li>
+&lt;/ul>
+&lt;p>通过 geo/geoip 模块，我们可以根据客户端的 IP 地址，获取这些 IP 的一些信息，比如 IP 所属城市、所属国家，所在经/纬度 等等。我们常常可以根据这些分类的信息，&lt;strong>进行 IP 过滤、或日志记录&lt;/strong>。说白了，geo/geoip 模块就是为每个 IP 地址添加一系列的 &lt;strong>Label(标签)&lt;/strong>，以便后续可以根据这些 标签 进行 记录 和 筛选。&lt;/p>
+&lt;blockquote>
+&lt;p>v2ray 中的测试，有很多 geosite 相关的设置，就是这个道理，每个 IP 地址都可以具有很多标签、甚至连这个 IP 所属的公司都会记录，以便可以根据这些进行来决定一个请求是 直连 还是 代理。&lt;/p>
+&lt;/blockquote>
+&lt;h1 id="http-模块下的-geo-模块指令">http 模块下的 geo 模块指令&lt;/h1>
+&lt;p>&lt;a href="http://nginx.org/en/docs/http/ngx_http_geo_module.html#geo">geo [ADDRESS] $VARIABLE {}&lt;/a> # 根据 ADDRESS 定义新的变量
+ADDRESS 用来指定要设置变量的 IP 地址。默认来自于 &lt;code>$remote_addr&lt;/code> 变量，也可以自定义为另一个变量。&lt;/p>
+&lt;p>假如现在有这么一个配置：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">geo&lt;/span> $country {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">default&lt;/span> &lt;span style="color:#e6db74">ZZ&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">include&lt;/span> &lt;span style="color:#e6db74">conf/geo.conf&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">delete&lt;/span> &lt;span style="color:#ae81ff">127&lt;/span>&lt;span style="color:#e6db74">.0.0.0/16&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">proxy&lt;/span> &lt;span style="color:#ae81ff">192&lt;/span>&lt;span style="color:#e6db74">.168.100.0/24&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">proxy&lt;/span> 2001:&lt;span style="color:#ae81ff">0&lt;/span>&lt;span style="color:#e6db74">db8::/32&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">127.0.0.0/24&lt;/span> &lt;span style="color:#e6db74">US&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">127.0.0.1/32&lt;/span> &lt;span style="color:#e6db74">RU&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">10.1.0.0/16&lt;/span> &lt;span style="color:#e6db74">RU&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">192.168.1.0/24&lt;/span> &lt;span style="color:#e6db74">UK&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>表示 Nginx 将会默认根据 $remote_addr 变量的值设置一个 &lt;code>$country&lt;/code> 变量，也就是根据当前请求的 客户端 IP 地址 来这设置一个 $country 变量。&lt;/p>
+&lt;ul>
+&lt;li>default # 默认情况下，所有 IP 地址的 &lt;code>$country&lt;/code> 变量的值为 ZZ&lt;/li>
+&lt;li>include # 将指令写在其他文件中，并通过 include 包含进来&lt;/li>
+&lt;li>delete # 删除 127.0.0.0/16 这段 IP 地址的 &lt;code>$country&lt;/code> 变量&lt;/li>
+&lt;li>127.0.0.0/24   US; # 这些 IP 中的 127.0.0.0/24 这一段的的值为 US；127.0.0.1/32 这个
+&lt;ul>
+&lt;li>后面的以此类推&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="http-模块下的-geoip-模块指令">http 模块下的 geoip 模块指令&lt;/h1>
+&lt;p>geoip 模块并不需要手动设定想要创建的变量，由于 geoip 模块是基于 MaxMind 数据库，所以会根据 geoip 中的指令来创建对应的变量。&lt;/p>
+&lt;p>geoip 模块会从 Nginx 获取客户端的 IP 地址(一般都是 $remote_addr 变量中的值)，然后根据 IP 地址从 MaxMind 数据库查找对应的 IP，并将与该 IP 关联的信息写入到新的变量中。&lt;/p>
+&lt;p>&lt;a href="http://nginx.org/en/docs/http/ngx_http_geoip_module.html#geoip_country">geoip_country FILE; &lt;/a> # 围绕国家创建相关变量&lt;/p>
+&lt;p>该指令一般情况下，将会根据 MaxMind 中的 GeoIP.dat 文件，为每个 IP 地址创建如下变量：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>$geoip_country_code&lt;/strong> # 两个字母的国家代码，比如 CN、US&lt;/li>
+&lt;li>&lt;strong>$geoip_country_code3&lt;/strong> # 三个字母的国家代码，比如 CHN、USA&lt;/li>
+&lt;li>&lt;strong>$geoip_country_name&lt;/strong> # 国家名称，比如 China、United States&lt;/li>
+&lt;/ul>
+&lt;p>&lt;a href="http://nginx.org/en/docs/http/ngx_http_geoip_module.html#geoip_city">&lt;strong>geoip_city FILE;&lt;/strong>&lt;/a> # 围绕城市创建相关变量。最常用指令&lt;/p>
+&lt;p>该指令一般情况下，将会根据 MaxMind 中的 GeoLiteCity.dat 文件，为每个 IP 地址创建如下变量：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>$geoip_area_code&lt;/strong> # 电话区号(仅限 US 有用).
+&lt;ul>
+&lt;li>此变量可能包含过时的信息，因为不推荐使用相应的数据库字段。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>$geoip_city_continent_code&lt;/strong> # 两个字母的大洲代码，比如 EU、NA&lt;/li>
+&lt;li>&lt;strong>$geoip_city_country_code&lt;/strong> # 两个字母的国家代码，比如 CN、US&lt;/li>
+&lt;li>&lt;strong>$geoip_city_country_code3&lt;/strong> # 三个字母的国家代码，比如 CHN、USA&lt;/li>
+&lt;li>&lt;strong>$geoip_city_country_name&lt;/strong> # 国家名称，比如 China、United States&lt;/li>
+&lt;li>&lt;strong>$geoip_dma_code&lt;/strong> # 根据 Google AdWords API 中的地理定位，美国的 DMA 区域代码 (也称为 metro code)。&lt;/li>
+&lt;li>&lt;strong>$geoip_latitude&lt;/strong> # latitude(纬度)&lt;/li>
+&lt;li>&lt;strong>$geoip_longitude&lt;/strong> # longitude(经度)&lt;/li>
+&lt;li>&lt;strong>$geoip_region&lt;/strong> # 两个字母的地区代码，比如 JX
+&lt;ul>
+&lt;li>region 就是省的概念，直辖市的 省 与 市 同名&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>$geoip_region_name&lt;/strong> # 两个字母的地区名称，比如 Jiangxi&lt;/li>
+&lt;li>&lt;strong>$geoip_city&lt;/strong> # 城市名称，比如，Beijing、Tianjin&lt;/li>
+&lt;li>&lt;strong>$geoip_postal_code&lt;/strong> # 邮政编码&lt;/li>
+&lt;/ul>
+&lt;p>这些变量是最常用的，用来描述 IP 地址关于城市相关的信息，比如客户端的 IP 地址为 111.33.112.94，那么这个 IP 就属于天津市，并且还会有关于该城市的相关信息。比如城市所属国家、所属大洲、所在经纬度、邮编、城市代码 等等信息。&lt;/p>
+&lt;p>&lt;a href="http://nginx.org/en/docs/http/ngx_http_geoip_module.html#geoip_org">&lt;strong>geoip_org FILE;&lt;/strong>&lt;/a> #
+该指令一般情况下，将会根据 MaxMind 中的 GeoLiteCity.dat 文件创建如下变量：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>$geoip_org&lt;/strong># 组织名称，比如 The University of Melbourne&lt;/li>
+&lt;/ul></description></item><item><title>Docs: geoip2 模块</title><link>https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/geoip2-%E6%A8%A1%E5%9D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/geoip2-%E6%A8%A1%E5%9D%97/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/leev/ngx_http_geoip2_module">GitHub 项目，leev/ngx_http_geoip2_module&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>由于隐私的原因，&lt;a href="https://blog.maxmind.com/2019/12/18/significant-changes-to-accessing-and-using-geolite2-databases/">MaxMind 在 2019 年 12 月份对数据库进行重大变更&lt;/a>，所以，老式的 geo/geoip 模块不再适用于新的 MaxMind 数据库，所以，geoip2 模块诞生了。&lt;/p>
+&lt;p>从&lt;a href="https://www.maxmind.com/en/accounts/545756/geoip/downloads">这个页面可&lt;/a>以下载 GeoIP2 和 旧版的 GeoIP 数据库&lt;/p>
+&lt;p>geoip2 模块与 geo/geoip 模块的功能类似。geoip2 模块根据 客户端的 IP 信息，使用 MaxMind 的 geoip2 数据库中的值创建变量。只不过指令用法稍有不同。&lt;/p>
+&lt;h2 id="用法示例">用法示例&lt;/h2>
+&lt;h3 id="首先通过-mmdblookuphttpsmaxmindgithubiolibmaxminddbmmdblookuphtml-工具查看数据库中的内容">首先通过 &lt;a href="https://maxmind.github.io/libmaxminddb/mmdblookup.html">mmdblookup&lt;/a> 工具查看数据库中的内容&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">root@lichenhao:~/test_dir/downloads#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">mmdblookup&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">--file&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">./GeoLite&lt;/span>&lt;span style="color:#ae81ff">2&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">-City.mmdb&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">--ip&lt;/span> &lt;span style="color:#ae81ff">59.46&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.&lt;/span>&lt;span style="color:#ae81ff">138.226&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;city&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;geoname_id&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">1814087&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;uint&lt;/span>&lt;span style="color:#ae81ff">32&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;names&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;en&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Dalian&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ja&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;大連市&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ru&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Далянь&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;zh-CN&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;大连&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;continent&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;code&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;AS&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;geoname_id&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">6255147&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;uint&lt;/span>&lt;span style="color:#ae81ff">32&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;names&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;de&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Asien&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;en&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Asia&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;es&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Asia&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fr&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Asie&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ja&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;アジア&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;pt-BR&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Ásia&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ru&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Азия&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;zh-CN&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;亚洲&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;country&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;geoname_id&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">1814991&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;uint&lt;/span>&lt;span style="color:#ae81ff">32&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;iso_code&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;CN&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;names&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;de&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;China&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;en&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;China&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;es&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;China&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fr&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Chine&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ja&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;中国&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;pt-BR&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;China&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ru&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Китай&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;zh-CN&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;中国&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;location&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;accuracy_radius&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">1000&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;uint&lt;/span>&lt;span style="color:#ae81ff">16&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;latitude&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">38.912200&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;double&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;longitude&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">121.602200&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;double&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;time_zone&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Asia/Shanghai&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;registered_country&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;geoname_id&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">1814991&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;uint&lt;/span>&lt;span style="color:#ae81ff">32&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;iso_code&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;CN&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;names&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;de&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;China&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;en&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;China&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;es&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;China&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fr&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Chine&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ja&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;中国&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;pt-BR&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;China&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ru&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Китай&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;zh-CN&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;中国&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;subdivisions&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;geoname_id&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">2036115&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;uint&lt;/span>&lt;span style="color:#ae81ff">32&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;iso_code&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;LN&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;names&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;en&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Liaoning&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fr&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;Province de Liaoning&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;zh-CN&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;辽宁&amp;#34;&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">&amp;lt;utf&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">_string&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="根据数据库内容定义变量">根据数据库内容，定义变量&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">http&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 指定数据库路径
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#e6db74">geoip2&lt;/span> &lt;span style="color:#e6db74">/etc/maxmind-country.mmdb&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">auto_reload&lt;/span> &lt;span style="color:#ae81ff">5m&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 根据数据库内容生成变量
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">$geoip2_metadata_country_build&lt;/span> &lt;span style="color:#e6db74">metadata&lt;/span> &lt;span style="color:#e6db74">build_epoch&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_data_country_code&lt;/span> &lt;span style="color:#e6db74">default=US&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$variable_with_ip &lt;span style="color:#e6db74">country&lt;/span> &lt;span style="color:#e6db74">iso_code&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_data_country_name&lt;/span> &lt;span style="color:#e6db74">country&lt;/span> &lt;span style="color:#e6db74">names&lt;/span> &lt;span style="color:#e6db74">en&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 指定数据库路径
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">geoip2&lt;/span> &lt;span style="color:#e6db74">/etc/maxmind-city.mmdb&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 根据数据库内容生成变量
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">$geoip2_data_city_name&lt;/span> &lt;span style="color:#e6db74">default=London&lt;/span> &lt;span style="color:#e6db74">city&lt;/span> &lt;span style="color:#e6db74">names&lt;/span> &lt;span style="color:#e6db74">en&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">....&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">fastcgi_param&lt;/span> &lt;span style="color:#e6db74">COUNTRY_CODE&lt;/span> $geoip2_data_country_code;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">fastcgi_param&lt;/span> &lt;span style="color:#e6db74">COUNTRY_NAME&lt;/span> $geoip2_data_country_name;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">fastcgi_param&lt;/span> &lt;span style="color:#e6db74">CITY_NAME&lt;/span> $geoip2_data_city_name;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">....&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">stream&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 指定数据库路径
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#e6db74">geoip2&lt;/span> &lt;span style="color:#e6db74">/etc/maxmind-country.mmdb&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 根据数据库内容生成变量
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">$geoip2_data_country_code&lt;/span> &lt;span style="color:#e6db74">default=US&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$remote_addr &lt;span style="color:#e6db74">country&lt;/span> &lt;span style="color:#e6db74">iso_code&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="部署并启用模块">部署并启用模块&lt;/h1>
+&lt;p>首先按照其&lt;a href="https://github.com/maxmind/libmaxminddb/blob/master/README.md#installing-from-a-tarball">README.md 文件&lt;/a>中的&lt;a href="https://github.com/maxmind/libmaxminddb/blob/master/README.md#installing-from-a-tarball">说明&lt;/a>安装&lt;a href="https://github.com/maxmind/libmaxminddb">libmaxminddb&lt;/a>。&lt;/p>
+&lt;p>&lt;strong>下载 nginx 源&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>wget http://nginx.org/download/nginx-VERSION.tar.gz
+tar zxvf nginx-VERSION.tar.gz
+cd nginx-VERSION
+&lt;/code>&lt;/pre>
+&lt;p>&lt;strong>要构建为动态模块（nginx 1.9.11+）：&lt;/strong>&lt;/p>
+&lt;pre>&lt;code>./configure --add-dynamic-module=/path/to/ngx_http_geoip2_module
+make
+make install
+&lt;/code>&lt;/pre>
+&lt;p>这将产生 &lt;code>objs/ngx_http_geoip2_module.so&lt;/code>。可以将其手动复制到 nginx 的模块存储路径(比如 /etc/nginx/modules 路径下)。
+将以下行添加到您的 nginx.conf 中的 main 配置环境中：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">load_module&lt;/span> &lt;span style="color:#e6db74">modules/ngx_http_geoip2_module.so&lt;/span>;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>然后，就可以在配置文件中使用 geoip2 指令配置 geoip2 模块了&lt;/p>
+&lt;h1 id="http-模块下的-geoip2-模块指令">http 模块下的 geoip2 模块指令&lt;/h1>
+&lt;h2 id="geoip2-file---根据指定的数据库文件定义变量">geoip2 FILE {} # 根据指定的数据库文件定义变量&lt;/h2>
+&lt;p>该指令类似于 geo 模块的 geo 指令，可以自己定义变量名称&lt;/p>
+&lt;h3 id="variablename-defaultstring-sourceip-path">$VariableName [default=STRING] [source=IP] PATH&lt;/h3>
+&lt;p>定义名为 &lt;code>$VariableName&lt;/code> 的变量&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>PATH&lt;/strong> # MaxMind 数据库中的数据路径，将该路径下的值，赋值给变量 &lt;code>$VariableName&lt;/code>
+&lt;ul>
+&lt;li>注意：MaxMind 的 GeoIP2 数据库是 JSON 结构，所以 PATH 就是由以空格分割的字段名称组成。可以通过 &lt;a href="https://maxmind.github.io/libmaxminddb/mmdblookup.html">mmdblookup 工具&lt;/a>查找所需数据的路径&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>default=&amp;lt;STRING&amp;gt;&lt;/strong> # 若变量无法获取到值时，应该具有的默认值。&lt;/li>
+&lt;li>&lt;strong>source=&amp;lt;IP&amp;gt;&lt;/strong> # 指定要从数据库获取信息的 IP 地址。默认值来自 &lt;code>$remote_addr&lt;/code> 变量的值&lt;/li>
+&lt;/ul>
+&lt;h4 id="example">EXAMPLE&lt;/h4>
+&lt;ul>
+&lt;li>创建 &lt;code>$geoip2_data_country_code&lt;/code> 变量，根据 &lt;code>$remote_addr&lt;/code> 变量中的 IP 地址，查找数据库，将 IP 对应的 &lt;code>.country.iso_code&lt;/code> 字段的值赋值给 &lt;code>$``geoip2_data_country_code&lt;/code> 变量，若 &lt;code>.country.iso_code&lt;/code> 字段为空，则变量的值为 US。
+&lt;ul>
+&lt;li>&lt;strong>&lt;code>$geoip2\_data\_country\_code default=US source=$remote_addr country iso_code;&lt;/code>&lt;/strong>&lt;/li>
+&lt;li>其实就是获取两个字母的国家代码&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>创建 &lt;code>$geoip2_city_country_name&lt;/code> 变量，根据 &lt;code>$remote_addr&lt;/code> 变量中的 IP 地址，查找数据库，将 IP 对应的 &lt;code>.country.name.zh-CN&lt;/code> 字段的值赋值给 &lt;code>$geoip2_city_country_name&lt;/code> 变量
+&lt;ul>
+&lt;li>&lt;strong>&lt;code>$geoip2\_city\_country\_name source=$remote_addr country names zh-CN;&lt;/code>&lt;/strong>&lt;/li>
+&lt;li>其实就是中文显示的国家名称&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="配置示例">配置示例&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">http&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">geoip2&lt;/span> &lt;span style="color:#e6db74">/etc/nginx/geoip/GeoLite2-City.mmdb&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_city_country_code&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$remote_addr &lt;span style="color:#e6db74">country&lt;/span> &lt;span style="color:#e6db74">iso_code&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_city_country_name&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$remote_addr &lt;span style="color:#e6db74">country&lt;/span> &lt;span style="color:#e6db74">names&lt;/span> &lt;span style="color:#e6db74">zh-CN&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_city&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$remote_addr &lt;span style="color:#e6db74">city&lt;/span> &lt;span style="color:#e6db74">names&lt;/span> &lt;span style="color:#e6db74">zh-CN&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_postal_code&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$remote_addr &lt;span style="color:#e6db74">postal&lt;/span> &lt;span style="color:#e6db74">code&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_dma_code&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$remote_addr &lt;span style="color:#e6db74">location&lt;/span> &lt;span style="color:#e6db74">metro_code&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_latitude&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$remote_addr &lt;span style="color:#e6db74">location&lt;/span> &lt;span style="color:#e6db74">latitude&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_longitude&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$remote_addr &lt;span style="color:#e6db74">location&lt;/span> &lt;span style="color:#e6db74">longitude&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_time_zone&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$remote_addr &lt;span style="color:#e6db74">location&lt;/span> &lt;span style="color:#e6db74">time_zone&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_region_code&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$remote_addr &lt;span style="color:#e6db74">subdivisions&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#e6db74">iso_code&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">$geoip2_region_name&lt;/span> &lt;span style="color:#e6db74">source=&lt;/span>$remote_addr &lt;span style="color:#e6db74">subdivisions&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#e6db74">names&lt;/span> &lt;span style="color:#e6db74">zh-CN&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上述示例中，定义了如下几个变量，并获取了数据库中指定字段的值：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>&lt;strong>变量&lt;/strong>&lt;/th>
+&lt;th>&lt;strong>数据库中的字段&lt;/strong>&lt;/th>
+&lt;th>&lt;strong>含义&lt;/strong>&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;strong>$geoip2_city_country_code&lt;/strong>&lt;/td>
+&lt;td>.country.iso_code&lt;/td>
+&lt;td>国家代码&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>$geoip2_city_country_name&lt;/strong>&lt;/td>
+&lt;td>.country.names.zh-CN&lt;/td>
+&lt;td>国家名称&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>$geoip2_city&lt;/strong>&lt;/td>
+&lt;td>.city.name.zh-CN&lt;/td>
+&lt;td>城市名称&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>$geoip2_postal_code&lt;/strong>&lt;/td>
+&lt;td>.postal.code&lt;/td>
+&lt;td>邮编&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>$geoip2_dma_code&lt;/strong>&lt;/td>
+&lt;td>.location.metro_code&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>$geoip2_latitude&lt;/strong>&lt;/td>
+&lt;td>.location.latitude&lt;/td>
+&lt;td>纬度&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>$geoip2_longitude&lt;/strong>&lt;/td>
+&lt;td>.location.longitude&lt;/td>
+&lt;td>经度&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>$geoip2_time_zone&lt;/strong>&lt;/td>
+&lt;td>.location..time_zone&lt;/td>
+&lt;td>时区&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>$geoip2_region_code&lt;/strong>&lt;/td>
+&lt;td>.subdivisions[0].iso_code&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;strong>$geoip2_region_name&lt;/strong>&lt;/td>
+&lt;td>.subdivisions[0].names.zh-CN&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table></description></item><item><title>Docs: log_format 模块指令</title><link>https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/log_format-%E6%A8%A1%E5%9D%97%E6%8C%87%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/log_format-%E6%A8%A1%E5%9D%97%E6%8C%87%E4%BB%A4/</guid><description>
+&lt;h1 id="日志格式示例">日志格式示例&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;args&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$args&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;body_bytes_sent&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$body_bytes_sent&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;bytes_sent&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$bytes_sent&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;connection_requests&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$connection_requests&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;geoip2_city&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$geoip2_city&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;geoip2_city_country_name&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$geoip2_city_country_name&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;geoip2_latitude&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$geoip2_latitude&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;geoip2_longitude&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$geoip2_longitude&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;geoip2_region_name&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$geoip2_region_name&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;http_host&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$http_host&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;http_user_agent&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$http_user_agent&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;http_x_forwarded_for&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$http_x_forwarded_for&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;remote_addr&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$remote_addr&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;remote_port&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$remote_port&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;request&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$request&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;request_uri&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$request_uri&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;request_time&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$request_time&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;request_method&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$request_method&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;scheme&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$scheme&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;server_name&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$server_name&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;server_protocol&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$server_protocol&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ssl_protocol&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$ssl_protocol&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;ssl_cipher&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$ssl_cipher&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;status&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$status&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;time_iso8601&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$time_iso8601&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;upstream&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$upstream_addr&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;upstream_connect_time&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$upstream_connect_time&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;upstream_response_time&amp;#34;:&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$upstream_response_time&amp;#34;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">log_format&lt;/span> &lt;span style="color:#e6db74">promtail_json&lt;/span> &lt;span style="color:#e6db74">&amp;#39;&lt;/span>{&lt;span style="color:#f92672">&amp;#34;@timestamp&amp;#34;:&amp;#34;$time_iso8601&amp;#34;,&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;@version&amp;#34;:&amp;#34;Promtail&lt;/span> &lt;span style="color:#e6db74">json&amp;#34;,&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;server_addr&amp;#34;:&amp;#34;&lt;/span>$server_addr&amp;#34;,&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;remote_addr&amp;#34;:&amp;#34;&lt;/span>$remote_addr&amp;#34;,&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;host&amp;#34;:&amp;#34;&lt;/span>$host&amp;#34;,&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;uri&amp;#34;:&amp;#34;&lt;/span>$uri&amp;#34;,&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;body_bytes_sent&amp;#34;:&lt;/span>$body_bytes_sent,&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;bytes_sent&amp;#34;:&lt;/span>$body_bytes_sent,&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;request&amp;#34;:&amp;#34;&lt;/span>$request&amp;#34;,&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;request_length&amp;#34;:&lt;/span>$request_length,&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;request_time&amp;#34;:&lt;/span>$request_time,&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;status&amp;#34;:&amp;#34;&lt;/span>$status&amp;#34;,&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;http_referer&amp;#34;:&amp;#34;&lt;/span>$http_referer&amp;#34;,&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&amp;#34;http_user_agent&amp;#34;:&amp;#34;&lt;/span>$http_user_agent&amp;#34;&amp;#39;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#39;&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">}&lt;/span>&lt;span style="color:#e6db74">&amp;#39;&lt;/span>;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: ssl 模块</title><link>https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/ssl-%E6%A8%A1%E5%9D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/ssl-%E6%A8%A1%E5%9D%97/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="http://nginx.org/en/docs/http/ngx_http_ssl_module.html">http 模块下的 ssl 模块&lt;/a>&lt;/li>
+&lt;li>mail 模块下的 ssl 模块&lt;/li>
+&lt;li>&lt;a href="http://nginx.org/en/docs/stream/ngx_stream_ssl_module.html">stream 模块下的 ssl 模块&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>ssl 模块可以作用在 http、mail、stream 模块下，称为 &lt;strong>ngx_http_ssl_module&lt;/strong>、&lt;strong>ngx_mail_ssl_module&lt;/strong>、&lt;strong>ngx_stream_ssl_module&lt;/strong>。&lt;/p>
+&lt;p>ssl 模块提供了 SSL/TLS 的必要支持，可以通过 Nginx 来为后端提供 HTTP 的服务配置 SSL、也可以为普通的 4 层服务配置 SSL。&lt;/p>
+&lt;h1 id="ngx_http_ssl_module">ngx_http_ssl_module&lt;/h1>
+&lt;p>该模块需要 &lt;a href="https://www.openssl.org/">OpenSSL&lt;/a> 库的支持才可以正常使用。&lt;/p>
+&lt;p>ssl 模块启用后，Nginx 将可以处理 TLS/SSL 请求。当客户端发起 TLS/SSL 请求时，Nginx 中启用了 ssl 模块的 Virtual Server 作为服务端将会用配置好的证书与客户端进行认证。然后 Nginx 再作为客户端，向被代理的后端 Server 发起 TLS/SSL 请求。&lt;/p>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>如果一个 Virtual Server 代理的后端服务器是 HTTPS 的，那么就必须为 Virtual Server 启用 ssl 模块。因为客户端发起的请求，总是会被该 Virtual Server 重定向到 443 端口。&lt;/li>
+&lt;/ul>
+&lt;h2 id="ssl-指令">SSL 指令&lt;/h2>
+&lt;p>&lt;a href="http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl">&lt;strong>ssl on | off;&lt;/strong>&lt;/a> # 启用 ssl 策略。&lt;/p>
+&lt;ul>
+&lt;li>作用范围：http{}、server{}&lt;/li>
+&lt;/ul>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>该指令在 1.15.0 版已过时。应该使用 &lt;code>listen&lt;/code> 指令中的 ssl 参数。&lt;/li>
+&lt;li>如果一个端口监听了多个 server，只要有任意一个 server 启用了 ssl 策略，则其他都默认启用。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;a href="http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_certificate">&lt;strong>ssl_certificate FILE;&lt;/strong>&lt;/a> # 为 Virtual Server 指定 PEM 格式的证书文件&lt;/p>
+&lt;ul>
+&lt;li>作用范围：http{}、server{}&lt;/li>
+&lt;/ul>
+&lt;p>&lt;a href="http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_certificate_key">&lt;strong>ssl_certificate_key FILE;&lt;/strong>&lt;/a> # 为 Virtual Server 指定 PEM 格式的密钥文件&lt;/p>
+&lt;ul>
+&lt;li>作用范围：http{}、server{}&lt;/li>
+&lt;/ul>
+&lt;p>&lt;a href="http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate">&lt;strong>ssl_client_certificate FILE;&lt;/strong>&lt;/a> # 指定一个受信任的 PEM 格式 CA 证书的文件，如果启用 ssl_stapling，该文件用于验证客户端证书和 OCSP 响应。通常用于双向认证。&lt;/p>
+&lt;ul>
+&lt;li>作用范围：http{}、server{}&lt;/li>
+&lt;/ul></description></item><item><title>Docs: upstream 模块指令</title><link>https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/upstream-%E6%A8%A1%E5%9D%97%E6%8C%87%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/Web/Nginx/Nginx-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/%E5%A4%9A%E7%94%A8%E9%80%94%E6%A8%A1%E5%9D%97%E7%9A%84%E6%8C%87%E4%BB%A4/upstream-%E6%A8%A1%E5%9D%97%E6%8C%87%E4%BB%A4/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="http://nginx.org/en/docs/http/ngx_http_upstream_module.html">http 模块下的 upstream 模块&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://nginx.org/en/docs/stream/ngx_stream_upstream_module.html">stream 模块下的 upstream 模块&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>http 和 stream 模块下的 upstream 模块都是用来定义一组可以处理流量的后端服务器，称为 &lt;strong>Server Group(服务器组)&lt;/strong>。&lt;/p>
+&lt;p>Nginx 中有一个 &lt;strong>Server Group(服务器组)&lt;/strong> 的概念，Server Group 表示一组可以处理流量的后端服务器，&lt;code>proxy_pass&lt;/code> 等指令可以直接引用 服务器组的名称，以便将流量转发到这一组后端服务器上去。并且，可以根据规则，来决定给组内每个服务器分配多少流量，还可以根据规则如何判断 服务器是否掉线，掉线如何处理 等等。&lt;/p>
+&lt;p>Server Group 功能通过 upstream 模块实现。而 &lt;code>upstream NAME {}&lt;/code> 指令是一个非常通用的指令，可以作用在顶级的 &lt;code>http{}&lt;/code> 和 &lt;code>stream{}&lt;/code> 配置环境中。因为 ServerGroup 就是定义一组服务器以便被 Nginx 的流量处理相关指令引用，故而属于通用配置，只不过定义在 &lt;code>http{}&lt;/code> 配置环境中的 ServerGroup 不能被 &lt;code>stream{}&lt;/code> 配置环境中的指令引用，反之亦然。&lt;/p>
+&lt;blockquote>
+&lt;p>注意：虽然 upstream 比较通用，但也是逻辑意义上的通用，对于 &lt;code>http{}&lt;/code> 与 &lt;code>stream{}&lt;/code> 来说，它们都有各自的 &lt;code>upstream{}&lt;/code> 模块&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;code>upstream NAME {}&lt;/code> 定义的名为 NAME 的一组服务器，可以被 &lt;code>proxy_pass &lt;/code>、&lt;code>fastcgi_pass&lt;/code>、&lt;code>uwsgi_pass&lt;/code>、&lt;code>scgi_pass&lt;/code>、&lt;code>memcached_pass&lt;/code>、&lt;code>grpc_pass&lt;/code> 这些指令直接引用，以便将流量直接代理到这组服务器上，并且可以根据一定的算法，轮流调度。&lt;/p>
+&lt;h2 id="配置示例">配置示例&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">upstream&lt;/span> &lt;span style="color:#e6db74">backend&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> &lt;span style="color:#e6db74">backend1.example.com&lt;/span> &lt;span style="color:#e6db74">weight=5&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> backend2.example.com:&lt;span style="color:#ae81ff">8080&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> &lt;span style="color:#e6db74">unix:/tmp/backend3&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> backup1.example.com:&lt;span style="color:#ae81ff">8080&lt;/span> &lt;span style="color:#e6db74">backup&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> backup2.example.com:&lt;span style="color:#ae81ff">8080&lt;/span> &lt;span style="color:#e6db74">backup&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">server&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">location&lt;/span> &lt;span style="color:#e6db74">/&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">proxy_pass&lt;/span> &lt;span style="color:#e6db74">http://backend&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="服务器组指令">服务器组指令&lt;/h1>
+&lt;p>服务器组相关的指令，一般是定义在 &lt;code>upstream{} 指令块&lt;/code> 中。
+&lt;a href="http://nginx.org/en/docs/http/ngx_http_upstream_module.html#upstream">&lt;strong>upstream NAME {}&lt;/strong>&lt;/a> # 定义一组服务器。当请求代理到该 upstream 时，可以负载均衡到定义的各个 server 上。&lt;/p>
+&lt;ul>
+&lt;li>作用范围：http{}、stram{}&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">upstream&lt;/span> &lt;span style="color:#e6db74">NAME&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">ip_hash&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> &lt;span style="color:#e6db74">BACKEND1.EXAMPLE.COM&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> &lt;span style="color:#e6db74">BACKEND2.EXAMPLE.COM&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;a href="http://nginx.org/en/docs/http/ngx_http_upstream_module.html#server">&lt;strong>server ADDRESS [PARAMETERS];&lt;/strong>&lt;/a> # 定义接受流量的服务器的地址和其他参数。&lt;/p>
+&lt;ul>
+&lt;li>作用范围：upstream NAME {}&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>ADDRESS&lt;/strong> # 可以指定为具有可选端口的域名或 IP 地址，或者使用 &lt;code>unix:&lt;/code> 前缀指定 UNIX 域套接字路径。如果未指定端口，则默认 80。解析为多个 IP 地址的域名一次定义多个服务器。
+&lt;strong>PARAMETERS&lt;/strong> # 可以指定一个 server 的调度参数、健康检查时间间隔 等等。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>backup&lt;/strong> # 将 server 标记为备份服务器。&lt;/li>
+&lt;li>&lt;strong>fail_timeout=&amp;lt;TIME&amp;gt;&lt;/strong> # 与 server 连接的超时时间。&lt;code>默认值：10s&lt;/code>。
+&lt;ul>
+&lt;li>fail_timeout 与 max_fails 两个参数配合，就是指，当一个服务器持续 fail_timeout 时间不可用，并尝试了 max_fails 次之后依然不可用，则将该服务器从本组中提出，不再将请求调度到这个服务器上。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>max_fails=&amp;lt;INT&amp;gt;&lt;/strong> # 与 server 连接超时的次数。&lt;code>默认值：1&lt;/code>。&lt;/li>
+&lt;li>&lt;strong>max_conns=&amp;lt;INT&amp;gt;&lt;/strong> # 限制到 server 的最大同时活动连接数，也就是限制 server 的并发数。&lt;code>默认值：0&lt;/code>。默认 0 即表示不限制。&lt;/li>
+&lt;li>&lt;strong>weight=&amp;lt;INT&amp;gt;&lt;/strong> # server 的权重。&lt;code>默认值：1&lt;/code>。权重越高，就会有更多的请求调度到这个 server 上。&lt;/li>
+&lt;/ul>
+&lt;h2 id="example">EXAMPLE&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">http&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">......&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">upstream&lt;/span> &lt;span style="color:#e6db74">backend&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> &lt;span style="color:#e6db74">backend1.example.com&lt;/span> &lt;span style="color:#e6db74">weight=5&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> &lt;span style="color:#e6db74">backend2.example.com&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server&lt;/span> &lt;span style="color:#ae81ff">192&lt;/span>&lt;span style="color:#e6db74">.0.0.1&lt;/span> &lt;span style="color:#e6db74">backup&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>

@@ -1,0 +1,621 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Wireguard 全互联模式（full mesh）权威指南</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling-Protocol/WireGuard/Wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/</link><description>Recent content in Wireguard 全互联模式（full mesh）权威指南 on 断念梦</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling-Protocol/WireGuard/Wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Wireguard 全互联模式（full mesh）权威指南</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling-Protocol/WireGuard/Wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/Wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling-Protocol/WireGuard/Wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/Wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/0NntpHp3ghQEvgZvoV9eWw">公众号,云原生实验室-Wireguard 全互联模式（full mesh）权威指南&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>上篇文章给大家介绍了如何&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247491998&amp;amp;idx=1&amp;amp;sn=840c87b4ecc2108d4a121aa26825ce65&amp;amp;chksm=fbeda153cc9a284516e177a6bdbfc90e57a4f253beb5f2d1abaa9bca54a388e1fc60a5b61b2c&amp;amp;scene=21#wechat_redirect">👉 使用 wg-gen-web 来方便快捷地管理 WireGuard 的配置和秘钥&lt;/a>，文末埋了两个坑：一个是 &lt;code>WireGuard&lt;/code> 的全互联模式（full mesh），另一个是使用 WireGuard 作为 &lt;code>Kubernetes&lt;/code> 的 CNI 插件。今天就来填第一个坑。&lt;/p>
+&lt;p>首先解释一下什么是全互联模式（full mesh），全互联模式其实就是一种网络连接形式，即所有结点之间都直接连接，不会通过第三方节点中转流量。和前面提到的点对多点架构[1] 其实是一个意思。&lt;/p>
+&lt;h2 id="1-全互联模式架构与配置">1. 全互联模式架构与配置&lt;/h2>
+&lt;p>在 WireGuard 的世界里没有 Server 和 Client 之分，所有的节点都是 &lt;code>Peer&lt;/code>。大家使用 WireGuard 的常规做法是找一个节点作为中转节点，也就是 VPN 网关，然后所有的节点都和这个网关进行连接，所有节点之间都通过这个网关来进行通信。这种架构中，为了方便理解，我们可以把网关看成 Server，其他的节点看成 Client，但实际上是不区分 Server 和 Client 的。&lt;/p>
+&lt;p>举个例子，假设有 &lt;code>4&lt;/code> 个节点，分别是 A/B/C/D，且这 4 个节点都不在同一个局域网，常规的做法是选取一个节点作为 VPN 网关，架构如图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
+&lt;p>这种架构的缺点我在之前的文章里也介绍过了，缺点相当明显：&lt;/p>
+&lt;ul>
+&lt;li>当 Peer 越来越多时，VPN 网关就会变成垂直扩展的瓶颈。&lt;/li>
+&lt;li>通过 VPN 网关转发流量的成本很高，毕竟云服务器的流量很贵。&lt;/li>
+&lt;li>通过 VPN 网关转发流量会带来很高的延迟。&lt;/li>
+&lt;/ul>
+&lt;p>那么全互联模式是什么样的架构呢？还是假设有 A/B/C/D 四个节点，每个节点都和其他节点建立 WireGuard 隧道，架构如图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
+&lt;p>这种架构带来的直接优势就是快！任意一个 Peer 和其他所有 Peer 都是直连，无需中转流量。那么在 WireGuard 的场景下如何实现全互联模式呢？其实这个问题不难，难点在于配置的繁琐程度，本文的主要目标就是精简 WireGuard 全互联模式的配置流程。为了让大家更容易理解，咱们还是先通过架构图来体现各个 Peer 的配置：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
+&lt;p>配置一目了然，每个 Peer 和其他所有 Peer 都是直连，根本没有 VPN 网关这种角色。当然，现实世界的状况没有图中这么简单，有些 Peer 是没有公网 IP 的，躲在 NAT 后面，这里又分两种情况：&lt;/p>
+&lt;ol>
+&lt;li>NAT 受自己控制。这种情况可以在公网出口设置端口转发，其他 Peer 就可以通过这个公网 IP 和端口连接当前 Peer。如果公网 IP 是动态的，可以通过 DDNS 来解决，但 DDNS 会出现一些小问题，解决方法可以参考 WireGuard 的优化[2]。&lt;/li>
+&lt;li>NAT 不受自己控制。这种情况无法在公网出口设置端口转发，只能通过 UDP 打洞来实现互联，具体可以参考 &lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247492210&amp;amp;idx=1&amp;amp;sn=64cfcbf15253c7bdbbbe8939c3fb90da&amp;amp;chksm=fbeda2bfcc9a2ba9785f0f1d74653c757ad74c8c9f4feec2248fdfec2379e11d20a693877921&amp;amp;scene=21#wechat_redirect">👉WireGuard 教程：使用 DNS-SD 进行 NAT-to-NAT 穿透&lt;/a>。&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>接着上述方案再更进一步，打通所有 Peer 的私有网段，让任意一个 Peer 可以访问其他所有 Peer 的私有网段的机器&lt;/strong>。上述配置只是初步完成了全互联，让每个 Peer 可以相互访问彼此而已，要想相互访问私有网段，还得继续增加配置，还是直接看图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
+&lt;p>红色字体部分就是新增的配置，表示允许访问相应 Peer 的私有网段，就是这么简单。详细的配置步骤请看下一节。&lt;/p>
+&lt;h2 id="2-全互联模式最佳实践">2. 全互联模式最佳实践&lt;/h2>
+&lt;p>对如何配置有了清晰的思路之后，接下来就可以进入实践环节了。我不打算从 WireGuard 安装开始讲起，而是以前几篇文章为基础添砖加瓦。所以我建议读者先按顺序看下这两篇文章：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247488853&amp;amp;idx=1&amp;amp;sn=38acb5689db9d9d69ab1ebc78248e0ed&amp;amp;chksm=fbee5598cc99dc8ee81dc6e2a6ed12bb1fd61efd19f152c75e6e41aadb79a15562d7a6c9cb81&amp;amp;scene=21#wechat_redirect">👉WireGuard 快速安装教程&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247491998&amp;amp;idx=1&amp;amp;sn=840c87b4ecc2108d4a121aa26825ce65&amp;amp;chksm=fbeda153cc9a284516e177a6bdbfc90e57a4f253beb5f2d1abaa9bca54a388e1fc60a5b61b2c&amp;amp;scene=21#wechat_redirect">👉WireGuard 配置教程：使用 wg-gen-web 来管理 WireGuard 的配置&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>咱们直接从配置开始说起。手撸配置的做法是不明智的，因为当节点增多之后工作量会很大，我还是建议通过图形化界面来管理配置，首选 &lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247491998&amp;amp;idx=1&amp;amp;sn=840c87b4ecc2108d4a121aa26825ce65&amp;amp;chksm=fbeda153cc9a284516e177a6bdbfc90e57a4f253beb5f2d1abaa9bca54a388e1fc60a5b61b2c&amp;amp;scene=21#wechat_redirect">👉wg-gen-web&lt;/a>。&lt;/p>
+&lt;p>现在还是假设有上节所述的 4 个 Peer，我们需要从中挑选一个 Peer 来安装 &lt;code>wg-gen-web&lt;/code>，然后通过 &lt;code>wg-gen-web&lt;/code> 来生成配置。挑选哪个 Peer 无所谓，这个没有特殊限制，这里假设挑选 &lt;code>AWS&lt;/code> 来安装 &lt;code>wg-gen-web&lt;/code>。&lt;/p>
+&lt;p>安装的步骤直接略过，不是本文的重点，不清楚的可以阅读我之前的文章 &lt;a href="http://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247491998&amp;amp;idx=1&amp;amp;sn=840c87b4ecc2108d4a121aa26825ce65&amp;amp;chksm=fbeda153cc9a284516e177a6bdbfc90e57a4f253beb5f2d1abaa9bca54a388e1fc60a5b61b2c&amp;amp;scene=21#wechat_redirect">👉WireGuard 配置教程：使用 wg-gen-web 来管理 WireGuard 的配置&lt;/a>。Server 配置如图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
+&lt;p>生成 &lt;code>Azure&lt;/code> 的配置：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
+&lt;p>SUBMIT 之后再查看 &lt;code>wg0.conf&lt;/code> 的内容：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat /etc/wireguard/wg0.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Updated: 2021-02-24 07:34:23.805535396 +0000 UTC / Created: 2021-02-24 07:24:02.208816462 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ListenPort &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">51820&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> eEnHKGkGksx0jqrEDogjRj5l417BrEA39lr7WW9L9U0&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreUp &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreUp
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostUp &lt;span style="color:#f92672">=&lt;/span> iptables -I FORWARD -i wg0 -j ACCEPT; iptables -I FORWARD -o wg0 -j ACCEPT; iptables -I INPUT -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreDown &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreDown
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostDown &lt;span style="color:#f92672">=&lt;/span> iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -D INPUT -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Azure / / Updated: 2021-02-24 07:43:52.717385042 +0000 UTC / Created: 2021-02-24 07:43:52.717385042 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> OzdH42suuOpVY5wxPrxM+rEAyEPFg2eL0ZI29N7eSTY&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这里无法通过图形化界面添加私有网段的配置，我们可以直接修改 &lt;code>wg0.conf&lt;/code> 添加配置：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat /etc/wireguard/wg0.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Updated: 2021-02-24 07:34:23.805535396 +0000 UTC / Created: 2021-02-24 07:24:02.208816462 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ListenPort &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">51820&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> eEnHKGkGksx0jqrEDogjRj5l417BrEA39lr7WW9L9U0&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreUp &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreUp
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostUp &lt;span style="color:#f92672">=&lt;/span> iptables -I FORWARD -i wg0 -j ACCEPT; iptables -I FORWARD -o wg0 -j ACCEPT; iptables -I INPUT -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreDown &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreDown
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostDown &lt;span style="color:#f92672">=&lt;/span> iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -D INPUT -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Azure / / Updated: 2021-02-24 07:43:52.717385042 +0000 UTC / Created: 2021-02-24 07:43:52.717385042 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> OzdH42suuOpVY5wxPrxM+rEAyEPFg2eL0ZI29N7eSTY&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.20.0/24
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>下载 Azure 配置文件：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
+&lt;p>可以看到配置文件内容为：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat Azure.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> IFhAyIWY7sZmabsqDDESj9fqoniE/uZFNIvAfYHjN2o&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> JgvmQFmhUtUoS3xFMFwEgP3L1Wnd8hJc3laJ90Gwzko&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/32, 192.168.10.0/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aws.com:51820
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>先不急着修改，一鼓作气生成所有 Peer 的配置文件：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dd680c3b-336a-4d85-be7b-de04eece92a8/640" alt="">&lt;/p>
+&lt;p>这时你会发现 &lt;code>wg0.conf&lt;/code> 中已经包含了所有 Peer 的配置：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat /etc/wireguard/wg0.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Updated: 2021-02-24 07:57:00.745287945 +0000 UTC / Created: 2021-02-24 07:24:02.208816462 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ListenPort &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">51820&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> eEnHKGkGksx0jqrEDogjRj5l417BrEA39lr7WW9L9U0&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreUp &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreUp
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostUp &lt;span style="color:#f92672">=&lt;/span> iptables -I FORWARD -i wg0 -j ACCEPT; iptables -I FORWARD -o wg0 -j ACCEPT; iptables -I INPUT -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PreDown &lt;span style="color:#f92672">=&lt;/span> echo WireGuard PreDown
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PostDown &lt;span style="color:#f92672">=&lt;/span> iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -D INPUT -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Aliyun / / Updated: 2021-02-24 07:57:45.941019829 +0000 UTC / Created: 2021-02-24 07:57:45.941019829 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> kVq2ATMTckCKEJFF4TM3QYibxzlh+b9CV4GZ4meQYAo&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> v818B5etpRlyVYHGUrv9abM5AIQK5xeoCizdWj1AqcE&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.4/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># GCP / / Updated: 2021-02-24 07:57:27.3555646 +0000 UTC / Created: 2021-02-24 07:57:27.3555646 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> qn0Xfyzs6bLKgKcfXwcSt91DUxSbtATDIfe4xwsnsGg&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> T5UsVvOEYwfMJQDJudC2ryKeCpnO3RV8GFMoi76ayyI&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.3/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Azure / / Updated: 2021-02-24 07:57:00.751653134 +0000 UTC / Created: 2021-02-24 07:43:52.717385042 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> OzdH42suuOpVY5wxPrxM+rEAyEPFg2eL0ZI29N7eSTY&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>现在问题就好办了，我们只需将 wg0.conf 中的 Aliyun 和 GCP 部分的配置拷贝到 Azure 的配置中，并删除 PresharedKey 的配置，再添加 Endpoint 和私有网段的配置：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat Azure.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> IFhAyIWY7sZmabsqDDESj9fqoniE/uZFNIvAfYHjN2o&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> JgvmQFmhUtUoS3xFMFwEgP3L1Wnd8hJc3laJ90Gwzko&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/32, 192.168.10.0/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aws.com:51820
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Aliyun / / Updated: 2021-02-24 07:57:45.941019829 +0000 UTC / Created: 2021-02-24 07:57:45.941019829 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> kVq2ATMTckCKEJFF4TM3QYibxzlh+b9CV4GZ4meQYAo&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.4/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.40.0/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aliyun.com:51820
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># GCP / / Updated: 2021-02-24 07:57:27.3555646 +0000 UTC / Created: 2021-02-24 07:57:27.3555646 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> qn0Xfyzs6bLKgKcfXwcSt91DUxSbtATDIfe4xwsnsGg&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.3/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.30.0/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> gcp.com:51820
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>同理，GCP 的配置如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat GCP.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.3/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> oK2gIMBAob67Amj2gT+wR9pzkbqWGNtq794nOoD3i2o&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> JgvmQFmhUtUoS3xFMFwEgP3L1Wnd8hJc3laJ90Gwzko&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> T5UsVvOEYwfMJQDJudC2ryKeCpnO3RV8GFMoi76ayyI&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/32, 192.168.10.0/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aws.com:51820
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Aliyun / / Updated: 2021-02-24 07:57:45.941019829 +0000 UTC / Created: 2021-02-24 07:57:45.941019829 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> kVq2ATMTckCKEJFF4TM3QYibxzlh+b9CV4GZ4meQYAo&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.4/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.40.0/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aliyun.com:51820
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Azure / / Updated: 2021-02-24 07:57:00.751653134 +0000 UTC / Created: 2021-02-24 07:43:52.717385042 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> OzdH42suuOpVY5wxPrxM+rEAyEPFg2eL0ZI29N7eSTY&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.20.0/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> azure.com:51820
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Aliyun 的配置如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cat Aliyun.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Interface&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address &lt;span style="color:#f92672">=&lt;/span> 10.0.0.4/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PrivateKey &lt;span style="color:#f92672">=&lt;/span> +A1ZESJjmHuskB4yKqTcqC3CB24TwBKHGSffWDHxI28&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> JgvmQFmhUtUoS3xFMFwEgP3L1Wnd8hJc3laJ90Gwzko&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> v818B5etpRlyVYHGUrv9abM5AIQK5xeoCizdWj1AqcE&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.1/32, 192.168.10.0/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> aws.com:51820
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># GCP / / Updated: 2021-02-24 07:57:27.3555646 +0000 UTC / Created: 2021-02-24 07:57:27.3555646 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> qn0Xfyzs6bLKgKcfXwcSt91DUxSbtATDIfe4xwsnsGg&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.3/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.30.0/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> gcp.com:51820
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Azure / / Updated: 2021-02-24 07:57:00.751653134 +0000 UTC / Created: 2021-02-24 07:43:52.717385042 +0000 UTC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>Peer&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PublicKey &lt;span style="color:#f92672">=&lt;/span> OzdH42suuOpVY5wxPrxM+rEAyEPFg2eL0ZI29N7eSTY&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PresharedKey &lt;span style="color:#f92672">=&lt;/span> 1SyJuVp16Puh8Spyl81EgD9PJZGoTLJ2mOccs2UWDvs&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 10.0.0.2/32
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>AllowedIPs &lt;span style="color:#f92672">=&lt;/span> 192.168.20.0/24
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Endpoint &lt;span style="color:#f92672">=&lt;/span> azure.com:51820
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>最后在各自的节点上通过各自的配置文件把 WireGuard 跑起来，就搞定了。&lt;/p>
+&lt;p>整个图形化界面配置过程中会出现好几个地方需要手动调整配置，这是因为 &lt;code>wg-gen-web&lt;/code> 的功能目前还不完善，需要给它一定的时间。如果你无法接受手动调整配置，可以尝试另外一个项目：wg-meshconf[3]，这个项目专门用来生成 mesh 的配置，但没有图形化管理界面。各有利弊吧，大家自行选择。&lt;/p>
+&lt;h2 id="3-总结">3. 总结&lt;/h2>
+&lt;p>我知道，很多人可能还是一头雾水，这玩意儿的应用场景有哪些？我随便举个简单的例子，假设你在云服务器上部署了 Kubernetes 集群，可以用本地的机器和云服务器的某台节点组建 WireGuard 隧道，然后在本地的 &lt;code>AllowedIPs&lt;/code> 中加上 Pod 网段和 Service 网段，就可以那啥了，你懂吧？&lt;/p>
+&lt;p>好吧，又埋了一个坑，关于如何在家中直接访问云服务器 k8s 集群的 Pod IP 和 Service IP，后面会有专门的文章给大家讲解，虽然我也不确定是多久以后。。&lt;/p>
+&lt;h3 id="参考资料">参考资料&lt;/h3>
+&lt;p>[1]&lt;/p>
+&lt;p>点对多点架构: &lt;a href="https://fuckcloudnative.io/posts/why-not-why-not-wireguard/#7-wireguard-%E7%9C%9F%E7%9A%84%E5%BE%88%E5%BF%AB%E5%90%97">&lt;em>https://fuckcloudnative.io/posts/why-not-why-not-wireguard/#7-wireguard - 真的很快吗&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[2]&lt;/p>
+&lt;p>WireGuard 的优化: &lt;a href="https://fuckcloudnative.io/posts/configure-wireguard-using-wg-gen-web/#%E5%8A%A8%E6%80%81-ip">&lt;em>https://fuckcloudnative.io/posts/configure-wireguard-using-wg-gen-web/# 动态 - ip&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[3]&lt;/p>
+&lt;p>wg-meshconf: &lt;a href="https://github.com/k4yt3x/wg-meshconf/blob/master/README.md">&lt;em>https://github.com/k4yt3x/wg-meshconf/blob/master/README.md&lt;/em>&lt;/a>&lt;/p></description></item><item><title>Docs: WireGuard 全互联模式终极指南（上）！</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling-Protocol/WireGuard/Wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/WireGuard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8F%E7%BB%88%E6%9E%81%E6%8C%87%E5%8D%97%E4%B8%8A/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling-Protocol/WireGuard/Wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/WireGuard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8F%E7%BB%88%E6%9E%81%E6%8C%87%E5%8D%97%E4%B8%8A/</guid><description>
+&lt;p>&lt;a href="https://mp.weixin.qq.com/s/s6eIoxaVNXVHRnWBnugylg">WireGuard 全互联模式终极指南（上）！&lt;/a>
+&lt;a href="https://mp.weixin.qq.com/s/KrDJs3e6JjKgCADNigPUJA">https://mp.weixin.qq.com/s/KrDJs3e6JjKgCADNigPUJA&lt;/a>&lt;/p>
+&lt;p>大家好，我是米开朗基杨。&lt;/p>
+&lt;p>关注我的读者应该都还记得我之前写过一篇 &lt;a href="https://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247492833&amp;amp;idx=1&amp;amp;sn=642025bef0c6d400bc3f1cab9906a8e6&amp;amp;chksm=fbeda42ccc9a2d3a00711e3c79d0c2dc50935b5139e89032537daf2b8af544a148a740ff12c1&amp;amp;scene=21&amp;amp;cur_album_id=1612086810350829568#wechat_redirect">👉WireGuard 全互联模式 (full mesh) 的配置指南&lt;/a>，限于当时还没有成熟的产品来帮助我们简化全互联模式的配置，所以我选择了使用可视化界面 &lt;a href="https://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247491998&amp;amp;idx=1&amp;amp;sn=840c87b4ecc2108d4a121aa26825ce65&amp;amp;chksm=fbeda153cc9a284516e177a6bdbfc90e57a4f253beb5f2d1abaa9bca54a388e1fc60a5b61b2c&amp;amp;scene=21&amp;amp;cur_album_id=1612086810350829568#wechat_redirect">👉wg-gen-web&lt;/a> 来达成目的。但 &lt;a href="https://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247491998&amp;amp;idx=1&amp;amp;sn=840c87b4ecc2108d4a121aa26825ce65&amp;amp;chksm=fbeda153cc9a284516e177a6bdbfc90e57a4f253beb5f2d1abaa9bca54a388e1fc60a5b61b2c&amp;amp;scene=21&amp;amp;cur_album_id=1612086810350829568#wechat_redirect">👉wg-gen-web&lt;/a> 的缺陷也很明显，它生成的每一个客户端的配置都要手动调整，终究还是不够便利。&lt;/p>
+&lt;p>今天我将为大家介绍一种更加完美的工具来配置 WireGuard 的全互联模式，这个工具就是 Netmaker[1]。&lt;/p>
+&lt;p>&lt;strong>由于篇幅原因，本系列文章将会分成两篇进行介绍。本篇文章介绍 Netmaker 的工作原理和功能解读；下一篇文章将会介绍如何使用 Netmaker 来配置 WireGuard 全互联模式。&lt;/strong>&lt;/p>
+&lt;h2 id="netmaker-介绍">Netmaker 介绍&lt;/h2>
+&lt;p>Netmaker 是一个用来配置 WireGuard 全互联模式的可视化工具，它的功能非常强大，不仅支持 UDP 打洞、NAT 穿透、多租户，还可以使用 Kubernetes 配置清单来部署，客户端几乎适配了所有平台，包括 Linux, Mac 和 Windows，还可以通过 WireGuard 原生客户端连接 iPhone 和 Android，真香！&lt;/p>
+&lt;p>其最新版本的基准测试结果显示，基于 Netmaker 的 WireGuard 网络速度比其他全互联模式的 VPN（例如 Tailscale 和 ZeroTier）网络速度快 50% 以上。&lt;/p>
+&lt;h2 id="netmaker-架构">Netmaker 架构&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;p>Netmaker 使用的是 C/S 架构，即客户端 / 服务器架构。Netmaker Server 包含两个核心组件：用来管理网络的可视化界面，以及与客户端通信的 gRPC Server。你也可以可以选择部署 DNS 服务器（CoreDNS）来管理私有 DNS。&lt;/p>
+&lt;p>客户端（netclient）是一个二进制文件，可以在绝大多数 Linux 客户端以及 macOS 和 Windows 客户端运行，它的功能就是自动管理 WireGuard，动态更新 Peer 的配置。&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;strong>注意&lt;/strong>：这里不要将 Netmaker 理解成我之前的文章所提到的&lt;a href="https://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247491469&amp;amp;idx=1&amp;amp;sn=a5a1be7c9f4d2cf1f5f071a6f26f9856&amp;amp;chksm=fbee5f40cc99d6560cd756f6c710c066ae3605bad366b9b01006358542fd8374bb97ce50ac4f&amp;amp;scene=21&amp;amp;cur_album_id=1612086810350829568#wechat_redirect">👉 中心辐射型网络拓扑&lt;/a>。Netmaker Server 只是用来存储虚拟网络的配置并管理各个 Peer 的状态，Peer 之间的网络流量并不会通过 Netmaker Server。&lt;/p>
+&lt;/blockquote>
+&lt;p>Netmaker 还有一个重要的术语叫&lt;strong>签到&lt;/strong>，客户端会通过定时任务来不断向 Netmaker Server 签到，以动态更新自身的状态和 Peer 的配置，它会从 Netmaker Server 检索 Peer 列表，然后与所有的 Peer 建立点对点连接，即全互联模式。所有的 Peer 通过互联最终呈现出来的网络拓扑结构就类似于本地子网或 VPC。&lt;/p>
+&lt;h2 id="netmaker-部署">Netmaker 部署&lt;/h2>
+&lt;p>Netmaker 支持多种部署方式，包括二进制部署和容器化部署，容器化部署还支持 docker-compose 和 Kubernetes。如果你没有可以暴露服务到公网的 Kubernetes 集群，我推荐还是直接通过 docker-compose 来部署，简单粗暴。&lt;/p>
+&lt;p>官方推荐的做法是使用 Caddy 或 Nginx 来反向代理 Netmaker UI、API Server 和 gRPC Server，但我的域名没有备案，我也怕麻烦，就直接通过公网 IP 来提供服务了。如果你也想通过公网域名来暴露 Netmaker 的服务，可以参考 Netmaker 的官方文档[2]。&lt;/p>
+&lt;p>本文的部署方案将直接通过公网 IP 来提供服务，首先需要安装 docker-compose，安装方法可以参考 Docker 官方文档[3]。&lt;/p>
+&lt;p>安装完 docker-compose 后，再下载 docker-compose 的 YAML 配置清单：&lt;/p>
+&lt;p>&lt;code>$ wget https://cdn.jsdelivr.net/gh/gravitl/netmaker@master/compose/docker-compose.yml&lt;/code>&lt;/p>
+&lt;p>现在还不能直接部署，需要根据自己的实际环境对配置清单进行修改。例如，我修改后的配置清单内容如下：&lt;/p>
+&lt;p>`version: &amp;ldquo;3.4&amp;rdquo;&lt;/p>
+&lt;p>services:
+  netmaker:
+    container_name: netmaker
+    image: gravitl/netmaker:v0.8.2
+    volumes:
+      - /etc/netclient/config:/etc/netclient/config
+      - dnsconfig:/root/config/dnsconfig
+      - /usr/bin/wg:/usr/bin/wg
+      - /data/sqldata/:/root/data
+    cap_add:
+      - NET_ADMIN
+    restart: always
+    network_mode: host
+    environment:
+      SERVER_HOST: &amp;ldquo;&amp;lt;public_ip&amp;gt;&amp;rdquo;
+      COREDNS_ADDR: &amp;ldquo;&amp;lt;public_ip&amp;gt;&amp;rdquo;
+      GRPC_SSL: &amp;ldquo;off&amp;rdquo;
+      DNS_MODE: &amp;ldquo;on&amp;rdquo;
+      CLIENT_MODE: &amp;ldquo;on&amp;rdquo;
+      API_PORT: &amp;ldquo;8081&amp;rdquo;
+      GRPC_PORT: &amp;ldquo;50051&amp;rdquo;
+      SERVER_GRPC_WIREGUARD: &amp;ldquo;off&amp;rdquo;
+      CORS_ALLOWED_ORIGIN: &amp;ldquo;*&amp;rdquo;
+      DATABASE: &amp;ldquo;sqlite&amp;rdquo;
+  netmaker-ui:
+    container_name: netmaker-ui
+    depends_on:
+      - netmaker
+    image: gravitl/netmaker-ui:v0.8
+    links:
+      - &amp;ldquo;netmaker:api&amp;rdquo;
+    ports:
+      - &amp;ldquo;80:80&amp;rdquo;
+    environment:
+      BACKEND_URL: &amp;ldquo;http://&amp;lt;public_ip&amp;gt;:8081&amp;rdquo;
+    restart: always
+    network_mode: host
+  coredns:
+    depends_on:
+      - netmaker
+    image: coredns/coredns
+    command: -conf /root/dnsconfig/Corefile
+    container_name: coredns
+    restart: always
+    network_mode: host
+    volumes:
+      - dnsconfig:/root/dnsconfig
+volumes:
+  dnsconfig: {}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>总共有以下几处改动：&lt;/p>
+&lt;ul>
+&lt;li>删除了不必要的环境变量，并修改了其中一部分环境变量，比如关闭 SSL 模式，将域名替换为公网 IP。你需要根据自己的实际环境将 &lt;code>&amp;lt;public_ip&amp;gt;&lt;/code> 替换为你的公网 IP。&lt;/li>
+&lt;li>将所有容器的网络模式都改为 host 模式，即 &lt;code>network_mode: host&lt;/code>。&lt;/li>
+&lt;li>将 sqlite 的数据存储改为 hostpath，即 &lt;code>/data/sqldata/:/root/data&lt;/code>。&lt;/li>
+&lt;/ul>
+&lt;p>其中 &lt;code>CLIENT_MODE: &amp;quot;on&amp;quot;&lt;/code> 表示将 Netmaker Server 所在的节点也作为 Mesh Network 的 Peer 节点。&lt;/p>
+&lt;p>最后我们就可以通过配置清单来部署容器了：&lt;/p>
+&lt;p>&lt;code>$ docker-compose up -d&lt;/code>&lt;/p>
+&lt;p>查看是否部署成功：&lt;/p>
+&lt;p>`$ docker ps&lt;/p>
+&lt;p>CONTAINER ID    IMAGE                                 COMMAND                   CREATED       STATUS    PORTS    NAMES
+0daf3a35f8ce    docker.io/coredns/coredns:latest      &amp;ldquo;/coredns -conf /roo…&amp;rdquo;    7 days ago    Up                 coredns
+0dbb0158e821    docker.io/gravitl/netmaker-ui:v0.8    &amp;ldquo;/docker-entrypoint.…&amp;rdquo;    7 days ago    Up                 netmaker-ui
+bd39ee52013e    docker.io/gravitl/netmaker:v0.8.2     &amp;ldquo;./netmaker&amp;rdquo;              7 days ago    Up                 netmaker&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>部署成功后，就可以在浏览器的地址栏输入你的公网 IP 来访问 Netmaker UI 了。&lt;/p>
+&lt;h2 id="netmaker-功能解读">Netmaker 功能解读&lt;/h2>
+&lt;p>我们先通过 UI 来看看 Netmaker 都有哪些功能。&lt;/p>
+&lt;h3 id="网络networks">网络（Networks）&lt;/h3>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;p>Netmaker 允许创建任意数量的私有网络，可以设置任意地址范围。你只需要给这个网络起个名字，设置一个地址范围，并选择想要启用的选项。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;p>目前总共包含三个可选项：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Dual Stack&lt;/strong> : 双栈，即开启 IPv6。&lt;/li>
+&lt;li>&lt;strong>Local Only&lt;/strong> : 各个 Peer 之间只会通过内网地址来互联，即 Endpoint 皆为内网地址。适用于数据中心、VPC 或家庭 / 办公网络的内部。&lt;/li>
+&lt;li>&lt;strong>Hole Punching&lt;/strong> : 动态发现和配置 Endpoint 和端口，帮助 Peer 轻松穿透 NAT 进行 UDP 打洞。&lt;/li>
+&lt;/ul>
+&lt;p>管理员拥有对网络的最高控制器，例如，更改私有网络的网段，Peer 便会自动更新自身的 IP。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;p>如果发现网络被入侵，也可以让网络中的所有节点刷新公钥。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;h3 id="节点nodes">节点（Nodes）&lt;/h3>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;p>Node 表示节点，通常是运行 Linux 的服务器，安装了 netclient 和 WireGuard。这个节点会通过 WireGuard 私有网络和其他所有节点相连。一但节点被添加到私有网络中，Netmaker 管理员就可以操控该节点的配置，例如：&lt;/p>
+&lt;ul>
+&lt;li>私有网络地址&lt;/li>
+&lt;li>过期时间&lt;/li>
+&lt;li>WireGuard 相关设置&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;p>管理员也可以将该节点从私有网络中完全删除，让其无法连接其他所有 Peer 节点。&lt;/p>
+&lt;p>Node 还有两个比较重要的功能，就是将自身设置为 Ingress Gateway（入口网关）或者 Egress Gateway（出口网关）。Ingress Gateway 允许外部客户端的流量进入内部网络，Egress Gateway 允许将内部网络的流量转发到外部指定的 IP 范围。这两项功能对全互联模式进行了扩展，比如手机客户端就可以通过 Ingress Gateway 接入进来。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;h3 id="访问秘钥access-keys">访问秘钥（Access Keys）&lt;/h3>
+&lt;p>一个节点想要加入到私有网络，需要获取访问秘钥进行授权，当然你也可以选择手动批准。&lt;/p>
+&lt;p>一个访问秘钥可以被多个节点重复使用，你只需修改 Number 数量就可以实现这个目的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;p>访问秘钥创建后只会显示一次，展示了三个选项：&lt;/p>
+&lt;ol>
+&lt;li>原始访问秘钥&lt;/li>
+&lt;li>访问令牌（access token），它将访问密钥与用于加入网络的参数（例如地址、端口和网络名称）包装在一起。当你运行 &lt;code>netclient join -t &amp;lt;token&amp;gt;&lt;/code> 时，netclient 会对该令牌进行解码，并解析参数。&lt;/li>
+&lt;li>安装脚本，用于在标准 Linux 服务器上首次安装 netclient。它只是简单地下载 netclient 并为你运行 &amp;ldquo;join&amp;rdquo; 命令。&lt;/li>
+&lt;/ol>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;h3 id="dns">DNS&lt;/h3>
+&lt;p>如果启用了 DNS 组件，Netmaker 就会通过 CoreDNS 来维护私有 DNS，它会为私有网络中的每个节点创建一个默认的 DNS 条目。你也可以创建自定义的 DNS 条目。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;h3 id="外部客户端external-clients">外部客户端（External Clients）&lt;/h3>
+&lt;p>Netclient 目前只支持 Linux、macOS 和 Windows，如果 Android 和 iOS 端想要加入 VPN 私有网络，只能通过 WireGuard 原生客户端来进行连接。要想做到这一点，需要管理员事先创建一个 External Client，它会生成一个 WireGuard 配置文件，WireGuard 客户端可以下载该配置文件或者扫描二维码进行连接。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/9125c963-31dc-45d8-ae30-c608056cb4ee/640" alt="">&lt;/p>
+&lt;p>当然，在创建 External Client 之前，需要先设置其中一个节点为 Ingress Gateway。&lt;/p>
+&lt;p>需要说明的是，目前移动设备通过 External Client 接入只是权宜之计，随着 Netclient 对更多操作系统的支持，最终所有的客户端都应该使用 netclient 来连接。&lt;/p>
+&lt;h2 id="netclient-介绍">Netclient 介绍&lt;/h2>
+&lt;p>netclient 是一个非常简单的 CLI，用于创建 WireGuard 配置和接口，将节点加入到 Netmaker 的私有网络中。netclient 可以管理任意数量的 Netmaker 私有网络，所有的网络都由同一个 netclient 实例管理。&lt;/p>
+&lt;p>`$ netclient &amp;ndash;help
+NAME:
+   Netclient CLI - Netmaker&amp;rsquo;s netclient agent and CLI. Used to perform interactions with Netmaker server and set local WireGuard config.&lt;/p>
+&lt;p>USAGE:
+   netclient [global options] command [command options][arguments&amp;hellip;]&lt;/p>
+&lt;p>VERSION:
+   v0.8.1&lt;/p>
+&lt;p>COMMANDS:
+   join       Join a Netmaker network.
+   leave      Leave a Netmaker network.
+   checkin    Checks for local changes and then checks into the specified Netmaker network to ask about remote changes.
+   push       Push configuration changes to server.
+   pull       Pull latest configuration and peers from server.
+   list       Get list of networks.
+   uninstall  Uninstall the netclient system service.
+   help, h    Shows a list of commands or help for one command&lt;/p>
+&lt;p>GLOBAL OPTIONS:
+   &amp;ndash;help, -h     show help (default: false)
+   &amp;ndash;version, -v  print the version (default: false)&lt;/p>
+&lt;p>`&lt;/p>
+&lt;h3 id="netclient-工作原理">Netclient 工作原理&lt;/h3>
+&lt;p>使用 netclient 可以加入某个网络，拉取或推送变更，以及离开某个网络。同时 netclient 还有几个辅助命令用于其他场景。&lt;/p>
+&lt;p>使用 netclient 加入某个网络时，它会创建一个目录 &lt;code>/etc/netclient&lt;/code>，并将 netclient 二进制文件本身复制到该目录下。&lt;/p>
+&lt;p>&lt;code>$ ls -lh /etc/netclient/netclient -rwxr-xr-x 1 root root 12M Oct  8 23:08 /etc/netclient/netclient&lt;/code>&lt;/p>
+&lt;p>同时会在该目录下创建一个子目录 &lt;code>config&lt;/code>，并在子目录下创建相应的配置文件。比如你加入的网络名称是 default，那么配置文件名称就是 &lt;code>netconfig-default&lt;/code>。&lt;/p>
+&lt;p>&lt;code>$ ls -lh /etc/netclient/config/ total 32K -rwxr-xr-x 1 root root 1.8K Oct 17 16:23 netconfig-default -rw-r--r-- 1 root root  176 Oct  8 23:08 nettoken-default -rw-r--r-- 1 root root   16 Oct  8 23:08 secret-default -rw-r--r-- 1 root root   44 Oct  8 23:08 wgkey-default&lt;/code>&lt;/p>
+&lt;p>如果第一次使用 netclient 加入某个网络，它会尝试将自己设置为当前节点的守护进程，以 Linux 为例，它会创建一个 systemd 服务：&lt;/p>
+&lt;p>`$ cat /etc/systemd/system/netclient.service
+[Unit]
+Description=Network Check
+Wants=netclient.timer&lt;/p>
+&lt;p>[Service]
+Type=simple
+ExecStart=/etc/netclient/netclient checkin -n all&lt;/p>
+&lt;p>[Install]
+WantedBy=multi-user.target&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>该 systemd 服务的作用是向 Netmaker Server &lt;strong>签到&lt;/strong>，并将本地的配置与 Netmaker Server 托管的配置进行比较，根据比较结果进行适当修改，再拉取所有的 Peer 列表，最后重新配置 WireGuard。&lt;/p>
+&lt;p>同时还会设置一个计划任务，来定期（每 15 秒执行一次）启动守护进程同步本地和远程 Netmaker Server 的配置。&lt;/p>
+&lt;p>`$ cat /etc/systemd/system/netclient.timer
+[Unit]
+Description=Calls the Netmaker Mesh Client Service
+Requires=netclient.service&lt;/p>
+&lt;p>[Timer]
+Unit=netclient.service&lt;/p>
+&lt;p>OnCalendar=&lt;em>:&lt;/em>:0/15&lt;/p>
+&lt;p>[Install]
+WantedBy=timers.target&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>对于不支持 systemd 的 Linux 发行版，我们可以采取其他方式来执行守护进程和计划任务。我们也可以把 netclient 作为调试工具，执行 &lt;code>netclient pull&lt;/code> 从 Netmaker Server 获取最新配置，执行 &lt;code>netclient push&lt;/code> 将本地变更推送到 Netmaker Server，等等。&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>本文在讲解过程中略过了很多功能和选项的细节，如果你有兴趣了解某个特定的功能或者选项，可以查阅 Netmaker 的官方文档[4]。下一篇文章将会介绍如何使用 Netmaker 来配置 WireGuard 全互联模式，我会详细介绍 Linux、macOS 和手机客户端分别该如何配置，敬请期待！&lt;/p>
+&lt;h3 id="引用链接">引用链接&lt;/h3>
+&lt;p>[1]&lt;/p>
+&lt;p>Netmaker: &lt;a href="https://github.com/gravitl/netmaker">&lt;em>https://github.com/gravitl/netmaker&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[2]&lt;/p>
+&lt;p>Netmaker 的官方文档: &lt;a href="https://docs.netmaker.org/quick-start.html">&lt;em>https://docs.netmaker.org/quick-start.html&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[3]&lt;/p>
+&lt;p>Docker 官方文档: &lt;a href="https://docs.docker.com/compose/install/">&lt;em>https://docs.docker.com/compose/install/&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[4]&lt;/p>
+&lt;p>Netmaker 的官方文档: &lt;a href="https://docs.netmaker.org/">&lt;em>https://docs.netmaker.org/&lt;/em>&lt;/a>&lt;/p></description></item><item><title>Docs: 贫苦家庭与野生公有云之间的 WireGuard Mesh 组网策略</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling-Protocol/WireGuard/Wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/%E8%B4%AB%E8%8B%A6%E5%AE%B6%E5%BA%AD%E4%B8%8E%E9%87%8E%E7%94%9F%E5%85%AC%E6%9C%89%E4%BA%91%E4%B9%8B%E9%97%B4%E7%9A%84-WireGuard-Mesh-%E7%BB%84%E7%BD%91%E7%AD%96%E7%95%A5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling-Protocol/WireGuard/Wireguard-%E5%85%A8%E4%BA%92%E8%81%94%E6%A8%A1%E5%BC%8Ffull-mesh%E6%9D%83%E5%A8%81%E6%8C%87%E5%8D%97/%E8%B4%AB%E8%8B%A6%E5%AE%B6%E5%BA%AD%E4%B8%8E%E9%87%8E%E7%94%9F%E5%85%AC%E6%9C%89%E4%BA%91%E4%B9%8B%E9%97%B4%E7%9A%84-WireGuard-Mesh-%E7%BB%84%E7%BD%91%E7%AD%96%E7%95%A5/</guid><description>
+&lt;p>&lt;a href="https://mp.weixin.qq.com/s/KrDJs3e6JjKgCADNigPUJA">贫苦家庭与野生公有云之间的 WireGuard Mesh 组网策略&lt;/a>&lt;/p>
+&lt;p>大家好，我是米开朗基杨。&lt;/p>
+&lt;p>熟悉我的小伙伴都知道我是一名与时俱进的 WireGuard 舔狗，我早就把所有的跨云组网都换成了 WireGuard。&lt;/p>
+&lt;p>WireGuard 利用内核空间处理来提升性能（更高吞吐和更低延迟），同时避免了不必要的内核和用户空间频繁上下文切换开销。在 Linux 5.6 将 WireGuard 合并入上游之后， &lt;strong>&lt;code>OpenVPN&lt;/code> 无论做什么，也无法逆转大部队向 WireGuard 迁移之大趋势，所谓历史之潮流&lt;/strong>。&lt;/p>
+&lt;p>不要再跟我提 OpenVPN 了，你们农村人才用 OpenVPN，我们城里人早就换上了 WireGuard！（此处只是开个玩笑，别当真哈 😂）&lt;/p>
+&lt;hr>
+&lt;p>言归正传，我在&lt;a href="https://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247499554&amp;amp;idx=1&amp;amp;sn=bd2fb198fda6e224d5800a90489c85e4&amp;amp;scene=21#wechat_redirect">👉 上篇文章&lt;/a>中介绍了 Netmaker 的工作原理和功能解读，本篇文章将会介绍&lt;strong>如何使用 Netmaker 来配置 WireGuard 全互联模式&lt;/strong>。&lt;/p>
+&lt;p>此前我单独用了整篇文章来给大家介绍 Netmaker 是个什么东西，它的架构和工作原理是什么，以及如何部署 Netmaker。所有的这些内容都是为了今天的文章做铺垫，本文要讲的内容才是真正的杀手锏。假定你已经通读了我的&lt;a href="https://mp.weixin.qq.com/s?__biz=MzU1MzY4NzQ1OA==&amp;amp;mid=2247499554&amp;amp;idx=1&amp;amp;sn=bd2fb198fda6e224d5800a90489c85e4&amp;amp;scene=21#wechat_redirect">👉 上一篇文章&lt;/a>，并且按照文中所述步骤部署好了 Netmaker。如果你还没有做好这些准备工作，建议先去准备一下，再来阅读本篇文章。&lt;/p>
+&lt;p>好，我们已经部署好了 Netmaker，但它只负责存储和管理各个节点的 WireGuard 配置和状态信息，真正的主角还是通过 WireGuard 私有网络进行通信的节点。节点通常是运行 Linux 的服务器，它需要安装 &lt;code>netclient&lt;/code> 和 &lt;code>WireGuard&lt;/code>。这个节点会通过 WireGuard 私有网络和其他所有节点相连。一但节点被添加到私有网络中，Netmaker 管理员就可以操控该节点的配置。&lt;/p>
+&lt;p>光说不练假把式，为了让大家更容易带入，咱们还是来模拟一下实际场景。假设我有 4 个不同的节点，这 4 个节点的操作系统分别是 &lt;code>Ubuntu&lt;/code>、&lt;code>macOS&lt;/code>、&lt;code>OpenWrt&lt;/code> 和 &lt;code>Android&lt;/code>，且分别处于不同的局域网中，即每个节点的公网出口都不同。先来看下架构图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;h2 id="创建网络">创建网络&lt;/h2>
+&lt;p>加入节点之前，需要先在 Netmaker 中创建一个网络。一般我们会将这个新创建的网络命名为 &lt;code>default&lt;/code>，但我的环境中已经存在了该网络，所以我将重新创建一个网络为大家演示。&lt;/p>
+&lt;p>先创建一个网络，命名为 demo。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>创建完成后，还可以继续修改该网络的相关元数据，比如&lt;strong>允许节点在不使用秘钥的情况下加入 VPN 网络&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;h2 id="加入节点">加入节点&lt;/h2>
+&lt;p>如果部署 Netmaker 时开启了环境变量 &lt;code>CLIENT_MODE: &amp;quot;on&amp;quot;&lt;/code>，Netmaker 就会将自身所在的主机也作为一个网络节点，名字默认为 &lt;code>netmaker&lt;/code>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>其他节点的加入流程也很简单，但不同的操作系统又不尽相同。&lt;/p>
+&lt;h3 id="ubuntu">Ubuntu&lt;/h3>
+&lt;p>常规的 Linux 发行版最简单，直接下载二进制文件，赋予可执行权限。&lt;/p>
+&lt;p>&lt;code>$ wget https://github.com/gravitl/netmaker/releases/download/latest/netclient $ chmod +x netclient&lt;/code>&lt;/p>
+&lt;p>然后执行下面的命令将节点加入网络。&lt;/p>
+&lt;p>&lt;code>$ ./netclient join --dnson no --name &amp;lt;HOSTNAME&amp;gt; --network demo --apiserver &amp;lt;Netmaker_IP&amp;gt;:8081 --grpcserver &amp;lt;Netmaker_IP&amp;gt;:50051&lt;/code>&lt;/p>
+&lt;ul>
+&lt;li>将 &lt;code>&amp;lt;HOSTNAME&amp;gt;&lt;/code> 替换成你的节点名称，你也可以设置成别的名字。&lt;/li>
+&lt;li>将 &lt;code>&amp;lt;Netmaker_IP&amp;gt;&lt;/code> 替换为 Netmaker Server 的公网 IP。&lt;/li>
+&lt;/ul>
+&lt;p>到 Netmaker UI 中批准加入节点的请求。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>批准之后就可以看到两个节点之间已经握手成功了。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>如果没有握手成功，你需要检查一下 Netmaker 的防火墙是否放行了 UDP 端口（本文是 &lt;code>51821&lt;/code> 端口）。&lt;/p>
+&lt;blockquote>
+&lt;p>对于 WireGuard 而言，一般情况下通信双方只需一个节点开放固定的公网端口即可，另一个节点的防火墙可以不放行 UDP 端口。所以这里只需开启 Netmaker Server 所在主机的 UDP 端口即可。&lt;/p>
+&lt;/blockquote>
+&lt;p>同时还会设置一个计划任务，来定期（每 15 秒执行一次）启动守护进程执行签到命令，签到的作用是将本地的配置与 Netmaker Server 托管的配置进行比较，根据比较结果进行适当修改，再拉取所有的 Peer 列表，最后重新配置 WireGuard。&lt;/p>
+&lt;p>`$ cat /etc/systemd/system/netclient.timer&lt;/p>
+&lt;p>[Unit]&lt;/p>
+&lt;p>Description=Calls the Netmaker Mesh Client Service&lt;/p>
+&lt;p>Requires=netclient.service&lt;/p>
+&lt;p>[Timer]&lt;/p>
+&lt;p>Unit=netclient.service&lt;/p>
+&lt;p>OnCalendar=&lt;em>:&lt;/em>:0/15&lt;/p>
+&lt;p>[Install]&lt;/p>
+&lt;p>WantedBy=timers.target&lt;/p>
+&lt;p>$ systemctl status netclient.timer&lt;/p>
+&lt;p>● netclient.timer - Calls the Netmaker Mesh Client Service&lt;/p>
+&lt;p>Loaded: loaded (/etc/systemd/system/netclient.timer; enabled; vendor preset: enabled)&lt;/p>
+&lt;p>Active: active (running) since Sat 2021-10-09 01:34:27 CST; 4 weeks 1 days ago&lt;/p>
+&lt;p>Trigger: n/a&lt;/p>
+&lt;p>Triggers: ● netclient.service&lt;/p>
+&lt;p>Oct 09 01:34:27 blog-k3s04 systemd[1]: Started Calls the Netmaker Mesh Client Service.&lt;/p>
+&lt;p>$ cat /etc/systemd/system/netclient.service&lt;/p>
+&lt;p>[Unit]&lt;/p>
+&lt;p>Description=Network Check&lt;/p>
+&lt;p>Wants=netclient.timer&lt;/p>
+&lt;p>[Service]&lt;/p>
+&lt;p>Type=simple&lt;/p>
+&lt;p>ExecStart=/etc/netclient/netclient checkin -n all&lt;/p>
+&lt;p>[Install]&lt;/p>
+&lt;p>WantedBy=multi-user.target&lt;/p>
+&lt;p>$ systemctl status netclient.service&lt;/p>
+&lt;p>● netclient.service - Network Check&lt;/p>
+&lt;p>Loaded: loaded (/etc/systemd/system/netclient.service; enabled; vendor preset: enabled)&lt;/p>
+&lt;p>Active: active (running) since Sun 2021-11-07 15:00:54 CST; 11ms ago&lt;/p>
+&lt;p>TriggeredBy: ● netclient.timer&lt;/p>
+&lt;p>Main PID: 3390236 (netclient)&lt;/p>
+&lt;p>Tasks: 5 (limit: 19176)&lt;/p>
+&lt;p>Memory: 832.0K&lt;/p>
+&lt;p>CGroup: /system.slice/netclient.service&lt;/p>
+&lt;p>└─3390236 /etc/netclient/netclient checkin -n all&lt;/p>
+&lt;p>Nov 07 15:00:54 blog-k3s04 systemd[1]: Started Network Check.&lt;/p>
+&lt;p>Nov 07 15:00:54 blog-k3s04 netclient[3390236]: 2021/11/07 15:00:54 [netclient] running checkin for all networks&lt;/p>
+&lt;p>`&lt;/p>
+&lt;h3 id="macos">macOS&lt;/h3>
+&lt;p>如果是 Intel CPU，可以直接到 Releases 页面[1]下载可执行文件。如果是 M1 系列芯片（包含 M1 Pro 和 M1 Max），需要自己从源码编译：&lt;/p>
+&lt;p>&lt;code>$ git clone https://github.com/gravitl/netmaker $ cd netmaker/netclient $ go build -a -ldflags=&amp;quot;-s -w&amp;quot; .&lt;/code>&lt;/p>
+&lt;p>安装 WireGuard 命令行工具：&lt;/p>
+&lt;p>&lt;code>$ brew install wireguard-tools&lt;/code>&lt;/p>
+&lt;p>下面的步骤就和 Ubuntu 一样了，执行以下命令将节点加入网络。&lt;/p>
+&lt;p>&lt;code>$ sudo ./netclient join --dnson no --name &amp;lt;HOSTNAME&amp;gt; --network demo --apiserver &amp;lt;Netmaker_IP&amp;gt;:8081 --grpcserver &amp;lt;Netmaker_IP&amp;gt;:50051&lt;/code>&lt;/p>
+&lt;p>再到 Netmaker UI 中批准加入节点的请求，批准之后就可以看到各个节点之间已经握手成功了。&lt;/p>
+&lt;p>`$ sudo wg&lt;/p>
+&lt;p>interface: utun5&lt;/p>
+&lt;p>public key: 2sGnrXTY1xb+cWMR+ZXfBLZqmpDtYCNtKdQ3Cm6gBAs=&lt;/p>
+&lt;p>private key: (hidden)&lt;/p>
+&lt;p>listening port: 61259&lt;/p>
+&lt;p>peer: X2LTMBX8fyXyCrCVFcJMDKVBtPcfJHT24lwkQQRSykg=&lt;/p>
+&lt;p>endpoint: 121.36.134.95:51821&lt;/p>
+&lt;p>allowed ips: 10.8.0.1/32&lt;/p>
+&lt;p>latest handshake: 37 seconds ago&lt;/p>
+&lt;p>transfer: 216 B received, 732 B sent&lt;/p>
+&lt;p>persistent keepalive: every 20 seconds&lt;/p>
+&lt;p>peer: Z6oCQdV5k4/AVXsUhhGNW69D2hnqcgJe7i3w8qzGJBY=&lt;/p>
+&lt;p>endpoint: 103.61.37.238:55730&lt;/p>
+&lt;p>allowed ips: 10.8.0.2/32&lt;/p>
+&lt;p>latest handshake: 1 minute, 47 seconds ago&lt;/p>
+&lt;p>transfer: 1.30 KiB received, 2.99 KiB sent&lt;/p>
+&lt;p>persistent keepalive: every 20 seconds&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>除了 Netmaker Server 节点之外，Ubuntu 节点和 macOS 节点的 UDP 监听端口都是随机的，而且他们的防火墙都没有放行相应的 UDP 端口，竟然也握手成功了！那是因为他们都&lt;strong>开启了 UDP 打洞&lt;/strong>，这就是 UDP 打洞的神奇之处。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>我们可以来验证下 macOS 和 Ubuntu 之间的连通性：&lt;/p>
+&lt;p>`$ ping 10.8.0.2 -c 2&lt;/p>
+&lt;p>PING 10.8.0.2 [局域网  IP] (10.8.0.2 [局域网  IP]): 56 data bytes&lt;/p>
+&lt;p>64 bytes from 10.8.0.2 [局域网  IP]: icmp_seq=0 ttl=64 time=44.368 ms&lt;/p>
+&lt;p>64 bytes from 10.8.0.2 [局域网  IP]: icmp_seq=1 ttl=64 time=44.065 ms&lt;/p>
+&lt;p>&amp;mdash; 10.8.0.2 [局域网  IP] ping statistics &amp;mdash;&lt;/p>
+&lt;p>2 packets transmitted, 2 packets received, 0.0% packet loss&lt;/p>
+&lt;p>round-trip min/avg/max/stddev = 44.065/44.216/44.368/0.152 ms&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>完美，&lt;strong>即使 macOS 位于 NAT 后面，防火墙没有配置 UDP 端口转发，对等节点也没有放行相应 UDP 端口，双方仍然能够握手成功。&lt;/strong>&lt;/p>
+&lt;p>macOS 的守护进程是通过 launchctl 来配置的，netclient 在 macOS 中也会创建一个守护进程来定时同步配置。&lt;/p>
+&lt;p>&lt;code>$ sudo launchctl list com.gravitl.netclient {  &amp;quot;StandardOutPath&amp;quot; = &amp;quot;/etc/netclient/com.gravitl.netclient.log&amp;quot;;  &amp;quot;LimitLoadToSessionType&amp;quot; = &amp;quot;System&amp;quot;;  &amp;quot;StandardErrorPath&amp;quot; = &amp;quot;/etc/netclient/com.gravitl.netclient.log&amp;quot;;  &amp;quot;Label&amp;quot; = &amp;quot;com.gravitl.netclient&amp;quot;;  &amp;quot;OnDemand&amp;quot; = true;  &amp;quot;LastExitStatus&amp;quot; = 0;  &amp;quot;Program&amp;quot; = &amp;quot;/etc/netclient/netclient&amp;quot;;  &amp;quot;ProgramArguments&amp;quot; = (   &amp;quot;/etc/netclient/netclient&amp;quot;;   &amp;quot;checkin&amp;quot;;   &amp;quot;-n&amp;quot;;   &amp;quot;all&amp;quot;;  ); };&lt;/code>&lt;/p>
+&lt;p>守护进程的配置文件在 &lt;code>/Library/LaunchDaemons/com.gravitl.netclient.plist&lt;/code> 目录下：&lt;/p>
+&lt;p>`$ sudo cat /Library/LaunchDaemons/com.gravitl.netclient.plist
+其中有一段配置内容如下：&lt;/p>
+&lt;p>&lt;code>&amp;lt;key&amp;gt;StartInterval&amp;lt;/key&amp;gt;      &amp;lt;integer&amp;gt;15&amp;lt;/integer&amp;gt;&lt;/code>&lt;/p>
+&lt;p>表示每过 15 秒执行签到命令来同步配置。&lt;/p>
+&lt;h3 id="openwrt">OpenWrt&lt;/h3>
+&lt;p>虽然 OpenWrt 也是 Linux 发行版，但目前 netclient 的可执行文件还不能在 OpenWrt 中运行，这和 C 语言的动态链接库有关，OpenWrt 中缺失了很多 C 语言动态链接库。为了解决这个问题，我们可以关闭对 C 语言外部依赖的调用，手动编译出纯静态的可执行文件。&lt;/p>
+&lt;p>你可以找一台常规的 Linux 发行版或者 macOS 来编译：&lt;/p>
+&lt;p>&lt;code>$ git clone https://github.com/gravitl/netmaker $ cd netmaker/netclient $ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags=&amp;quot;-s -w&amp;quot; .&lt;/code>&lt;/p>
+&lt;blockquote>
+&lt;p>如果你的 OpenWrt 跑在其他 CPU 架构上，需要将 &lt;code>GOARCH&lt;/code> 的值替换为相应的 CPU 架构。&lt;/p>
+&lt;/blockquote>
+&lt;p>编译成功后，可以检查一下可执行文件的类型和 CPU 架构：&lt;/p>
+&lt;p>&lt;code>$ file netclient netclient: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, Go BuildID=QWXj97OoEpN-Sm97lim2/ZtJJHaG77M3fYSMqtFGK/YPVj2xx-KdNyYT8YEZ8W/i9CliPF-AqUNcTy2ZKpA, stripped&lt;/code>&lt;/p>
+&lt;p>如果确认无误，就可以将其拷贝到 OpenWrt 主机上了，例如：&lt;/p>
+&lt;p>&lt;code>$ scp netclient root@&amp;lt;Openwrt_IP&amp;gt;:/root/&lt;/code>&lt;/p>
+&lt;p>接下来就可以登录到 OpenWrt 将节点加入网络了：&lt;/p>
+&lt;p>&lt;code>$ ./netclient join --dnson no --name &amp;lt;HOSTNAME&amp;gt; --daemon off --network demo --apiserver &amp;lt;Netmaker_IP&amp;gt;:8081 --grpcserver &amp;lt;Netmaker_IP&amp;gt;:50051&lt;/code>&lt;/p>
+&lt;p>这里相比于之前的节点多了一个参数 &lt;code>--daemon off&lt;/code>，禁用了守护进程，因为 OpenWrt 不支持 Systemd。如果你坚持开启守护进程，那么加入网络时就会报错，所以必须要加这个参数。&lt;/p>
+&lt;p>和之前的步骤一样，到 Netmaker UI 中批准加入节点的请求，批准之后就可以看到各个节点之间已经握手成功了。&lt;/p>
+&lt;p>`$ wg&lt;/p>
+&lt;p>interface: nm-demo&lt;/p>
+&lt;p>public key: sfrfimG++xk7X0AU5PrZs9p6PYith392ulhmL2OhPR8=&lt;/p>
+&lt;p>private key: (hidden)&lt;/p>
+&lt;p>listening port: 42655&lt;/p>
+&lt;p>peer: Z6oCQdV5k4/AVXsUhhGNW69D2hnqcgJe7i3w8qzGJBY=&lt;/p>
+&lt;p>endpoint: 103.61.37.238:55730&lt;/p>
+&lt;p>allowed ips: 10.8.0.2/32&lt;/p>
+&lt;p>latest handshake: 5 seconds ago&lt;/p>
+&lt;p>transfer: 488 B received, 1.39 KiB sent&lt;/p>
+&lt;p>persistent keepalive: every 20 seconds&lt;/p>
+&lt;p>peer: X2LTMBX8fyXyCrCVFcJMDKVBtPcfJHT24lwkQQRSykg=&lt;/p>
+&lt;p>endpoint: 121.36.134.95:51821&lt;/p>
+&lt;p>allowed ips: 10.8.0.1/32&lt;/p>
+&lt;p>latest handshake: 7 seconds ago&lt;/p>
+&lt;p>transfer: 568 B received, 488 B sent&lt;/p>
+&lt;p>persistent keepalive: every 20 seconds&lt;/p>
+&lt;p>peer: 2sGnrXTY1xb+cWMR+ZXfBLZqmpDtYCNtKdQ3Cm6gBAs=&lt;/p>
+&lt;p>endpoint: 192.168.100.90:57183&lt;/p>
+&lt;p>allowed ips: 10.8.0.3/32&lt;/p>
+&lt;p>latest handshake: 1 minute, 35 seconds ago&lt;/p>
+&lt;p>transfer: 1.38 KiB received, 3.46 KiB sent&lt;/p>
+&lt;p>persistent keepalive: every 20 seconds&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>由于我的 macOS 和 OpenWrt 在同一个局域网中，所以他们之间的 endpoint 都自动设置成了内网地址，太神奇啦！&lt;/p>
+&lt;p>到这里还没完，要想让 OpenWrt 动态更新配置，还需要手动实现一个计划任务来定期签到。我们选择使用 Crontab 来实现这个目的，直接添加两个计划任务：&lt;/p>
+&lt;p>&lt;code>$ cat &amp;lt;&amp;lt;EOF&amp;gt;&amp;gt; /etc/crontabs/root * * * * * /etc/netclient/netclient checkin --network all &amp;amp;&amp;gt; /dev/null * * * * * sleep 15; /etc/netclient/netclient checkin --network all &amp;amp;&amp;gt; /dev/null EOF&lt;/code>&lt;/p>
+&lt;p>这两个计划任务变相实现了 &lt;strong>“每隔 15 秒执行一次签到”&lt;/strong> 的目的。&lt;/p>
+&lt;h3 id="android">Android&lt;/h3>
+&lt;p>Netclient 目前只支持 Linux、macOS 和 Windows，如果 Android 和 iOS 端想要加入 VPN   私有网络，只能通过 WireGuard 原生客户端来进行连接。要想做到这一点，需要管理员事先创建一个 External  Client，它会生成一个 WireGuard 配置文件，WireGuard 客户端可以下载该配置文件或者扫描二维码进行连接。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>当然，在创建 External Client 之前，需要先设置其中一个节点为 Ingress Gateway。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>&lt;strong>需要说明的是，目前移动设备通过 External Client 接入只是权宜之计，随着 Netclient 对更多操作系统的支持，最终所有的客户端都应该使用 netclient 来连接。&lt;/strong>&lt;/p>
+&lt;p>最终所有的节点之间实现了全互联模式，每个节点都和其他节点直连，不需要第三方节点进行中转。当然，目前移动设备还是要通过 Ingress Gateway 进行中转。&lt;/p>
+&lt;h2 id="打通内网">打通内网&lt;/h2>
+&lt;p>到目前为止我们只是打造了一个点对点的 Mesh 网络，各个节点之间都可以通过 WireGuard 的私有网络 IP 进行直连。但我们可以更大胆一点，让每个节点都能访问其他节点的局域网 IP。以 OpenWrt 为例，假设 OpenWrt 跑在家中，家中的局域网 IP 为 &lt;code>192.168.100.0/24&lt;/code>，如何让其他所有节点都能访问这个局域网呢？&lt;/p>
+&lt;p>其实也很简单，可以将某个节点设置为 Egress Gateway（出口网关），允许将&lt;strong>内部&lt;/strong>网络的流量转发到&lt;strong>外部&lt;/strong>指定的 IP 范围。这里的&lt;strong>内部&lt;/strong>指的是 WireGuard 私有网络，本文中就是 &lt;code>10.8.0.0/16&lt;/code>；&lt;strong>外部&lt;/strong>网络指的是其他网段，比如局域网 IP。&lt;/p>
+&lt;p>操作步骤很傻瓜化，先点击 OpenWrt 节点左边的 &lt;strong>“MAKE openwrt AN EGRESS GATEWAY MODE?”&lt;/strong>：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>填写局域网的网段和出口网卡，如果你有多个网段需要打通（比如 OpenWrt 上的容器网段），可以用 &amp;ldquo;,&amp;rdquo; 隔开。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>配置完成后，就会在 OpenWrt 节点配置的 Postup 和 Postdown 中添加相关的 iptables 规则。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>具体的规则为：&lt;/p>
+&lt;p>`# Postup&lt;/p>
+&lt;p>iptables -A FORWARD -i nm-demo -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE&lt;/p>
+&lt;p># Postdown&lt;/p>
+&lt;p>iptables -D FORWARD -i nm-demo -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>很简单，想必就不用我再解释了。&lt;/p>
+&lt;p>除了添加 Postup 和 Postdown 之外，还会在其他节点 WireGuard 配置的 &lt;code>AllowedIps&lt;/code> 中添加 OpenWrt 的局域网网段：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>如果再自动添加相关的路由表，所有的节点就都可以访问 OpenWrt 的局域网了。可惜的是，Netmaker 目前并没有自动为我们添加相关路由表，不知道是出于什么原因，不管如何，我们可以自己手动添加路由表，将其添加到 Postup 和 Postdown 中。&lt;/p>
+&lt;p>具体的操作是，除了 OpenWrt 节点之外，在其他所有节点的配置中添加以下的路由表条目：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/a2964921-b35d-472a-b0fe-7058b4e00a5f/640" alt="">&lt;/p>
+&lt;p>最终所有的节点都可以访问 OpenWrt 的局域网 IP 了。&lt;/p>
+&lt;p>大家可以根据我的例子举一反三，比如你用几台云主机搭建了 K8s 集群，&lt;strong>如何在本地客户端和家中访问云上 K8s 集群的 Pod IP 和 Service IP 呢&lt;/strong>？不用我再解释了吧，相信你悟了。&lt;/p>
+&lt;h2 id="总结">总结&lt;/h2>
+&lt;p>本文详细介绍了如何使用 Netmaker 来配置 WireGuard 全互联模式，并打通指定节点的局域网，你也可以根据此方法来访问远程 K8s 集群中的 Pod。下一篇文章将会介绍如何使用 Cilium + Netmaker 来打造跨公有云的 K8s 集群。&lt;/p>
+&lt;h3 id="引用链接">引用链接&lt;/h3>
+&lt;p>[1]&lt;/p>
+&lt;p>Releases 页面: &lt;em>&lt;a href="https://github.com/gravitl/netmaker/releases">https://github.com/gravitl/netmaker/releases&lt;/a>&lt;/em>&lt;/p></description></item></channel></rss>

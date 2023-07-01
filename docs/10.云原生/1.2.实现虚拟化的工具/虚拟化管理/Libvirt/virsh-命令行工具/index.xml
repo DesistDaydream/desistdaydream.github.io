@@ -77,41 +77,62 @@ Many of the commands for host interfaces are similar to the ones used for domain
 &lt;li>&lt;a href="https://github.com/libvirt/libvirt/blob/master/docs/manpages/virsh.rst#device-commands">官方 Manual(手册)，DEVICE COMMANDS&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;h1 id="attach-device--attach-device-from-an-xml-file">attach-device # attach device from an XML file&lt;/h1>
-&lt;h1 id="attach-disk--将一个新的磁盘设备添加到-domian-中">attach-disk # 将一个新的磁盘设备添加到 domian 中&lt;/h1>
+&lt;p>注意：由于 Libvirt 适用于多种虚拟化后端，所以每个选项可用的值会分别适用于多种虚拟化后端，但是个人一般只用 QEMU/KVM，所以笔记中的选项一般也只记录 QEMU/KVM 相关的值。&lt;/p>
+&lt;p>这部分命令主要是用来为虚拟机添加/移除各种设备，比如 网卡、硬盘 等等。这些添加/移除的命令有一些通用的选项可用，为了记笔记方便，在开头这统一记录一下，添加设备的命令通常以 &lt;strong>attach&lt;/strong> 开头，移除设备的命令通常以 &lt;strong>detach&lt;/strong> 开头。&lt;/p>
+&lt;p>生效策略配置选项，用于配置添加/移除的行为在什么时候生效：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;config&lt;/strong> # 影响已关机的 Domain，将会在下一次启动时添加/移除设备&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;live&lt;/strong> # 影响运行中的 Domain，立刻为虚拟机添加/移除设备&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;current&lt;/strong> # 等效于 &amp;ndash;live 或 &amp;ndash;config，具体取决于虚拟机当前的状态&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;persistent&lt;/strong> # 处于兼容的目的，该命令对关机或者开机状态的虚拟机都有效，相当于为当前运行中的虚拟机以及以后启动后的虚拟机都添加/移除设备。&lt;/li>
+&lt;/ul>
+&lt;h1 id="attach-device---attach-device-from-an-xml-file">attach-device - attach device from an XML file&lt;/h1>
+&lt;h1 id="添加与移除磁盘设备">添加与移除磁盘设备&lt;/h1>
+&lt;p>在 Libvirt 的&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5.md">最佳实践&lt;/a>中有命令使用示例&lt;/p>
+&lt;h2 id="attach-disk">attach-disk&lt;/h2>
+&lt;p>将一个新的磁盘设备添加到 domian 中&lt;/p>
 &lt;p>&lt;a href="https://github.com/libvirt/libvirt/blob/master/docs/manpages/virsh.rst#attach-disk">https://github.com/libvirt/libvirt/blob/master/docs/manpages/virsh.rst#attach-disk&lt;/a>&lt;/p>
-&lt;h2 id="syntax语法">Syntax(语法)&lt;/h2>
+&lt;h3 id="syntax语法">Syntax(语法)&lt;/h3>
 &lt;p>&lt;strong>virsh attach-disk DOMAIN SOURCE TARGET [OPTIONS]&lt;/strong>&lt;/p>
-&lt;p>DOMAIN 可以使用 &amp;ndash;domain 选项指定，SOURCE 可以使用 &amp;ndash;source 选项指定，TARGET 可以使用 &amp;ndash;target 选项指定&lt;/p>
+&lt;p>将 SOURCE 添加到 DOMAIN 中，作为 TARGET 磁盘设备。&lt;/p>
+&lt;ul>
+&lt;li>SOURCE 是本地的 qcow2、raw 这种格式的文件。如果指定了 &amp;ndash;source-protocol 选项，则 SOURCE 可以是网络磁盘。&lt;/li>
+&lt;li>TARGET 是虚拟机中的设备，比如 vdb、vdc 这种。
+&lt;ul>
+&lt;li>可以使用 &amp;ndash;target 选项指定 TARGET&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
 &lt;p>&lt;strong>OPTIONS&lt;/strong>&lt;/p>
 &lt;ul>
-&lt;li>&lt;strong>&amp;ndash;driver DRIVER&lt;/strong> # 可用的值有：qemu&lt;/li>
-&lt;li>&lt;strong>&amp;ndash;subdriver STRING&lt;/strong> # &lt;code>默认值：raw&lt;/code>。可用的值有：对于 QEMU 来说可以是 raw、qcow2；对于 Xen 来说可以是 aio&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;driver DRIVER&lt;/strong> # 指定要使用的磁盘驱动程序。
+&lt;ul>
+&lt;li>可用的值有：对于 QEMU 来说可以是 qemu；对于 Xen 来说可以是 file、tap、phy&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;subdriver STRING&lt;/strong> # 为 &amp;ndash;driver 选项提供更多的详细信息。
+&lt;ul>
+&lt;li>可用的值有：对于 QEMU 来说可以是 raw、qcow2；对于 Xen 来说可以是 aio&lt;/li>
+&lt;/ul>
+&lt;/li>
 &lt;li>&lt;strong>&amp;ndash;target STING&lt;/strong> # 指定暴露给操作系统的的总线或设备。如果是硬盘的话，通常的值是 vdb、vdc、vdd 这种。&lt;/li>
 &lt;li>&lt;strong>&amp;ndash;targetbus STRING&lt;/strong> # 指定要模拟的设备类型。&lt;code>默认值：从设备名称的样式中推断出总线类型&lt;/code>
 &lt;ul>
-&lt;li>可用的值：virtio&lt;/li>
+&lt;li>可用的值：virtio、sata、scsi、usb&lt;/li>
 &lt;/ul>
 &lt;/li>
 &lt;li>&lt;strong>&amp;ndash;cache STRING&lt;/strong> # 可用的值：none&lt;/li>
 &lt;/ul>
-&lt;h2 id="example">EXAMPLE&lt;/h2>
-&lt;p>先创建一个 qcow2 文件，然后使用这个文件进行测试&lt;/p>
-&lt;ul>
-&lt;li>qemu-img create -f qcow2 -o size=1G test-data.qcow2&lt;/li>
-&lt;/ul>
-&lt;p>TODO: virsh attach-disk tj-test-spst-common-ubuntu2204 /var/lib/libvirt/images/test-data.qcow2 vdb 这种命令添加的设备没有容量显示有问题&lt;/p>
-&lt;p>待验证命令：&lt;/p>
-&lt;ul>
-&lt;li>virsh attach-disk tj-test-spst-common-ubuntu2204 /var/lib/libvirt/images/test-data.qcow2 vdb &amp;ndash;cache none &amp;ndash;driver qemu &amp;ndash;su&lt;/li>
-&lt;/ul>
-&lt;h1 id="attach-interface--附加网络接口ie给-vm-添加一个网卡">attach-interface # 附加网络接口(i.e.给 VM 添加一个网卡)&lt;/h1>
-&lt;h1 id="detach-device--detach-device-from-an-xml-file">detach-device # detach device from an XML file&lt;/h1>
-&lt;h1 id="detach-disk--detach-disk-device">detach-disk # detach disk device&lt;/h1>
-&lt;h1 id="detach-interface--分离网络接口ie删除-vm-的一个网卡">detach-interface # 分离网络接口(i.e.删除 VM 的一个网卡)&lt;/h1>
-&lt;h1 id="update-device--update-device-from-an-xml-file">update-device # update device from an XML file&lt;/h1>
+&lt;h2 id="detach-disk">detach-disk&lt;/h2>
+&lt;p>将虚拟机的磁盘设备与虚拟机分离&lt;/p>
+&lt;h3 id="syntax语法-1">Syntax(语法)&lt;/h3>
+&lt;p>&lt;strong>detach-disk DOMAIN TARGET [OPTIONS]&lt;/strong>&lt;/p>
+&lt;h1 id="attach-interface---附加网络接口ie给-vm-添加一个网卡">attach-interface - 附加网络接口(i.e.给 VM 添加一个网卡)&lt;/h1>
+&lt;h1 id="detach-device---detach-device-from-an-xml-file">detach-device - detach device from an XML file&lt;/h1>
+&lt;h1 id="detach-interface---分离网络接口ie删除-vm-的一个网卡">detach-interface - 分离网络接口(i.e.删除 VM 的一个网卡)&lt;/h1>
+&lt;h1 id="update-device---update-device-from-an-xml-file">update-device - update device from an XML file&lt;/h1>
 &lt;h1 id="update-memory-device">update-memory-device&lt;/h1>
-&lt;h1 id="change-media--change-media-of-cd-or-floppy-drive">change-media # Change media of CD or floppy drive&lt;/h1></description></item><item><title>Docs: Domain 命令</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/virsh-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/Domain-%E5%91%BD%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/virsh-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/Domain-%E5%91%BD%E4%BB%A4/</guid><description>
+&lt;h1 id="change-media---change-media-of-cd-or-floppy-drive">change-media - Change media of CD or floppy drive&lt;/h1></description></item><item><title>Docs: Domain 命令</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/virsh-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/Domain-%E5%91%BD%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/virsh-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/Domain-%E5%91%BD%E4%BB%A4/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
