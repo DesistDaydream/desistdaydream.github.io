@@ -268,7 +268,47 @@
 &lt;/blockquote>
 &lt;p>ansible-playbook site.yml -i inventory/my-cluster/hosts.ini&lt;/p>
 &lt;h1 id="常见问题">常见问题&lt;/h1>
-&lt;p>1.25.7 和 1.26.2 版本的 K3S 使用的 v0.21.1 版本的 Flannel 与旧版 iptables（v1.4.21，比如 centos7~凸(艹皿艹 )） 不兼容 ，需要使用 v0.21.4 Flannel，可以升级到 1.26.3 版本解决。&lt;a href="https://github.com/k3s-io/k3s/issues/7096">issue#7096&lt;/a>&lt;/p></description></item><item><title>Docs: K3S 管理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E8%A1%8D%E7%94%9F%E5%93%81/K3S/K3S-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E8%A1%8D%E7%94%9F%E5%93%81/K3S/K3S-%E7%AE%A1%E7%90%86/</guid><description>
+&lt;p>1.25.7 和 1.26.2 版本的 K3S 使用的 v0.21.1 版本的 Flannel 与旧版 iptables（v1.4.21，比如 centos7~凸(艹皿艹 )） 不兼容 ，需要使用 v0.21.4 Flannel，可以升级到 1.26.3 版本解决。&lt;a href="https://github.com/k3s-io/k3s/issues/7096">issue#7096&lt;/a>&lt;/p></description></item><item><title>Docs: K3S 备份与恢复</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E8%A1%8D%E7%94%9F%E5%93%81/K3S/K3S-%E5%A4%87%E4%BB%BD%E4%B8%8E%E6%81%A2%E5%A4%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E8%A1%8D%E7%94%9F%E5%93%81/K3S/K3S-%E5%A4%87%E4%BB%BD%E4%B8%8E%E6%81%A2%E5%A4%8D/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/qpfKuvLvQ8E_pJ2WLpJm7g">公众号-边缘计算k3s社区，容器化应用的救命稻草：深入探索 K3s 备份和恢复&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="使用嵌入式-etcd-数据存储进行备份和恢复">使用嵌入式 etcd 数据存储进行备份和恢复&lt;/h1>
+&lt;h2 id="创建快照">创建快照&lt;/h2>
+&lt;p>默认情况下，K3s 会在 00:00 和 12:00 自动创建快照，并保留 5 个快照。当然，你也可以禁用自动快照或者通过 &lt;code>k3s etcd-snapshot save&lt;/code> 来手动创建快照。&lt;/p>
+&lt;p>快照目录默认为 &lt;code>${data-dir}/server/db/snapshots&lt;/code>。&lt;code>data-dir&lt;/code> 的默认值为 &lt;code>/var/lib/rancher/k3s&lt;/code>，你可以通过设置 &lt;code>--data-dir&lt;/code> 标志来更改。&lt;/p>
+&lt;h2 id="从快照恢复集群">从快照恢复集群&lt;/h2>
+&lt;p>当 K3s 从备份中恢复时，旧的数据目录将被移动到 &lt;code>${data-dir}/server/db/etcd-old/&lt;/code>。然后 K3s 将尝试通过创建一个新的数据目录来恢复快照，最后使用具有一个 etcd 成员的新 K3s 集群启动 etcd。&lt;/p>
+&lt;p>在此示例中有 3 个 K3s Server 节点，分别是 &lt;code>S1&lt;/code>、&lt;code>S2&lt;/code>和 &lt;code>S3&lt;/code>，快照位于 &lt;code>S1&lt;/code> 上:&lt;/p>
+&lt;ol>
+&lt;li>在 S1 上，使用 &lt;code>--cluster-reset&lt;/code> 选项运行 K3s，同时指定 &lt;code>--cluster-reset-restore-path&lt;/code>：&lt;/li>
+&lt;/ol>
+&lt;pre tabindex="0">&lt;code>ls /var/lib/rancher/k3s/server/db/snapshots/
+on-demand-ip-172-31-3-36-1688025329
+systemctl stop k3s
+k3s server \
+  --cluster-reset \
+  --cluster-reset-restore-path=/var/lib/rancher/k3s/server/db/snapshots/on-demand-ip-172-31-3-36-1688025329
+&lt;/code>&lt;/pre>&lt;ol start="2">
+&lt;li>在 &lt;code>S2&lt;/code> 和 &lt;code>S3&lt;/code> 上，停止 K3s。然后删除数据目录 &lt;code>/var/lib/rancher/k3s/server/db/&lt;/code>：&lt;/li>
+&lt;/ol>
+&lt;pre tabindex="0">&lt;code>systemctl stop k3s
+rm -rf /var/lib/rancher/k3s/server/db/
+&lt;/code>&lt;/pre>&lt;ol start="3">
+&lt;li>在 &lt;code>S1&lt;/code> 上，再次启动 K3s：&lt;/li>
+&lt;/ol>
+&lt;pre tabindex="0">&lt;code>systemctl start k3s
+&lt;/code>&lt;/pre>&lt;ol start="4">
+&lt;li>&lt;code>S1&lt;/code> 启动成功后，在 &lt;code>S2&lt;/code> 和 &lt;code>S3&lt;/code> 上，再次启动 K3s 以加入恢复后的集群：&lt;/li>
+&lt;/ol>
+&lt;pre tabindex="0">&lt;code>systemctl start k3s
+&lt;/code>&lt;/pre>&lt;p>&lt;code>S2&lt;/code> 和 &lt;code>S3&lt;/code> 虽然使用空的数据目录来启动 K3s 服务，但启动时会自动到 &lt;code>S1&lt;/code> 去同步数据，从而完成 &lt;code>S2&lt;/code> 和 &lt;code>S3&lt;/code> 的恢复。&lt;/p>
+&lt;p>另外，&lt;code>k3s etcd-snapshot&lt;/code> 子命令支持 S3 兼容的 API，这样我们可以将快照自动或手动的上传到 S3 中存储，并且用于 K3s 的数据恢复。&lt;/p>
+&lt;h1 id="k3s-集群的灾难恢复">K3s 集群的灾难恢复&lt;/h1>
+&lt;p>TODO&lt;/p></description></item><item><title>Docs: K3S 管理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E8%A1%8D%E7%94%9F%E5%93%81/K3S/K3S-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E8%A1%8D%E7%94%9F%E5%93%81/K3S/K3S-%E7%AE%A1%E7%90%86/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>

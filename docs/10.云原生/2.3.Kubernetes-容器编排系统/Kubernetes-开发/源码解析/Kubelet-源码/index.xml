@@ -1431,13 +1431,14 @@ PreInitRuntimeService()&lt;/p>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>, &lt;span style="color:#66d9ef">nil&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: SyncLoop 模块 # Kubelet 同步循环</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E5%BC%80%E5%8F%91/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/Kubelet-%E6%BA%90%E7%A0%81/SyncLoop-%E6%A8%A1%E5%9D%97-#-Kubelet-%E5%90%8C%E6%AD%A5%E5%BE%AA%E7%8E%AF/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E5%BC%80%E5%8F%91/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/Kubelet-%E6%BA%90%E7%A0%81/SyncLoop-%E6%A8%A1%E5%9D%97-#-Kubelet-%E5%90%8C%E6%AD%A5%E5%BE%AA%E7%8E%AF/</guid><description>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: SyncLoop 模块</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E5%BC%80%E5%8F%91/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/Kubelet-%E6%BA%90%E7%A0%81/SyncLoop-%E6%A8%A1%E5%9D%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/Kubernetes-%E5%BC%80%E5%8F%91/%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/Kubelet-%E6%BA%90%E7%A0%81/SyncLoop-%E6%A8%A1%E5%9D%97/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;/blockquote>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/paseql/1645680266069-2cc34f9d-ed55-45dd-8df4-ac0ed0c8c388.png" alt="image.png">
-kubelet 的工作核心就是在围绕着不同的生产者生产出来的不同的有关 pod 的消息来调用相应的消费者（不同的子模块）完成不同的行为(创建和删除 pod 等)，即图中的控制循环（SyncLoop），通过不同的事件驱动这个控制循环运行。&lt;/p>
+&lt;p>SyncLoop 模块，Kubelet 同步循环&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/paseql/1645680266069-2cc34f9d-ed55-45dd-8df4-ac0ed0c8c388.png" alt="image.png">&lt;/p>
+&lt;p>kubelet 的工作核心就是在围绕着不同的生产者生产出来的不同的有关 pod 的消息来调用相应的消费者（不同的子模块）完成不同的行为(创建和删除 pod 等)，即图中的控制循环（SyncLoop），通过不同的事件驱动这个控制循环运行。&lt;/p>
 &lt;p>本文仅分析新建 pod 的流程，当一个 pod 完成调度，与一个 node 绑定起来之后，这个 pod 就会触发 kubelet 在循环控制里注册的 handler，上图中的 HandlePods 部分。此时，通过检查 pod 在 kubelet 内存中的状态，kubelet 就能判断出这是一个新调度过来的 pod，从而触发 Handler 里的 ADD 事件对应的逻辑处理。然后 kubelet 会为这个 pod 生成对应的 podStatus，接着检查 pod 所声明的 volume 是不是准备好了，然后调用下层的容器运行时。如果是 update 事件的话，kubelet 就会根据 pod 对象具体的变更情况，调用下层的容器运行时进行容器的重建。&lt;/p>
 &lt;h2 id="kubelet-创建-pod-的流程imagepnghttpsnotes-learningoss-cn-beijingaliyuncscompaseql1645680598998-2bf06936-f8ac-48fa-b370-796e5c334545png">kubelet 创建 pod 的流程&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/paseql/1645680598998-2bf06936-f8ac-48fa-b370-796e5c334545.png" alt="image.png">&lt;/h2>
 &lt;p>Note：注意 14，,15 步，kubelet 会先将生成配置(volume 挂载、配置主机名等等)，才会去启动 pod，哪怕 pod 启动失败，挂载依然存在。&lt;/p>
