@@ -100,7 +100,7 @@ func main() {...}
 &lt;h1 id="二--通过进程组来解决掉所有子进程">二   通过进程组来解决掉所有子进程&lt;/h1>
 &lt;p>在 linux 当中，是有会话、进程组和进程组的概念，并且 Go 也是使用 linux 的 kill(2) 方法来发送信号的，那么是否可以通过 kill 来将要结束进程的子进程都结束掉？&lt;/p>
 &lt;p>linux 的 kill(2) 的定义如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span>&lt;span style="color:#75715e"> &amp;lt;signal.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;signal.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">kill&lt;/span>(pid_t pid, &lt;span style="color:#66d9ef">int&lt;/span> sig);
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>并在方法的描述中，可以看到如下内容：&lt;/p>
@@ -135,7 +135,7 @@ func main() {...}
 &lt;p>其实之类犯了一个低级错误，从上图中，我们可以看到他们的进程组 ID 为 27655，但是我们传递的是 cmd 的 id 即 27673，这个并不是进程组的 ID，因此程序并没有 kill，导致 cmd.Run() 一直在执行。&lt;/p>
 &lt;p>在 Linux 中，进程组中的第一个进程，被称为进程组 Leader，同时这个进程组的 ID 就是这个进程的 ID，从这个进程中创建的其他进程，都会继承这个进程的进程组和会话信息；从上面可以看出 go run main.go 程序 PID 和 PGID 同为 27655，那么这个进程就是进程组 Leader，我们不能 kill 这个进程组，除非想 “自杀”，哈哈哈。&lt;/p>
 &lt;p>那么我们给要执行的进程，新建一个进程组，在 Kill 不就可以了嘛。在 linux 当中，通过 setpgid 方法来设置进程组 ID，定义如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span>&lt;span style="color:#75715e"> &amp;lt;unistd.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;unistd.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">setpgid&lt;/span>(pid_t pid, pid_t pgid);
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果将 pid 和 pgid 同时设置成 0，也就是 setpgid(0,0)，则会使用当前进程为进程组 leader 并创建新的进程组。&lt;/p>
@@ -169,13 +169,13 @@ func main() {...}
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">USER&lt;/span> &lt;span style="color:#e6db74">PID PPID PGID SESS JOBC STAT TT TIME COMMAND&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>发现 watch 的进程都不存在了，那我们在看看是否还会有孤儿进程：&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">ps -j | head -1&lt;/span>;&lt;span style="color:#66d9ef">ps -j | awk &amp;#39;{if ($3 ==1 &amp;amp;&amp;amp; $1 !=&amp;#34;root&amp;#34;){print $0}}&amp;#39; | head&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">ps&lt;/span> &lt;span style="color:#e6db74">-j&lt;/span> &lt;span style="color:#e6db74">|&lt;/span> &lt;span style="color:#e6db74">head&lt;/span> &lt;span style="color:#e6db74">-1&lt;/span>;&lt;span style="color:#66d9ef">ps&lt;/span> &lt;span style="color:#e6db74">-j&lt;/span> &lt;span style="color:#e6db74">|&lt;/span> &lt;span style="color:#e6db74">awk&lt;/span> &lt;span style="color:#e6db74">&amp;#39;&lt;/span>{&lt;span style="color:#f92672">if&lt;/span> &lt;span style="color:#e6db74">(&lt;/span>$3 ==&lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#e6db74">&amp;amp;&amp;amp;&lt;/span> $1 &lt;span style="color:#e6db74">!=&amp;#34;root&amp;#34;)&lt;/span>{&lt;span style="color:#f92672">print&lt;/span> $0}}&amp;#39; &lt;span style="color:#e6db74">|&lt;/span> &lt;span style="color:#e6db74">head&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">USER&lt;/span> &lt;span style="color:#e6db74">PID&lt;/span> &lt;span style="color:#e6db74">PPID&lt;/span> &lt;span style="color:#e6db74">PGID&lt;/span> &lt;span style="color:#e6db74">SESS&lt;/span> &lt;span style="color:#e6db74">JOBC&lt;/span> &lt;span style="color:#e6db74">STAT&lt;/span> &lt;span style="color:#e6db74">TT&lt;/span> &lt;span style="color:#e6db74">TIME&lt;/span> &lt;span style="color:#e6db74">COMMAND&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>已经没有孤儿进程了，问题至此已经完全解决。&lt;/p>
 &lt;h1 id="三--子进程监听父进程是否退出-只能在-linux-下执行">三   子进程监听父进程是否退出 (只能在 linux 下执行)&lt;/h1>
 &lt;p>假设要调用的程序也是我们自己写的其他应用程序，那么可以使用 Linux 的 prctl 方法来处理， prctl 方法的定义如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span>&lt;span style="color:#75715e"> &amp;lt;sys/prctl.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#include&lt;/span> &lt;span style="color:#75715e">&amp;lt;sys/prctl.h&amp;gt;&lt;/span>&lt;span style="color:#75715e">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">int&lt;/span> &lt;span style="color:#a6e22e">prctl&lt;/span>(&lt;span style="color:#66d9ef">int&lt;/span> option, &lt;span style="color:#66d9ef">unsigned&lt;/span> &lt;span style="color:#66d9ef">long&lt;/span> arg2, &lt;span style="color:#66d9ef">unsigned&lt;/span> &lt;span style="color:#66d9ef">long&lt;/span> arg3,
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">unsigned&lt;/span> &lt;span style="color:#66d9ef">long&lt;/span> arg4, &lt;span style="color:#66d9ef">unsigned&lt;/span> &lt;span style="color:#66d9ef">long&lt;/span> arg5);
@@ -183,7 +183,7 @@ func main() {...}
 &lt;p>让我们来再次构造一个有问题的程序。&lt;/p>
 &lt;p>有两个文件，分别为 main.go 和 child.go 文件，main.go 会调用 child.go 文件。&lt;/p>
 &lt;p>main.go 文件：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">main&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">package&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> (
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;os/exec&amp;#34;&lt;/span>
@@ -194,7 +194,7 @@ func main() {...}
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">cmd&lt;/span>.&lt;span style="color:#a6e22e">Run&lt;/span>()
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>child.go 文件：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-swift" data-lang="swift">&lt;span style="display:flex;">&lt;span>package&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>main
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-swift" data-lang="swift">&lt;span style="display:flex;">&lt;span>package main
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">import&lt;/span> (
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;fmt&amp;#34;&lt;/span>
@@ -209,7 +209,7 @@ func main() {...}
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 Linux 环境中分别编译这两个文件：&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">go&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">build&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#f92672">-&lt;/span>&lt;span style="color:#a6e22e">o&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">main&lt;/span>&lt;span style="color:#960050;background-color:#1e0010"> &lt;/span>&lt;span style="color:#a6e22e">main&lt;/span>.&lt;span style="color:#66d9ef">go&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">go&lt;/span> &lt;span style="color:#a6e22e">build&lt;/span> &lt;span style="color:#f92672">-&lt;/span>&lt;span style="color:#a6e22e">o&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span> &lt;span style="color:#a6e22e">main&lt;/span>.&lt;span style="color:#66d9ef">go&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">go&lt;/span> &lt;span style="color:#a6e22e">build&lt;/span> &lt;span style="color:#f92672">-&lt;/span>&lt;span style="color:#a6e22e">o&lt;/span> &lt;span style="color:#a6e22e">child&lt;/span> &lt;span style="color:#a6e22e">child&lt;/span>.&lt;span style="color:#66d9ef">go&lt;/span>
