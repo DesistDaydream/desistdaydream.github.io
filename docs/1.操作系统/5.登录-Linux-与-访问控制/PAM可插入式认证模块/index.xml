@@ -36,7 +36,7 @@
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ldd $(which login) | grep pam&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> libpam.so.0 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; /lib/x86_64-linux-gnu/libpam.so.0 &lt;span style="color:#f92672">(&lt;/span>0x00007f53a3720000&lt;span style="color:#f92672">)&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> libpam_misc.so.0 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; /lib/x86_64-linux-gnu/libpam_misc.so.0 &lt;span style="color:#f92672">(&lt;/span>0x00007f53a371b000&lt;span style="color:#f92672">)&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Linux-PAM 可以说是一套 API 与 Library，为应用程序提供完整的 **Autherntication(认证)**机制，只要使用者将认证阶段的需求告知 PAM 后，PAM 就能够回报使用者认证的结果(成功或失败)。由于 PAM 仅是一套认证的机制，又可以提供给其他程序所呼叫引用，因此不论你使用什么程序，都可以使用 PAM 来进行认证，如此一来，就能够让账号密码或者是其他方式的认证具有一致的结果！也让程序设计师方不在着重处理认证的问题。&lt;/p>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Linux-PAM 可以说是一套 API 与 Library，为应用程序提供完整的 &lt;strong>Autherntication(认证)&lt;/strong> 机制，只要使用者将认证阶段的需求告知 PAM 后，PAM 就能够回报使用者认证的结果(成功或失败)。由于 PAM 仅是一套认证的机制，又可以提供给其他程序所呼叫引用，因此不论你使用什么程序，都可以使用 PAM 来进行认证，如此一来，就能够让账号密码或者是其他方式的认证具有一致的结果！也让程序设计师方不在着重处理认证的问题。&lt;/p>
 &lt;h2 id="linux-pam-管理组认证功能的分组">Linux-PAM 管理组(认证功能的分组)&lt;/h2>
 &lt;p>Linux-PAM 将认证功能分为 4 个管理组(也可以称为：管理类型)，注意：相同的 PAM 模块关联到不同的管理类型时，产生的效果是不同的。&lt;/p>
 &lt;ul>
@@ -164,13 +164,13 @@
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session required pam_limits.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session &lt;span style="color:#f92672">[&lt;/span>success&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span> default&lt;span style="color:#f92672">=&lt;/span>ignore&lt;span style="color:#f92672">]&lt;/span> pam_succeed_if.so service in crond quiet use_uid
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session required pam_unix.so
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>第一部分表示，当用户登录的时候，首先会通过 auth 类接口对用户身份进行识别和密码认证。所以在该过程中验证会经过几个带 auth 的配置项。
-其中的第一步是通过 pam_env.so 模块来定义用户登录之后的环境变量， pam_env.so 允许设置和更改用户登录时候的环境变量，默认情况下，若没有特别指定配置文件，将依据/etc/security/pam_env.conf 进行用户登录之后环境变量的设置。
-然后通过 pam_unix.so 模块来提示用户输入密码，并将用户密码与/etc/shadow 中记录的密码信息进行对比，如果密码比对结果正确则允许用户登录，而且该配置项的使用的是“sufficient”控制位，即表示只要该配置项的验证通过，用户即可完全通过认证而不用再去走下面的认证项。不过在特殊情况下，用户允许使用空密码登录系统，例如当将某个用户在/etc/shadow 中的密码字段删除之后，该用户可以只输入用户名直接登录系统。
-下面的配置项中，通过 pam_succeed_if.so 对用户的登录条件做一些限制，表示允许 uid 大于 500 的用户在通过密码验证的情况下登录，在 Linux 系统中，一般系统用户的 uid 都在 500 之内，所以该项即表示允许使用 useradd 命令以及默认选项建立的普通用户直接由本地控制台登录系统。
-最后通过 pam_deny.so 模块对所有不满足上述任意条件的登录请求直接拒绝，pam_deny.so 是一个特殊的模块，该模块返回值永远为否，类似于大多数安全机制的配置准则，在所有认证规则走完之后，对不匹配任何规则的请求直接拒绝。&lt;/p>
-&lt;p>第二部分的三个配置项主要表示通过 account 账户类接口来识别账户的合法性以及登录权限。
-第一行仍然使用 pam_unix.so 模块来声明用户需要通过密码认证。第二行承认了系统中 uid 小于 500 的系统用户的合法性。之后对所有类型的用户登录请求都开放控制台。&lt;/p>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>第一部分表示，当用户登录的时候，首先会通过 auth 类接口对用户身份进行识别和密码认证。所以在该过程中验证会经过几个带 auth 的配置项。&lt;/p>
+&lt;p>其中的第一步是通过 pam_env.so 模块来定义用户登录之后的环境变量， pam_env.so 允许设置和更改用户登录时候的环境变量，默认情况下，若没有特别指定配置文件，将依据/etc/security/pam_env.conf 进行用户登录之后环境变量的设置。&lt;/p>
+&lt;p>然后通过 pam_unix.so 模块来提示用户输入密码，并将用户密码与/etc/shadow 中记录的密码信息进行对比，如果密码比对结果正确则允许用户登录，而且该配置项的使用的是“sufficient”控制位，即表示只要该配置项的验证通过，用户即可完全通过认证而不用再去走下面的认证项。不过在特殊情况下，用户允许使用空密码登录系统，例如当将某个用户在/etc/shadow 中的密码字段删除之后，该用户可以只输入用户名直接登录系统。&lt;/p>
+&lt;p>下面的配置项中，通过 pam_succeed_if.so 对用户的登录条件做一些限制，表示允许 uid 大于 500 的用户在通过密码验证的情况下登录，在 Linux 系统中，一般系统用户的 uid 都在 500 之内，所以该项即表示允许使用 useradd 命令以及默认选项建立的普通用户直接由本地控制台登录系统。&lt;/p>
+&lt;p>最后通过 pam_deny.so 模块对所有不满足上述任意条件的登录请求直接拒绝，pam_deny.so 是一个特殊的模块，该模块返回值永远为否，类似于大多数安全机制的配置准则，在所有认证规则走完之后，对不匹配任何规则的请求直接拒绝。&lt;/p>
+&lt;p>第二部分的三个配置项主要表示通过 account 账户类接口来识别账户的合法性以及登录权限。&lt;/p>
+&lt;p>第一行仍然使用 pam_unix.so 模块来声明用户需要通过密码认证。第二行承认了系统中 uid 小于 500 的系统用户的合法性。之后对所有类型的用户登录请求都开放控制台。&lt;/p>
 &lt;p>第三部分会通过 password 类接口来确认用户使用的密码或者口令的合法性。第一行配置项表示需要的情况下将调用 pam_cracklib 来验证用户密码复杂度。如果用户输入密码不满足复杂度要求或者密码错，最多将在三次这种错误之后直接返回密码错误的提示，否则期间任何一次正确的密码验证都允许登录。需要指出的是，pam_cracklib.so 是一个常用的控制密码复杂度的 pam 模块，关于其用法举例我们会在之后详细介绍。之后带 pam_unix.so 和 pam_deny.so 的两行配置项的意思与之前类似。都表示需要通过密码认证并对不符合上述任何配置项要求的登录请求直接予以拒绝。不过用户如果执行的操作是单纯的登录，则这部分配置是不起作用的。&lt;/p>
 &lt;p>第四部分主要将通过 session 会话类接口为用户初始化会话连接。其中几个比较重要的地方包括，使用 pam_keyinit.so 表示当用户登录的时候为其建立相应的密钥环，并在用户登出的时候予以撤销。不过该行配置的控制位使用的是 optional，表示这并非必要条件。之后通过 pam_limits.so 限制用户登录时的会话连接资源，相关 pam_limit.so 配置文件是/etc/security/limits.conf，默认情况下对每个登录用户都没有限制。关于该模块的配置方法在后面也会详细介绍。&lt;/p></description></item><item><title>Docs: PAM配置文件</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-Linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/PAM%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/PAM%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/5.%E7%99%BB%E5%BD%95-Linux-%E4%B8%8E-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/PAM%E5%8F%AF%E6%8F%92%E5%85%A5%E5%BC%8F%E8%AE%A4%E8%AF%81%E6%A8%A1%E5%9D%97/PAM%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
@@ -333,69 +333,82 @@
 &lt;/ul>
 &lt;p>通常情况下，如果想要添加更多的认证配置，推荐使用一个新的文件，并使用 include 指令包含这俩文件即可。&lt;/p>
 &lt;h2 id="centos-发行版配置">CentOS 发行版配置&lt;/h2>
-&lt;p>auth required pam_env.so
+&lt;pre tabindex="0">&lt;code>auth required pam_env.so
 auth required pam_faildelay.so delay=2000000
 auth sufficient pam_unix.so nullok try_first_pass
 auth requisite pam_succeed_if.so uid &amp;gt;= 1000 quiet_success
-auth required pam_deny.so&lt;/p>
-&lt;p>account required pam_unix.so
+auth required pam_deny.so
+account required pam_unix.so
 account sufficient pam_localuser.so
 如果用户 ID 小于 1000，直接退出，不再进行验证
 account sufficient pam_succeed_if.so uid &amp;lt; 1000 quiet
-account required pam_permit.so&lt;/p>
-&lt;p>password requisite pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type=
-password sufficient pam_unix.so sha512 shadow nullok try_first_pass use_authtok&lt;/p>
-&lt;p>password required pam_deny.so&lt;/p>
-&lt;p>session optional pam_keyinit.so revoke
+account required pam_permit.so
+password requisite pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type=
+password sufficient pam_unix.so sha512 shadow nullok try_first_pass use_authtok
+password required pam_deny.so
+session optional pam_keyinit.so revoke
 session required pam_limits.so
 -session optional pam_systemd.so
-session [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
-session required pam_unix.so&lt;/p>
-&lt;h1 id="etcpamdsshd">/etc/pam.d/sshd&lt;/h1>
+session \[success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+session required pam_unix.so
+&lt;/code>&lt;/pre>&lt;h1 id="etcpamdsshd">/etc/pam.d/sshd&lt;/h1>
 &lt;p>这是用于安全的 Shell 服务的 PAM 配置，比如 OpenSSH&lt;/p>
-&lt;h1 id="include-common-auth">Standard Un*x authentication
-@include common-auth&lt;/h1>
-&lt;h1 id="account-required-pam_nologinso">Disallow non-root logins when /etc/nologin exists
-account required pam_nologin.so&lt;/h1>
-&lt;h1 id="-account-required-pam_accessso">Uncomment and edit /etc/security/access.conf if you need to set complex
-# access limits that are hard to express in sshd_config.
-# account required pam_access.so&lt;/h1>
-&lt;h1 id="include-common-account">Standard Un*x authorization
-@include common-account&lt;/h1>
-&lt;h1 id="session-successok-ignoreignore-module_unknownignore-defaultbad-pam_selinuxso-close">SELinux needs to be the first session rule. This ensures that any
-# lingering context has been cleared. Without this it is possible that a
-# module could execute code in the wrong domain.
-session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close&lt;/h1>
-&lt;h1 id="session-required-pam_loginuidso">Set the loginuid process attribute
-session required pam_loginuid.so&lt;/h1>
-&lt;h1 id="session-optional-pam_keyinitso-force-revoke">Create a new session keyring
-session optional pam_keyinit.so force revoke&lt;/h1>
-&lt;h1 id="include-common-session">Standard Un*x session setup and teardown
-@include common-session&lt;/h1>
-&lt;p>登录成功后打印当天消息。这包括来自 /run/motd.dynamic 的动态生成部分和来自 /etc/motd 的静态部分。
+&lt;pre tabindex="0">&lt;code>Standard Un\*x authentication
+@include common-auth
+====================
+Disallow non-root logins when /etc/nologin exists
+account required pam_nologin.so
+=======================================
+Uncomment and edit /etc/security/access.conf if you need to set complex
+\# access limits that are hard to express in sshd_config.
+\# account required pam_access.so
+=======================================
+Standard Un\*x authorization
+@include common-account
+=======================
+SELinux needs to be the first session rule. This ensures that any
+\# lingering context has been cleared. Without this it is possible that a
+\# module could execute code in the wrong domain.
+session \[success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
+===================================================================================================
+Set the loginuid process attribute
+session required pam_loginuid.so
+========================================
+Create a new session keyring
+session optional pam_keyinit.so force revoke
+====================================================
+Standard Un\*x session setup and teardown
+@include common-session
+=======================
+登录成功后打印当天消息。这包括来自 /run/motd.dynamic 的动态生成部分和来自 /etc/motd 的静态部分。
 注释这两行，将会禁用登录后的消息提示功能
 session optional pam_motd.so motd=/run/motd.dynamic
-session optional pam_motd.so noupdate&lt;/p>
-&lt;h1 id="session-optional-pam_mailso-standard-noenv--1">Print the status of the user&amp;rsquo;s mailbox upon successful login
-session optional pam_mail.so standard noenv # [1]&lt;/h1>
-&lt;h1 id="session-required-pam_limitsso">Set up user limits from /etc/security/limits.conf
-session required pam_limits.so&lt;/h1>
-&lt;h1 id="session-required-pam_envso-user_readenv1-envfileetcdefaultlocale">Read environment variables from /etc/environment and
-# /etc/security/pam_env.conf.
-session required pam_env.so # [1]
-# In Debian 4.0 (etch), locale-related environment variables were moved to
-# /etc/default/locale, so read that as well.
-session required pam_env.so user_readenv=1 envfile=/etc/default/locale&lt;/h1>
-&lt;h1 id="session-successok-ignoreignore-module_unknownignore-defaultbad-pam_selinuxso-open">SELinux needs to intervene at login time to ensure that the process starts
-# in the proper default security context. Only sessions which are intended
-# to run in the user&amp;rsquo;s context should be run after this.
-session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open&lt;/h1>
-&lt;h1 id="include-common-password">Standard Un*x password updating
-@include common-password&lt;/h1>
-&lt;h1 id="etcpamdsu">/etc/pam.d/su&lt;/h1>
-&lt;p>&lt;strong>auth sufficient pam_rootok.so&lt;/strong>
-当开始使用 pam_wheel.so 模块时，只有属于 wheel 组的用户，才可以使用 su 命令切换到 root 用户
-&lt;strong>auth sufficient pam_wheel.so trust use_uid&lt;/strong>&lt;/p>
+session optional pam_motd.so noupdate
+Print the status of the user&amp;#39;s mailbox upon successful login
+session optional pam_mail.so standard noenv # \[1]
+==========================================================
+Set up user limits from /etc/security/limits.conf
+session required pam_limits.so
+======================================
+Read environment variables from /etc/environment and
+\# /etc/security/pam_env.conf.
+session required pam_env.so # \[1]
+\# In Debian 4.0 (etch), locale-related environment variables were moved to
+\# /etc/default/locale, so read that as well.
+session required pam_env.so user_readenv=1 envfile=/etc/default/locale
+===============================================================================
+SELinux needs to intervene at login time to ensure that the process starts
+\# in the proper default security context. Only sessions which are intended
+\# to run in the user&amp;#39;s context should be run after this.
+session \[success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open
+==================================================================================================
+Standard Un\*x password updating
+@include common-password
+========================
+&lt;/code>&lt;/pre>&lt;h1 id="etcpamdsu">/etc/pam.d/su&lt;/h1>
+&lt;p>&lt;strong>auth sufficient pam_rootok.so&lt;/strong>&lt;/p>
+&lt;p>当开始使用 pam_wheel.so 模块时，只有属于 wheel 组的用户，才可以使用 su 命令切换到 root 用户&lt;/p>
+&lt;p>&lt;strong>auth sufficient pam_wheel.so trust use_uid&lt;/strong>&lt;/p>
 &lt;ul>
 &lt;li>当用户在 wheel 组时，使用 su - root 命令不需要密码即可切换到 root 用户&lt;/li>
 &lt;/ul>
@@ -403,17 +416,17 @@ session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux
 &lt;ul>
 &lt;li>当用户在 wheel 组时，使用 su - root 命令需要密码即可切换到 root 用户&lt;/li>
 &lt;/ul>
-&lt;p>&lt;strong>auth substack system-auth&lt;/strong>
-&lt;strong>auth include postlogin&lt;/strong>
-&lt;strong>account sufficient pam_succeed_if.so uid = 0 use_uid quiet&lt;/strong>
-&lt;strong>account include system-auth&lt;/strong>
-&lt;strong>password include system-auth&lt;/strong>
-&lt;strong>session include system-auth&lt;/strong>
-&lt;strong>session include postlogin&lt;/strong>
-&lt;strong>session optional pam_xauth.so&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>auth substack system-auth&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>auth include postlogin&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>account sufficient pam_succeed_if.so uid = 0 use_uid quiet&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>account include system-auth&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>password include system-auth&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>session include system-auth&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>session include postlogin&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>session optional pam_xauth.so&lt;/strong>&lt;/p>
 &lt;h1 id="配置示例">配置示例&lt;/h1>
-&lt;p>&lt;strong>/etc/pam.d/sshd 配置文件示例&lt;/strong>
-注意 sshd、login、remote、kde 这几个文件中的配置大部分都相同，&lt;/p>
+&lt;p>&lt;strong>/etc/pam.d/sshd 配置文件示例&lt;/strong>&lt;/p>
+&lt;p>注意 sshd、login、remote、kde 这几个文件中的配置大部分都相同，&lt;/p>
 &lt;pre>&lt;code># %PAM-1.0
 # 最多连续三认认证登录都出错时，60秒后解锁，root用户也可以被锁定，root用户15秒后解锁。
 auth required pam_tally2.so deny=3 unlock_time=60 even_deny_root root_unlock_time=15
@@ -453,13 +466,13 @@ password required pam_pwhistory.so use_authtok remember=6 retry=3
 &lt;p>&lt;strong>/var/log/faillog&lt;/strong> #&lt;/p>
 &lt;h2 id="模块参数">模块参数&lt;/h2>
 &lt;ul>
-&lt;li>**deny=INT **# 指定认证失败 deny 次后，将执行后面参数的策略。如锁定 N 秒，如果后面没有其他策略指定时，默认永远锁定，除非手动解锁。&lt;/li>
-&lt;li>**lock_time=INT **# 认证失败时锁定 lock_time 秒&lt;/li>
-&lt;li>**unlock_time=INT **# 锁定 unlock_time 秒后，自动解锁用户；&lt;/li>
+&lt;li>&lt;strong>deny=INT&lt;/strong> # 指定认证失败 deny 次后，将执行后面参数的策略。如锁定 N 秒，如果后面没有其他策略指定时，默认永远锁定，除非手动解锁。&lt;/li>
+&lt;li>&lt;strong>lock_time=INT&lt;/strong> # 认证失败时锁定 lock_time 秒&lt;/li>
+&lt;li>&lt;strong>unlock_time=INT&lt;/strong> # 锁定 unlock_time 秒后，自动解锁用户；&lt;/li>
 &lt;li>&lt;strong>even_deny_root&lt;/strong> # root 用户在认证出错时，一样被锁定(该功能慎用)&lt;/li>
-&lt;li>**root_unlock_time **# root 用户锁定后，多久会解锁。该选项一般是配合 even_deny_root 一起使用的。&lt;/li>
+&lt;li>&lt;strong>root_unlock_time&lt;/strong> # root 用户锁定后，多久会解锁。该选项一般是配合 even_deny_root 一起使用的。&lt;/li>
 &lt;li>&lt;strong>magic_root&lt;/strong> # 如果用户 uid ＝ 0（即 root 账户或相当于 root 的帐户）在帐户认证时调用该模块发现失败时，不计入统计；&lt;/li>
-&lt;li>**no_lock_time **# 不使用.fail_locktime 项在/var/log/faillog 中记录用户 －－－按英文直译不太明白，个人理解即不进行用户锁定；&lt;/li>
+&lt;li>&lt;strong>no_lock_time&lt;/strong> # 不使用.fail_locktime 项在/var/log/faillog 中记录用户 －－－按英文直译不太明白，个人理解即不进行用户锁定；&lt;/li>
 &lt;/ul>
 &lt;h2 id="模块的命令行工具">模块的命令行工具&lt;/h2>
 &lt;h3 id="pam_tally2">pam_tally2&lt;/h3>
