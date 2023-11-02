@@ -112,7 +112,7 @@
 &lt;li>&lt;a href="https://docs.opencv.org/4.x/dd/de7/group__videoio.html">Video I/O&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/li>
-&lt;li>highgui # 高级图形界面及与 QT 框架的整合。
+&lt;li>&lt;strong>highgui&lt;/strong> # 高级图形界面及与 QT 框架的整合。
 &lt;ul>
 &lt;li>&lt;a href="https://docs.opencv.org/4.x/d7/dfc/group__highgui.html">High-level GUI&lt;/a>&lt;/li>
 &lt;/ul>
@@ -240,8 +240,27 @@ release() # 关闭视频文件或捕获设备(比如摄像头)&lt;/p>
 &lt;li>基于 CTC 的方法；即识别算法的文字预测模块是基于 CTC 的，常用的算法组合为 CNN+RNN+CTC。目前也有一些算法尝试在网络中加入 transformer 模块等等。&lt;/li>
 &lt;li>基于 Attention 的方法；即识别算法的文字预测模块是基于 Attention 的，常用算法组合是 CNN+RNN+Attention&lt;/li>
 &lt;/ol>
+&lt;h2 id="预处理">预处理&lt;/h2>
+&lt;p>为了可以让程序快速检测到字符块后精准识别字符，有的时候还需要对图片进行预处理&lt;/p>
+&lt;ul>
+&lt;li>比如图片是斜的，我们可以把图片正过来&lt;/li>
+&lt;li>若是图片有干扰，可以去掉干扰&lt;/li>
+&lt;li>等等&amp;hellip;&amp;hellip;&lt;/li>
+&lt;/ul>
 &lt;h2 id="总结">总结&lt;/h2>
-&lt;p>用稍微简单一些的话说，检测模型用来检查一个图片中，哪些地方可以被识别模型识别，然后交给识别模型。若将图片直接交给识别模型，那么是无法获得任何结果的&lt;/p>
+&lt;p>用稍微简单一些的话说，检测模型用来检查一个图片中，哪些地方可以被识别模型识别；然后交给识别模型。若将图片直接交给识别模型，那么是无法获得任何结果的&lt;/p>
+&lt;p>用 PaddleOCR 的识别识别逻辑举例，至少需要用到两种模型：文本检测模型 和 文本识别模型。提供给 PaddleOCR 一张图后，首先先检测图片中包含的文字信息并定位为文本框，然后识别文本框中的文本。&lt;/p>
+&lt;blockquote>
+&lt;p>Tips: 若想要识别倒转的文字，还可以通过 方向分类器 模型进行预处理。有的 OCR 程序还有很多其他的&lt;strong>预处理&lt;/strong>操作，比如去斑、二值化、线条去除、布局分析 等等。&lt;/p>
+&lt;/blockquote>
+&lt;p>如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ocr/202310311306270.png" alt="image.png|800">&lt;/p>
+&lt;p>用红框框起来的就是检测到的文本框，每个文本框都由 &lt;code>[[196.0, 10.0], [237.0, 10.0], [237.0, 28.0], [196.0, 28.0]]&lt;/code> （这里用 驯兽师 三个字的文本块为例）这样的多维数组进行定位&lt;/p>
+&lt;ul>
+&lt;li>外层数组共 4 个元素，分别表示文本框的 4 个顶点；0 号元素为 &lt;strong>左上角&lt;/strong>，1 号元素为 &lt;strong>右上角&lt;/strong>，2 号元素为 &lt;strong>右下角&lt;/strong>，3 号元素为 &lt;strong>左下角&lt;/strong>。&lt;/li>
+&lt;li>内层数组共 2 个元素，分别表示顶点的横/纵坐标；0 号元素为像素点的&lt;strong>横轴&lt;/strong>坐标，1 号元素为像素点的&lt;strong>纵轴&lt;/strong>坐标。&lt;/li>
+&lt;/ul>
+&lt;p>然后对每个文本框进行文字识别，以识别出其中的文字。&lt;/p>
 &lt;h1 id="paddleocr">PaddleOCR&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -255,18 +274,43 @@ release() # 关闭视频文件或捕获设备(比如摄像头)&lt;/p>
 &lt;/blockquote>
 &lt;p>PaddleOCR 是百度开源的 OCR 工具。旨在打造一套丰富、领先、且实用的OCR工具库，助力开发者训练出更好的模型，并应用落地。&lt;/p>
 &lt;h2 id="模型说明">模型说明&lt;/h2>
-&lt;p>PaddleOCR 中集成了很多OCR算法，文本检测算法有DB、EAST、SAST等等，文本识别算法有CRNN、RARE、StarNet、Rosetta、SRN等算法。&lt;/p>
-&lt;p>其中PaddleOCR针对中英文自然场景通用OCR，推出了PP-OCR系列模型，PP-OCR模型由DB+CRNN算法组成，利用海量中文数据训练加上模型调优方法，在中文场景上具备较高的文本检测识别能力。并且PaddleOCR推出了高精度超轻量PP-OCRv2模型，检测模型仅3M，识别模型仅8.5M，利用&lt;a href="https://github.com/PaddlePaddle/PaddleSlim">PaddleSlim&lt;/a>的模型量化方法，可以在保持精度不降低的情况下，将检测模型压缩到0.8M，识别压缩到3M，更加适用于移动端部署场景。&lt;/p>
+&lt;p>PaddleOCR 中集成了很多OCR算法，文本检测算法有 DB、EAST、SAST 等等，文本识别算法有CRNN、RARE、StarNet、Rosetta、SRN等算法。&lt;/p>
+&lt;p>其中PaddleOCR针对中英文自然场景通用OCR，推出了PP-OCR系列模型，PP-OCR模型由DB+CRNN算法组成，利用海量中文数据训练加上模型调优方法，在中文场景上具备较高的文本检测识别能力。并且 PaddleOCR 推出了高精度超轻量 PP-OCRv2 模型，检测模型仅3M，识别模型仅8.5M，利用 &lt;a href="https://github.com/PaddlePaddle/PaddleSlim">PaddleSlim&lt;/a> 的模型量化方法，可以在保持精度不降低的情况下，将检测模型压缩到 0.8M，识别压缩到 3M，更加适用于移动端部署场景。&lt;/p>
 &lt;h2 id="关联文件与配置">关联文件与配置&lt;/h2>
 &lt;p>&lt;strong>~/.paddleocr/whl/&lt;/strong> # 模型保存路径。注意：第一次运行调用 PaddleOCR 包运行代码时，会自动下载最新的模型。详见 &lt;a href="https://github.com/PaddlePaddle/PaddleOCR/blob/release/2.6/paddleocr.py#L58">paddleocr.py 文件的 MODEL_URLS 变量&lt;/a>&lt;/p>
 &lt;ul>
-&lt;li>&lt;strong>./cls/&lt;/strong> # Direction Classification 方向分类器&lt;/li>
-&lt;li>&lt;strong>./det/&lt;/strong> # Detection 检测模型&lt;/li>
-&lt;li>&lt;strong>./rec/&lt;/strong> # Recognition 识别模型&lt;/li>
+&lt;li>&lt;strong>./cls/&lt;/strong> # Direction Classification(方向分类器) 模型保存路径&lt;/li>
+&lt;li>&lt;strong>./det/&lt;/strong> # Detection(检测) 模型保存路径&lt;/li>
+&lt;li>&lt;strong>./rec/&lt;/strong> # Recognition(识别) 模型保存路径&lt;/li>
 &lt;/ul>
+&lt;h2 id="模型下载">模型下载&lt;/h2>
+&lt;p>在 &lt;a href="https://github.com/PaddlePaddle/PaddleOCR/blob/release/2.7/doc/doc_ch/models_list.md">PP-OCR系列模型列表&lt;/a> 处可以找到三个基本模型以及一个超轻量模型的简介、配置文件、下载地址。&lt;/p>
+&lt;ul>
+&lt;li>基本模型
+&lt;ul>
+&lt;li>文本检测模型&lt;/li>
+&lt;li>文本识别模型&lt;/li>
+&lt;li>文本方向分类模型&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>轻量模型&lt;/li>
+&lt;/ul>
+&lt;p>模型都分为多个种类&lt;/p>
+&lt;ul>
+&lt;li>推理模型 # 用于预测引擎推理。通常默认下载这种模型。&lt;/li>
+&lt;li>训练模型 与 预训练模型 # 训练过程中保存的模型的参数、优化器状态和训练中间信息，多用于模型指标评估和恢复训练
+&lt;ul>
+&lt;li>训练模型 # 是基于预训练模型在真实数据与竖排合成文本数据上finetune得到的模型，在真实应用场景中有着更好的表现&lt;/li>
+&lt;li>预训练模型 # 则是直接基于全量真实数据与合成数据训练得到，更适合用于在自己的数据集上finetune。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>nb模型 # 经过飞桨Paddle-Lite工具优化后的模型，适用于移动端/IoT端等端侧部署场景（需使用飞桨Paddle Lite部署）。&lt;/li>
+&lt;/ul>
+&lt;p>选择自己感兴趣的模型，下载即可。下载后，将对应的模型，解压到 &lt;code>ch_PP-OCRv4_server_rec&lt;/code> 目录下对应模型的目录中。比如在 &lt;code>2.1 中文识别模型&lt;/code> 章节中，找到 &lt;code>ch_PP-OCRv4_server_rec&lt;/code> 推理模型，下载并解压到 &lt;code>ch_PP-OCRv4_server_rec/rec/&lt;/code> 目录下即可。其他两个模型同理。这样就可以更换我们感兴趣的模型。&lt;/p>
 &lt;h2 id="python-库">Python 库&lt;/h2>
 &lt;p>详见：Python 第三方库 &lt;a href="https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Python/Python%20%E7%AC%AC%E4%B8%89%E6%96%B9%E5%BA%93/%E5%9B%BE%E5%83%8F%E5%A4%84%E7%90%86/paddleocr.md">paddleocr&lt;/a> 包&lt;/p>
-&lt;h1 id="umi-ocr">Umi-OCR&lt;/h1>
+&lt;h1 id="实用-ocr工具">实用 OCR工具&lt;/h1>
+&lt;h2 id="umi-ocr">Umi-OCR&lt;/h2>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
