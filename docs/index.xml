@@ -2771,8 +2771,8 @@ templates:
 &lt;/ol>
 &lt;p>比如 curl &amp;ndash;request DELETE -cacert ${CAPATH} -H &amp;ldquo;Authorization: Bearer ${TOKEN}&amp;rdquo; https://${IP}:6443/api/v1/namespaces/monitoring/pods/prometheus-k8s-0 -k 这样一个请求就可以将集群内 monitoring 空间下的 prometheus-k8s-0 这个 pod 删除&lt;/p>
 &lt;h3 id="获取认证所需信息">获取认证所需信息&lt;/h3>
-&lt;p>&lt;strong>方法一：使用 kubectl 的配置文件中的证书与私钥&lt;/strong>
-想要访问 https 下的内容，首先需要准备证书与私钥或者 ca 与 token 等等。&lt;/p>
+&lt;p>&lt;strong>方法一：使用 kubectl 的配置文件中的证书与私钥&lt;/strong>&lt;/p>
+&lt;p>想要访问 https 下的内容，首先需要准备证书与私钥或者 ca 与 token 等等。&lt;/p>
 &lt;ol>
 &lt;li>首先获取 kubeclt 工具配置文件中的证书与私钥
 &lt;ol>
@@ -2839,7 +2839,8 @@ templates:
 &lt;/li>
 &lt;li>TOKEN=$(kubectl get secrets -n monitoring prometheus-k8s-token-q5hm4 &amp;ndash;template={{.data.token}} | base64 -d)&lt;/li>
 &lt;/ol>
-&lt;p>&lt;strong>方法三：官方推荐，类似方法二&lt;/strong>
+&lt;p>**方法三：官方推荐，类似方法二
+**
 官方文档：&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/access-cluster-api/">https://kubernetes.io/docs/tasks/administer-cluster/access-cluster-api/&lt;/a>&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 查看所有的集群，因为你的 .kubeconfig 文件中可能包含多个上下文&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl config view -o jsonpath&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#39;{&amp;#34;Cluster name\tServer\n&amp;#34;}{range .clusters[*]}{.name}{&amp;#34;\t&amp;#34;}{.cluster.server}{&amp;#34;\n&amp;#34;}{end}&amp;#39;&lt;/span>
@@ -3041,123 +3042,124 @@ healthz check passed
 &lt;p>一般情况，保存到 etcd 中后，会省略 Group 与 Version，直接使用 Resource 来作为 etcd 中的路径。比如：URI 为 /api/v1/namespaces/kube-system/pods/kube-apiserver-master1 的 pod 资源，在 etcd 中的存储路径为 /registry/pods/kube-system/kube-apiserver-master1。&lt;/p>
 &lt;p>而序列化的方式可以通过 &amp;ndash;storage-media-type 来指定，默认为 protobuf 。使用这种方式将数据序列化之后，得出来的将会有很多乱码，详见 &lt;a href="docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd%20%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B.md">Etcd 数据模型&lt;/a> 中的说明&lt;/p>
 &lt;h1 id="kube-apiserver-manifests-示例">kube-apiserver Manifests 示例&lt;/h1>
-&lt;pre>&lt;code>apiVersion: v1
-kind: Pod
-metadata:
-annotations:
-kubeadm.kubernetes.io/kube-apiserver.advertise-address.endpoint: 172.19.42.231:6443
-creationTimestamp: null
-labels:
-component: kube-apiserver
-tier: control-plane
-name: kube-apiserver
-namespace: kube-system
-spec:
-containers:
-- command:
-- kube-apiserver
-- --advertise-address=172.19.42.231
-- --allow-privileged=true
-- --authorization-mode=Node,RBAC
-- --client-ca-file=/etc/kubernetes/pki/ca.crt
-- --enable-admission-plugins=NodeRestriction
-- --enable-bootstrap-token-auth=true
-- --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
-- --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
-- --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
-- --etcd-servers=https://127.0.0.1:2379
-- --insecure-port=0
-- --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
-- --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
-- --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
-- --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt
-- --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key
-- --requestheader-allowed-names=front-proxy-client
-- --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt
-- --requestheader-extra-headers-prefix=X-Remote-Extra-
-- --requestheader-group-headers=X-Remote-Group
-- --requestheader-username-headers=X-Remote-User
-- --secure-port=6443
-- --service-account-key-file=/etc/kubernetes/pki/sa.pub
-- --service-cluster-ip-range=10.96.0.0/12
-- --service-node-port-range=30000-60000
-- --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
-- --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
-image: registry.aliyuncs.com/k8sxio/kube-apiserver:v1.19.2
-imagePullPolicy: IfNotPresent
-livenessProbe:
-failureThreshold: 8
-httpGet:
-host: 172.19.42.231
-path: /livez
-port: 6443
-scheme: HTTPS
-initialDelaySeconds: 10
-periodSeconds: 10
-timeoutSeconds: 15
-name: kube-apiserver
-readinessProbe:
-failureThreshold: 3
-httpGet:
-host: 172.19.42.231
-path: /readyz
-port: 6443
-scheme: HTTPS
-periodSeconds: 1
-timeoutSeconds: 15
-resources:
-requests:
-cpu: 250m
-startupProbe:
-failureThreshold: 24
-httpGet:
-host: 172.19.42.231
-path: /livez
-port: 6443
-scheme: HTTPS
-initialDelaySeconds: 10
-periodSeconds: 10
-timeoutSeconds: 15
-volumeMounts:
-- mountPath: /etc/ssl/certs
-name: ca-certs
-readOnly: true
-- mountPath: /etc/pki
-name: etc-pki
-readOnly: true
-- mountPath: /etc/localtime
-name: host-time
-readOnly: true
-- mountPath: /etc/kubernetes/pki
-name: k8s-certs
-readOnly: true
-hostNetwork: true
-priorityClassName: system-node-critical
-volumes:
-- hostPath:
-path: /etc/ssl/certs
-type: DirectoryOrCreate
-name: ca-certs
-- hostPath:
-path: /etc/pki
-type: DirectoryOrCreate
-name: etc-pki
-- hostPath:
-path: /etc/localtime
-type: &amp;quot;&amp;quot;
-name: host-time
-- hostPath:
-path: /etc/kubernetes/pki
-type: DirectoryOrCreate
-name: k8s-certs
-&lt;/code>&lt;/pre></description></item><item><title>Docs: API 参考</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/1.API-Resource-%E4%B8%8E-Object/API-%E5%8F%82%E8%80%83/API-%E5%8F%82%E8%80%83/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/1.API-Resource-%E4%B8%8E-Object/API-%E5%8F%82%E8%80%83/API-%E5%8F%82%E8%80%83/</guid><description>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">annotations&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">kubeadm.kubernetes.io/kube-apiserver.advertise-address.endpoint&lt;/span>: &lt;span style="color:#ae81ff">172.19.42.231&lt;/span>:&lt;span style="color:#ae81ff">6443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">creationTimestamp&lt;/span>: &lt;span style="color:#66d9ef">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">component&lt;/span>: &lt;span style="color:#ae81ff">kube-apiserver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tier&lt;/span>: &lt;span style="color:#ae81ff">control-plane&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">kube-apiserver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">kube-system&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">command&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">kube-apiserver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">advertise-address=172.19.42.231&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">allow-privileged=true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">authorization-mode=Node,RBAC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">client-ca-file=/etc/kubernetes/pki/ca.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">enable-admission-plugins=NodeRestriction&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">enable-bootstrap-token-auth=true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">etcd-servers=https://127.0.0.1:2379&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">insecure-port=0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">requestheader-allowed-names=front-proxy-client&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">requestheader-extra-headers-prefix=X-Remote-Extra-&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">requestheader-group-headers=X-Remote-Group&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">requestheader-username-headers=X-Remote-User&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">secure-port=6443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">service-account-key-file=/etc/kubernetes/pki/sa.pub&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">service-cluster-ip-range=10.96.0.0/12&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">service-node-port-range=30000-60000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">tls-cert-file=/etc/kubernetes/pki/apiserver.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">tls-private-key-file=/etc/kubernetes/pki/apiserver.key&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">registry.aliyuncs.com/k8sxio/kube-apiserver:v1.19.2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">imagePullPolicy&lt;/span>: &lt;span style="color:#ae81ff">IfNotPresent&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">livenessProbe&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">failureThreshold&lt;/span>: &lt;span style="color:#ae81ff">8&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">httpGet&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">host&lt;/span>: &lt;span style="color:#ae81ff">172.19.42.231&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/livez&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">6443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">scheme&lt;/span>: &lt;span style="color:#ae81ff">HTTPS&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">initialDelaySeconds&lt;/span>: &lt;span style="color:#ae81ff">10&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">periodSeconds&lt;/span>: &lt;span style="color:#ae81ff">10&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">timeoutSeconds&lt;/span>: &lt;span style="color:#ae81ff">15&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">kube-apiserver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">readinessProbe&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">failureThreshold&lt;/span>: &lt;span style="color:#ae81ff">3&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">httpGet&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">host&lt;/span>: &lt;span style="color:#ae81ff">172.19.42.231&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/readyz&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">6443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">scheme&lt;/span>: &lt;span style="color:#ae81ff">HTTPS&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">periodSeconds&lt;/span>: &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">timeoutSeconds&lt;/span>: &lt;span style="color:#ae81ff">15&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">resources&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">requests&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">cpu&lt;/span>: &lt;span style="color:#ae81ff">250m&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">startupProbe&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">failureThreshold&lt;/span>: &lt;span style="color:#ae81ff">24&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">httpGet&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">host&lt;/span>: &lt;span style="color:#ae81ff">172.19.42.231&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/livez&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">6443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">scheme&lt;/span>: &lt;span style="color:#ae81ff">HTTPS&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">initialDelaySeconds&lt;/span>: &lt;span style="color:#ae81ff">10&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">periodSeconds&lt;/span>: &lt;span style="color:#ae81ff">10&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">timeoutSeconds&lt;/span>: &lt;span style="color:#ae81ff">15&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">volumeMounts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/etc/ssl/certs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ca-certs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">readOnly&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/etc/pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">etc-pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">readOnly&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/etc/localtime&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">host-time&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">readOnly&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/etc/kubernetes/pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">k8s-certs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">readOnly&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostNetwork&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">priorityClassName&lt;/span>: &lt;span style="color:#ae81ff">system-node-critical&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">volumes&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">hostPath&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/etc/ssl/certs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">DirectoryOrCreate&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ca-certs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">hostPath&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/etc/pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">DirectoryOrCreate&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">etc-pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">hostPath&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/etc/localtime&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">host-time&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">hostPath&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/etc/kubernetes/pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">DirectoryOrCreate&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">k8s-certs&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: API 参考</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/1.API-Resource-%E4%B8%8E-Object/API-%E5%8F%82%E8%80%83/API-%E5%8F%82%E8%80%83/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/1.API-Resource-%E4%B8%8E-Object/API-%E5%8F%82%E8%80%83/API-%E5%8F%82%E8%80%83/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
 &lt;li>&lt;a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23">官方文档，参考-API 概述-API&lt;/a>(这里是通过单一页面显示 API 资源各字段详解)
 &lt;ul>
-&lt;li>链接里是 1.23 的，想查看其他版本 API，改变 URL 中的版本即可。&lt;/li>
+&lt;li>链接里是 1.23 的，想查看其他版本 API，改变 URL 中的版本即可。随着版本更新，老版本的页面会删除。&lt;/li>
+&lt;li>该页面的原始文件是符合 OpenAPI 格式的 swagger.json，位置在 kubernetes/kubernetes 仓库的 &lt;a href="https://github.com/kubernetes/kubernetes/blob/master/api/openapi-spec/swagger.json">kubernetes/api/openapi-spec/swagger.json&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/li>
 &lt;li>&lt;a href="https://kubernetes.io/docs/reference/kubernetes-api/">官方文档，参考-KubernetesAPI&lt;/a>(这里是通过多级页面显示 API 资源各字段详解)
@@ -3165,16 +3167,15 @@ name: k8s-certs
 &lt;li>这些连接的内容，其实是 &lt;code>kubectl explain&lt;/code> 命令的内容显示在浏览器中了。&lt;/li>
 &lt;/ul>
 &lt;/li>
-&lt;li>&lt;a href="https://github.com/kubernetes/kubernetes/blob/master/api/openapi-spec/swagger.json">OpeaAPI 格式文档&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>在本部分笔记后面的章节，各资源 Manifest 详解，其实已经描述了 API 中各个字段的含义。所以本篇文章不会详解每个 API，而是记录一下如何通过 Kubernetes 官网来查找 API 详解，以及如何使用官方文档查看 API 详解。&lt;/p>
 &lt;p>如果笔记中记录得不够详细，&lt;code>kubectl explain&lt;/code> 命令也看着不方便，那么通过这篇文章中介绍的官方文档中的 API 详解来查看，将会更加直观。&lt;/p>
 &lt;p>&lt;strong>Kubernetes API 参考中将会描述每种资源的 Manifests 中每个字段(即.YAML 中的节点)的含义。&lt;/strong>&lt;/p>
 &lt;p>这是单一页面的样子。左侧是根据对资源的分类而形成的目录，右侧是完整的页面&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dkxdpv/1616120193938-a171af16-575d-4de6-951a-99cdca271a50.png" alt="">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kubernetes/api/1616120193938-a171af16-575d-4de6-951a-99cdca271a50.png" alt="">&lt;/p>
 &lt;p>这是多级页面的样子，该 API 详解是内含在官方文档中的，并且对 API 进行了细致的分类&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dkxdpv/1616120193972-2c538ed5-7a6f-4aca-bf11-732240aa84d6.png" alt="">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kubernetes/api/1616120193972-2c538ed5-7a6f-4aca-bf11-732240aa84d6.png" alt="">&lt;/p>
 &lt;h2 id="字段的类型占位符">字段的类型占位符&lt;/h2>
 &lt;p>官方文档中，将每个字段的类型，放在字段名称后面的 &lt;code>()&lt;/code> 中，效果如图：&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kubernetes/api/20230419102123.png" alt="image.png">&lt;/p>
@@ -3716,7 +3717,346 @@ name: k8s-certs
 &lt;p>由 bash-completion 程序实现&lt;/p>
 &lt;h2 id="关联文件与配置">关联文件与配置&lt;/h2>
 &lt;p>&lt;strong>/etc/bash_completion.d/&lt;/strong> #&lt;/p>
-&lt;p>&lt;strong>/usr/share/bash-completion/completions/&lt;/strong> # 各种程序补全功能所需文件的保存目录。&lt;/p></description></item><item><title>Docs: BPF 流量控制机制</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel/BPF/BPF-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6%E6%9C%BA%E5%88%B6/BPF-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6%E6%9C%BA%E5%88%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel/BPF/BPF-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6%E6%9C%BA%E5%88%B6/BPF-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6%E6%9C%BA%E5%88%B6/</guid><description>
+&lt;p>&lt;strong>/usr/share/bash-completion/completions/&lt;/strong> # 各种程序补全功能所需文件的保存目录。&lt;/p></description></item><item><title>Docs: BPF</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel/BPF/BPF/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel/BPF/BPF/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Berkeley_Packet_Filter">Wiki-BPF&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md">GitHub 项目,bcc-BPF 特性与 LInux 内核版本对照表&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>《Linux 内核观测技术 BPF》&lt;/p>
+&lt;p>&lt;strong>Berkeley Packet Filter(伯克利包过滤器，简称 BPF)&lt;/strong>，是类 Unix 系统上数据链路层的一种原始接口，提供原始链路层封包的收发。在 Kernel 官方文档中，BPF 也称为 **Linux Socket Filtering(LInux 套接字过滤，简称 LSF)。**BPF 有时也只表示 &lt;strong>filtering mechanism(过滤机制)&lt;/strong>，而不是整个接口。&lt;/p>
+&lt;p>&lt;strong>注意：不管是后面描述的 eBPF 还是 BPF，这个名字或缩写，其本身所表达的含义，其实已经没有太大的意义了，因为这个项目的发展远远超出了它最初的构想。&lt;/strong>&lt;/p>
+&lt;p>在 BPF 之前，如果想做数据包过滤，则必须将所有数据包复制到用户空间中，然后在那里过滤它们，这种方式意味着必须将所有数据包复制到用户空间中，复制数据的开销很大。当然可以通过将过滤逻辑转移到内核中解决开销问题，我们来看 BPF 做了什么工作。&lt;/p>
+&lt;p>实际上，BPF 最早称为 &lt;strong>BSD Packet Filter&lt;/strong>，是很早就有的 Unix 内核特性，最早可追溯到 1992 年发表在 USENIX Conference 上的一篇论文&lt;a href="http://www.tcpdump.org/papers/bpf-usenix93.pdf">《BSD 数据包过滤：一种新的用户级包捕获架构》&lt;/a>，这篇文章作者描述了他们如何在 Unix 内核实现网络数据包过滤，这种技术比当时最先进的数据包过滤技术快了 20 倍。这篇文章描述的 BPF 在数据包过滤上引入了两大革新：&lt;/p>
+&lt;ul>
+&lt;li>一个新的虚拟机设计，可以有效得工作在基于寄存器结构的 CPU 之上。&lt;/li>
+&lt;li>应用程序使用缓存只复制与过滤数据包相关的数据，不会复制数据包的宿友信息。这样可以最大程度得减少 BPF 处理的数据。&lt;/li>
+&lt;/ul>
+&lt;p>随后，得益于如此强大的性能优势，所有 Unix 系统都将 BPF 作为网络包过滤的首选技术，抛弃了消耗更多内存和性能更差的原有技术实现。后来由于 BPF 的理念逐渐成为主流，为各大操作系统所接受，这样早期 &amp;ldquo;B&amp;rdquo; 所代表的 BSD 便渐渐淡去，最终演化成了今天我们眼中的 BPF(Berkeley Packet Filter)。&lt;/p>
+&lt;p>比如我们熟知的 Tcpdump 程序，其底层就是依赖 BPF 实现的包过滤。我们可以在命令后面增加 ”-d“ 来查看 tcpdump 过滤条件的底层汇编指令。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tcpdump -d &amp;#39;ip and tcp port 8080&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>000&lt;span style="color:#f92672">)&lt;/span> ldh &lt;span style="color:#f92672">[&lt;/span>12&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>001&lt;span style="color:#f92672">)&lt;/span> jeq &lt;span style="color:#75715e">#0x800 jt 2 jf 12&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>002&lt;span style="color:#f92672">)&lt;/span> ldb &lt;span style="color:#f92672">[&lt;/span>23&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>003&lt;span style="color:#f92672">)&lt;/span> jeq &lt;span style="color:#75715e">#0x6 jt 4 jf 12&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>004&lt;span style="color:#f92672">)&lt;/span> ldh &lt;span style="color:#f92672">[&lt;/span>20&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>005&lt;span style="color:#f92672">)&lt;/span> jset &lt;span style="color:#75715e">#0x1fff jt 12 jf 6&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>006&lt;span style="color:#f92672">)&lt;/span> ldxb 4*&lt;span style="color:#f92672">([&lt;/span>14&lt;span style="color:#f92672">]&lt;/span>&amp;amp;0xf&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>007&lt;span style="color:#f92672">)&lt;/span> ldh &lt;span style="color:#f92672">[&lt;/span>x + 14&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>008&lt;span style="color:#f92672">)&lt;/span> jeq &lt;span style="color:#75715e">#0x1f90 jt 11 jf 9&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>009&lt;span style="color:#f92672">)&lt;/span> ldh &lt;span style="color:#f92672">[&lt;/span>x + 16&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>010&lt;span style="color:#f92672">)&lt;/span> jeq &lt;span style="color:#75715e">#0x1f90 jt 11 jf 12&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>011&lt;span style="color:#f92672">)&lt;/span> ret &lt;span style="color:#75715e">#262144&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>012&lt;span style="color:#f92672">)&lt;/span> ret &lt;span style="color:#75715e">#0&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>-dd 可以打印字节码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tcpdump -dd &amp;#39;ip and tcp port 8080&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x28, 0, 0, 0x0000000c &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x15, 0, 10, 0x00000800 &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x30, 0, 0, 0x00000017 &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x15, 0, 8, 0x00000006 &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x28, 0, 0, 0x00000014 &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x45, 6, 0, 0x00001fff &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0xb1, 0, 0, 0x0000000e &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x48, 0, 0, 0x0000000e &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x15, 2, 0, 0x00001f90 &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x48, 0, 0, 0x00000010 &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x15, 0, 1, 0x00001f90 &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x6, 0, 0, 0x00040000 &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span> 0x6, 0, 0, 0x00000000 &lt;span style="color:#f92672">}&lt;/span>,
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="bpf-的进化">BPF 的进化&lt;/h2>
+&lt;p>得益于 BPF 在包过滤上的良好表现，Alexei Starovoitov 对 BPF 进行彻底的改造，并增加了新的功能，改善了它的性能，这个新版本被命名为 &lt;strong>extended BPF(扩展的 BPF，简称 eBPF)&lt;/strong>，新版本的 BPF 全面兼容并扩充了原有 BPF 的功能。因此，将传统的 BPF 重命名为 &lt;strong>classical BPF(传统的 BPF，简称 cBPF)&lt;/strong>，相对应的，新版本的 BPF 则命名为 eBPF 或直接称为 BPF(&lt;strong>所以，我们现在所说的 BPF，大部分情况下就是指 eBPF&lt;/strong>)。Linux Kernel 3.18 版本开始实现对 eBPF 的支持。&lt;/p>
+&lt;h1 id="ebpf-概述">eBPF 概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://ebpf.io/">eBPF 官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://kerneltravel.net/categories/ebpf/">某网站系列文章&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>**extended Berkeley Packet Filter(扩展的 BPF，简称 eBPF) **起源于 BPF，是对 BPF 的扩展。eBPF 针对现代硬件进行了优化和全新的设计，使其生成的指令集比 cBPF 解释器生成的机器码更快。这个扩展版本还将 cBPF VM 中的寄存器数量从两个 32 位寄存器增加到 10 个 64 位寄存器。寄存器数量和寄存器宽度的增加为编写更复杂的程序提供了可能性，开发人员可以自由的使用函数参数交换更多的信息。这些改进使得 eBPF 比原来的 cBPF 快四倍。这些改进，主要还是对网络过滤器内部处理的 eBPF 指令集进行优化，仍然被限制在内核空间中，只有少数用户空间中的程序可以编写 BPF 过滤器供内核处理，比如 Tcpdump 和 Seccomp。&lt;/p>
+&lt;p>除了上述的优化之外，eBPF 最让人兴奋的改进，是其向用户空间的开放。开发者可以在用户空间，编写 eBPF 程序，并将其加在到内核空间执行。虽然 eBPF 程序看起来更像内核模块，但与内核模块不同的是，eBPF 程序不需要开发者重新编译内核，而且保证了在内核不崩溃的情况下完成加载操作，着重强调了安全性和稳定性。BPF 代码的主要贡献单位主要包括 Cilium、Facebook、Red Hat 以及 Netronome 等。&lt;/p>
+&lt;p>Linux Kernel 一直是实现 可观察性、网络、安全性 的理想场所。不幸的是，想要自定义这些实现通常是不切实际的，因为它需要更改内核源代码或加载内核模块，并导致彼此堆叠的抽象层。而 eBPF 的出现，让这一切成为可能，&lt;strong>eBPF 可以在 Linux 内核中运行沙盒程序，而无需更改内核源代码或加载内核模块&lt;/strong>。通过&lt;strong>使 Linux Kernel 可编程&lt;/strong>，基础架构软件可以利用现有的层，从而使它们更加智能和功能丰富，而无需继续为系统增加额外的复杂性层。&lt;/p>
+&lt;p>也正由于此，eBPF 不再局限于网络的过滤，而且 eBPF 就相当于内核本身的代码，想象空间无限，并且热加载到内核，换句话说，一旦加载到内核，内核的行为就变了。所以，eBPF 带动了 安全性、应用程序配置/跟踪、性能故障排除 等等领域的新一代工具的开发，这些工具不再依赖现有的内核功能，而是在不影响执行效率或安全性的情况下主动重新编程运行时行为：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Networking(网络)&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>Observability(可观测性)&lt;/strong>
+&lt;ul>
+&lt;li>&lt;strong>Monitoring(监控)&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>Tracing(跟踪)&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>Profiling(分析)&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Security(安全)&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>等等，随着发展，eBPF 还可以实现更多!&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;p>可以这么说，BPF 的种种能力，实现了 &lt;strong>Software Define Kernel(软件定义内核)&lt;/strong>。&lt;/p>
+&lt;h2 id="ebpf-与-内核模块-的对比">eBPF 与 内核模块 的对比&lt;/h2>
+&lt;p>在 Linux 观测方面，eBPF 总是会拿来与 kernel 模块方式进行对比，eBPF 在安全性、入门门槛上比内核模块都有优势，这两点在观测场景下对于用户来讲尤其重要。&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>维度&lt;/th>
+&lt;th>Linux 内核模块&lt;/th>
+&lt;th>eBPF&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>kprobes/tracepoints&lt;/td>
+&lt;td>支持&lt;/td>
+&lt;td>支持&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>安全性&lt;/td>
+&lt;td>可能引入安全漏洞或导致内核 Panic&lt;/td>
+&lt;td>通过验证器进行检查，可以保障内核安全&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>内核函数&lt;/td>
+&lt;td>可以调用内核函数&lt;/td>
+&lt;td>只能通过 BPF Helper 函数调用&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>编译性&lt;/td>
+&lt;td>需要编译内核&lt;/td>
+&lt;td>不需要编译内核，引入头文件即可&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>运行&lt;/td>
+&lt;td>基于相同内核运行&lt;/td>
+&lt;td>基于稳定 ABI 的 BPF 程序可以编译一次，各处运行&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>与应用程序交互&lt;/td>
+&lt;td>打印日志或文件&lt;/td>
+&lt;td>通过 perf_event 或 map 结构&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>数据结构丰富性&lt;/td>
+&lt;td>一般&lt;/td>
+&lt;td>丰富&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>入门门槛&lt;/td>
+&lt;td>高&lt;/td>
+&lt;td>低&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>升级&lt;/td>
+&lt;td>需要卸载和加载，可能导致处理流程中断&lt;/td>
+&lt;td>原子替换升级，不会造成处理流程中断&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>内核内置&lt;/td>
+&lt;td>视情况而定&lt;/td>
+&lt;td>内核内置支持&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h1 id="ebpf-发展史">eBPF 发展史&lt;/h1>
+&lt;p>eBPF 是如何诞生的呢？我最初开始讲起。这里“最初”我指的是 2013 年之前。&lt;/p>
+&lt;h2 id="2013">2013&lt;/h2>
+&lt;h3 id="传统的流量控制工具和系统">传统的流量控制工具和系统&lt;/h3>
+&lt;p>回顾一下当时的 “SDN” 蓝图。&lt;/p>
+&lt;ol>
+&lt;li>当时有 OpenvSwitch（OVS）、&lt;code>tc&lt;/code>（Traffic control），以及内核中的 Netfilter 子系 统（包括 &lt;code>iptables&lt;/code>、&lt;code>ipvs&lt;/code>、&lt;code>nftalbes&lt;/code> 工具），可以用这些工具对 datapath 进行“ 编程”：。&lt;/li>
+&lt;li>BPF 当时用于 &lt;code>tcpdump&lt;/code>，&lt;strong>在内核中尽量前面的位置抓包&lt;/strong>，它不会 crash 内核；此 外，它还用于 seccomp，&lt;strong>对系统调用进行过滤&lt;/strong>（system call filtering），但当时 使用的非常受限，远不是今天我们已经在用的样子。&lt;/li>
+&lt;li>此外就是前面提到的 feature creeping 问题，以及 &lt;strong>tc 和 netfilter 的代码重复问题，因为这两个子系统是竞争关系&lt;/strong>。&lt;/li>
+&lt;li>&lt;strong>OVS 当时被认为是内核中最先进的数据平面&lt;/strong>，但它最大的问题是：与内核中其他网 络模块的集成不好【译者注 1】。此外，很多核心的内核开发者也比较抵触 OVS，觉得它很怪。&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;p>【译者注 1】
+例如，OVS 的 internal port、patch port 用 tcpdump 都是 &lt;a href="http://arthurchiao.art/blog/ovs-deep-dive-4-patch-port/">抓不到包的&lt;/a>，排障非常不方便。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="ebpf-与-传统流量控制-的区别">eBPF 与 传统流量控制 的区别&lt;/h3>
+&lt;p>对比 eBPF 和这些已经存在很多年的工具：&lt;/p>
+&lt;ol>
+&lt;li>tc、OVS、netfilter 可以对 datapath 进行“编程”：但前提是 datapath 知道你想做什 么（but only if the datapath knows what you want to do）。
+&lt;ul>
+&lt;li>只能利用这些工具或模块提供的既有功能。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>eBPF 能够让你&lt;strong>创建新的 datapath&lt;/strong>（eBPF lets you create the datapath instead）。&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;ul>
+&lt;li>eBPF 就是内核本身的代码，想象空间无限，并且热加载到内核；换句话说，一旦加 载到内核，内核的行为就变了。&lt;/li>
+&lt;li>在 eBPF 之前，改变内核行为这件事情，只能通过修改内核再重新编译，或者开发内 核模块才能实现。&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>译者注&lt;/p>
+&lt;h3 id="ebpf第一个巨型patch">eBPF：第一个（巨型）patch&lt;/h3>
+&lt;ul>
+&lt;li>描述 eBPF 的 RFC 引起了广泛讨论，但普遍认为侵入性太强了（改动太大）。&lt;/li>
+&lt;li>另外，当时 nftables (inspired by BPF) 正在上升期，它是一个与 eBPF 有点类似的 BPF 解释器，大家不想同时维护两个解释器。&lt;/li>
+&lt;/ul>
+&lt;p>最终这个 patch 被拒绝了。
+被拒的另外一个原因是前面提到的，没有遵循“大改动小提交”原则，全部代码放到了一个 patch。Linus 会疯的。&lt;/p>
+&lt;h2 id="2014">2014&lt;/h2>
+&lt;h3 id="第一个-ebpf-patch-合并到内核">第一个 eBPF patch 合并到内核&lt;/h3>
+&lt;ul>
+&lt;li>用一个&lt;strong>扩展（extended）指令集&lt;/strong>逐步、全面替换原来老的 BPF 解释器。&lt;/li>
+&lt;li>&lt;strong>自动新老 BPF 转换&lt;/strong>：in-kernel translation。&lt;/li>
+&lt;li>后续 patch 将 eBPF 暴露给 UAPI，并添加了 verifier 代码和 JIT 代码。&lt;/li>
+&lt;li>更多后续 patch，从核心代码中移除老的 BPF。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ksq56w/1617847999424-2c5e5133-2862-4574-bffb-0776c6b0aa4b.png" alt="">
+我们也从那时开始，顺理成章地成为了 eBPF 的 maintainer。&lt;/p>
+&lt;h3 id="kubernetes-提交第一个-commit">Kubernetes 提交第一个 commit&lt;/h3>
+&lt;p>巧合的是，&lt;strong>对后来影响深远的 Kubernetes，也在这一年提交了第一个 commit&lt;/strong>：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ksq56w/1617847999414-121919ac-67f3-4841-b2a0-c0bd1668c7bd.png" alt="">&lt;/p>
+&lt;h2 id="2015">2015&lt;/h2>
+&lt;h3 id="ebpf-分成两个方向networking--tracing">eBPF 分成两个方向：networking &amp;amp; tracing&lt;/h3>
+&lt;p>到了 2015 年，eBPF 开发分成了两个方向：&lt;/p>
+&lt;ul>
+&lt;li>networking&lt;/li>
+&lt;li>tracing&lt;/li>
+&lt;/ul>
+&lt;h3 id="ebpf-backend-合并到-llvm-37">eBPF backend 合并到 LLVM 3.7&lt;/h3>
+&lt;p>这一年的一个重要里程碑是 eBPF backend 合并到了 upstream LLVM 编译器套件，因此你 现在才能用 clang 编译 eBPF 代码。&lt;/p>
+&lt;h3 id="支持将-ebpf-attach-到-kprobes">支持将 eBPF attach 到 kprobes&lt;/h3>
+&lt;p>这是 tracing 的第一个使用案例。
+Alexei 主要负责 tracing 部分，他添加了一个 patch，支持加载 eBPF 用来做 tracing， 能获取系统的观测数据。&lt;/p>
+&lt;h3 id="通过-cls_bpftc-变得完全可编程">通过 cls_bpf，tc 变得完全可编程&lt;/h3>
+&lt;p>我主要负责 networking 部分，使 tc 子系统可编程，这样我们就能用 eBPF 来灵活的对 datapath 进行编程，获得一个高性能 datapath。&lt;/p>
+&lt;h3 id="为-tc-添加了一个-lockless-ingress--egress-hook-点">为 tc 添加了一个 lockless ingress &amp;amp; egress hook 点&lt;/h3>
+&lt;blockquote>
+&lt;p>译注：可参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="http://arthurchiao.art/blog/understanding-tc-da-mode-zh/">深入理解 tc ebpf 的 direct-action (da) 模式（2020）&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://arthurchiao.art/blog/advanced-bpf-kernel-features-for-container-age-zh/">为容器时代设计的高级 eBPF 内核特性（FOSDEM, 2021）&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h3 id="添加了很多-verifer-和-ebpf-辅助代码helper">添加了很多 verifer 和 eBPF 辅助代码（helper）&lt;/h3>
+&lt;p>使用更方便。&lt;/p>
+&lt;h3 id="bcc-项目发布">bcc 项目发布&lt;/h3>
+&lt;p>作为 tracing frontend for eBPF。&lt;/p>
+&lt;h2 id="2016">2016&lt;/h2>
+&lt;h3 id="ebpf-添加了一个新-fast-pathxdp">eBPF 添加了一个新 fast path：XDP&lt;/h3>
+&lt;ul>
+&lt;li>XDP 合并到内核，支持在驱动的 ingress 层 attach BPF 程序。&lt;/li>
+&lt;li>nfp 最为第一家网卡及驱动，支持将 eBPF 程序 offload 到 cls_bpf &amp;amp; XDP hook 点。&lt;/li>
+&lt;/ul>
+&lt;h3 id="cilium-项目发布">Cilium 项目发布&lt;/h3>
+&lt;p>Cilium 最开始的目标是 &lt;strong>docker 网络解决方案&lt;/strong>。&lt;/p>
+&lt;ul>
+&lt;li>通过 eBPF 实现高效的 label-based policy、NAT64、tunnel mesh、容器连通性。&lt;/li>
+&lt;li>整个 datapath &amp;amp; forwarding 逻辑全用 eBPF 实现，不再需要 Docker 或 OVS 桥接设备。&lt;/li>
+&lt;/ul>
+&lt;h2 id="2017">2017&lt;/h2>
+&lt;h3 id="ebpf-开始大规模应用于生产环境">eBPF 开始大规模应用于生产环境&lt;/h3>
+&lt;p>2016 ~ 2017 年，eBPF 开始应用于生产环境：&lt;/p>
+&lt;ol>
+&lt;li>Netflix on eBPF for tracing: ‘Linux BPF superpowers’&lt;/li>
+&lt;li>Facebook 公布了生产环境 XDP+eBPF 使用案例（DDoS &amp;amp; LB）
+&lt;ul>
+&lt;li>用 XDP/eBPF 重写了原来基于 IPVS 的 L4LB，性能 &lt;code>10x&lt;/code>。&lt;/li>
+&lt;li>&lt;strong>eBPF 经受住了严苛的考验&lt;/strong>：从 2017 开始，每个进入 facebook.com 的包，都是经过了 XDP &amp;amp; eBPF 处理的。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Cloudflare 将 XDP+BPF 集成到了它们的 DDoS mitigation 产品。
+&lt;ul>
+&lt;li>成功将其组件从基于 Netfilter 迁移到基于 eBPF。&lt;/li>
+&lt;li>到 2018 年，它们的 XDP L4LB 完全接管生产环境。&lt;/li>
+&lt;li>扩展阅读：&lt;a href="http://arthurchiao.art/blog/cloudflare-arch-and-bpf-zh/">(译) Cloudflare 边缘网络架构：无处不在的 BPF（2019）&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;p>译者注：基于 XDP/eBPF 的 L4LB 原理都是类似的，简单来说，&lt;/p>
+&lt;ol>
+&lt;li>通过 BGP 宣告 VIP&lt;/li>
+&lt;li>通过 ECMP 做物理链路高可用&lt;/li>
+&lt;li>通过 XDP/eBPF 代码做重定向，将请求转发到后端（VIP -&amp;gt; Backend）&lt;/li>
+&lt;/ol>
+&lt;/blockquote>
+&lt;p>对此感兴趣可参考入门级介绍：&lt;a href="http://arthurchiao.art/blog/k8s-l4lb/">L4LB for Kubernetes: Theory and Practice with Cilium+BGP+ECMP&lt;/a>&lt;/p>
+&lt;h2 id="2017--2018">2017 ~ 2018&lt;/h2>
+&lt;h3 id="ebpf-成为内核独立子系统">eBPF 成为内核独立子系统&lt;/h3>
+&lt;p>随着 eBPF 社区的发展，feature 和 patch 越来越多，为了管理这些 patch，Alexei、我和 networking 的一位 maintainer David Miller 经过讨论，决定将 eBPF 作为独立的内核子 系统。&lt;/p>
+&lt;ul>
+&lt;li>eBPF patch 合并到 &lt;code>bpf&lt;/code> &amp;amp; &lt;code>bpf-next&lt;/code> kernel trees on git.kernel.org&lt;/li>
+&lt;li>拆分 eBPF 邮件列表：&lt;code>bpf@vger.kernel.org&lt;/code> (archive at: &lt;code>lore.kernel.org/bpf/&lt;/code>)&lt;/li>
+&lt;li>eBPF PR 经内核网络部分的 maintainer David S. Miller 提交给 Linus Torvalds&lt;/li>
+&lt;/ul>
+&lt;h3 id="ktls--ebpf">kTLS &amp;amp; eBPF&lt;/h3>
+&lt;blockquote>
+&lt;p>kTLS &amp;amp; eBPF for introspection and ability for in-kernel TLS policy enforcement&lt;/p>
+&lt;/blockquote>
+&lt;p>kTLS 是&lt;strong>将 TLS 处理 offload 到内核&lt;/strong>，例如，将加解密过程从 openssl 下放到内核进 行，以&lt;strong>使得内核具备更强的可观测性&lt;/strong>（gain visibility）。
+有了 kTLS，就可以用 eBPF 查看数据和状态，在内核应用安全策略。 &lt;strong>目前 openssl 已经完全原生支持这个功能&lt;/strong>。&lt;/p>
+&lt;h3 id="bpftool--libbpf">bpftool &amp;amp; libbpf&lt;/h3>
+&lt;p>为了检查内核内 eBPF 的状态（introspection）、查看内核加载了哪些 BPF 程序等， 我们添加了一个新工具 bpftool。现在这个工具已经功能非常强大了。
+同样，为了方便用户空间应用使用 eBPF，我们提供了&lt;strong>用户空间 API&lt;/strong>（user space API for applications） &lt;code>libbpf&lt;/code>。这是一个 C 库，接管了所有加载工作，这样用户就不需要 自己处理复杂的加载过程了。&lt;/p>
+&lt;h3 id="bpf-to-bpf-function-calls">BPF to BPF function calls&lt;/h3>
+&lt;p>增加了一个 BPF 函数调用另一个 BPF 函数的支持，使得 BPF 程序的编写更加灵活。&lt;/p>
+&lt;h2 id="2018">2018&lt;/h2>
+&lt;h3 id="cilium-10-发布">Cilium 1.0 发布&lt;/h3>
+&lt;p>这标志着 &lt;strong>BPF 革命之火燃烧到了 Kubernetes networking &amp;amp; security 领域&lt;/strong>。
+Cilium 此时支持的功能：&lt;/p>
+&lt;ul>
+&lt;li>K8s CNI&lt;/li>
+&lt;li>Identity-based L3-L7 policy&lt;/li>
+&lt;li>ClusterIP Services&lt;/li>
+&lt;/ul>
+&lt;h3 id="btfbyte-type-format">BTF（Byte Type Format）&lt;/h3>
+&lt;p>内核添加了一个称为 BTF 的组件。这是一种元数据格式，和 DWARF 这样的 debugging data 类似。但 BTF 的 size 要小的多，而更重要的是，有史以来，&lt;strong>内核第一次变得可自 描述了&lt;/strong>（self-descriptive）。什么意思？
+想象一下当前正在运行中的内核，它&lt;strong>内置了自己的数据格式&lt;/strong>（its own data format） 和&lt;strong>内部数据结构&lt;/strong>（internal structures），你能用工具来查看这些东西（you can introspect them）。还是不太懂？这么说吧，&lt;strong>BTF 是后来的 “一次编译、到处运行”、 热补丁（live-patching）、BPF global data 处理等等所有这些 BPF 特性的基础&lt;/strong>。
+新的特性不断加入，它们都依赖 BTF 提供富元数据（rich metadata）这个基础。&lt;/p>
+&lt;blockquote>
+&lt;p>更多 BTF 内容，可参考 &lt;a href="http://arthurchiao.art/blog/cilium-bpf-xdp-reference-guide-zh/">(译) Cilium：BPF 和 XDP 参考指南（2019）&lt;/a>
+译者注&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="linux-plumbers-会议开辟-bpfxdp-主题">Linux Plumbers 会议开辟 BPF/XDP 主题&lt;/h3>
+&lt;p>这一年，Linux Plumbers 会议第一次开辟了专门讨论 BPF/XDP 的微型分会，我们 一起组织这场会议。其中，Networking Track 一半以上的议题都涉及 BPF 和 XDP 主题，因为这是一个非常振奋人心的特性，越来越多的人用它来解决实际问题。&lt;/p>
+&lt;h3 id="新-socket-类型af_xdp">新 socket 类型：AF_XDP&lt;/h3>
+&lt;p>内核添加了一个**新 socket 类型 **&lt;code>**AF_XDP**&lt;/code>。它提供的能力是：&lt;strong>在零拷贝（ zero-copy）的前提下将包从网卡驱动送到用户空间&lt;/strong>。&lt;/p>
+&lt;blockquote>
+&lt;p>回忆前面的内容，数据包到达网卡后，先经过 XDP，然后才为这个包分配内存。 因此在 XDP 层直接将包送到用户态是无需拷贝的。
+译者注&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;code>AF_XDP&lt;/code> 提供的能力与 DPDK 有点类似，不过&lt;/p>
+&lt;ul>
+&lt;li>DPDK 需要&lt;strong>重写网卡驱动&lt;/strong>，需要额外维护&lt;strong>用户空间的驱动代码&lt;/strong>。&lt;/li>
+&lt;li>&lt;code>AF_XDP&lt;/code> 在&lt;strong>复用内核网卡驱动&lt;/strong>的情况下，能达到与 DPDK 一样的性能。&lt;/li>
+&lt;/ul>
+&lt;p>而且由于&lt;strong>复用了内核基础设施，所有的网络管理工具还都是可以用的&lt;/strong>，因此非常方便， 而 DPDK 这种 bypass 内核的方案导致绝大大部分现有工具都用不了了。
+由于所有这些操作都是发生在 XDP 层的，因此它称为 &lt;code>AF_XDP&lt;/code>。插入到这里的 BPF 代码 能直接将包送到 socket。&lt;/p>
+&lt;h3 id="bpffilter">bpffilter&lt;/h3>
+&lt;p>开始了 bpffilter prototype，作用是通过用户空间驱动（userspace driver），&lt;strong>将 iptables 规则转换成 eBPF 代码&lt;/strong>。
+这是将 iptables 转换成 eBPF 的第一次尝试，整个过程对用户都是无感知的，其中的某些 组件现在还在用，用于在其他方面扩展内核的功能。&lt;/p>
+&lt;h2 id="2018--2019">2018 ~ 2019&lt;/h2>
+&lt;h3 id="bpftrace">bpftrace&lt;/h3>
+&lt;p>Brendan 发布了 bpftrace 工具，作为 DTrace 2.0 for Linux。&lt;/p>
+&lt;h3 id="bpf-专著bpf-performance-tools">BPF 专著《BPF Performance Tools》&lt;/h3>
+&lt;p>Berendan 写了一本 800 多页的 BPF 书。&lt;/p>
+&lt;h3 id="cilium-16-发布">Cilium 1.6 发布&lt;/h3>
+&lt;p>第一次支持完全干掉基于 iptables 的 kube-proxy，全部功能基于 eBPF。&lt;/p>
+&lt;blockquote>
+&lt;p>这个版本其实是有问题的，例如 1.6 发布之后我们发现 externalIPs 的实现是有问题 ，社区在后面的版本修复了这个问题。在修复之前，还是得用 kube-proxy： &lt;a href="https://github.com/cilium/cilium/issues/9285">https://github.com/cilium/cilium/issues/9285&lt;/a>
+译者注&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="bpf-live-patching">BPF live-patching&lt;/h3>
+&lt;p>添加了一些内核新特性，例如尾调用（tail call），这使得 &lt;strong>eBPF 核心基础 设施第一次实现了热加载&lt;/strong>。这个功能帮我们极大地优化了 datapath。
+另一个重要功能是 BPF trampolines，这里就不展开了，感兴趣的可以搜索相关资料，我只 能说这是另一个振奋人心的技术。&lt;/p>
+&lt;h3 id="第一次-bpfconf受邀请才能参加的-bpf-内核专家会议">第一次 bpfconf：受邀请才能参加的 BPF 内核专家会议&lt;/h3>
+&lt;p>如题，这是 BPF 内核专家交换想法和讨论问题的会议。与 Linux Plumbers 会议互补。&lt;/p>
+&lt;h3 id="bpf-backend-合并到-gcc">BPF backend 合并到 GCC&lt;/h3>
+&lt;p>前面提到，BPF backend 很早就合并到 LLVM/Clang，现在，它终于合并到 GCC 了。 至此，&lt;strong>GCC 和 LLVM 这两个最主要的编译器套件都支持了 BPF backend&lt;/strong>。
+此外，BPF 开始支持有限循环（bounded loops），在此之前，是不支持循环的，以防止程 序无限执行。&lt;/p>
+&lt;h2 id="2019--2020">2019 ~ 2020&lt;/h2>
+&lt;h3 id="不知疲倦的增长和-ebpf-的第三个方向linux-security-modules">不知疲倦的增长和 eBPF 的第三个方向：Linux security modules&lt;/h3>
+&lt;ul>
+&lt;li>Google 贡献了 &lt;a href="https://www.kernel.org/doc/html/latest/bpf/bpf_lsm.html">BPF LSM&lt;/a>（安全），部署在了他们的数据中心服务器上。&lt;/li>
+&lt;li>BPF verifier 防护 Spectre 漏洞（2018 年轰动世界的 CPU bug）：even verifying safety on speculative program paths。&lt;/li>
+&lt;li>&lt;strong>主流云厂商开始通过 SRIOV 支持 XDP&lt;/strong>：AWS (ena driver), Azure (hv_netvsc driver), …&lt;/li>
+&lt;li>Cilium 1.8 支持基于 XDP 的 Service 负载均衡和 host network policies。&lt;/li>
+&lt;li>Facebook 开发了基于 BPF 的 TCP 拥塞控制模块。&lt;/li>
+&lt;li>Microsoft 基于 BPF 重写了将他们的 Windows monitoring 工具。&lt;/li>
+&lt;/ul></description></item><item><title>Docs: BPF 流量控制机制</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel/BPF/BPF-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6%E6%9C%BA%E5%88%B6/BPF-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6%E6%9C%BA%E5%88%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/2.Kernel/BPF/BPF-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6%E6%9C%BA%E5%88%B6/BPF-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6%E6%9C%BA%E5%88%B6/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -3728,9 +4068,9 @@ name: k8s-certs
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
-&lt;li>&lt;a href="https://en.wikipedia.org/wiki/C_(programming_language)">Wiki,C Programming Language&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/C_(programming_language)">Wiki，C Programming Language&lt;/a>&lt;/li>
 &lt;li>&lt;a href="http://www.open-std.org/jtc1/sc22/wg14/">ISO C 工作组官网&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://wangdoc.com/clang/">网道,C&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://wangdoc.com/clang/">网道，C&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://www.learn-c.org/">https://www.learn-c.org/&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
@@ -5347,7 +5687,240 @@ Docker 对使用者来讲是一个 C/S 模式的架构，而 Docker 的后端是
 &lt;/code>&lt;/pre>
 &lt;p>那么打到磁盘的 json 文件该如何配置轮替，防止撑满磁盘呢？每种 Docker 日志驱动都有相应的配置项日志轮转，比如根据单个文件大小和日志文件数量配置轮转。json-file 日志驱动支持的配置选项如下：&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qqh0gm/1616122015431-a74f2c52-7a4b-443a-b6ec-d7031a967089.png" alt="">&lt;/p>
-&lt;h1 id="heading">&lt;/h1></description></item><item><title>Docs: Driver</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Driver/Driver/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Driver/Driver/</guid><description>
+&lt;h1 id="heading">&lt;/h1></description></item><item><title>Docs: Docker 命令行工具</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/Docker-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/Docker-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://docs.docker.com/engine/reference/commandline/docker/">https://docs.docker.com/engine/reference/commandline/docker/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="syntax语法">Syntax(语法)&lt;/h1>
+&lt;p>&lt;strong>docker [OPTIONS] COMMAND [ARG&amp;hellip;]&lt;/strong>&lt;/p>
+&lt;h2 id="options">OPTIONS&lt;/h2>
+&lt;ul>
+&lt;li>&amp;ndash;config=~/.docker # Location of client config files # 客户端配置文件的位置&lt;/li>
+&lt;li>-D, &amp;ndash;debug=false # Enable debug mode # 启用 Debug 调试模式&lt;/li>
+&lt;li>-H, &amp;ndash;host=[] # Daemon socket(s) to connectto # 守护进程的套接字（Socket）连接&lt;/li>
+&lt;li>-l, &amp;ndash;log-level=info # Set the logging level # 设置日志级别&lt;/li>
+&lt;li>&amp;ndash;tls=false # Use TLS; implied by&amp;ndash;tlsverify #&lt;/li>
+&lt;li>&amp;ndash;tlscacert=~/.docker/ca.pem # Trust certs signed only by this CA # 信任证书签名 CA&lt;/li>
+&lt;li>&amp;ndash;tlscert=~/.docker/cert.pem # Path to TLS certificate file # TLS 证书文件路径&lt;/li>
+&lt;li>&amp;ndash;tlskey=~/.docker/key.pem # Path to TLS key file # TLS 密钥文件路径&lt;/li>
+&lt;li>&amp;ndash;tlsverify=false # Use TLS and verify theremote # 使用 TLS 验证远程&lt;/li>
+&lt;/ul>
+&lt;h1 id="management-commands">Management Commands&lt;/h1>
+&lt;p>management command 在使用的时候，当后面还需要跟其子命令的时候，是可省的。直接使用子命令就表示对其执行，但是有的管理命令不行，比如 create，对于 container 可省，对于 network 不可省&lt;/p>
+&lt;h2 id="container--容器管理">container # 容器管理&lt;/h2>
+&lt;p>attach cp diff export kill ls port rename rm start stop unpause wait&lt;/p>
+&lt;p>commit create exec inspect logs pause prune restart run stats top update&lt;/p>
+&lt;p>对容器的操作说明：docker 的 container 相关操作命令有一些关于如何进入容器操作的命令&lt;/p>
+&lt;p>其更本思想为：&lt;/p>
+&lt;ul>
+&lt;li>连接标准输入，输入到 host 上的内容同样输入到 container 中&lt;/li>
+&lt;li>连接标准输出，输出到 container 中的同样输出到 host 上&lt;/li>
+&lt;li>可以分配一个终端(shell)给 container，以便操作更便捷&lt;/li>
+&lt;/ul>
+&lt;p>注意：有的 Container 在启动的时候，会自带命令去执行一些操作，该操作会自动输出一些内容，当连接到该 Container 的标准输入和输出上之后，可能没法对其进行输入操作，因为该 Container 正在其前台运行某程序(就好像平时用 linux 的 tailf 命令似的)(有的程序有输出内容，有的程序没有输出内容)，前台运行程序的时候，是没法输入的。&lt;/p>
+&lt;p>&lt;strong>docker container [OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>docker container prune -a # 清理所有已经停止的 container&lt;/li>
+&lt;/ul>
+&lt;h2 id="image---docker-镜像的管理命令-docker-image-命令note">image - docker 镜像的管理命令 docker image 命令.note&lt;/h2>
+&lt;p>build history import inspect load ls prune pull push rm save tag&lt;/p>
+&lt;p>&lt;strong>docker image [OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>docker image prune -a # 清理所有没有使用的 image&lt;/li>
+&lt;/ul>
+&lt;h2 id="network--docker-网络的管理命令-docker-networkdocker-网络管理命令note">network # docker 网络的管理命令 docker network，docker 网络管理命令.note&lt;/h2>
+&lt;h2 id="plugin-manage-plugins">plugin Manage plugins&lt;/h2>
+&lt;h2 id="secret-manage-docker-secrets">secret Manage Docker secrets&lt;/h2>
+&lt;h2 id="service-manage-services">service Manage services&lt;/h2>
+&lt;h2 id="stack-manage-docker-stacks">stack Manage Docker stacks&lt;/h2>
+&lt;h2 id="system--docker-系统管理">system # docker 系统管理&lt;/h2>
+&lt;p>&lt;strong>docker system COMMAND&lt;/strong>&lt;/p>
+&lt;p>COMMAND:&lt;/p>
+&lt;ul>
+&lt;li>df # 显示 docker 系统的磁盘使用情况，效果如下：&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker system df&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>TYPE TOTAL ACTIVE SIZE RECLAIMABLE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Images &lt;span style="color:#ae81ff">11&lt;/span> &lt;span style="color:#ae81ff">10&lt;/span> 1.043GB 96.12MB &lt;span style="color:#f92672">(&lt;/span>9%&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Containers &lt;span style="color:#ae81ff">34&lt;/span> &lt;span style="color:#ae81ff">18&lt;/span> 4.588kB 2.294kB &lt;span style="color:#f92672">(&lt;/span>50%&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Local Volumes &lt;span style="color:#ae81ff">2&lt;/span> &lt;span style="color:#ae81ff">2&lt;/span> 152.8MB 0B &lt;span style="color:#f92672">(&lt;/span>0%&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Build Cache &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> 0B 0B
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>events # Get real time events from the server&lt;/li>
+&lt;li>info # 等同于 docker info 命令&lt;/li>
+&lt;li>prune # 删除未使用的数据。删除内容如下&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># docker system prune&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>WARNING! This will remove:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - all stopped containers
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - all networks not used by at least one container
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - all dangling images
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - all dangling build cache
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="volume--管理-docker-的卷">volume # 管理 docker 的卷&lt;/h2>
+&lt;p>详见 《[Docker 存储](/docs/10.云原生/2.2.实现容器的工具/Docker/Docker%20 存储.md 存储.md)》&lt;/p>
+&lt;h1 id="commands">COMMANDS&lt;/h1>
+&lt;h2 id="attach--当前-shell-下-attach连接到指定运行中的镜像">attach # 当前 shell 下 attach(连接)到指定运行中的镜像&lt;/h2>
+&lt;p>Attach local standard input, output, and error streams to a running container # 把本地终端上的标准输入、输出和错误数据流连接到一个运行中的容器(即从一个运行中的容器剥离了其终端，再重新连接到其终端)&lt;/p>
+&lt;h2 id="build--通过-dockerfile-定制镜像">build # 通过 Dockerfile 定制镜像&lt;/h2>
+&lt;p>docker build [OPTIONS] PATH # 使用 dockerfile 文件自动创建镜像&lt;/p>
+&lt;p>注：PATH 是 build context 创建环境的位置，从创建环境中搜索 Dockerfile 文件来使用。PATH 也可以是一个 URL，通过网上下载镜像。&lt;/p>
+&lt;p>OPTIONS：&lt;/p>
+&lt;ul>
+&lt;li>-t &amp;lt;NAME&amp;gt; # 自己定义一个创建完成后的镜像名 NAME&lt;/li>
+&lt;li>-f &amp;lt;NAME&amp;gt; # 指定使用创建环境中哪个 NAME 文件作为 Dockerfile,默认使用文件名为 Dockerfile 的文件&lt;/li>
+&lt;li>&amp;ndash;no-cache # 创建镜像时不使用缓存&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>docker build ./ # 从当前目录下查找名为 Dockerfile 的文件进行 Image 的创建&lt;/li>
+&lt;li>docker build -t ubuntu-vi -f test /dockerfile/ # 使用 dockerfile 目录，并使用该目录中的 test 文件作为 dockerfile 文件，创建一个名为 ubuntu-vi 的 Image&lt;/li>
+&lt;/ul>
+&lt;h2 id="commit--从容器的变化中创建一个新的-image提交当前容器为新的镜像">commit # 从容器的变化中创建一个新的 image。提交当前容器为新的镜像&lt;/h2>
+&lt;p>docker commit [OPTIONS] CONTAINER [REPOSITORY[:TAG]]&lt;/p>
+&lt;p>使用 docker commit ContainerName NewName 命令创建新镜像&lt;/p>
+&lt;p>(ContainerName 为正在运行的容器名 NewName 为需要创建的镜像名，自己定)&lt;/p>
+&lt;p>每一次 commit 就相当于把当前的可写入层变成 image 的一层&lt;/p>
+&lt;h2 id="cp--从容器中拷贝指定文件或者目录到宿主机中">cp # 从容器中拷贝指定文件或者目录到宿主机中&lt;/h2>
+&lt;h2 id="create--创建一个新的容器同-run-但不启动容器">create # 创建一个新的容器，同 run 但不启动容器&lt;/h2>
+&lt;h2 id="diff--inspect-changes-on-a-containers-filesystem-查看-docker-容器变化">diff # Inspect changes on a container&amp;rsquo;s filesystem 查看 docker 容器变化&lt;/h2>
+&lt;h2 id="events--get-real-time-events-from-the-server-从-docker-服务获取容器实时事件">events # Get real time events from the server 从 docker 服务获取容器实时事件&lt;/h2>
+&lt;h2 id="exec--在运行中的容器上执行命令">exec # 在运行中的容器上执行命令&lt;/h2>
+&lt;h2 id="export--导出容器的文件系统为一个-tar-归档文件对应-import">export # 导出容器的文件系统为一个 tar 归档文件(对应 import)&lt;/h2>
+&lt;h2 id="history--展示一个镜像形成历史">history # 展示一个镜像形成历史&lt;/h2>
+&lt;p>docker history [OPTIONS] IMAGE&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&amp;ndash;no-trunc # 不要截断输出 i.e.每列显示的内容都是完整内容，不会被截断&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;h2 id="images--列出系统当前镜像">images # 列出系统当前镜像&lt;/h2>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&amp;ndash;all , -a # Show all images (default hides intermediate images)&lt;/li>
+&lt;li>&amp;ndash;digests # Show digests&lt;/li>
+&lt;li>&amp;ndash;filter , -f # Filter output based on conditions provided&lt;/li>
+&lt;li>&amp;ndash;format # Pretty-print images using a Go template
+&lt;ul>
+&lt;li>可用的 Go 模板占位符详见：https://docs.docker.com/engine/reference/commandline/images/#format-the-output&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&amp;ndash;no-trunc # Don’t truncate output&lt;/li>
+&lt;li>&amp;ndash;quiet , -q # Only show numeric IDs&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>docker images # 查看本地 images，效果如图&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/urb4r9/1616121613241-36e0f6eb-bee7-4db6-a9ed-d02ca5cd679d.png" alt="">&lt;/p>
+&lt;h2 id="import--import-the-contents-from-a-tarball-to-create-a-filesystem-image-从-tar-包中的内容创建一个新的文件系统映像对应-export">import # Import the contents from a tarball to create a filesystem image 从 tar 包中的内容创建一个新的文件系统映像(对应 export)&lt;/h2>
+&lt;h2 id="info--与-docker-system-info-命令效果相同">info # 与 docker system info 命令效果相同&lt;/h2>
+&lt;h2 id="inspect--返回有关容器或镜像的底层信息">inspect # 返回有关容器或镜像的底层信息&lt;/h2>
+&lt;p>显示 docker 所能管理的所有 object 的详细信息，object 包括 image，container，network 等等&lt;/p>
+&lt;p>&lt;strong>docker [OBJECT] inspect [OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>获取 snmp_exporter 容器 merged 目录的绝对路径
+&lt;ul>
+&lt;li>&lt;strong>docker inspect snmp_exporter | jq .[0].GraphDriver.Data.MergedDir | tr -d &amp;ldquo;&amp;rdquo;&amp;quot;&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>docker inspect snmp_exporter &amp;ndash;format=&amp;rsquo;{{.GraphDriver.Data.MergedDir}}&amp;rsquo;&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>获取容器的 PID
+&lt;ul>
+&lt;li>docker inspect mysql-pxc1-1 &amp;ndash;format=&amp;rsquo;{{.State.Pid}}'&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="kill---kill-一个运行中的容器">kill - kill 一个运行中的容器&lt;/h2>
+&lt;h2 id="load---从-tar-包-或标准输入中加载一个镜像对应-save">load - 从 tar 包 或标准输入中加载一个镜像(对应 save)&lt;/h2>
+&lt;p>&lt;strong>docker load [OPTIONS]FILE&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>-i # 从 tar 存档文件读取，而不是 STDIN&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>docker load -i kubernetes.tar&lt;/li>
+&lt;/ul>
+&lt;h2 id="login--注册或者登录到一个-docker-registry">login # 注册或者登录到一个 Docker Registry&lt;/h2>
+&lt;h2 id="logout--从当前-docker-registry-登出">logout # 从当前 Docker Registry 登出&lt;/h2>
+&lt;h2 id="logs--获取容器得日志">logs # 获取容器得日志&lt;/h2>
+&lt;p>&lt;strong>docker logs [OPTIONS] CONTAINER&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&amp;ndash;details # Show extra details provided to logs&lt;/li>
+&lt;li>&lt;strong>-f, &amp;ndash;follow&lt;/strong># 跟踪日志的输出&lt;/li>
+&lt;li>&amp;ndash;since string Show logs since timestamp (e.g. 2013-01-02T13:23:37Z) or relative (e.g. 42m for 42 minutes)&lt;/li>
+&lt;li>&lt;strong>-n, &amp;ndash;tail STRING&lt;/strong># 从日志末尾开始显示日志的指定行数。&lt;code>默认值：all&lt;/code>&lt;/li>
+&lt;li>&lt;strong>-t, &amp;ndash;timestamps&lt;/strong> # 在每行日志行首显示时间戳&lt;/li>
+&lt;li>&amp;ndash;until string # Show logs before a timestamp (e.g. 2013-01-02T13:23:37Z) or relative (e.g. 42m for 42 minutes)&lt;/li>
+&lt;/ul>
+&lt;h2 id="pause--pause-all-processes-within-a-container--暂停一个-container-中的所有进程">pause # Pause all processes within a container # 暂停一个 Container 中的所有进程&lt;/h2>
+&lt;h2 id="port--list-port-mappings-or-a-specific-mapping-for-the-container--查看映射端口对应的容器内部源端口">port # List port mappings or a specific mapping for the CONTAINER # 查看映射端口对应的容器内部源端口&lt;/h2>
+&lt;p>docker port CONTAINER [PRIVATE_PORT[/PROTO]]&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>docker port nginx1 # 查看名为 nginx1 这个 Container 的端口映射情况&lt;/li>
+&lt;/ul>
+&lt;h2 id="ps--list-containers--列出容器">ps # List containers # 列出容器&lt;/h2>
+&lt;p>详见：docker ps 命令，可以查看很多容器信息&lt;/p>
+&lt;h2 id="pull--从-registry-拉取指定镜像或者镜像仓库">pull # 从 Registry 拉取指定镜像或者镜像仓库&lt;/h2>
+&lt;p>&lt;strong>docker pull [REGISTRY][:Port]/[NAMESPACE/]&amp;lt;NAME&amp;gt;:[TAG]&lt;/strong>&lt;/p>
+&lt;p>如果不加 registry，则默认从 hub.docker.com 拉取 image；如果不设置 namespace，则默认从指定的 registry 中的顶层仓库拉取镜像，如果使用了 namespace，则从该用户仓库拉取镜像；如果不指定 TAG，则默认拉取 lastest 版的 image&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>docker pull quay.io/coreos/flannel&lt;/li>
+&lt;/ul>
+&lt;h2 id="push--推送指定镜像或者库镜像至-docker-源服务器">push # 推送指定镜像或者库镜像至 docker 源服务器&lt;/h2>
+&lt;h2 id="rename--重命名容器">rename # 重命名容器&lt;/h2>
+&lt;h2 id="restart--重启运行的容器">restart # 重启运行的容器&lt;/h2>
+&lt;h2 id="rm--移除一个或者多个容器">rm # 移除一个或者多个容器&lt;/h2>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>docker rm &lt;code>docker ps -a | grep &amp;quot;Exited&amp;quot; | awk '{print $NF}'&lt;/code> # 移除所以已经停止的容器&lt;/li>
+&lt;/ul>
+&lt;h2 id="rmi--移除一个或多个镜像无容器使用该镜像才可以删除否则需要删除相关容器才可以继续或者-f-强制删除">rmi # 移除一个或多个镜像(无容器使用该镜像才可以删除，否则需要删除相关容器才可以继续或者-f 强制删除)&lt;/h2>
+&lt;h2 id="run--创建一个新的容器并运行一个命令">run # 创建一个新的容器并运行一个命令&lt;/h2>
+&lt;p>详见：&lt;a href="docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.2.%E5%AE%9E%E7%8E%B0%E5%AE%B9%E5%99%A8%E7%9A%84%E5%B7%A5%E5%85%B7/Docker/Docker%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/run.md">docker run 运行容器&lt;/a>&lt;/p>
+&lt;h2 id="save--保存一个或多个镜像为一个-tar-包对应-load">save # 保存一个或多个镜像为一个 tar 包(对应 load)&lt;/h2>
+&lt;p>docker save [OPTIONS] Image1 Image2 &amp;hellip; ImageN /PATH/FILE&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>-o # save 的时候写入文件，而不是 STDOUT&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>docker save k8s.gcr.io/kube-proxy:v1.12.1 -o kubernetes.tar # 保存 k8s.gcr.io/kube-proxy:v1.12.1 这个 image 到 kubernetes.tar 这个文件中&lt;/li>
+&lt;li>docker save -o XXXX.tar $(docker images | awk &amp;lsquo;{print $1,$2}&amp;rsquo; OFS=&amp;quot;:&amp;quot; | awk &amp;lsquo;NR!=1{print}&amp;rsquo;) # 保存全部镜像到 XXX.tar 文件中&lt;/li>
+&lt;/ul>
+&lt;h2 id="search-search-the-docker-hub-for-images--在-dockerhub-中搜索镜像">search Search the Docker Hub for images # 在 dockerhub 中搜索镜像&lt;/h2>
+&lt;p>docker search [OPTIONS] TERM&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ol>
+&lt;li>docker search centos # 搜索所有 centos 的 docker 镜像&lt;/li>
+&lt;/ol>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/urb4r9/1616121613281-5ce787a3-8986-43c9-926a-680de555c36e.png" alt="">&lt;/p>
+&lt;h2 id="start-start-one-or-more-stopped-containers--启动容器">start Start one or more stopped containers # 启动容器&lt;/h2>
+&lt;h2 id="stats--显示实时的容器资源使用情况统计流">stats # 显示实时的容器资源使用情况统计流&lt;/h2>
+&lt;p>命令用法详见：容器状态查看命令&lt;/p>
+&lt;h2 id="stop--停止容器">stop # 停止容器&lt;/h2>
+&lt;h2 id="tag--在一个-repostiory-中标记一个-image">tag # 在一个 repostiory 中标记一个 image&lt;/h2>
+&lt;p>docker tag SOURCE_IMAGE[:TAG] TARGET_IMAGE[:TAG]&lt;/p>
+&lt;h2 id="top--查看容器中运行的进程信息">top # 查看容器中运行的进程信息&lt;/h2>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ol>
+&lt;li>docker top prometheus # 查看 prometheus 这个 container 运行的程序，该信息的格式为 ps 命令所输出的内容&lt;/li>
+&lt;/ol>
+&lt;h2 id="unpause-unpause-all-processes-within-a-container--取消暂停容器">unpause Unpause all processes within a container # 取消暂停容器&lt;/h2>
+&lt;h2 id="version-show-the-docker-version-information--展示-docker-版本信息">version Show the Docker version information # 展示 Docker 版本信息&lt;/h2>
+&lt;h2 id="wait-block-until-a-container-stops-then-print-its-exit-code--截取容器停止时的退出状态值">wait Block until a container stops, then print its exit code # 截取容器停止时的退出状态值&lt;/h2></description></item><item><title>Docs: Driver</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Driver/Driver/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/1.2.%E5%AE%9E%E7%8E%B0%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%B7%A5%E5%85%B7/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Driver/Driver/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -5665,192 +6238,4 @@ yield&lt;/p>
 &lt;li>&lt;a href="https://axios-http.com/">官网&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;p>Axios 是用于浏览器和 node.js 的基于 Promise 的 HTTP 客户端&lt;/p></description></item><item><title>Docs: ECMAScript 环境安装与使用</title><link>https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/ECMAScript/ECMAScript-%E7%8E%AF%E5%A2%83%E5%AE%89%E8%A3%85%E4%B8%8E%E4%BD%BF%E7%94%A8/ECMAScript-%E7%8E%AF%E5%A2%83%E5%AE%89%E8%A3%85%E4%B8%8E%E4%BD%BF%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/ECMAScript/ECMAScript-%E7%8E%AF%E5%A2%83%E5%AE%89%E8%A3%85%E4%B8%8E%E4%BD%BF%E7%94%A8/ECMAScript-%E7%8E%AF%E5%A2%83%E5%AE%89%E8%A3%85%E4%B8%8E%E4%BD%BF%E7%94%A8/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;/blockquote>
-&lt;p>有两种运行时环境可以运行 ECMAScript 代码(Javascript、Typescript)&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>Browser&lt;/strong># 浏览器就是 ECMAScript 的运行时环境。&lt;/li>
-&lt;li>&lt;strong>Node.js&lt;/strong> # 在服务器或 PC 上安装 Node.js 环境以运行 ECMAScript 代码&lt;/li>
-&lt;li>&lt;strong>Deno&lt;/strong> # &lt;a href="https://github.com/denoland/deno">GtiHub 项目，denoland/deno&lt;/a>。据说要替代 Node.js，很尴尬的是。。。早期 18 年的 issue 中被各种国人无意义灌水&lt;/li>
-&lt;li>&lt;strong>Bun&lt;/strong> # &lt;a href="https://github.com/oven-sh/bun">GtiHub 项目，oven-sh/bun&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;p>但是这两者可以提供的 API 能力各不相同&lt;/p>
-&lt;ul>
-&lt;li>Browser 可以提供的 dockument、window 和其他关于 DOM 或其他 Web 平台 API 的对象。&lt;/li>
-&lt;li>Node.js 则可以提供很多操作系统相关的 API，比如文件的读写、进程管理、网络通信等等。&lt;/li>
-&lt;/ul>
-&lt;p>Node.js 与 Browser 都是基于 Chrome V8 引擎的 ECMAScript 运行时环境&lt;/p>
-&lt;p>你也许会想，直接在我的硬盘上创建好 HTML 和 JavaScript 文件，然后用浏览器打开，不就可以看到效果了吗？&lt;/p>
-&lt;p>这种方式运行部分 JavaScript 代码没有问题，但由于浏览器的安全限制，以 file:// 开头的地址无法执行如联网等 JavaScript 代码，最终，你还是需要架设一个 Web 服务器，然后以 http:// 开头的地址来正常执行所有 JavaScript 代码。&lt;/p>
-&lt;p>所以，想要运行 JavaScript 编写的静态文件，通常都需要一个可以提供 HTTP 服务的程序，以便响应客户端的请求返回这些静态文件。通常在生产环境中，我们都会将静态资源文件放到 Nginx 的目录中，由 Nginx 为客户端提供 HTTP 服务。&lt;/p>
-&lt;p>而本地测试时，我们通过 npm 与 yarn 工具即可安装一个简易的 HTTP 服务，这个 HTTP 服务都是由 JS 代码写的，必须要保证本地有 Node.js 环境，即可启动一个 HTTP 服务&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Npm 安装 http-server&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># npm install http-server&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Yarn 安装 http-server&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># yarn add http-server&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>http-server 来源于 &lt;a href="https://github.com/http-party/http-server">GitHub 项目，http-party/http-server&lt;/a>&lt;/p>
-&lt;p>通过 &lt;code>npm exec serve&lt;/code> 命令将会安装另一个名为 serve 的库以运行 HTTP 服务，默认在 3000 端口上启动 HTTP 服务，通过浏览器访问 localhost:3000 即可获取到所有自己编写的静态文件，便于让开发人员在本地调试。&lt;/p>
-&lt;h2 id="重点运行具有-module模块-功能的静态资源">(重点)运行具有 Module(模块) 功能的静态资源&lt;/h2>
-&lt;p>从《ECMAScript 模块》章节可以看到，当我们使用 &lt;code>import name from './one.js'&lt;/code> 导入的模块是一个文件时，那么这个文件将会被响应给浏览器，如果使用 &lt;code>import name from 'one'&lt;/code> 导入的模块是一组文件时，此时浏览器无法直接识别，将会产生报错。因为浏览器想要执行这一组文件需要发起很多次的请求将所有文件都加载到本地，这其中的路由路径将是不可控的。&lt;/p>
-&lt;p>所以，此时我们则需要想办法将这一组文件变为一个文件响应给浏览器以便加载代码。这个转换的操作，我们可以使用打包工具(i.e.Webpack、Vite 等等) 将源代码&lt;strong>打包编译&lt;/strong>成新的静态文件即可。&lt;/p>
-&lt;p>后面的逻辑，与基本运行 ECMAScript 代码的行为就是一样的了。&lt;/p>
-&lt;h2 id="使用-vite-运行-ecmascript-代码">使用 Vite 运行 ECMAScript 代码&lt;/h2>
-&lt;p>npm、yarn 的打包后运行代码的速度非常缓慢，才是推荐使用 Vite 工具启动 HTTP 服务并运行 JS/TS 代码，详见：[《Vite》](/docs/2.编程/高级编程语言/ECMAScript/ECMAScript%20 工具/Vite.md 工具/Vite.md) 章节&lt;/p>
-&lt;h2 id="运行-typesript">运行 TypeSript&lt;/h2>
-&lt;p>Node.js 和 浏览器都无法直接运行 TypeScript 代码，这是因为 TS 的代码需要先转换为 JS 代码才可以运行。此时就需要一种工具，先转换再运行，或者直接转换运行一体。&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>tsc&lt;/strong> # 将 TS 代码转换为 JS 代码。&lt;code>npm install -g typescript&lt;/code>&lt;/li>
-&lt;li>&lt;strong>ts-node&lt;/strong> # 可以直接转换并运行 TS 代码，&lt;code>npm install -g ts-node&lt;/code> 安装即可&lt;/li>
-&lt;/ul>
-&lt;h1 id="nodejs">Node.js&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://nodejs.org/en/">org 官网&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://nodejs.dev/">dev 官网&lt;/a>&lt;/li>
-&lt;li>&lt;a href="http://nodejs.cn/">dev 官网中文翻译&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Node.js">Wiki,Node.js&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>Node.js 是基于 Chrome V8 引擎的 ECMAScript 运行时环境，由 RyanDahl 于 2009 年 5 月 27 日发布。转年(i.e.2010 年 1 月)，为 Node.js 环境引入了一个名为 npm 的包管理器。包管理器使程序员更容易发布和共享 Node.js 的源代码，旨在简化包的安装、更新、卸载。&lt;/p>
-&lt;p>Browser 和 Node.js 都是 ECMAScript 的运行时环境，但是这两者可以提供的 API 能力各不相同&lt;/p>
-&lt;ul>
-&lt;li>Browser 可以提供的 dockument、window 和其他关于 DOM 或其他 Web 平台 API 的对象。&lt;/li>
-&lt;li>Node.js 则可以提供很多操作系统相关的 API，比如文件的读写、进程管理、网络通信等等。&lt;/li>
-&lt;/ul>
-&lt;p>通过 Node.js，可以让我们使用一种语言编写前端与后端。我们甚至可以通过 npm 与 yarn 安装第三方库后，使用 Node.js 在本地监听端口并响应给客户端静态资源文件。&lt;/p>
-&lt;h2 id="安装-nodejs">安装 Node.js&lt;/h2>
-&lt;h3 id="linux">Linux&lt;/h3>
-&lt;p>从&lt;a href="https://nodejs.org/zh-cn/download/">官网&lt;/a>下载 Linux 版的 &lt;code>.tar.xg&lt;/code> 包，并解压&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>export NodejsVersion&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;v18.15.0&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>wget https://nodejs.org/dist/&lt;span style="color:#e6db74">${&lt;/span>NodejsVersion&lt;span style="color:#e6db74">}&lt;/span>/node-&lt;span style="color:#e6db74">${&lt;/span>NodejsVersion&lt;span style="color:#e6db74">}&lt;/span>-linux-x64.tar.xz
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo tar -xvf node-&lt;span style="color:#e6db74">${&lt;/span>NodejsVersion&lt;span style="color:#e6db74">}&lt;/span>-linux-x64.tar.xz -C /usr/local/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo mv /usr/local/node-&lt;span style="color:#e6db74">${&lt;/span>NodejsVersion&lt;span style="color:#e6db74">}&lt;/span>-linux-x64 /usr/local/nodejs
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>配置环境变量&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>sudo tee /etc/profile.d/nodejs.sh &amp;gt; /dev/null &amp;lt;&amp;lt;-&lt;span style="color:#e6db74">&amp;#34;EOF&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>export PATH&lt;span style="color:#f92672">=&lt;/span>$PATH:/usr/local/nodejs/bin
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>EOF
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>source /etc/profile.d/nodejs.sh
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="windows">Windows&lt;/h3>
-&lt;p>警告！！！由于 msi 安装包会修改 %PREFIX% 为 &lt;code>%APPDATA%\npm&lt;/code> ，并将该目录到 $PATH。我个人推荐下载 zip，并自己解压到想要的位置后，手动配置环境变量。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-powershell" data-lang="powershell">&lt;span style="display:flex;">&lt;span>$NodejsVersion = &lt;span style="color:#e6db74">&amp;#34;18.14.1&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$NodejsUrl = &lt;span style="color:#e6db74">&amp;#34;https://nodejs.org/dist/v&lt;/span>$NodejsVersion&lt;span style="color:#e6db74">/node-v&lt;/span>$NodejsVersion&lt;span style="color:#e6db74">-win-x64.zip&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$TempZipFile = &lt;span style="color:#e6db74">&amp;#34;D:\tmp\nodejs.zip&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ExtractPath = &lt;span style="color:#e6db74">&amp;#34;D:\Tools&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Download the zip file to a temporary location&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Invoke-WebRequest -Uri $NodejsUrl -OutFile $TempZipFile
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Extract the contents of the zip file to the installation directory and rename the top-level directory to &amp;#34;nodejs&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Expand-Archive -Path $TempZipFile -DestinationPath $ExtractPath
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Rename-Item -Path &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$ExtractPath&lt;span style="color:#e6db74">\node-v&lt;/span>$NodejsVersion&lt;span style="color:#e6db74">-win-x64&amp;#34;&lt;/span> -NewName &lt;span style="color:#e6db74">&amp;#34;nodejs&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>将 nodejs/ 目录添加到用户的 PATH 环境变量中&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-powershell" data-lang="powershell">&lt;span style="display:flex;">&lt;span>$path = [&lt;span style="color:#66d9ef">Environment&lt;/span>]::GetEnvironmentVariable(&lt;span style="color:#e6db74">&amp;#34;Path&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;User&amp;#34;&lt;/span>)
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$newPath = &lt;span style="color:#e6db74">&amp;#34;D:\Tools\nodejs&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[&lt;span style="color:#66d9ef">Environment&lt;/span>]::SetEnvironmentVariable(&lt;span style="color:#e6db74">&amp;#34;Path&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;&lt;/span>$path&lt;span style="color:#e6db74">;&lt;/span>$newPath&lt;span style="color:#e6db74">&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;User&amp;#34;&lt;/span>)
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="目录结构">目录结构&lt;/h3>
-&lt;p>Linux 目录结构，node_modules/ 目录在 lib/ 目录下，这点与 Windows 不同。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># tree -L 2 -F&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── bin/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── corepack -&amp;gt; ../lib/node_modules/corepack/dist/corepack.js*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── node*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── npm -&amp;gt; ../lib/node_modules/npm/bin/npm-cli.js*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── npx -&amp;gt; ../lib/node_modules/npm/bin/npx-cli.js*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── pnpm -&amp;gt; ../lib/node_modules/corepack/dist/pnpm.js*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── pnpx -&amp;gt; ../lib/node_modules/corepack/dist/pnpx.js*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── yarn -&amp;gt; ../lib/node_modules/corepack/dist/yarn.js*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   └── yarnpkg -&amp;gt; ../lib/node_modules/corepack/dist/yarnpkg.js*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── CHANGELOG.md
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── include/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   └── node/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── lib/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   └── node_modules/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── LICENSE
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── README.md
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── share/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├── doc/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ├── man/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── systemtap/
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Windows 目录结构&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ tree -L &lt;span style="color:#ae81ff">2&lt;/span> -F
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>./
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── CHANGELOG.md*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── LICENSE*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── README.md*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── corepack*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── corepack.cmd*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── install_tools.bat*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── node.exe*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── node_etw_provider.man*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── node_modules/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── corepack/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   └── npm/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── nodevars.bat*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── npm*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── npm.cmd*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── npx*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── npx.cmd*
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="nvm">NVM&lt;/h2>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/nvm-sh/nvm">GitHub 项目，nvm-sh/nvm&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>&lt;strong>Node Version Manager(Node.js 版本管理器，简称 NVM)&lt;/strong>&lt;/p>
-&lt;h2 id="nodejs-关联文件与配置">Node.js 关联文件与配置&lt;/h2>
-&lt;p>详见：&lt;a href="https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/ECMAScript/ECMAScript%20%E7%8E%AF%E5%A2%83%E5%AE%89%E8%A3%85%E4%B8%8E%E4%BD%BF%E7%94%A8/ECMAScript%20%E6%A8%A1%E5%9D%97%E4%B8%8E%E5%8C%85%E7%9A%84%E4%BD%BF%E7%94%A8%E4%B8%8E%E7%AE%A1%E7%90%86.md#npm%20%E5%85%B3%E8%81%94%E6%96%87%E4%BB%B6%E4%B8%8E%E9%85%8D%E7%BD%AE">npm 关键文件与配置&lt;/a>&lt;/p>
-&lt;h1 id="初始化项目">初始化项目&lt;/h1>
-&lt;p>npm 等包管理工具下载完框架后，会自动生成项目目录，这些目录是已经初始化完成的项目，包含了很多必要的文件，比如 package.json 等。&lt;/p>
-&lt;p>随着学习深入，会逐步总结一个前端项目如果不使用框架从头构建的话会需要什么。&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>public/&lt;/strong> 目录存放公共资源&lt;/li>
-&lt;li>&lt;strong>src/&lt;/strong> # 所有代码都在 src/ 目录下&lt;/li>
-&lt;li>&lt;strong>.eslintrc.cjs&lt;/strong> # ESLint 程序配置&lt;/li>
-&lt;li>&lt;strong>.prettierc.json&lt;/strong> # Prettier 插件的配置&lt;/li>
-&lt;li>&lt;strong>env.d.ts&lt;/strong> #&lt;/li>
-&lt;li>&lt;strong>index.html&lt;/strong> # 程序入口&lt;/li>
-&lt;li>[&lt;strong>package.json&lt;/strong>](/docs/2.编程/高级编程语言/ECMAScript/ECMAScript%20 环境安装与使用/package.json.md 环境安装与使用/package.json.md) # 包管理器配置文件，比如 npm、pnpm 等&lt;/li>
-&lt;li>&lt;strong>vite.config.ts&lt;/strong> # Vite 程序给项目打包时使用的配置&lt;/li>
-&lt;li>&lt;strong>tsconfig.json&lt;/strong> #&lt;/li>
-&lt;li>&lt;strong>tsconfig.config.json&lt;/strong> # [TSConfig](/docs/2.编程/高级编程语言/ECMAScript/ECMAScript%20 环境安装与使用/TSConfig.md 环境安装与使用/TSConfig.md) 文件&lt;/li>
-&lt;/ul>
-&lt;h2 id="javascript-项目初始化">JavaScript 项目初始化&lt;/h2>
-&lt;p>无&lt;/p>
-&lt;h2 id="typescript-项目初始化">TypeScript 项目初始化&lt;/h2>
-&lt;p>使用 &lt;code>npm install -g typescript&lt;/code> 安装 tsc 命令。&lt;/p>
-&lt;p>使用 &lt;code>tsc init&lt;/code> 命令将会生成 [TSConfig](/docs/2.编程/高级编程语言/ECMAScript/ECMAScript%20 环境安装与使用/TSConfig.md 环境安装与使用/TSConfig.md) 文件。&lt;/p>
-&lt;h1 id="编译与打包">编译与打包&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/webpack/webpack">GitHub 项目，webpack/webpack&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://github.com/rollup/rollup">GitHub 项目，rollup/rollup&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>大型项目通常都要打包，打包工具有很多：&lt;/p>
-&lt;ul>
-&lt;li>Webpack&lt;/li>
-&lt;li>Rollup&lt;/li>
-&lt;li>Vite&lt;/li>
-&lt;li>&amp;hellip;&amp;hellip;等等&lt;/li>
-&lt;/ul>
-&lt;h1 id="常见问题">常见问题&lt;/h1>
-&lt;h2 id="nodejs-无法使用-es6-语法问题">Node.js 无法使用 ES6 语法问题&lt;/h2>
-&lt;p>无法使用 import 关键字导入模块。参考 &lt;a href="https://nodejs.org/docs/latest-v16.x/api/esm.html#enabling">https://nodejs.org/docs/latest-v16.x/api/esm.html#enabling&lt;/a>，在 package.json 文件中设置 &lt;code>&amp;quot;type&amp;quot;: &amp;quot;module&amp;quot;&lt;/code> 或者使用 &lt;code>--input-type=module&lt;/code> 命令行参数以告诉 Node.js 使用 ECMAScript 模块加载器。默认情况下，Node.js 使用 CommonJS 模块加载器。&lt;/p></description></item><item><title>Docs: Electron</title><link>https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E7%BC%96%E7%A8%8B%E6%8A%80%E6%9C%AF/%E5%BC%80%E5%8F%91%E6%A1%86%E6%9E%B6/Electron/Electron/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E7%BC%96%E7%A8%8B%E6%8A%80%E6%9C%AF/%E5%BC%80%E5%8F%91%E6%A1%86%E6%9E%B6/Electron/Electron/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/electron/electron">GitHub 项目，electron/electron&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.electronjs.org/">官网&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>Electron（以前称为 Atom Shell）是由 &lt;a href="https://en.wikipedia.org/wiki/OpenJS_Foundation">OpenJS 基金会&lt;/a>开发和维护的免费开源软件框架。该框架旨在使用 Web 技术（主要是 HTML、CSS 和 JavaScript，尽管也可以使用前端框架和 Web Assembly 等其他技术）创建桌面应用程序，这些技术使用 Chromium 浏览器引擎版本和后端使用 Node.js 运行时环境。它还使用各种 API 来实现与 Node.js 服务的本机集成和进程间通信模块等功能。&lt;/p>
-&lt;p>Electron 最初是 GitHub 为 Atom 构建的，是多个开源项目背后的主要 GUI 框架，包括 Atom、GitHub Desktop、Light Table、Visual Studio Code、WordPress Desktop 和 Eclipse Theia。&lt;/p></description></item></channel></rss>
+&lt;p>Axios 是用于浏览器和 node.js 的基于 Promise 的 HTTP 客户端&lt;/p></description></item></channel></rss>

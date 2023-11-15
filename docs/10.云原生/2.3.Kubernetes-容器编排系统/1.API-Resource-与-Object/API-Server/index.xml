@@ -37,8 +37,8 @@
 &lt;/ol>
 &lt;p>比如 curl &amp;ndash;request DELETE -cacert ${CAPATH} -H &amp;ldquo;Authorization: Bearer ${TOKEN}&amp;rdquo; https://${IP}:6443/api/v1/namespaces/monitoring/pods/prometheus-k8s-0 -k 这样一个请求就可以将集群内 monitoring 空间下的 prometheus-k8s-0 这个 pod 删除&lt;/p>
 &lt;h3 id="获取认证所需信息">获取认证所需信息&lt;/h3>
-&lt;p>&lt;strong>方法一：使用 kubectl 的配置文件中的证书与私钥&lt;/strong>
-想要访问 https 下的内容，首先需要准备证书与私钥或者 ca 与 token 等等。&lt;/p>
+&lt;p>&lt;strong>方法一：使用 kubectl 的配置文件中的证书与私钥&lt;/strong>&lt;/p>
+&lt;p>想要访问 https 下的内容，首先需要准备证书与私钥或者 ca 与 token 等等。&lt;/p>
 &lt;ol>
 &lt;li>首先获取 kubeclt 工具配置文件中的证书与私钥
 &lt;ol>
@@ -105,7 +105,8 @@
 &lt;/li>
 &lt;li>TOKEN=$(kubectl get secrets -n monitoring prometheus-k8s-token-q5hm4 &amp;ndash;template={{.data.token}} | base64 -d)&lt;/li>
 &lt;/ol>
-&lt;p>&lt;strong>方法三：官方推荐，类似方法二&lt;/strong>
+&lt;p>**方法三：官方推荐，类似方法二
+**
 官方文档：&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/access-cluster-api/">https://kubernetes.io/docs/tasks/administer-cluster/access-cluster-api/&lt;/a>&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 查看所有的集群，因为你的 .kubeconfig 文件中可能包含多个上下文&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl config view -o jsonpath&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#39;{&amp;#34;Cluster name\tServer\n&amp;#34;}{range .clusters[*]}{.name}{&amp;#34;\t&amp;#34;}{.cluster.server}{&amp;#34;\n&amp;#34;}{end}&amp;#39;&lt;/span>
@@ -307,116 +308,116 @@ healthz check passed
 &lt;p>一般情况，保存到 etcd 中后，会省略 Group 与 Version，直接使用 Resource 来作为 etcd 中的路径。比如：URI 为 /api/v1/namespaces/kube-system/pods/kube-apiserver-master1 的 pod 资源，在 etcd 中的存储路径为 /registry/pods/kube-system/kube-apiserver-master1。&lt;/p>
 &lt;p>而序列化的方式可以通过 &amp;ndash;storage-media-type 来指定，默认为 protobuf 。使用这种方式将数据序列化之后，得出来的将会有很多乱码，详见 &lt;a href="docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd%20%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B.md">Etcd 数据模型&lt;/a> 中的说明&lt;/p>
 &lt;h1 id="kube-apiserver-manifests-示例">kube-apiserver Manifests 示例&lt;/h1>
-&lt;pre>&lt;code>apiVersion: v1
-kind: Pod
-metadata:
-annotations:
-kubeadm.kubernetes.io/kube-apiserver.advertise-address.endpoint: 172.19.42.231:6443
-creationTimestamp: null
-labels:
-component: kube-apiserver
-tier: control-plane
-name: kube-apiserver
-namespace: kube-system
-spec:
-containers:
-- command:
-- kube-apiserver
-- --advertise-address=172.19.42.231
-- --allow-privileged=true
-- --authorization-mode=Node,RBAC
-- --client-ca-file=/etc/kubernetes/pki/ca.crt
-- --enable-admission-plugins=NodeRestriction
-- --enable-bootstrap-token-auth=true
-- --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
-- --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
-- --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
-- --etcd-servers=https://127.0.0.1:2379
-- --insecure-port=0
-- --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt
-- --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key
-- --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
-- --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt
-- --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key
-- --requestheader-allowed-names=front-proxy-client
-- --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt
-- --requestheader-extra-headers-prefix=X-Remote-Extra-
-- --requestheader-group-headers=X-Remote-Group
-- --requestheader-username-headers=X-Remote-User
-- --secure-port=6443
-- --service-account-key-file=/etc/kubernetes/pki/sa.pub
-- --service-cluster-ip-range=10.96.0.0/12
-- --service-node-port-range=30000-60000
-- --tls-cert-file=/etc/kubernetes/pki/apiserver.crt
-- --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
-image: registry.aliyuncs.com/k8sxio/kube-apiserver:v1.19.2
-imagePullPolicy: IfNotPresent
-livenessProbe:
-failureThreshold: 8
-httpGet:
-host: 172.19.42.231
-path: /livez
-port: 6443
-scheme: HTTPS
-initialDelaySeconds: 10
-periodSeconds: 10
-timeoutSeconds: 15
-name: kube-apiserver
-readinessProbe:
-failureThreshold: 3
-httpGet:
-host: 172.19.42.231
-path: /readyz
-port: 6443
-scheme: HTTPS
-periodSeconds: 1
-timeoutSeconds: 15
-resources:
-requests:
-cpu: 250m
-startupProbe:
-failureThreshold: 24
-httpGet:
-host: 172.19.42.231
-path: /livez
-port: 6443
-scheme: HTTPS
-initialDelaySeconds: 10
-periodSeconds: 10
-timeoutSeconds: 15
-volumeMounts:
-- mountPath: /etc/ssl/certs
-name: ca-certs
-readOnly: true
-- mountPath: /etc/pki
-name: etc-pki
-readOnly: true
-- mountPath: /etc/localtime
-name: host-time
-readOnly: true
-- mountPath: /etc/kubernetes/pki
-name: k8s-certs
-readOnly: true
-hostNetwork: true
-priorityClassName: system-node-critical
-volumes:
-- hostPath:
-path: /etc/ssl/certs
-type: DirectoryOrCreate
-name: ca-certs
-- hostPath:
-path: /etc/pki
-type: DirectoryOrCreate
-name: etc-pki
-- hostPath:
-path: /etc/localtime
-type: &amp;quot;&amp;quot;
-name: host-time
-- hostPath:
-path: /etc/kubernetes/pki
-type: DirectoryOrCreate
-name: k8s-certs
-&lt;/code>&lt;/pre></description></item><item><title>Docs: API Server 配置详解</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/1.API-Resource-%E4%B8%8E-Object/API-Server/API-Server-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/1.API-Resource-%E4%B8%8E-Object/API-Server/API-Server-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">annotations&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">kubeadm.kubernetes.io/kube-apiserver.advertise-address.endpoint&lt;/span>: &lt;span style="color:#ae81ff">172.19.42.231&lt;/span>:&lt;span style="color:#ae81ff">6443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">creationTimestamp&lt;/span>: &lt;span style="color:#66d9ef">null&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">labels&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">component&lt;/span>: &lt;span style="color:#ae81ff">kube-apiserver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tier&lt;/span>: &lt;span style="color:#ae81ff">control-plane&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">kube-apiserver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">kube-system&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">command&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">kube-apiserver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">advertise-address=172.19.42.231&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">allow-privileged=true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">authorization-mode=Node,RBAC&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">client-ca-file=/etc/kubernetes/pki/ca.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">enable-admission-plugins=NodeRestriction&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">enable-bootstrap-token-auth=true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">etcd-servers=https://127.0.0.1:2379&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">insecure-port=0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">requestheader-allowed-names=front-proxy-client&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">requestheader-extra-headers-prefix=X-Remote-Extra-&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">requestheader-group-headers=X-Remote-Group&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">requestheader-username-headers=X-Remote-User&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">secure-port=6443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">service-account-key-file=/etc/kubernetes/pki/sa.pub&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">service-cluster-ip-range=10.96.0.0/12&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">service-node-port-range=30000-60000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">tls-cert-file=/etc/kubernetes/pki/apiserver.crt&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - --&lt;span style="color:#ae81ff">tls-private-key-file=/etc/kubernetes/pki/apiserver.key&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">registry.aliyuncs.com/k8sxio/kube-apiserver:v1.19.2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">imagePullPolicy&lt;/span>: &lt;span style="color:#ae81ff">IfNotPresent&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">livenessProbe&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">failureThreshold&lt;/span>: &lt;span style="color:#ae81ff">8&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">httpGet&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">host&lt;/span>: &lt;span style="color:#ae81ff">172.19.42.231&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/livez&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">6443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">scheme&lt;/span>: &lt;span style="color:#ae81ff">HTTPS&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">initialDelaySeconds&lt;/span>: &lt;span style="color:#ae81ff">10&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">periodSeconds&lt;/span>: &lt;span style="color:#ae81ff">10&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">timeoutSeconds&lt;/span>: &lt;span style="color:#ae81ff">15&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">kube-apiserver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">readinessProbe&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">failureThreshold&lt;/span>: &lt;span style="color:#ae81ff">3&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">httpGet&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">host&lt;/span>: &lt;span style="color:#ae81ff">172.19.42.231&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/readyz&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">6443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">scheme&lt;/span>: &lt;span style="color:#ae81ff">HTTPS&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">periodSeconds&lt;/span>: &lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">timeoutSeconds&lt;/span>: &lt;span style="color:#ae81ff">15&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">resources&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">requests&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">cpu&lt;/span>: &lt;span style="color:#ae81ff">250m&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">startupProbe&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">failureThreshold&lt;/span>: &lt;span style="color:#ae81ff">24&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">httpGet&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">host&lt;/span>: &lt;span style="color:#ae81ff">172.19.42.231&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/livez&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">port&lt;/span>: &lt;span style="color:#ae81ff">6443&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">scheme&lt;/span>: &lt;span style="color:#ae81ff">HTTPS&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">initialDelaySeconds&lt;/span>: &lt;span style="color:#ae81ff">10&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">periodSeconds&lt;/span>: &lt;span style="color:#ae81ff">10&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">timeoutSeconds&lt;/span>: &lt;span style="color:#ae81ff">15&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">volumeMounts&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/etc/ssl/certs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ca-certs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">readOnly&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/etc/pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">etc-pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">readOnly&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/etc/localtime&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">host-time&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">readOnly&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">mountPath&lt;/span>: &lt;span style="color:#ae81ff">/etc/kubernetes/pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">k8s-certs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">readOnly&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostNetwork&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">priorityClassName&lt;/span>: &lt;span style="color:#ae81ff">system-node-critical&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">volumes&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">hostPath&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/etc/ssl/certs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">DirectoryOrCreate&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ca-certs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">hostPath&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/etc/pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">DirectoryOrCreate&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">etc-pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">hostPath&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/etc/localtime&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">host-time&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">hostPath&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">path&lt;/span>: &lt;span style="color:#ae81ff">/etc/kubernetes/pki&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">type&lt;/span>: &lt;span style="color:#ae81ff">DirectoryOrCreate&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">k8s-certs&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: API Server 配置详解</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/1.API-Resource-%E4%B8%8E-Object/API-Server/API-Server-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/1.API-Resource-%E4%B8%8E-Object/API-Server/API-Server-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -427,25 +428,28 @@ name: k8s-certs
 &lt;p>API Server 现阶段只能通过命令行标志才可以改变运行时行为。暂无配置文件可用。&lt;/p>
 &lt;h1 id="kube-apiserver-命令行标志详解">kube-apiserver 命令行标志详解&lt;/h1>
 &lt;p>&lt;strong>&amp;ndash;allow-privileged &amp;lt;BOOL&amp;gt;&lt;/strong> # 是否允许有特权的容器。&lt;code>默认值：false&lt;/code>。&lt;/p>
-&lt;p>&lt;strong>&amp;ndash;basic-auth-file &amp;lt;FILE&amp;gt; # 配置 API Server 的基础认证。&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>&amp;ndash;basic-auth-file &amp;lt;FILE&amp;gt;&lt;/strong> # 配置 API Server 的基础认证。&lt;/p>
 &lt;p>该标志已于 1.19 版本彻底弃用。详见 &lt;a href="https://github.com/kubernetes/kubernetes/pull/89069">PR #89069&lt;/a>&lt;/p>
 &lt;p>&lt;strong>&amp;ndash;insecure-port &amp;lt;NUM&amp;gt;&lt;/strong> # 开启不安全的端口。&lt;code>默认值：0&lt;/code>，即不开启不安全的端口&lt;/p>
-&lt;p>&lt;strong>&amp;ndash;insecure-bind-address &amp;lt;IP&amp;gt; # 不安全端口的监听地址。&lt;code>默认值：127.0.0.1&lt;/code>。&lt;/strong>&lt;/p>
-&lt;p>&lt;strong>&amp;ndash;runtime-config &amp;lt;OBJECT&amp;gt; # 启用或禁用内置的 APIs。&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>&amp;ndash;insecure-bind-address &amp;lt;IP&amp;gt;&lt;/strong> # 不安全端口的监听地址。&lt;code>默认值：127.0.0.1&lt;/code>。&lt;/p>
+&lt;p>&lt;strong>&amp;ndash;runtime-config &amp;lt;OBJECT&amp;gt;&lt;/strong> # 启用或禁用内置的 APIs。&lt;/p>
 &lt;p>OBJECT 是 key=value 的键值对格式。key 为 API 组名称，value 为 true 或 false。&lt;/p>
 &lt;p>比如&lt;/p>
 &lt;ul>
 &lt;li>要关闭 &lt;code>batch/v1&lt;/code> 组，则设置 &lt;code>--runtime-config=batch/v1=false&lt;/code>&lt;/li>
 &lt;li>要开启 &lt;code>batch/v2alpha1&lt;/code> 组，则设置 &lt;code>--runtime-config=batch/v2alpha1&lt;/code>&lt;/li>
 &lt;/ul>
-&lt;p>&lt;strong>&amp;ndash;secure-port &amp;lt;NUM&amp;gt; # API Server 监听的安全端口。&lt;code>默认值：6443&lt;/code>。不能以 0 关闭。&lt;/strong>&lt;/p>
-&lt;p>&lt;strong>&amp;ndash;service-node-port-range &amp;lt;PortRange&amp;gt; # 指定 NodePort 类型的 service 资源可以使用的端口范围。&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>&amp;ndash;secure-port &amp;lt;NUM&amp;gt;&lt;/strong> # API Server 监听的安全端口。&lt;code>默认值：6443&lt;/code>。不能以 0 关闭。&lt;/p>
+&lt;p>&lt;strong>&amp;ndash;service-node-port-range &amp;lt;PortRange&amp;gt;&lt;/strong> # 指定 NodePort 类型的 service 资源可以使用的端口范围。&lt;/p>
 &lt;p>比如：&amp;lsquo;30000-32767&amp;rsquo;. Inclusive at both ends of the range。默认范围: 30000-32767&lt;/p>
 &lt;p>&lt;strong>&amp;ndash;v NUM # 指定日志级别&lt;/strong>&lt;/p>
 &lt;ul>
-&lt;li>参考：&lt;/li>
+&lt;li>参考：
+&lt;ul>
 &lt;li>&lt;a href="https://kubernetes.io/docs/reference/kubectl/cheatsheet/#kubectl-output-verbosity-and-debugging">https://kubernetes.io/docs/reference/kubectl/cheatsheet/#kubectl-output-verbosity-and-debugging&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md">https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
 &lt;li>&amp;ndash;v=0 # 通常对此有用，&lt;em>始终&lt;/em>对运维人员可见。&lt;/li>
 &lt;li>&amp;ndash;v=1 # 如果您不想要详细程度，则为合理的默认日志级别。&lt;/li>
 &lt;li>&amp;ndash;v=2 # 有关服务的有用稳定状态信息以及可能与系统中的重大更改相关的重要日志消息。这是大多数系统的建议默认日志级别。&lt;/li>
