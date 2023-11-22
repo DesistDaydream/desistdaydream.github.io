@@ -1122,9 +1122,8 @@ free_cma:0
 &lt;li>调整 &lt;code>vm.min_free_kbytes&lt;/code> 值大小，该值为系统开始内存回收的阀值，越大表示系统会越早开始回收 (一般情况下此值不建议调整)。&lt;/li>
 &lt;/ul>
 &lt;h3 id="问题描述和初步调查">&lt;strong>问题描述和初步调查&lt;/strong>&lt;/h3>
-&lt;pre>&lt;code>$ free \-g
-&lt;/code>&lt;/pre>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/4f0a785d-001c-46bc-b1e9-cccbaeb014cf/1616587355624-c46f3d6a-fe6b-4afe-9443-96bb1f27f340.png" alt="">&lt;/p>
+&lt;p>free -g&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/memory/1616587355624-c46f3d6a-fe6b-4afe-9443-96bb1f27f340.png" alt="">&lt;/p>
 &lt;p>这台服务器有 &lt;code>16G 内存&lt;/code>，但是结果显示除了 2G 左右的文件 Buffer 缓存外，其余十几 G 都被确确实实的用光了。(free 按 1024 进制计算，总内存可能比实际偏小)&lt;/p>
 &lt;p>这里大概介绍下 &lt;code>free&lt;/code> 结果的含义:&lt;/p>
 &lt;p>然后 &lt;code>top&lt;/code> 看了下，没有特别吃内存的程序。用 &lt;code>ps&lt;/code> 大概统计下所有程序占用的总内存:&lt;/p>
@@ -1204,7 +1203,7 @@ Node 0, zone Normal 149 100 52 33 23 5 32 8 12 2 59
 Node 0, zone HighMem 11 21 23 49 29 15 8 16 12 2 142
 &lt;/code>&lt;/pre>
 &lt;p>可以看到从第 5 列开始，只剩下 &lt;code>44*16*PAGE_SIZE&lt;/code> 的页块，后面剩下的分别是&lt;code>1 * 32 *PAGE_SIZE&lt;/code>, &lt;code>1 * 64 *PAGE_SIZE&lt;/code>, &lt;code>2 *128 * PAGE_SIZE&lt;/code>，剩下 256,512 的页块都没有了因此推测，导致这个问题出现的时候，该机器的内存碎片很多，当某个应用执行时，在 xfs 的申请内存中有这种连续的大块的内存申请的操作的请求。&lt;/p>
-&lt;p>比如：6000: map = kmem_alloc(subnex * sizeof(*map), KM_MAYFAIL | KM_NOFS); 就会导致内存一直分配不到。&lt;/p>
+&lt;p>比如：6000: map = kmem_alloc(subnex *sizeof(*map), KM_MAYFAIL | KM_NOFS); 就会导致内存一直分配不到。&lt;/p>
 &lt;p>例如：执行 &lt;code>docker ps&lt;/code>，&lt;code>docker exec&lt;/code>这些命令时，会一直阻塞在 &lt;code>kmem_alloc&lt;/code> 的循环中，反复申请内存，由于内存碎片没有被组合，因此就一直申请不到，执行这些命令也会卡住，这也就验证了执行某些命令如&lt;code>ls&lt;/code>、&lt;code>ssh&lt;/code>都不会失败 (因为需要内存的 &lt;code>PAGE&lt;/code> 不是那么大)。&lt;/p>
 &lt;h3 id="临时解决方法">&lt;strong>临时解决方法：&lt;/strong>&lt;/h3>
 &lt;p>&lt;code>echo 1 &amp;gt; /proc/sys/vm/drop_caches&lt;/code>&lt;/p>
