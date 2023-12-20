@@ -3,26 +3,23 @@
 &lt;p>自从 Kubernetes1.11 之后，CoreDNS 作为集群内默认的域名解析服务，你是否对它还仅仅还停留在对 Kubernetes 的 Service 解析呢？事实上光 DNS 在 K8S 内就有很多有意思的操作，今天我们不妨来看看 CoreDNS 的各种高阶玩法。&lt;/p>
 &lt;h2 id="1-自定义-hosts-解析">1. 自定义 hosts 解析&lt;/h2>
 &lt;p>默认情况下，Kubernetes 集群内的容器要解析外部域名时，CoreDNS 会将请求转发给&lt;code>/etc/resolv.conf&lt;/code>文件里指定的上游 DNS 服务器。这个是由这个配置决定的。&lt;/p>
-&lt;pre>&lt;code>forward . /etc/resolv.conf
-&lt;/code>&lt;/pre>
-&lt;p>有的时候，我们如果需要在&lt;code>集群内全局劫持某个域名时&lt;/code>，我们通常可以利用&lt;code>hosts&lt;/code>插件来帮忙。&lt;strong>hosts&lt;/strong>插件会每隔 5s 将需解析的信息重新加载到 coredns 当中，当你有任何变化时直接更新它的配置区块即可。常见的 host 有两种方法配置，分别如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">forward&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">.&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">/etc/resolv.conf&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>有的时候，我们如果需要在&lt;code>集群内全局劫持某个域名时&lt;/code>，我们通常可以利用&lt;code>hosts&lt;/code>插件来帮忙。&lt;strong>hosts&lt;/strong>插件会每隔 5s 将需解析的信息重新加载到 coredns 当中，当你有任何变化时直接更新它的配置区块即可。常见的 host 有两种方法配置，分别如下：&lt;/p>
 &lt;ul>
-&lt;li>
-&lt;p>定义 host&lt;/p>
-&lt;p>.:53 {
-hosts {
-1.1.1.1 test.cloudxiaobai.com
-2.2.2.2 test2.cloudxiaobai.com
-fallthrough
-}
-}&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>加载 hosts 文件&lt;/p>
-&lt;/li>
+&lt;li>定义 host&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">.:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">hosts&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">1.1.1.1&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">test.cloudxiaobai.com&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">2.2.2.2&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">test2.cloudxiaobai.com&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">fallthrough&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>加载 hosts 文件&lt;/li>
 &lt;/ul>
 &lt;h1 id="直接从etchosts加载host信息">直接从/etc/hosts加载host信息&lt;/h1>
-&lt;pre>&lt;code>. {
+&lt;pre tabindex="0">&lt;code>. {
 hosts {
 fallthrough
 }
@@ -33,8 +30,7 @@ hosts test.hosts {
 fallthrough
 }
 }
-&lt;/code>&lt;/pre>
-&lt;blockquote>
+&lt;/code>&lt;/pre>&lt;blockquote>
 &lt;p>当被需要解析的域名不在 hosts 当中时，需要用&lt;code>fallthrough&lt;/code>继续将请求转发给其它插件继续处理&lt;/p>
 &lt;/blockquote>
 &lt;p>&lt;em>扩展&lt;/em>
@@ -204,181 +200,265 @@ rcode NXDOMAIN
 &lt;/code>&lt;/pre>
 &lt;blockquote>
 &lt;p>这条记录会将所有的 AAAA 查询直接返回&lt;code>NXDOMAIN&lt;/code>,并且不会被转发给其它插件处理&lt;/p>
-&lt;/blockquote></description></item><item><title>Docs: k8s DNS 中的 search 和 ndots 起源</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/k8s-DNS-%E4%B8%AD%E7%9A%84-search-%E5%92%8C-ndots-%E8%B5%B7%E6%BA%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/k8s-DNS-%E4%B8%AD%E7%9A%84-search-%E5%92%8C-ndots-%E8%B5%B7%E6%BA%90/</guid><description>
+&lt;/blockquote></description></item><item><title>Docs: DNS 管理与优化</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/</guid><description>
+&lt;p>优化方法&lt;/p>
+&lt;p>禁用 ipv6 解析，以提高解析速度&lt;/p>
+&lt;p>参考文章：&lt;a href="https://yuerblog.cc/2019/09/13/k8s-coredns%25E7%25A6%2581%25E7%2594%25A8ipv6%25E8%25A7%25A3%25E6%259E%2590/">https://yuerblog.cc/2019/09/13/k8s-coredns%E7%A6%81%E7%94%A8ipv6%E8%A7%A3%E6%9E%90/&lt;/a>&lt;/p>
+&lt;p>如果 K8S 集群宿主机没有关闭 IPV6 内核模块的话，容器请求 coredns 时的默认行为是同时发起 IPV4 和 IPV6 解析。&lt;/p>
+&lt;p>由于我们通常只使用 IPV4 地址，所以此时如果我们仅仅在 coredns 中配置 DOMAIN -&amp;gt; IPV4 地址的解析的话，当 coredns 收到 IPV6 解析请求的时候就会因为本地找不到配置而 foward 到 upstream DNS 服务器解析，从而导致容器的 DNS 解析请求变慢。&lt;/p>
+&lt;p>coredns 提供了一种 plugin 叫做 template，经过配置后可以给所有的 IPV6 请求立即返回一个空结果的应答，避免请求 forward 到上游 DNS。&lt;/p>
+&lt;p>使用方法&lt;/p>
+&lt;p>template 插件的官方文档地址：&lt;a href="https://github.com/coredns/coredns/tree/master/plugin/template">https://github.com/coredns/coredns/tree/master/plugin/template&lt;/a>，coredns 默认已携带此插件，大家只需要配置即可。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">template&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">ANY&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">AAAA&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">rcode&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">NXDOMAIN&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>该配置添加到 forward 下面即可&lt;/p>
+&lt;p>AAAA 表示 IPV6 解析请求，rcode 控制应答返回 NXDOMAIN，即表示没有解析结果。&lt;/p>
+&lt;p>修改每个 pod 中 /etc/resolv.conf 中 ndots 的值&lt;/p>
+&lt;p>由于每个 pod 启动后，其 resolv.conf 文件中，会自动加入 options: ndots=5 的参数，所以此 pod 想要通过域名与其他服务交互，很有可能会搜索 search ，产生很多不必要的解析请求。所以修改 ndots 可以省掉很多解析时间。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">default&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">dns-example&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dnsConfig&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">options&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ndots&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">value&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>尝试修改 coredns 的配置来实现，如下（需要验证）：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qb8zlf/1616118141230-181857cf-18fc-4ccf-a1a9-d73735230cc7.png" alt="">&lt;/p>
+&lt;p>附：一则 Corefile 的 configmap 的配置：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">#&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">kubectl&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">get&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">configmap&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">-n&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">kube-system&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">coredns&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">-o&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">jsonpath=&amp;#39;&lt;/span>{&lt;span style="color:#960050;background-color:#1e0010">.data&lt;/span>}&lt;span style="color:#960050;background-color:#1e0010">&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">map&lt;/span>[&lt;span style="color:#960050;background-color:#1e0010">Corefile:.:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">log&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">errors&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">health&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">kubernetes&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">cluster.local&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">in-addr.arpa&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">ip6.arpa&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">pods&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">insecure&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">upstream&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">fallthrough&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">in-addr.arpa&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">ip6.arpa&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">hosts&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">/etc/hostfile&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">fallthrough&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">proxy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">domain.com&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">2&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">policy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">round_robin&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">proxy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">domain.cn&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">2&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">policy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">round_robin&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">proxy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">consul&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> &lt;span style="color:#ae81ff">10.111&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">.xxx.&lt;/span>&lt;span style="color:#ae81ff">2&lt;/span>&lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">53&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">policy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">round_robin&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">prometheus&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">:&lt;/span>&lt;span style="color:#ae81ff">9153&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">proxy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">.&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">/etc/resolv.conf&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">policy&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">first&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">cache&lt;/span> &lt;span style="color:#ae81ff">120&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">loop&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#960050;background-color:#1e0010">reload&lt;/span> &lt;span style="color:#75715e">//加上这个配置之后修改配置会自动reload pod的配置，可能存在pod不会重启
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#960050;background-color:#1e0010">loadbalance&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#960050;background-color:#1e0010">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>]
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用：&lt;/p>
+&lt;pre>&lt;code># kubectl edit deployment -n kube-system coredns
+&lt;/code>&lt;/pre>
+&lt;p>编辑修改，然后修改对应的 deployment 重启 pod 或者重新发布 pod 生效。&lt;/p>
+&lt;pre>&lt;code>error: 错误记录到stdout
+health ：CoreDNS的运行状况报告为 http：// localhost：8080 / health
+kubernetes ：CoreDNS将根据Kubernetes服务和pod的IP回复DNS查询
+prometheus ：CoreDNS的度量标准可以在 http://localhost:9153/ Prometheus格式的 指标 中找到
+proxy ：任何不在Kubernetes集群域内的查询都将转发到预定义的解析器（/etc/resolv.conf）
+cache ：启用前端缓存
+loop ：检测简单的转发循环，如果找到循环则停止CoreDNS进程
+reload ：允许自动重新加载已更改的Corefile。编辑ConfigMap配置后，请等待两分钟以使更改生效
+loadbalance ：这是一个循环DNS负载均衡器，可以在答案中随机化A，AAAA和MX记录的顺序
+&lt;/code>&lt;/pre>
+&lt;p>使用 .spec.HostAliases 字段将解析条目添加到容器内的 /etc /hosts 文件中&lt;/p>
+&lt;p>官方文档：&lt;a href="https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/">https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/&lt;/a>&lt;/p>
+&lt;p>为什么通过 Kubelet 管理 hosts 文件？&lt;/p>
+&lt;p>kubelet 管理 Pod 中每个容器的 hosts 文件，避免 Docker 在容器已经启动之后去 修改 该文件。&lt;/p>
+&lt;p>因为该文件是托管性质的文件，无论容器重启或 Pod 重新调度，用户修改该 hosts 文件的任何内容，都会在 Kubelet 重新安装后被覆盖。因此，不建议修改该文件的内容。&lt;/p>
+&lt;p>示例 manifests&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">hostaliases-pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">restartPolicy&lt;/span>: &lt;span style="color:#ae81ff">Never&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostAliases&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">ip&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;127.0.0.1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostnames&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;foo.local&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;bar.local&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">ip&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;10.1.2.3&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">hostnames&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;foo.remote&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;bar.remote&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">cat-hosts&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">busybox&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">command&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#ae81ff">cat&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">args&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#e6db74">&amp;#34;/etc/hosts&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>hostaliases-pod 这个 pod 的容器内的 /etc/hosts 文件的内容看起来类似如下这样&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Kubernetes-managed hosts file.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>127.0.0.1 localhost
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>::1 localhost ip6-localhost ip6-loopback
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>fe00::0 ip6-localnet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>fe00::0 ip6-mcastprefix
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>fe00::1 ip6-allnodes
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>fe00::2 ip6-allrouters
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10.200.0.5 hostaliases-pod
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Entries added by HostAliases.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>127.0.0.1 foo.local bar.local
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10.1.2.3 foo.remote bar.remote
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: k8s DNS 中的 search 和 ndots 起源</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/k8s-DNS-%E4%B8%AD%E7%9A%84-search-%E5%92%8C-ndots-%E8%B5%B7%E6%BA%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/2.3.Kubernetes-%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92%E7%B3%BB%E7%BB%9F/8.Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-DNS/DNS-%E7%AE%A1%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/k8s-DNS-%E4%B8%AD%E7%9A%84-search-%E5%92%8C-ndots-%E8%B5%B7%E6%BA%90/</guid><description>
 &lt;h1 id="多余的-dns-查询">多余的 DNS 查询&lt;/h1>
 &lt;p>一些需要解析外部 DNS 域名的应用，当运行在容器中时，如果我们在容器的 network namespace 中对 dns 报文（udp port 53）进行抓包，可能会发现在正确解析之前，还经过了若干次多余的尝试。&lt;/p>
 &lt;p>下面是我在容器中&lt;code>ping google.com&lt;/code>，同时在容器的 network namespace 中抓到的包。&lt;/p>
-&lt;pre>&lt;code>sudo nsenter -t 3885 -n tcpdump -i eth0 udp port 53
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
-10:09:11.917900 IP 10.244.2.202.38697 &amp;gt; 10.96.0.10.domain: 11858+ A? google.com.default.svc.cluster.local. (54)
-10:09:11.918847 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.38697: 11858 NXDomain*- 0/1/0 (147)
-10:09:11.922468 IP 10.244.2.202.38697 &amp;gt; 10.96.0.10.domain: 15573+ AAAA? google.com.default.svc.cluster.local. (54)
-10:09:11.923001 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.38697: 15573 NXDomain*- 0/1/0 (147)
-10:09:11.923248 IP 10.244.2.202.43230 &amp;gt; 10.96.0.10.domain: 62042+ A? google.com.svc.cluster.local. (46)
-10:09:11.923828 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.43230: 62042 NXDomain*- 0/1/0 (139)
-10:09:11.924005 IP 10.244.2.202.43230 &amp;gt; 10.96.0.10.domain: 54769+ AAAA? google.com.svc.cluster.local. (46)
-10:09:11.924494 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.43230: 54769 NXDomain*- 0/1/0 (139)
-10:09:11.924704 IP 10.244.2.202.36252 &amp;gt; 10.96.0.10.domain: 20727+ A? google.com.cluster.local. (42)
-10:09:11.925154 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.36252: 20727 NXDomain*- 0/1/0 (135)
-10:09:11.925316 IP 10.244.2.202.36252 &amp;gt; 10.96.0.10.domain: 13066+ AAAA? google.com.cluster.local. (42)
-10:09:11.925758 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.36252: 13066 NXDomain*- 0/1/0 (135)
-10:09:11.925929 IP 10.244.2.202.35582 &amp;gt; 10.96.0.10.domain: 38821+ A? google.com.lan. (32)
-10:09:11.927244 IP 10.244.2.202.35582 &amp;gt; 10.96.0.10.domain: 4430+ AAAA? google.com.lan. (32)
-10:09:11.927416 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.35582: 38821 NXDomain 0/0/0 (32)
-10:09:11.928600 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.35582: 4430 NXDomain 0/0/0 (32)
-10:09:11.928839 IP 10.244.2.202.45290 &amp;gt; 10.96.0.10.domain: 45577+ A? google.com. (28)
-10:09:11.929129 IP 10.244.2.202.45290 &amp;gt; 10.96.0.10.domain: 37586+ AAAA? google.com. (28)
-10:09:11.929303 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.45290: 45577 1/0/0 A 172.217.160.78 (54)
-10:09:11.929541 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.45290: 37586 1/0/0 AAAA 2404:6800:4008:801::200e (66)
-&lt;/code>&lt;/pre>
-&lt;p>可以看到，在最后（倒数第 3、4 行）正确解析之前，先是依次查询了下面几个域名，并且均查询了 IPv4 和 IPv6：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>sudo nsenter -t &lt;span style="color:#ae81ff">3885&lt;/span> -n tcpdump -i eth0 udp port &lt;span style="color:#ae81ff">53&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>tcpdump: verbose output suppressed, use -v or -vv &lt;span style="color:#66d9ef">for&lt;/span> full protocol decode
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>listening on eth0, link-type EN10MB &lt;span style="color:#f92672">(&lt;/span>Ethernet&lt;span style="color:#f92672">)&lt;/span>, capture size &lt;span style="color:#ae81ff">262144&lt;/span> bytes
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.917900 IP 10.244.2.202.38697 &amp;gt; 10.96.0.10.domain: 11858+ A? google.com.default.svc.cluster.local. &lt;span style="color:#f92672">(&lt;/span>54&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.918847 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.38697: &lt;span style="color:#ae81ff">11858&lt;/span> NXDomain*- 0/1/0 &lt;span style="color:#f92672">(&lt;/span>147&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.922468 IP 10.244.2.202.38697 &amp;gt; 10.96.0.10.domain: 15573+ AAAA? google.com.default.svc.cluster.local. &lt;span style="color:#f92672">(&lt;/span>54&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.923001 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.38697: &lt;span style="color:#ae81ff">15573&lt;/span> NXDomain*- 0/1/0 &lt;span style="color:#f92672">(&lt;/span>147&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.923248 IP 10.244.2.202.43230 &amp;gt; 10.96.0.10.domain: 62042+ A? google.com.svc.cluster.local. &lt;span style="color:#f92672">(&lt;/span>46&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.923828 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.43230: &lt;span style="color:#ae81ff">62042&lt;/span> NXDomain*- 0/1/0 &lt;span style="color:#f92672">(&lt;/span>139&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.924005 IP 10.244.2.202.43230 &amp;gt; 10.96.0.10.domain: 54769+ AAAA? google.com.svc.cluster.local. &lt;span style="color:#f92672">(&lt;/span>46&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.924494 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.43230: &lt;span style="color:#ae81ff">54769&lt;/span> NXDomain*- 0/1/0 &lt;span style="color:#f92672">(&lt;/span>139&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.924704 IP 10.244.2.202.36252 &amp;gt; 10.96.0.10.domain: 20727+ A? google.com.cluster.local. &lt;span style="color:#f92672">(&lt;/span>42&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.925154 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.36252: &lt;span style="color:#ae81ff">20727&lt;/span> NXDomain*- 0/1/0 &lt;span style="color:#f92672">(&lt;/span>135&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.925316 IP 10.244.2.202.36252 &amp;gt; 10.96.0.10.domain: 13066+ AAAA? google.com.cluster.local. &lt;span style="color:#f92672">(&lt;/span>42&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.925758 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.36252: &lt;span style="color:#ae81ff">13066&lt;/span> NXDomain*- 0/1/0 &lt;span style="color:#f92672">(&lt;/span>135&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.925929 IP 10.244.2.202.35582 &amp;gt; 10.96.0.10.domain: 38821+ A? google.com.lan. &lt;span style="color:#f92672">(&lt;/span>32&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.927244 IP 10.244.2.202.35582 &amp;gt; 10.96.0.10.domain: 4430+ AAAA? google.com.lan. &lt;span style="color:#f92672">(&lt;/span>32&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.927416 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.35582: &lt;span style="color:#ae81ff">38821&lt;/span> NXDomain 0/0/0 &lt;span style="color:#f92672">(&lt;/span>32&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.928600 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.35582: &lt;span style="color:#ae81ff">4430&lt;/span> NXDomain 0/0/0 &lt;span style="color:#f92672">(&lt;/span>32&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.928839 IP 10.244.2.202.45290 &amp;gt; 10.96.0.10.domain: 45577+ A? google.com. &lt;span style="color:#f92672">(&lt;/span>28&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.929129 IP 10.244.2.202.45290 &amp;gt; 10.96.0.10.domain: 37586+ AAAA? google.com. &lt;span style="color:#f92672">(&lt;/span>28&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.929303 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.45290: &lt;span style="color:#ae81ff">45577&lt;/span> 1/0/0 A 172.217.160.78 &lt;span style="color:#f92672">(&lt;/span>54&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:09:11.929541 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.45290: &lt;span style="color:#ae81ff">37586&lt;/span> 1/0/0 AAAA 2404:6800:4008:801::200e &lt;span style="color:#f92672">(&lt;/span>66&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到，在最后（倒数第 3、4 行）正确解析之前，先是依次查询了下面几个域名，并且均查询了 IPv4 和 IPv6：&lt;/p>
 &lt;ul>
-&lt;li>
-&lt;p>&lt;code>google.com.default.svc.cluster.local.&lt;/code>&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;code>google.com.svc.cluster.local.&lt;/code>&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;code>google.com.cluster.local.&lt;/code>&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;code>google.com.lan.&lt;/code>&lt;/p>
-&lt;/li>
+&lt;li>&lt;code>google.com.default.svc.cluster.local.&lt;/code>&lt;/li>
+&lt;li>&lt;code>google.com.svc.cluster.local.&lt;/code>&lt;/li>
+&lt;li>&lt;code>google.com.cluster.local.&lt;/code>&lt;/li>
+&lt;li>&lt;code>google.com.lan.&lt;/code>&lt;/li>
 &lt;/ul>
 &lt;p>但是这 8 次查询都失败了，因为并不存在这样的域名。&lt;/p>
 &lt;h3 id="kubernetes-的容器域名解析">kubernetes 的容器域名解析&lt;/h3>
 &lt;p>要想解释上面的现象，需要先从 kubernetes 的容器域名解析开始讲。&lt;/p>
 &lt;p>kubernetes 上运行的容器，其域名解析和一般的 Linux 一样，都是根据 &lt;code>/etc/resolv.conf&lt;/code> 文件。如下是容器中该文件的内容。&lt;/p>
-&lt;pre>&lt;code>nameserver 10.96.0.10
+&lt;pre tabindex="0">&lt;code>nameserver 10.96.0.10
 search default.svc.cluster.local svc.cluster.local cluster.local lan
 options ndots:5
-&lt;/code>&lt;/pre>
-&lt;p>nameserver 即为 kubernetes 集群中，kube-dns 的 svc IP，集群中容器的 nameserver 均设置为 kube-dns。&lt;/p>
-&lt;pre>&lt;code>kubectl get svc -n kube-system
+&lt;/code>&lt;/pre>&lt;p>nameserver 即为 kubernetes 集群中，kube-dns 的 svc IP，集群中容器的 nameserver 均设置为 kube-dns。&lt;/p>
+&lt;pre tabindex="0">&lt;code>kubectl get svc -n kube-system
 NAME TYPE CLUSTER-IP EXTERNAL-IP PORT(S) AGE
 kube-dns ClusterIP 10.96.0.10 &amp;lt;none&amp;gt; 53/UDP,53/TCP,9153/TCP 236d
-&lt;/code>&lt;/pre>
-&lt;p>在容器中，自动添加了 &lt;code>search&lt;/code> 和 &lt;code>ndots&lt;/code>&lt;/p>
+&lt;/code>&lt;/pre>&lt;p>在容器中，自动添加了 &lt;code>search&lt;/code> 和 &lt;code>ndots&lt;/code>&lt;/p>
 &lt;h3 id="kubernetes-为什么使用搜索域">kubernetes 为什么使用搜索域&lt;/h3>
 &lt;p>为什么呢？先来看看代码。&lt;/p>
-&lt;pre>&lt;code>var (
-// The default dns opt strings.
-defaultDNSOptions = []string{&amp;quot;ndots:5&amp;quot;}
-)
-func (c *Configurer) generateSearchesForDNSClusterFirst(hostSearch []string, pod *v1.Pod) []string {
-if c.ClusterDomain == &amp;quot;&amp;quot; {
-return hostSearch
-}
-nsSvcDomain := fmt.Sprintf(&amp;quot;%s.svc.%s&amp;quot;, pod.Namespace, c.ClusterDomain)
-svcDomain := fmt.Sprintf(&amp;quot;svc.%s&amp;quot;, c.ClusterDomain)
-clusterSearch := []string{nsSvcDomain, svcDomain, c.ClusterDomain}
-return omitDuplicates(append(clusterSearch, hostSearch...))
-}
-func (c *Configurer) GetPodDNS(pod *v1.Pod) (*runtimeapi.DNSConfig, error) {
-...
-case podDNSCluster:
-if len(c.clusterDNS) != 0 {
-dnsConfig.Servers = []string{}
-for _, ip := range c.clusterDNS {
-dnsConfig.Servers = append(dnsConfig.Servers, ip.String())
-}
-dnsConfig.Searches = c.generateSearchesForDNSClusterFirst(dnsConfig.Searches, pod)
-dnsConfig.Options = defaultDNSOptions
-break
-}
-...
-if utilfeature.DefaultFeatureGate.Enabled(features.CustomPodDNS) &amp;amp;&amp;amp; pod.Spec.DNSConfig != nil {
-dnsConfig = appendDNSConfig(dnsConfig, pod.Spec.DNSConfig)
-}
-}
-&lt;/code>&lt;/pre>
-&lt;p>kubernetes 搜索域&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">var&lt;/span> (
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// The default dns opt strings.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#a6e22e">defaultDNSOptions&lt;/span> = []&lt;span style="color:#66d9ef">string&lt;/span>{&lt;span style="color:#e6db74">&amp;#34;ndots:5&amp;#34;&lt;/span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">c&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Configurer&lt;/span>) &lt;span style="color:#a6e22e">generateSearchesForDNSClusterFirst&lt;/span>(&lt;span style="color:#a6e22e">hostSearch&lt;/span> []&lt;span style="color:#66d9ef">string&lt;/span>, &lt;span style="color:#a6e22e">pod&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">v1&lt;/span>.&lt;span style="color:#a6e22e">Pod&lt;/span>) []&lt;span style="color:#66d9ef">string&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">ClusterDomain&lt;/span> &lt;span style="color:#f92672">==&lt;/span> &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">hostSearch&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">nsSvcDomain&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Sprintf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;%s.svc.%s&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">pod&lt;/span>.&lt;span style="color:#a6e22e">Namespace&lt;/span>, &lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">ClusterDomain&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">svcDomain&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#a6e22e">fmt&lt;/span>.&lt;span style="color:#a6e22e">Sprintf&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;svc.%s&amp;#34;&lt;/span>, &lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">ClusterDomain&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">clusterSearch&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> []&lt;span style="color:#66d9ef">string&lt;/span>{&lt;span style="color:#a6e22e">nsSvcDomain&lt;/span>, &lt;span style="color:#a6e22e">svcDomain&lt;/span>, &lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">ClusterDomain&lt;/span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">return&lt;/span> &lt;span style="color:#a6e22e">omitDuplicates&lt;/span>(append(&lt;span style="color:#a6e22e">clusterSearch&lt;/span>, &lt;span style="color:#a6e22e">hostSearch&lt;/span>&lt;span style="color:#f92672">...&lt;/span>))
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">func&lt;/span> (&lt;span style="color:#a6e22e">c&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">Configurer&lt;/span>) &lt;span style="color:#a6e22e">GetPodDNS&lt;/span>(&lt;span style="color:#a6e22e">pod&lt;/span> &lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">v1&lt;/span>.&lt;span style="color:#a6e22e">Pod&lt;/span>) (&lt;span style="color:#f92672">*&lt;/span>&lt;span style="color:#a6e22e">runtimeapi&lt;/span>.&lt;span style="color:#a6e22e">DNSConfig&lt;/span>, &lt;span style="color:#66d9ef">error&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">case&lt;/span> &lt;span style="color:#a6e22e">podDNSCluster&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> len(&lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">clusterDNS&lt;/span>) &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">dnsConfig&lt;/span>.&lt;span style="color:#a6e22e">Servers&lt;/span> = []&lt;span style="color:#66d9ef">string&lt;/span>{}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">for&lt;/span> &lt;span style="color:#a6e22e">_&lt;/span>, &lt;span style="color:#a6e22e">ip&lt;/span> &lt;span style="color:#f92672">:=&lt;/span> &lt;span style="color:#66d9ef">range&lt;/span> &lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">clusterDNS&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">dnsConfig&lt;/span>.&lt;span style="color:#a6e22e">Servers&lt;/span> = append(&lt;span style="color:#a6e22e">dnsConfig&lt;/span>.&lt;span style="color:#a6e22e">Servers&lt;/span>, &lt;span style="color:#a6e22e">ip&lt;/span>.&lt;span style="color:#a6e22e">String&lt;/span>())
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">dnsConfig&lt;/span>.&lt;span style="color:#a6e22e">Searches&lt;/span> = &lt;span style="color:#a6e22e">c&lt;/span>.&lt;span style="color:#a6e22e">generateSearchesForDNSClusterFirst&lt;/span>(&lt;span style="color:#a6e22e">dnsConfig&lt;/span>.&lt;span style="color:#a6e22e">Searches&lt;/span>, &lt;span style="color:#a6e22e">pod&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">dnsConfig&lt;/span>.&lt;span style="color:#a6e22e">Options&lt;/span> = &lt;span style="color:#a6e22e">defaultDNSOptions&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">break&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#a6e22e">utilfeature&lt;/span>.&lt;span style="color:#a6e22e">DefaultFeatureGate&lt;/span>.&lt;span style="color:#a6e22e">Enabled&lt;/span>(&lt;span style="color:#a6e22e">features&lt;/span>.&lt;span style="color:#a6e22e">CustomPodDNS&lt;/span>) &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#a6e22e">pod&lt;/span>.&lt;span style="color:#a6e22e">Spec&lt;/span>.&lt;span style="color:#a6e22e">DNSConfig&lt;/span> &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#66d9ef">nil&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">dnsConfig&lt;/span> = &lt;span style="color:#a6e22e">appendDNSConfig&lt;/span>(&lt;span style="color:#a6e22e">dnsConfig&lt;/span>, &lt;span style="color:#a6e22e">pod&lt;/span>.&lt;span style="color:#a6e22e">Spec&lt;/span>.&lt;span style="color:#a6e22e">DNSConfig&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>kubernetes 搜索域&lt;/p>
 &lt;p>从函数&lt;code>generateSearchesForDNSClusterFirst&lt;/code>中可见，搜索域有三个：nsSvcDomain、svcDomain、clusterDomain。&lt;/p>
 &lt;p>kubernetes 之所以要设置搜索域，目的是为了方便用户访问 service。&lt;/p>
 &lt;p>例如，default namespace 下的 Pod a，如果访问同 namespace 下的 service b，直接使用 b 就可以访问了，而这个功能，就是通过 nsSvcDomain 搜索域&lt;code>default.svc.cluster.local&lt;/code>完成的。类似的，对于不同 namespace 下的 service，可以用 &lt;code>${service name}.${namespace name}&lt;/code> 来访问，是通过 svcDomain 搜索域完成的。clusterDomain 设计的目的，是为了方便同域中非 kubernetes 上的域名访问，例如设置 kubernetes 的 domain 为&lt;code>ieevee.com&lt;/code>，那么对于&lt;code>s.ieevee.com&lt;/code>域名，直接使用&lt;code>s&lt;/code>来访问就可以了，当然前提是当前 namespace 中没有一个叫做&lt;code>s&lt;/code>的 svc。（是的。搜索域是有优先级的）&lt;/p>
 &lt;p>ndots 默认值&lt;/p>
 &lt;p>&lt;code>ndots&lt;/code>默认值是写死的，5。&lt;/p>
 &lt;p>为什么是 5 呢？&lt;/p>
-&lt;p>thockin 在&lt;a href="https://github.com/kubernetes/kubernetes/issues/33554">issue 33554&lt;/a> 中做了解释，概况来说：&lt;/p>
+&lt;p>thockin 在 &lt;a href="https://github.com/kubernetes/kubernetes/issues/33554">issue 33554&lt;/a> 中做了解释，概况来说：&lt;/p>
 &lt;ol>
-&lt;li>
-&lt;p>kubernetes 需要支持同 namespace 下 service 快速访问，例如&lt;code>name&lt;/code>，因此 ndots&amp;gt;=1，对应搜索域&lt;code>$namespace.svc.$zone&lt;/code>&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>kubernetes 需要支持跨 namespace 下 service 快速访问，例如&lt;code>kubernetes.default&lt;/code>，因此 ndots&amp;gt;=2，对应搜索域&lt;code>svc.$zone&lt;/code>&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>kubernetes 需要支持同 namespace、跨 namespace 下，非 service 名称的快速访问，例如&lt;code>name.namespace.svc&lt;/code>，因此 ndots&amp;gt;=3，对应搜索域&lt;code>$zone&lt;/code>&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>kubernetes 需要支持 statefulset 中的每个 pod 的访问，例如&lt;code>mysql-0.mysql.default.svc&lt;/code>，因此 ndots&amp;gt;=4&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>kubernetes 需要支持 SRV records（&lt;code>_$port._$proto.$service.$namespace.svc.$zone&lt;/code>），因此 ndots&amp;gt;=5&lt;/p>
-&lt;/li>
+&lt;li>kubernetes 需要支持同 namespace 下 service 快速访问，例如&lt;code>name&lt;/code>，因此 ndots&amp;gt;=1，对应搜索域&lt;code>$namespace.svc.$zone&lt;/code>&lt;/li>
+&lt;li>kubernetes 需要支持跨 namespace 下 service 快速访问，例如&lt;code>kubernetes.default&lt;/code>，因此 ndots&amp;gt;=2，对应搜索域&lt;code>svc.$zone&lt;/code>&lt;/li>
+&lt;li>kubernetes 需要支持同 namespace、跨 namespace 下，非 service 名称的快速访问，例如&lt;code>name.namespace.svc&lt;/code>，因此 ndots&amp;gt;=3，对应搜索域&lt;code>$zone&lt;/code>&lt;/li>
+&lt;li>kubernetes 需要支持 statefulset 中的每个 pod 的访问，例如&lt;code>mysql-0.mysql.default.svc&lt;/code>，因此 ndots&amp;gt;=4&lt;/li>
+&lt;li>kubernetes 需要支持 SRV records（&lt;code>_$port._$proto.$service.$namespace.svc.$zone&lt;/code>），因此 ndots&amp;gt;=5&lt;/li>
 &lt;/ol>
 &lt;p>不过呢，如果你的使用情况并不像上面这么复杂，这个值可能并不适合你。&lt;/p>
 &lt;p>比如说，我们只会用到同 namespace 下(形如 &lt;code>a&lt;/code>)、跨 namespace 下的 service 访问（形如 &lt;code>a.b&lt;/code>），因此，ndots 默认值为 2 更合适，但该值是写死在代码中的，不支持定制化，但可以通过下面的方法修改。&lt;/p>
 &lt;p>ndots 修改&lt;/p>
 &lt;p>ndots 是可以被修改的，可以通过&lt;code>pod.Spec.DNSConfig&lt;/code>改写。&lt;/p>
-&lt;pre>&lt;code>apiVersion: v1
-kind: Pod
-metadata:
-namespace: default
-name: dns-example
-spec:
-containers:
-- name: test
-image: nginx
-dnsConfig:
-options:
-- name: ndots
-value: &amp;quot;2&amp;quot;
-&lt;/code>&lt;/pre>
-&lt;p>通过上面的修改，我们再来看容器中的 DNS 报文，就只有下面几条了。&lt;/p>
-&lt;pre>&lt;code>sudo nsenter -t 3885 -n tcpdump -i eth0 udp port 53
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
-10:30:35.917282 IP 10.244.2.202.39480 &amp;gt; 10.96.0.10.domain: 60870+ A? google.com. (28)
-10:30:35.919194 IP 10.244.2.202.39480 &amp;gt; 10.96.0.10.domain: 9908+ AAAA? google.com. (28)
-10:30:35.927047 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.39480: 60870 1/0/0 A 216.58.200.238 (54)
-10:30:35.929089 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.39480: 9908 1/0/0 AAAA 2404:6800:4008:801::200e (66)
-&lt;/code>&lt;/pre>
-&lt;p>这对于应用的性能会有一定的提升，具体可以参见 Ref。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">v1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Pod&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">default&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">dns-example&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">image&lt;/span>: &lt;span style="color:#ae81ff">nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">dnsConfig&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">options&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">ndots&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">value&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;2&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过上面的修改，我们再来看容器中的 DNS 报文，就只有下面几条了。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>sudo nsenter -t &lt;span style="color:#ae81ff">3885&lt;/span> -n tcpdump -i eth0 udp port &lt;span style="color:#ae81ff">53&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>tcpdump: verbose output suppressed, use -v or -vv &lt;span style="color:#66d9ef">for&lt;/span> full protocol decode
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>listening on eth0, link-type EN10MB &lt;span style="color:#f92672">(&lt;/span>Ethernet&lt;span style="color:#f92672">)&lt;/span>, capture size &lt;span style="color:#ae81ff">262144&lt;/span> bytes
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:30:35.917282 IP 10.244.2.202.39480 &amp;gt; 10.96.0.10.domain: 60870+ A? google.com. &lt;span style="color:#f92672">(&lt;/span>28&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:30:35.919194 IP 10.244.2.202.39480 &amp;gt; 10.96.0.10.domain: 9908+ AAAA? google.com. &lt;span style="color:#f92672">(&lt;/span>28&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:30:35.927047 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.39480: &lt;span style="color:#ae81ff">60870&lt;/span> 1/0/0 A 216.58.200.238 &lt;span style="color:#f92672">(&lt;/span>54&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>10:30:35.929089 IP 10.96.0.10.domain &amp;gt; 10.244.2.202.39480: &lt;span style="color:#ae81ff">9908&lt;/span> 1/0/0 AAAA 2404:6800:4008:801::200e &lt;span style="color:#f92672">(&lt;/span>66&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这对于应用的性能会有一定的提升，具体可以参见 Ref。&lt;/p>
 &lt;h3 id="dns-cache">dns cache&lt;/h3>
 &lt;p>我们观察一些 python 类型的容器应用，会发现它们会发出非常多的 DNS 请求，几乎每次涉及到域名都需要发出 DNS 请求；但是对于一些 Java 应用，会发现它们发出的 DNS 请求非常规律，一般是每 30 秒一个。&lt;/p>
 &lt;p>这是因为，不同语言对于 dns cache 的处理不同了。&lt;/p>
 &lt;p>目前来看，只有 Java 做了 dns cache。从 JDK 1.6 开始，Java 默认会对 DNS 做缓存，主要是以下两个配置：&lt;/p>
 &lt;ul>
-&lt;li>
-&lt;p>networkaddress.cache.ttl：域名解析成功后，DNS 缓存时间，默认是 30 秒&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>networkaddress.cache.negative.ttl：域名解析失败后，冷却时间，默认是 10 秒&lt;/p>
-&lt;/li>
+&lt;li>networkaddress.cache.ttl：域名解析成功后，DNS 缓存时间，默认是 30 秒&lt;/li>
+&lt;li>networkaddress.cache.negative.ttl：域名解析失败后，冷却时间，默认是 10 秒&lt;/li>
 &lt;/ul>
 &lt;p>其他语言可以支持，但都需要一定 hack。&lt;/p>
 &lt;ul>
-&lt;li>
-&lt;p>go&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>python&lt;/p>
-&lt;/li>
+&lt;li>go&lt;/li>
+&lt;li>python&lt;/li>
 &lt;/ul>
 &lt;h3 id="总结">总结&lt;/h3>
 &lt;p>本文从一个多余的 DNS 查询现象开始，介绍了 FQDN 和 DNS 的搜索域，回答了 kubernetes 为什么需要搜索域这个问题，并且提出了一个解决多余 DNS 查询的方案，以及介绍了不同语言对于 dns cache 的处理情况。&lt;/p>
 &lt;p>Ref：&lt;/p>
 &lt;ul>
-&lt;li>
-&lt;p>Kubernetes pods /etc/resolv.conf ndots:5 option and why it may negatively affect your application performances&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>About fully qualified domain names (FQDNs)&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>Kubernetes pods /etc/resolv.conf ndots:5 option and why it may negatively affect your application performances&lt;/p>
-&lt;/li>
+&lt;li>Kubernetes pods /etc/resolv.conf ndots:5 option and why it may negatively affect your application performances&lt;/li>
+&lt;li>About fully qualified domain names (FQDNs)&lt;/li>
+&lt;li>Kubernetes pods /etc/resolv.conf ndots:5 option and why it may negatively affect your application performances&lt;/li>
 &lt;/ul></description></item></channel></rss>

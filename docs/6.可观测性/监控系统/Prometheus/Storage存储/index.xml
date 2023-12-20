@@ -1,273 +1,4 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Storage(存储)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/</link><description>Recent content in Storage(存储) on 断念梦</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Data Model(数据模型)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://prometheus.io/docs/concepts/data_model/">官方文档，概念-数据模型&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://yunlzheng.gitbook.io/prometheus-book/parti-prometheus-ji-chu/promql">yunlzheng 文档&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>Prometheus 从根本上将所有数据存储为 &lt;a href="https://en.wikipedia.org/wiki/Time_series">Time Series(时间序列)&lt;/a>：属于同一度量标准和同一组标注维的带有时间戳的值流。除了存储的时间序列外，Prometheus 可能会生成临时派生的时间序列作为查询的结果。&lt;/p>
-&lt;h2 id="time-series-data时间序列数据-概念">Time-Series Data(时间序列数据) 概念&lt;/h2>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Time_series">Wiki&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.influxdata.com/what-is-time-series-data/">InfluxDB 对时间序列数据的定义&lt;/a>&lt;/li>
-&lt;li>&lt;a href="http://get.influxdata.com/rs/972-GDU-533/images/why%20time%20series.pdf">这是论文&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>&lt;strong>Time Series(时间序列)&lt;/strong> 是一组按照时间发生先后顺序进行排列的数据点序列。通常一组时间序列的时间间隔为一恒定值（如 1 秒，5 分钟，12 小时，7 天，1 年），因此时间序列可以作为离散时间数据进行分析处理。时间序列广泛应用于数理统计、信号处理、模式识别、计量经济学、数学金融、天气预报、地震预测、脑电图、控制工程、航空学、通信工程以及绝大多数涉及到时间数据测量的应用科学与工程学。&lt;/p>
-&lt;p>&lt;strong>&lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE.md">Time Series Data&lt;/a>(时间序列数据，简称 series)&lt;/strong> 是在一段时间内通过重复 Measurement(测量) 而获得的观测值的集合；可以将这些观测值绘制于图形之上，它会有一个数据轴和一个时间轴。&lt;/p>
-&lt;p>从另一个角度看，时间序列数据是在不同时间上收集到的数据，用于所描述现象随时间变化的情况。这类数据反映了某一事物、现象等随时间的变化状态或程度。&lt;/p>
-&lt;h2 id="prometheus-中时间序列数据的组成">Prometheus 中时间序列数据的组成&lt;/h2>
-&lt;p>&lt;strong>时间序列(Time Series,简称 series) 有序列、系列的意思&lt;/strong>。比如有这么几种描述：一系列的书、这一系列操作、等等。可以通过这种语境来理解 series(比如可以这么描述：这一系列数据)。&lt;/p>
-&lt;p>与传统意义上定义的时序数据一样，由两部分组成：&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>Metrics(指标)&lt;/strong> # 用来描述要采集的数据指标，是时序数据的唯一标识符。例如：检测各个城市的风力、系统内存已使用的字节数 等等。相当于关系型数据库中的表。&lt;/li>
-&lt;li>&lt;strong>Sample(样本)&lt;/strong> # 针对监测对象的某项指标(由 Metric 和 Tag 定义)按特定时间间隔采集到的每个 Metric 值就是一个 Sample(样本)。类似关系型数据库中的一行。&lt;/li>
-&lt;/ul>
-&lt;p>首先需要明确一个概念：
-&lt;strong>Vector(向量)(也称为欧几里得向量、几何向量、矢量)&lt;/strong>，指具有大小和方向的 &lt;strong>Magnitude(量)&lt;/strong>。它可以形象化地表示为带箭头的线段。箭头所指：代表向量的方向；线段长度：代表向量的大小。与向量对应的量叫做数量（物理学中称&lt;a href="https://baike.baidu.com/item/%E6%A0%87%E9%87%8F/1530843">标量&lt;/a>），数量（或标量）只有大小，没有方向。&lt;/p>
-&lt;p>Prometheus 会将所有采集到的样本数据以 &lt;strong>TimeSeries(时间序列)&lt;/strong> 的方式保存在内存数据库中，并且定时保存到硬盘上。TimeSeriesData 是按照&lt;strong>时间戳&lt;/strong>和&lt;strong>值&lt;/strong>的序列顺序存放的一条不规则有方向的线段，我们称之为 &lt;strong>Vector(向量)&lt;/strong>。每条 TimeSeriesData 通过 &lt;strong>MetricsName(指标名称)&lt;/strong> 和一组 &lt;strong>LabelSet(标签集)&lt;/strong> 作为唯一标识符。如下所示，可以将 TimeSeries 理解为一个以时间为 x 轴、值为 y 轴的数字矩阵；而这个矩阵中的每一个点都是一个 &lt;strong>Sample(样本)&lt;/strong>，相同 MetricName 和 LabelSet 的多个样本之间连成的线段就是时间序列数据。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span> ^
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ . . . . . . . . . . . . . . . . . . - &amp;gt; node_cpu&lt;span style="color:#f92672">{&lt;/span>cpu&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;cpu0&amp;#34;&lt;/span>,mode&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;idle&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ . . . . . . . . . . . . . . . . . - &amp;gt; node_cpu&lt;span style="color:#f92672">{&lt;/span>cpu&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;cpu0&amp;#34;&lt;/span>,mode&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;system&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 值 . . . . . . . . . . . . . . . . . - &amp;gt; node_load1&lt;span style="color:#f92672">{}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ . . . . . . . . . . . . . . . . . - &amp;gt;
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> v . . . . . . . . . . . . . . . . . . - &amp;gt;
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &amp;lt;------------------ 时间 ----------------&amp;gt;
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 TimeSeries(时间序列) 中的每一个点称为一个 Sample(样本)，&lt;strong>Sample(样本)&lt;/strong> 与 &lt;strong>Metric(指标) 构成了时间序列数据&lt;/strong>，每条时间序列数据由这两部分组成：&lt;/p>
-&lt;blockquote>
-&lt;p>下面这个例子可以看到，Prometheus 返回的时间序列数据主要有两个字段，resultType(结果类型) 与 result(结果)。result 就是这条时间序列的数据内容
-而 result 又分为 metric 和 value。其中 value 就是指的 sample&lt;/p>
-&lt;/blockquote>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 获取 prometheus_http_requests_total 指标。发送GET请求
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// http://172.38.40.244:30001/api/v1/query?query=prometheus_http_requests_total
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 获取如下结果
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>{
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;status&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;success&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;data&amp;#34;&lt;/span>: {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;resultType&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;vector&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;result&amp;#34;&lt;/span>: [
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 下面就是这条时间序列的内容
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;metric&amp;#34;&lt;/span>: {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;__name__&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;prometheus_http_requests_total&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;code&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;handler&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/api/v1/label/:name/values&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;instance&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;localhost:8080&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;job&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;prometheus&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;value&amp;#34;&lt;/span>: [&lt;span style="color:#ae81ff">1610437100.544&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;1&amp;#34;&lt;/span>]
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="metric指标就是-metric-字段">Metric(指标)，就是 metric 字段&lt;/h3>
-&lt;ul>
-&lt;li>一个 Metrics 由 MetricName 和 描述当前样本特征的 LabelSets(所有标签的集合) 组成。&lt;/li>
-&lt;/ul>
-&lt;h3 id="sample样本就是-value-字段">Sample(样本)，就是 value 字段&lt;/h3>
-&lt;p>样本中包括一个时间戳和一个样本值。有时也可以称为 指标值、时间序列值 等等，毕竟在响应体中，value 字段&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>TimesTamp(时间戳)&lt;/strong>：一个精确到毫秒的时间戳。时间戳概念&lt;/li>
-&lt;li>&lt;strong>SampleValue(样本值)&lt;/strong>： 一个 float64(也可以是别的类型) 的浮点型数据表示当前样本的值。&lt;/li>
-&lt;/ul>
-&lt;blockquote>
-&lt;p>样本也可以当作名词来描述这个序列的值的含义(i.e.一个数字代表了什么事物)。
-怎么好理解怎么来，根据对 prom 的学习的不同阶段会有不同的理解。&lt;/p>
-&lt;/blockquote>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&amp;lt;--------------- metric -----------------------------------------&amp;gt; &amp;lt;-timestamp -&amp;gt;&amp;lt;-value-&amp;gt;
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">&amp;#34;__name__&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;http_request_total&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;method&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;get&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;statuscode&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;value&amp;#34;&lt;/span>:&lt;span style="color:#f92672">[&lt;/span>1568996888.215,&lt;span style="color:#e6db74">&amp;#34;2&amp;#34;&lt;/span>&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417561287 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">94334&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;404&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417560938 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">38473&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;404&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417561287 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">38544&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;POST&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417560938 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">4748&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;POST&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417561287 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">4785&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="metric指标-结构">Metric(指标) 结构&lt;/h2>
-&lt;p>指标的样式一：在形式上(输出到某个程序供人阅读)，指标(Metrics)都通过如下格式标识(指标名称(metrics name)和一组标签集(LabelSet))&lt;/p>
-&lt;pre>&lt;code>&amp;lt;Metrics Name&amp;gt;{&amp;lt;Label Name&amp;gt;=&amp;lt;Label Value&amp;gt;, ...}
-&lt;/code>&lt;/pre>
-&lt;p>指标的样式二：在时间序列数据库中，指标(Metrics)则是使用下面的格式标识&lt;/p>
-&lt;pre>&lt;code>{__name__=&amp;lt;Metrics Name&amp;gt;, &amp;lt;Label Name&amp;gt;=&amp;lt;Label Value&amp;gt;, ...}
-&lt;/code>&lt;/pre>
-&lt;ol>
-&lt;li>&lt;strong>Metrics Name(指标的名称)&lt;/strong> # 可以反映被监控数据的含义（比如，http_request_total - 表示当前系统接收到的 HTTP 请求总量）。指标名称只能由 ASCII 字符、数字、下划线以及冒号组成并必须符合正则表达式[a-zA-Z_:][a-zA-Z0-9_:]*。&lt;/li>
-&lt;li>&lt;strong>LabelSet(标签集)&lt;/strong> # 反映了当前样本的特征维度，通过这些维度 Prometheus 可以对样本数据进行过滤，聚合等。标签的名称只能由 ASCII 字符、数字以及下划线组成并满足正则表达式[a-zA-Z_][a-zA-Z0-9_]*。&lt;/li>
-&lt;li>其中以__作为前缀的标签(两个_)，是获取到 metrics 后自动生成的原始标签。标签的值则可以包含任何 Unicode 编码的字符。在 Prometheus 的底层实现中指标名称实际上是以__name__=的形式保存在数据库中的，详见文章最后的图例&lt;/li>
-&lt;/ol>
-&lt;p>因此以下两种方式均表示的同一条 time-series ：&lt;/p>
-&lt;pre>&lt;code>api_http_requests_total{method=&amp;quot;POST&amp;quot;, handler=&amp;quot;/messages&amp;quot;}
-等同于：
-{__name__=&amp;quot;api_http_requests_total&amp;quot;, method=&amp;quot;POST&amp;quot;, handler=&amp;quot;/messages&amp;quot;}
-&lt;/code>&lt;/pre>
-&lt;p>在 Prometheus 的源码中也可以看到指标(Metric)对应的数据结构，如下所示：&lt;/p>
-&lt;pre>&lt;code>type Metric LabelSet
-type LabelSet map[LabelName]LabelValue
-type LabelName string
-type LabelValue string
-&lt;/code>&lt;/pre>
-&lt;h2 id="白话说">白话说&lt;/h2>
-&lt;p>有一条名叫内存使用率的时间序列数据，&amp;ldquo;内存使用率&amp;quot;就叫做 metric name。在 2019 年 10 月 1 日 00:00 的值为 100M，在 2019 年 10 月 1 日 01:00 的值为 110M。时间就是样本里的时间戳。值就是该样本的值。所有这些具有时间标识的值连在一起组成一条线，就叫时间序列数据，这条线的名字就叫“内存使用率”&lt;/p>
-&lt;p>可以看到，所谓的 Time Series，是使用一组标签作为唯一标识符的，可以这么说，所有标签都属于时间序列的名字，而不只是 name 字段。&lt;/p>
-&lt;h1 id="metrics指标-的类型">Metrics(指标) 的类型&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：
-&lt;a href="https://prometheus.io/docs/concepts/metric_types/">官网文档，概念-metric 类型&lt;/a>&lt;/p>
-&lt;/blockquote>
-&lt;p>在 Prometheus 的存储实现上所有的监控样本都是以 time-series 的形式保存在 Prometheus 的 TSDB(时序数据库) 中，而 TimeSeries 所对应的 Metric(监控指标) 也是通过 LabelSet 进行唯一命名的。&lt;/p>
-&lt;p>从存储上来讲所有的 Metrics 都是相同的，但是在不同的场景下这些 Metrics 又有一些细微的差异。 例如，在 Node Exporter 返回的样本中指标 node_load1 反应的是当前系统的负载状态，随着时间的变化这个指标返回的样本数据是在不断变化的。而指标 node_cpu 所获取到的样本数据却不同，它是一个持续增大的值，因为其反应的是 CPU 的累积使用时间，从理论上讲只要系统不关机，这个值是会无限变大的。&lt;/p>
-&lt;p>为了能够帮助用户理解和区分这些不同监控指标之间的差异，Prometheus 定义了 4 中不同的 &lt;strong>Metric Type(指标类型)&lt;/strong>：Counter(计数器)、Gauge(计量器)、Histogram(直方图)、Summary(摘要)。&lt;/p>
-&lt;p>在 Exporter 返回的样本数据中，其注释中也包含了该样本的类型。例如：&lt;/p>
-&lt;blockquote>
-&lt;p>其中 TYPE node_cpu counter 表明 node_cpu 的指标类型为 counter&lt;/p>
-&lt;/blockquote>
-&lt;pre>&lt;code># HELP node_cpu Seconds the cpus spent in each mode.
-# TYPE node_cpu counter
-node_cpu{cpu=&amp;quot;cpu0&amp;quot;,mode=&amp;quot;idle&amp;quot;} 362812.789625
-&lt;/code>&lt;/pre>
-&lt;h2 id="counter计数器--只增不减的计数器">Counter(计数器) # 只增不减的计数器&lt;/h2>
-&lt;p>Counter 类型的指标其工作方式和计数器一样，只增不减（除非系统发生重置）。常见的监控指标，如 http_requests_total，node_cpu 都是 Counter 类型的监控指标。 一般在定义 Counter 类型指标的名称时推荐使用_total 作为后缀。&lt;/p>
-&lt;p>Counter 是一个简单但有强大的工具，例如我们可以在应用程序中记录某些事件发生的次数，通过以时序的形式存储这些数据，我们可以轻松的了解该事件产生速率的变化。 PromQL 内置的聚合操作和函数可以让用户对这些数据进行进一步的分析：&lt;/p>
-&lt;p>例如，通过 rate()函数获取 HTTP 请求量的增长率：
-rate(http_requests_total[5m])&lt;/p>
-&lt;p>查询当前系统中，访问量前 10 的 HTTP 地址：
-topk(10, http_requests_total)&lt;/p>
-&lt;h2 id="gauge仪表盘--可增可减的-gauge">Gauge(仪表盘) # 可增可减的 Gauge&lt;/h2>
-&lt;p>与 Counter 不同，Gauge 类型的指标侧重于反应系统的当前状态。因此这类指标的样本数据可增可减。常见指标如：node_memory_MemFree(主机当前空闲的内容大小)、node_memory_MemAvailable(可用内存大小)都是 Gauge 类型的监控指标。&lt;/p>
-&lt;p>通过 Gauge 指标，用户可以直接查看系统的当前状态：&lt;/p>
-&lt;pre>&lt;code>node_memory_MemFree
-&lt;/code>&lt;/pre>
-&lt;p>对于 Gauge 类型的监控指标，通过 PromQL 内置函数 delta() 可以获取样本在一段时间返回内的变化情况。例如，计算 CPU 温度在两个小时内的差异：&lt;/p>
-&lt;pre>&lt;code>delta(cpu_temp_celsius{host=&amp;quot;zeus&amp;quot;}[2h])
-&lt;/code>&lt;/pre>
-&lt;p>还可以使用 deriv() 计算样本的线性回归模型，甚至是直接使用 predict_linear() 对数据的变化趋势进行预测。例如，预测系统磁盘空间在 4 个小时之后的剩余情况：&lt;/p>
-&lt;pre>&lt;code>predict_linear(node_filesystem_free{job=&amp;quot;node&amp;quot;}[1h], 4 * 3600)
-&lt;/code>&lt;/pre>
-&lt;h2 id="histogram直方图-与-summary摘要">Histogram(直方图) 与 Summary(摘要)&lt;/h2>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://prometheus.io/docs/practices/histograms/">官方文档&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://fuckcloudnative.io/posts/prometheus-histograms/">云原生实验室&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>除了 Counter 和 Gauge 类型的监控指标以外，Prometheus 还定义了 Histogram 和 Summary 的指标类型。Histogram 和 Summary 主用用于统计和分析样本的分布情况。&lt;/p>
-&lt;p>在大多数情况下人们都倾向于使用某些量化指标的平均值，例如 CPU 的平均使用率、页面的平均响应时间。这种方式的问题很明显，以系统 API 调用的平均响应时间为例：如果大多数 API 请求都维持在 100ms 的响应时间范围内，而个别请求的响应时间需要 5s，那么就会导致某些 WEB 页面的响应时间落到中位数的情况，而这种现象被称为长尾问题。&lt;/p>
-&lt;p>为了区分是平均的慢还是长尾的慢，最简单的方式就是按照请求延迟的范围进行分组。例如，统计延迟在 0~10ms 之间的请求数有多少而 10~20ms 之间的请求数又有多少。通过这种方式可以快速分析系统慢的原因。Histogram 和 Summary 都是为了能够解决这样问题的存在，通过 Histogram 和 Summary 类型的监控指标，我们可以快速了解监控样本的分布情况。&lt;/p>
-&lt;p>直方图和摘要均是样本观察值，也就是说在一段时间内持续观察某个样本后得出的数据。&lt;/p>
-&lt;p>这两种指标类型都属于&lt;strong>统计学范畴的指标&lt;/strong>。&lt;/p>
-&lt;h3 id="histogram直方图">Histogram(直方图)&lt;/h3>
-&lt;p>Histogram 在&lt;strong>一段时间范围内&lt;/strong>观察某指标(通常是 请求的持续时间 或 响应时间的长短 等)，并对该指标的样本进行采样，将其计入可配置的 &lt;strong>bucket(储存区)&lt;/strong> 中。Histogram 还提供所有 observed(被观察指标) 的样本在这一段时间范围内的总和。&lt;/p>
-&lt;p>&lt;strong>传统意义上的直方图&lt;/strong>
-假设我们想获取某个应用在不同响应时间的次数，则首先需要获取该应用在一段时间内的响应时间，收集这些样本。假设最后得到的所有样本的响应时间范围是 0s~10s。那么我们将样本的值划分为不同的区间，这个区间就是 &lt;strong>bucket(存储区)&lt;/strong>，假设每个 bucket 的宽度是 0.2s，那么第一个 bucket 则表示响应时间小于 0.2s 的所有样本数量；第二个 bucket 表示响应时间大于 0.2s 且小于 0.4s 的样本数量；以此类推。效果如图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gnzmdt/1617542272313-06f1c876-f41b-431b-99ed-e1e14b152761.jpeg" alt="">&lt;/p>
-&lt;p>&lt;strong>Prometheus 中的直方图&lt;/strong>&lt;/p>
-&lt;p>Prometheus 中的直方图与传统意义的直方图有一些差别，准确描述，应该称为 &lt;strong>累计直方图&lt;/strong>。主要差别在 bucket 的定义，在 Prometheus 的累计直方图中，还是假设 bucket 的宽度为 0.2s，那么第一个 bucket 表示响应时间小于等于 0.2s 的样本数量，第二个 bucket 表示响应时间小于等于 0.4s 的样本数量，以此类推。也就是说，&lt;strong>每一个 bucket 中的样本都包含了卡面所有 bucket 中的样本&lt;/strong>，所以称为 累计直方图。而每个 bucket 范围中的最大值，称为 &lt;strong>upper inclusive bound(上边界)&lt;/strong>。效果如图：
-&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gnzmdt/1617543132157-1f35ddae-ef51-4ca7-9ece-72886154cc1f.jpeg" alt="">&lt;/p>
-&lt;p>Histogram 类型的指标在同一时间具有多条时间序列(假设指标名称为 &amp;lt;basename)：(这些时间序列大体分为 3 种)&lt;/p>
-&lt;ul>
-&lt;li>**&amp;lt;basename&amp;gt;_bucket{le=&amp;quot;&amp;lt;上边界&amp;gt;&amp;rdquo;} **# 要观察的样本分布在 bucket 中的数量。解释的更通俗易懂一点，这个值表示 要观察的样本的值 小于等于 上边界的值 的所有样本数量。
-&lt;ul>
-&lt;li>le 通常用来表示该 bucket 的上限。le 这俩字符按照关系运算符来理解，就是“小于或等于”的意思。。。。。。。&lt;/li>
-&lt;li>用白话说就是，le 是 bucket 的标识符，比如下面的示例，就可以这么描述：0 到 0.00025 储存区，含有 332 个样本；0 到 0.0005 储存区，含有 336 个样本。&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>&lt;strong>&amp;lt;basename&amp;gt;_sum&lt;/strong> # 所有 被观察样本的值 的总和。&lt;/li>
-&lt;li>&lt;strong>&amp;lt;basename&amp;gt;_count&lt;/strong> # 观察次数。(该值和上面的 &amp;lt;basename&amp;gt;_bucket{le=&amp;quot;+Inf&amp;quot;} 相同)
-&lt;ul>
-&lt;li>本质上是一个 Counter 类型的指标。&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;p>在 coredns 的样本数据中，我们能找到类型为 Histogram 的监控指标 &lt;code>coredns_dns_request_duration_seconds&lt;/code>&lt;/p>
-&lt;p>在这些时间序列中，被观察的样本是“每个 dns 的解析请求所花费的时间”&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># HELP coredns_dns_request_duration_seconds Histogram of the time (in seconds) each request took.&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># TYPE coredns_dns_request_duration_seconds histogram&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 在总共336次解析请求的花费时间中，小于0.00025秒的有332次&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_bucket&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>,le&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;0.00025&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#ae81ff">332&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 在总共336次解析请求的花费时间中，小于0.0005秒的有336次&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_bucket&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>,le&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;0.0005&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#ae81ff">336&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>........
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 在总共336次解析请求的花费时间中，小于8.192秒的有336次&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_bucket&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>,le&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;8.192&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#ae81ff">336&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_bucket&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>,le&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;+Inf&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#ae81ff">336&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 所有的336次解析请求，总的花费时间为 0.03502086400000001 秒&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_sum&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> 0.03502086400000001
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># DNS 解析请求一共336次&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_count&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#ae81ff">336&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以通过 histogram_quantile() 函数 来计算 Histogram 类型样本的 分位数。分位数可能不太好理解，你可以理解为分割数据的点。我举个例子，假设样本的 9 分位数（quantile=0.9）的值为 x，即表示小于 x 的采样值的数量占总体采样值的 90%。Histogram 还可以用来计算应用性能指标值（Apdex score）。&lt;/p>
-&lt;p>注意：&lt;/p>
-&lt;p>bucket 可以理解为是对数据指标值域的一个划分，划分的依据应该基于数据值的分布。注意后面的采样点是包含前面的采样点的，假设 xxx_bucket{&amp;hellip;,le=&amp;ldquo;0.01&amp;rdquo;} 的值为 10，而 xxx_bucket{&amp;hellip;,le=&amp;ldquo;0.05&amp;rdquo;} 的值为 30，那么意味着这 30 个采样点中，有 10 个是小于 10 ms 的，其余 20 个采样点的响应时间是介于 10 ms 和 50 ms 之间的。&lt;/p>
-&lt;p>用白话说：直方图与 Counter 和 Gauge 的本质区别在于，直方图是对一组样本进行统计获得的结果，而 Counter 和 Gauge 仅仅是一个单一的样本。
-直方图的应用场景：在 1 小时的 http 请求中，有多少请求的响应时间少于 1 秒，有多少请求的响应时间少于 2 秒，总有有多少请求，所有请求的平均的响应时间是多少。&lt;/p>
-&lt;p>如果是 Guage 的话，则只能表示每一个请求的具体响应时间，或者总共有多少个请求。&lt;/p>
-&lt;p>所以才说，直方图就是一种&lt;strong>统计学上的指标&lt;/strong>&lt;/p>
-&lt;h3 id="summary摘要">Summary(摘要)&lt;/h3>
-&lt;p>与 Histogram 类型类似，用于表示一段时间内的数据采样结果（通常是请求持续时间或响应大小等），但它 bucket 表示分位数（通过客户端计算，然后展示出来），而不是通过区间来计算。&lt;/p>
-&lt;p>例如，指标 prometheus_tsdb_wal_fsync_duration_seconds 的指标类型为 Summary。 它记录了 Prometheus Server 中 wal_fsync 处理的处理时间，通过访问 Prometheus Serve r 的 /metrics 地址，可以获取到以下监控样本数据：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-text" data-lang="text">&lt;span style="display:flex;">&lt;span># HELP prometheus_tsdb_wal_fsync_duration_seconds Duration of WAL fsync.
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span># TYPE prometheus_tsdb_wal_fsync_duration_seconds summary
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>prometheus_tsdb_wal_fsync_duration_seconds{quantile=&amp;#34;0.5&amp;#34;} 0.012352463
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>prometheus_tsdb_wal_fsync_duration_seconds{quantile=&amp;#34;0.9&amp;#34;} 0.014458005
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>prometheus_tsdb_wal_fsync_duration_seconds{quantile=&amp;#34;0.99&amp;#34;} 0.017316173
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>prometheus_tsdb_wal_fsync_duration_seconds_sum 2.888716127000002
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>prometheus_tsdb_wal_fsync_duration_seconds_count 216
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>从上面的样本中可以得知当前 Prometheus Server 进行 wal_fsync 操作的总次数为 216 次，耗时 2.888716127000002s。其中中位数（quantile=0.5）的耗时为 0.012352463，9 分位数（quantile=0.9）的耗时为 0.014458005s。&lt;/p>
-&lt;h3 id="summary-类型-与-histogram-类型-的异同">Summary 类型 与 Histogram 类型 的异同&lt;/h3>
-&lt;ol>
-&lt;li>两类样本同样会反应当前指标的记录的总数(以_count 作为后缀)以及其值的总量（以_sum 作为后缀）&lt;/li>
-&lt;li>不同在于 Histogram 指标直接反应了在不同区间内样本的个数，区间通过标签 len 进行定义。&lt;/li>
-&lt;li>对于分位数的计算而言，Histogram 通过 histogram_quantile 函数是在服务器端计算的分位数。 而 Sumamry 的分位数则是直接在客户端计算完成。&lt;/li>
-&lt;li>Summary 在通过 PromQL 进行查询时有更好的性能表现，而 Histogram 则会消耗更多的资源。反之对于提供指标的服务而言，Histogram 消耗的资源更少。在选择这两种方式时用户应该按照自己的实际场景进行选择。&lt;/li>
-&lt;/ol>
-&lt;h1 id="prometheus-底层保存的时间序列数据的样例">Prometheus 底层保存的时间序列数据的样例&lt;/h1>
-&lt;p>详见 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus%20API/Querying%20API.md">Querying API&lt;/a>&lt;/p>
-&lt;p>下面红框的地方就是&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gnzmdt/1616069604244-2f845e27-61ec-4a5b-ab9a-0634bf8907b2.jpeg" alt="">&lt;/p>
-&lt;h1 id="prometheus-格式的-metrics-详解">Prometheus 格式的 Metrics 详解&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://prometheus.io/docs/instrumenting/exposition_formats/">官方文档&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>通过各种 Exporter 暴露的 HTTP 服务，Prometheus 可以采集到 当前时间 主机所有监控指标的样本数据。数据格式示例如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-text" data-lang="text">&lt;span style="display:flex;">&lt;span># HELP http_requests_total The total number of HTTP requests.
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span># TYPE http_requests_total counter
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_requests_total{method=&amp;#34;post&amp;#34;,code=&amp;#34;200&amp;#34;} 1027 1395066363000
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_requests_total{method=&amp;#34;post&amp;#34;,code=&amp;#34;400&amp;#34;} 3 1395066363000
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span># Escaping in label values:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>msdos_file_access_time_seconds{path=&amp;#34;C:\\DIR\\FILE.TXT&amp;#34;,error=&amp;#34;Cannot find file:\n\&amp;#34;FILE.TXT\&amp;#34;&amp;#34;} 1.458255915e9
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span># Minimalistic line:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>metric_without_timestamp_and_labels 12.47
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span># A weird metric from before the epoch:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>something_weird{problem=&amp;#34;division by zero&amp;#34;} +Inf -3982045
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Note：上面通过 http 采集到的数据就是文本格式的 Metrics，格式一定是上述的样子，每个时间序列都分为 3 个部分。&lt;/p>
-&lt;ol>
-&lt;li>
-&lt;h1 id="help-时间序列名称-时间序列描述">HELP 时间序列名称 时间序列描述&lt;/h1>
-&lt;/li>
-&lt;li>
-&lt;h1 id="type-时间序列名称-时间序列类型">TYPE 时间序列名称 时间序列类型&lt;/h1>
-&lt;/li>
-&lt;li>非#开头的每一行表示当前 Node Exporter 采集到的一个监控样本：node_cpu 和 node_load1 表明了当前指标的名称、大括号中的标签则反映了当前样本的一些特征和维度、浮点数则是该监控样本的具体值。
-&lt;ol>
-&lt;li>如果有多个 Metrics 的项目，则会有多行&lt;/li>
-&lt;/ol>
-&lt;/li>
-&lt;/ol>
-&lt;p>主要由三个部分组成：样本的一般注释信息（HELP），样本的类型注释信息（TYPE）和样本。Prometheus 会对 Exporter 响应的内容逐行解析：&lt;/p>
-&lt;p>如果当前行以# HELP 开始，Prometheus 将会按照以下规则对内容进行解析，得到当前的指标名称以及相应的说明信息：&lt;/p>
-&lt;h2 id="-help"># HELP&lt;/h2>
-&lt;p>如果当前行以# TYPE 开始，Prometheus 会按照以下规则对内容进行解析，得到当前的指标名称以及指标类型:&lt;/p>
-&lt;h2 id="-type"># TYPE&lt;/h2>
-&lt;p>TYPE 注释行必须出现在指标的第一个样本之前。如果没有明确的指标类型需要返回为 untyped。&lt;/p>
-&lt;h2 id="metricsname-与-metrics-的值">MetricsName 与 Metrics 的值&lt;/h2>
-&lt;p>除了# 开头的所有行都会被视为是监控样本数据。 每一行样本需要满足以下格式规范:&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>metric_name &lt;span style="color:#f92672">[{&lt;/span> label_name &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;label_value&amp;#34;&lt;/span> &lt;span style="color:#f92672">{&lt;/span> , label_name &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;label_value&amp;#34;&lt;/span> &lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#f92672">[&lt;/span> ,... &lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#f92672">}]&lt;/span> value &lt;span style="color:#f92672">[&lt;/span> timestamp &lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>其中 metric_name 和 label_name 必须遵循 PromQL 的格式规范要求。value 是一个 float 格式的数据，timestamp 的类型为 int64（从 1970-01-01 00:00:00 以来的毫秒数），timestamp 为可选默认为当前时间。具有相同 metric_name 的样本必须按照一个组的形式排列，并且每一行必须是唯一的指标名称和标签键值对组合。&lt;/p></description></item><item><title>Docs: Storage(存储)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/Storage%E5%AD%98%E5%82%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/Storage%E5%AD%98%E5%82%A8/</guid><description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Storage(存储)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/</link><description>Recent content in Storage(存储) on 断念梦</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Storage(存储)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/Storage%E5%AD%98%E5%82%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/Storage%E5%AD%98%E5%82%A8/</guid><description>
 &lt;h1 id="概述">概述&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -607,4 +338,273 @@ remote_read:
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- &lt;span style="color:#ae81ff">1&lt;/span> lichenhao &lt;span style="color:#ae81ff">2000&lt;/span> &lt;span style="color:#ae81ff">20001&lt;/span> Oct &lt;span style="color:#ae81ff">11&lt;/span> 10:37 queries.active
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#ae81ff">3&lt;/span> lichenhao &lt;span style="color:#ae81ff">2000&lt;/span> &lt;span style="color:#ae81ff">4096&lt;/span> Oct &lt;span style="color:#ae81ff">11&lt;/span> 10:32 wal/
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@hw-cloud-xngy-jump-server-linux-2 /mnt/sfs_turbo/monitoring-prometheus-prometheus-monitor-hw-cloud-k8s-prometheus-0-pvc-9ca02cc7-33f2-4059-807d-196c78a1e728/prometheus-db&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e">#&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到，Prometheus 逐步压缩一天的所有 Block，并逐步压缩到单一的 Block 中。10 月 9 日 与 10 日的 Block 逐步压缩，统一到了 10 月 7 日的 Block 中。&lt;/p></description></item></channel></rss>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到，Prometheus 逐步压缩一天的所有 Block，并逐步压缩到单一的 Block 中。10 月 9 日 与 10 日的 Block 逐步压缩，统一到了 10 月 7 日的 Block 中。&lt;/p></description></item><item><title>Docs: Data Model(数据模型)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage%E5%AD%98%E5%82%A8/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://prometheus.io/docs/concepts/data_model/">官方文档，概念-数据模型&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://yunlzheng.gitbook.io/prometheus-book/parti-prometheus-ji-chu/promql">yunlzheng 文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Prometheus 从根本上将所有数据存储为 &lt;a href="https://en.wikipedia.org/wiki/Time_series">Time Series(时间序列)&lt;/a>：属于同一度量标准和同一组标注维的带有时间戳的值流。除了存储的时间序列外，Prometheus 可能会生成临时派生的时间序列作为查询的结果。&lt;/p>
+&lt;h2 id="time-series-data时间序列数据-概念">Time-Series Data(时间序列数据) 概念&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Time_series">Wiki&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.influxdata.com/what-is-time-series-data/">InfluxDB 对时间序列数据的定义&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://get.influxdata.com/rs/972-GDU-533/images/why%20time%20series.pdf">这是论文&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Time Series(时间序列)&lt;/strong> 是一组按照时间发生先后顺序进行排列的数据点序列。通常一组时间序列的时间间隔为一恒定值（如 1 秒，5 分钟，12 小时，7 天，1 年），因此时间序列可以作为离散时间数据进行分析处理。时间序列广泛应用于数理统计、信号处理、模式识别、计量经济学、数学金融、天气预报、地震预测、脑电图、控制工程、航空学、通信工程以及绝大多数涉及到时间数据测量的应用科学与工程学。&lt;/p>
+&lt;p>&lt;strong>&lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE.md">Time Series Data&lt;/a>(时间序列数据，简称 series)&lt;/strong> 是在一段时间内通过重复 Measurement(测量) 而获得的观测值的集合；可以将这些观测值绘制于图形之上，它会有一个数据轴和一个时间轴。&lt;/p>
+&lt;p>从另一个角度看，时间序列数据是在不同时间上收集到的数据，用于所描述现象随时间变化的情况。这类数据反映了某一事物、现象等随时间的变化状态或程度。&lt;/p>
+&lt;h2 id="prometheus-中时间序列数据的组成">Prometheus 中时间序列数据的组成&lt;/h2>
+&lt;p>&lt;strong>时间序列(Time Series,简称 series) 有序列、系列的意思&lt;/strong>。比如有这么几种描述：一系列的书、这一系列操作、等等。可以通过这种语境来理解 series(比如可以这么描述：这一系列数据)。&lt;/p>
+&lt;p>与传统意义上定义的时序数据一样，由两部分组成：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Metrics(指标)&lt;/strong> # 用来描述要采集的数据指标，是时序数据的唯一标识符。例如：检测各个城市的风力、系统内存已使用的字节数 等等。相当于关系型数据库中的表。&lt;/li>
+&lt;li>&lt;strong>Sample(样本)&lt;/strong> # 针对监测对象的某项指标(由 Metric 和 Tag 定义)按特定时间间隔采集到的每个 Metric 值就是一个 Sample(样本)。类似关系型数据库中的一行。&lt;/li>
+&lt;/ul>
+&lt;p>首先需要明确一个概念：
+&lt;strong>Vector(向量)(也称为欧几里得向量、几何向量、矢量)&lt;/strong>，指具有大小和方向的 &lt;strong>Magnitude(量)&lt;/strong>。它可以形象化地表示为带箭头的线段。箭头所指：代表向量的方向；线段长度：代表向量的大小。与向量对应的量叫做数量（物理学中称&lt;a href="https://baike.baidu.com/item/%E6%A0%87%E9%87%8F/1530843">标量&lt;/a>），数量（或标量）只有大小，没有方向。&lt;/p>
+&lt;p>Prometheus 会将所有采集到的样本数据以 &lt;strong>TimeSeries(时间序列)&lt;/strong> 的方式保存在内存数据库中，并且定时保存到硬盘上。TimeSeriesData 是按照&lt;strong>时间戳&lt;/strong>和&lt;strong>值&lt;/strong>的序列顺序存放的一条不规则有方向的线段，我们称之为 &lt;strong>Vector(向量)&lt;/strong>。每条 TimeSeriesData 通过 &lt;strong>MetricsName(指标名称)&lt;/strong> 和一组 &lt;strong>LabelSet(标签集)&lt;/strong> 作为唯一标识符。如下所示，可以将 TimeSeries 理解为一个以时间为 x 轴、值为 y 轴的数字矩阵；而这个矩阵中的每一个点都是一个 &lt;strong>Sample(样本)&lt;/strong>，相同 MetricName 和 LabelSet 的多个样本之间连成的线段就是时间序列数据。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span> ^
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ . . . . . . . . . . . . . . . . . . - &amp;gt; node_cpu&lt;span style="color:#f92672">{&lt;/span>cpu&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;cpu0&amp;#34;&lt;/span>,mode&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;idle&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ . . . . . . . . . . . . . . . . . - &amp;gt; node_cpu&lt;span style="color:#f92672">{&lt;/span>cpu&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;cpu0&amp;#34;&lt;/span>,mode&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;system&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 值 . . . . . . . . . . . . . . . . . - &amp;gt; node_load1&lt;span style="color:#f92672">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> │ . . . . . . . . . . . . . . . . . - &amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> v . . . . . . . . . . . . . . . . . . - &amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &amp;lt;------------------ 时间 ----------------&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 TimeSeries(时间序列) 中的每一个点称为一个 Sample(样本)，&lt;strong>Sample(样本)&lt;/strong> 与 &lt;strong>Metric(指标) 构成了时间序列数据&lt;/strong>，每条时间序列数据由这两部分组成：&lt;/p>
+&lt;blockquote>
+&lt;p>下面这个例子可以看到，Prometheus 返回的时间序列数据主要有两个字段，resultType(结果类型) 与 result(结果)。result 就是这条时间序列的数据内容
+而 result 又分为 metric 和 value。其中 value 就是指的 sample&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 获取 prometheus_http_requests_total 指标。发送GET请求
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// http://172.38.40.244:30001/api/v1/query?query=prometheus_http_requests_total
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">// 获取如下结果
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>{
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;status&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;success&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;data&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;resultType&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;vector&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;result&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">// 下面就是这条时间序列的内容
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#f92672">&amp;#34;metric&amp;#34;&lt;/span>: {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;__name__&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;prometheus_http_requests_total&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;code&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;handler&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;/api/v1/label/:name/values&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;instance&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;localhost:8080&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;job&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;prometheus&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">&amp;#34;value&amp;#34;&lt;/span>: [&lt;span style="color:#ae81ff">1610437100.544&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;1&amp;#34;&lt;/span>]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="metric指标就是-metric-字段">Metric(指标)，就是 metric 字段&lt;/h3>
+&lt;ul>
+&lt;li>一个 Metrics 由 MetricName 和 描述当前样本特征的 LabelSets(所有标签的集合) 组成。&lt;/li>
+&lt;/ul>
+&lt;h3 id="sample样本就是-value-字段">Sample(样本)，就是 value 字段&lt;/h3>
+&lt;p>样本中包括一个时间戳和一个样本值。有时也可以称为 指标值、时间序列值 等等，毕竟在响应体中，value 字段&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>TimesTamp(时间戳)&lt;/strong>：一个精确到毫秒的时间戳。时间戳概念&lt;/li>
+&lt;li>&lt;strong>SampleValue(样本值)&lt;/strong>： 一个 float64(也可以是别的类型) 的浮点型数据表示当前样本的值。&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>样本也可以当作名词来描述这个序列的值的含义(i.e.一个数字代表了什么事物)。
+怎么好理解怎么来，根据对 prom 的学习的不同阶段会有不同的理解。&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&amp;lt;--------------- metric -----------------------------------------&amp;gt; &amp;lt;-timestamp -&amp;gt;&amp;lt;-value-&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">&amp;#34;__name__&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;http_request_total&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;method&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;get&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;statuscode&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;value&amp;#34;&lt;/span>:&lt;span style="color:#f92672">[&lt;/span>1568996888.215,&lt;span style="color:#e6db74">&amp;#34;2&amp;#34;&lt;/span>&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417561287 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">94334&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;404&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417560938 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">38473&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;404&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;GET&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417561287 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">38544&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;POST&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417560938 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">4748&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_request_total&lt;span style="color:#f92672">{&lt;/span>status&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;200&amp;#34;&lt;/span>, method&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;POST&amp;#34;&lt;/span>&lt;span style="color:#f92672">}=&lt;/span>1434417561287 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; &lt;span style="color:#ae81ff">4785&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="metric指标-结构">Metric(指标) 结构&lt;/h2>
+&lt;p>指标的样式一：在形式上(输出到某个程序供人阅读)，指标(Metrics)都通过如下格式标识(指标名称(metrics name)和一组标签集(LabelSet))&lt;/p>
+&lt;pre>&lt;code>&amp;lt;Metrics Name&amp;gt;{&amp;lt;Label Name&amp;gt;=&amp;lt;Label Value&amp;gt;, ...}
+&lt;/code>&lt;/pre>
+&lt;p>指标的样式二：在时间序列数据库中，指标(Metrics)则是使用下面的格式标识&lt;/p>
+&lt;pre>&lt;code>{__name__=&amp;lt;Metrics Name&amp;gt;, &amp;lt;Label Name&amp;gt;=&amp;lt;Label Value&amp;gt;, ...}
+&lt;/code>&lt;/pre>
+&lt;ol>
+&lt;li>&lt;strong>Metrics Name(指标的名称)&lt;/strong> # 可以反映被监控数据的含义（比如，http_request_total - 表示当前系统接收到的 HTTP 请求总量）。指标名称只能由 ASCII 字符、数字、下划线以及冒号组成并必须符合正则表达式[a-zA-Z_:][a-zA-Z0-9_:]*。&lt;/li>
+&lt;li>&lt;strong>LabelSet(标签集)&lt;/strong> # 反映了当前样本的特征维度，通过这些维度 Prometheus 可以对样本数据进行过滤，聚合等。标签的名称只能由 ASCII 字符、数字以及下划线组成并满足正则表达式[a-zA-Z_][a-zA-Z0-9_]*。&lt;/li>
+&lt;li>其中以__作为前缀的标签(两个_)，是获取到 metrics 后自动生成的原始标签。标签的值则可以包含任何 Unicode 编码的字符。在 Prometheus 的底层实现中指标名称实际上是以__name__=的形式保存在数据库中的，详见文章最后的图例&lt;/li>
+&lt;/ol>
+&lt;p>因此以下两种方式均表示的同一条 time-series ：&lt;/p>
+&lt;pre>&lt;code>api_http_requests_total{method=&amp;quot;POST&amp;quot;, handler=&amp;quot;/messages&amp;quot;}
+等同于：
+{__name__=&amp;quot;api_http_requests_total&amp;quot;, method=&amp;quot;POST&amp;quot;, handler=&amp;quot;/messages&amp;quot;}
+&lt;/code>&lt;/pre>
+&lt;p>在 Prometheus 的源码中也可以看到指标(Metric)对应的数据结构，如下所示：&lt;/p>
+&lt;pre>&lt;code>type Metric LabelSet
+type LabelSet map[LabelName]LabelValue
+type LabelName string
+type LabelValue string
+&lt;/code>&lt;/pre>
+&lt;h2 id="白话说">白话说&lt;/h2>
+&lt;p>有一条名叫内存使用率的时间序列数据，&amp;ldquo;内存使用率&amp;quot;就叫做 metric name。在 2019 年 10 月 1 日 00:00 的值为 100M，在 2019 年 10 月 1 日 01:00 的值为 110M。时间就是样本里的时间戳。值就是该样本的值。所有这些具有时间标识的值连在一起组成一条线，就叫时间序列数据，这条线的名字就叫“内存使用率”&lt;/p>
+&lt;p>可以看到，所谓的 Time Series，是使用一组标签作为唯一标识符的，可以这么说，所有标签都属于时间序列的名字，而不只是 name 字段。&lt;/p>
+&lt;h1 id="metrics指标-的类型">Metrics(指标) 的类型&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：
+&lt;a href="https://prometheus.io/docs/concepts/metric_types/">官网文档，概念-metric 类型&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>在 Prometheus 的存储实现上所有的监控样本都是以 time-series 的形式保存在 Prometheus 的 TSDB(时序数据库) 中，而 TimeSeries 所对应的 Metric(监控指标) 也是通过 LabelSet 进行唯一命名的。&lt;/p>
+&lt;p>从存储上来讲所有的 Metrics 都是相同的，但是在不同的场景下这些 Metrics 又有一些细微的差异。 例如，在 Node Exporter 返回的样本中指标 node_load1 反应的是当前系统的负载状态，随着时间的变化这个指标返回的样本数据是在不断变化的。而指标 node_cpu 所获取到的样本数据却不同，它是一个持续增大的值，因为其反应的是 CPU 的累积使用时间，从理论上讲只要系统不关机，这个值是会无限变大的。&lt;/p>
+&lt;p>为了能够帮助用户理解和区分这些不同监控指标之间的差异，Prometheus 定义了 4 中不同的 &lt;strong>Metric Type(指标类型)&lt;/strong>：Counter(计数器)、Gauge(计量器)、Histogram(直方图)、Summary(摘要)。&lt;/p>
+&lt;p>在 Exporter 返回的样本数据中，其注释中也包含了该样本的类型。例如：&lt;/p>
+&lt;blockquote>
+&lt;p>其中 TYPE node_cpu counter 表明 node_cpu 的指标类型为 counter&lt;/p>
+&lt;/blockquote>
+&lt;pre>&lt;code># HELP node_cpu Seconds the cpus spent in each mode.
+# TYPE node_cpu counter
+node_cpu{cpu=&amp;quot;cpu0&amp;quot;,mode=&amp;quot;idle&amp;quot;} 362812.789625
+&lt;/code>&lt;/pre>
+&lt;h2 id="counter计数器--只增不减的计数器">Counter(计数器) # 只增不减的计数器&lt;/h2>
+&lt;p>Counter 类型的指标其工作方式和计数器一样，只增不减（除非系统发生重置）。常见的监控指标，如 http_requests_total，node_cpu 都是 Counter 类型的监控指标。 一般在定义 Counter 类型指标的名称时推荐使用_total 作为后缀。&lt;/p>
+&lt;p>Counter 是一个简单但有强大的工具，例如我们可以在应用程序中记录某些事件发生的次数，通过以时序的形式存储这些数据，我们可以轻松的了解该事件产生速率的变化。 PromQL 内置的聚合操作和函数可以让用户对这些数据进行进一步的分析：&lt;/p>
+&lt;p>例如，通过 rate()函数获取 HTTP 请求量的增长率：
+rate(http_requests_total[5m])&lt;/p>
+&lt;p>查询当前系统中，访问量前 10 的 HTTP 地址：
+topk(10, http_requests_total)&lt;/p>
+&lt;h2 id="gauge仪表盘--可增可减的-gauge">Gauge(仪表盘) # 可增可减的 Gauge&lt;/h2>
+&lt;p>与 Counter 不同，Gauge 类型的指标侧重于反应系统的当前状态。因此这类指标的样本数据可增可减。常见指标如：node_memory_MemFree(主机当前空闲的内容大小)、node_memory_MemAvailable(可用内存大小)都是 Gauge 类型的监控指标。&lt;/p>
+&lt;p>通过 Gauge 指标，用户可以直接查看系统的当前状态：&lt;/p>
+&lt;pre>&lt;code>node_memory_MemFree
+&lt;/code>&lt;/pre>
+&lt;p>对于 Gauge 类型的监控指标，通过 PromQL 内置函数 delta() 可以获取样本在一段时间返回内的变化情况。例如，计算 CPU 温度在两个小时内的差异：&lt;/p>
+&lt;pre>&lt;code>delta(cpu_temp_celsius{host=&amp;quot;zeus&amp;quot;}[2h])
+&lt;/code>&lt;/pre>
+&lt;p>还可以使用 deriv() 计算样本的线性回归模型，甚至是直接使用 predict_linear() 对数据的变化趋势进行预测。例如，预测系统磁盘空间在 4 个小时之后的剩余情况：&lt;/p>
+&lt;pre>&lt;code>predict_linear(node_filesystem_free{job=&amp;quot;node&amp;quot;}[1h], 4 * 3600)
+&lt;/code>&lt;/pre>
+&lt;h2 id="histogram直方图-与-summary摘要">Histogram(直方图) 与 Summary(摘要)&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://prometheus.io/docs/practices/histograms/">官方文档&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://fuckcloudnative.io/posts/prometheus-histograms/">云原生实验室&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>除了 Counter 和 Gauge 类型的监控指标以外，Prometheus 还定义了 Histogram 和 Summary 的指标类型。Histogram 和 Summary 主用用于统计和分析样本的分布情况。&lt;/p>
+&lt;p>在大多数情况下人们都倾向于使用某些量化指标的平均值，例如 CPU 的平均使用率、页面的平均响应时间。这种方式的问题很明显，以系统 API 调用的平均响应时间为例：如果大多数 API 请求都维持在 100ms 的响应时间范围内，而个别请求的响应时间需要 5s，那么就会导致某些 WEB 页面的响应时间落到中位数的情况，而这种现象被称为长尾问题。&lt;/p>
+&lt;p>为了区分是平均的慢还是长尾的慢，最简单的方式就是按照请求延迟的范围进行分组。例如，统计延迟在 0~10ms 之间的请求数有多少而 10~20ms 之间的请求数又有多少。通过这种方式可以快速分析系统慢的原因。Histogram 和 Summary 都是为了能够解决这样问题的存在，通过 Histogram 和 Summary 类型的监控指标，我们可以快速了解监控样本的分布情况。&lt;/p>
+&lt;p>直方图和摘要均是样本观察值，也就是说在一段时间内持续观察某个样本后得出的数据。&lt;/p>
+&lt;p>这两种指标类型都属于&lt;strong>统计学范畴的指标&lt;/strong>。&lt;/p>
+&lt;h3 id="histogram直方图">Histogram(直方图)&lt;/h3>
+&lt;p>Histogram 在&lt;strong>一段时间范围内&lt;/strong>观察某指标(通常是 请求的持续时间 或 响应时间的长短 等)，并对该指标的样本进行采样，将其计入可配置的 &lt;strong>bucket(储存区)&lt;/strong> 中。Histogram 还提供所有 observed(被观察指标) 的样本在这一段时间范围内的总和。&lt;/p>
+&lt;p>&lt;strong>传统意义上的直方图&lt;/strong>
+假设我们想获取某个应用在不同响应时间的次数，则首先需要获取该应用在一段时间内的响应时间，收集这些样本。假设最后得到的所有样本的响应时间范围是 0s~10s。那么我们将样本的值划分为不同的区间，这个区间就是 &lt;strong>bucket(存储区)&lt;/strong>，假设每个 bucket 的宽度是 0.2s，那么第一个 bucket 则表示响应时间小于 0.2s 的所有样本数量；第二个 bucket 表示响应时间大于 0.2s 且小于 0.4s 的样本数量；以此类推。效果如图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gnzmdt/1617542272313-06f1c876-f41b-431b-99ed-e1e14b152761.jpeg" alt="">&lt;/p>
+&lt;p>&lt;strong>Prometheus 中的直方图&lt;/strong>&lt;/p>
+&lt;p>Prometheus 中的直方图与传统意义的直方图有一些差别，准确描述，应该称为 &lt;strong>累计直方图&lt;/strong>。主要差别在 bucket 的定义，在 Prometheus 的累计直方图中，还是假设 bucket 的宽度为 0.2s，那么第一个 bucket 表示响应时间小于等于 0.2s 的样本数量，第二个 bucket 表示响应时间小于等于 0.4s 的样本数量，以此类推。也就是说，&lt;strong>每一个 bucket 中的样本都包含了卡面所有 bucket 中的样本&lt;/strong>，所以称为 累计直方图。而每个 bucket 范围中的最大值，称为 &lt;strong>upper inclusive bound(上边界)&lt;/strong>。效果如图：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gnzmdt/1617543132157-1f35ddae-ef51-4ca7-9ece-72886154cc1f.jpeg" alt="">&lt;/p>
+&lt;p>Histogram 类型的指标在同一时间具有多条时间序列(假设指标名称为 &amp;lt;basename)：(这些时间序列大体分为 3 种)&lt;/p>
+&lt;ul>
+&lt;li>**&amp;lt;basename&amp;gt;_bucket{le=&amp;quot;&amp;lt;上边界&amp;gt;&amp;rdquo;} **# 要观察的样本分布在 bucket 中的数量。解释的更通俗易懂一点，这个值表示 要观察的样本的值 小于等于 上边界的值 的所有样本数量。
+&lt;ul>
+&lt;li>le 通常用来表示该 bucket 的上限。le 这俩字符按照关系运算符来理解，就是“小于或等于”的意思。。。。。。。&lt;/li>
+&lt;li>用白话说就是，le 是 bucket 的标识符，比如下面的示例，就可以这么描述：0 到 0.00025 储存区，含有 332 个样本；0 到 0.0005 储存区，含有 336 个样本。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>&amp;lt;basename&amp;gt;_sum&lt;/strong> # 所有 被观察样本的值 的总和。&lt;/li>
+&lt;li>&lt;strong>&amp;lt;basename&amp;gt;_count&lt;/strong> # 观察次数。(该值和上面的 &amp;lt;basename&amp;gt;_bucket{le=&amp;quot;+Inf&amp;quot;} 相同)
+&lt;ul>
+&lt;li>本质上是一个 Counter 类型的指标。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>在 coredns 的样本数据中，我们能找到类型为 Histogram 的监控指标 &lt;code>coredns_dns_request_duration_seconds&lt;/code>&lt;/p>
+&lt;p>在这些时间序列中，被观察的样本是“每个 dns 的解析请求所花费的时间”&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># HELP coredns_dns_request_duration_seconds Histogram of the time (in seconds) each request took.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># TYPE coredns_dns_request_duration_seconds histogram&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 在总共336次解析请求的花费时间中，小于0.00025秒的有332次&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_bucket&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>,le&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;0.00025&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#ae81ff">332&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 在总共336次解析请求的花费时间中，小于0.0005秒的有336次&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_bucket&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>,le&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;0.0005&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#ae81ff">336&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>........
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 在总共336次解析请求的花费时间中，小于8.192秒的有336次&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_bucket&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>,le&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;8.192&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#ae81ff">336&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_bucket&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>,le&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;+Inf&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#ae81ff">336&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 所有的336次解析请求，总的花费时间为 0.03502086400000001 秒&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_sum&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> 0.03502086400000001
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># DNS 解析请求一共336次&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns_dns_request_duration_seconds_count&lt;span style="color:#f92672">{&lt;/span>server&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;dns://:53&amp;#34;&lt;/span>,zone&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;.&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#ae81ff">336&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以通过 histogram_quantile() 函数 来计算 Histogram 类型样本的 分位数。分位数可能不太好理解，你可以理解为分割数据的点。我举个例子，假设样本的 9 分位数（quantile=0.9）的值为 x，即表示小于 x 的采样值的数量占总体采样值的 90%。Histogram 还可以用来计算应用性能指标值（Apdex score）。&lt;/p>
+&lt;p>注意：&lt;/p>
+&lt;p>bucket 可以理解为是对数据指标值域的一个划分，划分的依据应该基于数据值的分布。注意后面的采样点是包含前面的采样点的，假设 xxx_bucket{&amp;hellip;,le=&amp;ldquo;0.01&amp;rdquo;} 的值为 10，而 xxx_bucket{&amp;hellip;,le=&amp;ldquo;0.05&amp;rdquo;} 的值为 30，那么意味着这 30 个采样点中，有 10 个是小于 10 ms 的，其余 20 个采样点的响应时间是介于 10 ms 和 50 ms 之间的。&lt;/p>
+&lt;p>用白话说：直方图与 Counter 和 Gauge 的本质区别在于，直方图是对一组样本进行统计获得的结果，而 Counter 和 Gauge 仅仅是一个单一的样本。
+直方图的应用场景：在 1 小时的 http 请求中，有多少请求的响应时间少于 1 秒，有多少请求的响应时间少于 2 秒，总有有多少请求，所有请求的平均的响应时间是多少。&lt;/p>
+&lt;p>如果是 Guage 的话，则只能表示每一个请求的具体响应时间，或者总共有多少个请求。&lt;/p>
+&lt;p>所以才说，直方图就是一种&lt;strong>统计学上的指标&lt;/strong>&lt;/p>
+&lt;h3 id="summary摘要">Summary(摘要)&lt;/h3>
+&lt;p>与 Histogram 类型类似，用于表示一段时间内的数据采样结果（通常是请求持续时间或响应大小等），但它 bucket 表示分位数（通过客户端计算，然后展示出来），而不是通过区间来计算。&lt;/p>
+&lt;p>例如，指标 prometheus_tsdb_wal_fsync_duration_seconds 的指标类型为 Summary。 它记录了 Prometheus Server 中 wal_fsync 处理的处理时间，通过访问 Prometheus Serve r 的 /metrics 地址，可以获取到以下监控样本数据：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-text" data-lang="text">&lt;span style="display:flex;">&lt;span># HELP prometheus_tsdb_wal_fsync_duration_seconds Duration of WAL fsync.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span># TYPE prometheus_tsdb_wal_fsync_duration_seconds summary
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>prometheus_tsdb_wal_fsync_duration_seconds{quantile=&amp;#34;0.5&amp;#34;} 0.012352463
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>prometheus_tsdb_wal_fsync_duration_seconds{quantile=&amp;#34;0.9&amp;#34;} 0.014458005
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>prometheus_tsdb_wal_fsync_duration_seconds{quantile=&amp;#34;0.99&amp;#34;} 0.017316173
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>prometheus_tsdb_wal_fsync_duration_seconds_sum 2.888716127000002
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>prometheus_tsdb_wal_fsync_duration_seconds_count 216
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>从上面的样本中可以得知当前 Prometheus Server 进行 wal_fsync 操作的总次数为 216 次，耗时 2.888716127000002s。其中中位数（quantile=0.5）的耗时为 0.012352463，9 分位数（quantile=0.9）的耗时为 0.014458005s。&lt;/p>
+&lt;h3 id="summary-类型-与-histogram-类型-的异同">Summary 类型 与 Histogram 类型 的异同&lt;/h3>
+&lt;ol>
+&lt;li>两类样本同样会反应当前指标的记录的总数(以_count 作为后缀)以及其值的总量（以_sum 作为后缀）&lt;/li>
+&lt;li>不同在于 Histogram 指标直接反应了在不同区间内样本的个数，区间通过标签 len 进行定义。&lt;/li>
+&lt;li>对于分位数的计算而言，Histogram 通过 histogram_quantile 函数是在服务器端计算的分位数。 而 Sumamry 的分位数则是直接在客户端计算完成。&lt;/li>
+&lt;li>Summary 在通过 PromQL 进行查询时有更好的性能表现，而 Histogram 则会消耗更多的资源。反之对于提供指标的服务而言，Histogram 消耗的资源更少。在选择这两种方式时用户应该按照自己的实际场景进行选择。&lt;/li>
+&lt;/ol>
+&lt;h1 id="prometheus-底层保存的时间序列数据的样例">Prometheus 底层保存的时间序列数据的样例&lt;/h1>
+&lt;p>详见 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Prometheus%20API/Querying%20API.md">Querying API&lt;/a>&lt;/p>
+&lt;p>下面红框的地方就是&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gnzmdt/1616069604244-2f845e27-61ec-4a5b-ab9a-0634bf8907b2.jpeg" alt="">&lt;/p>
+&lt;h1 id="prometheus-格式的-metrics-详解">Prometheus 格式的 Metrics 详解&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://prometheus.io/docs/instrumenting/exposition_formats/">官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>通过各种 Exporter 暴露的 HTTP 服务，Prometheus 可以采集到 当前时间 主机所有监控指标的样本数据。数据格式示例如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-text" data-lang="text">&lt;span style="display:flex;">&lt;span># HELP http_requests_total The total number of HTTP requests.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span># TYPE http_requests_total counter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_requests_total{method=&amp;#34;post&amp;#34;,code=&amp;#34;200&amp;#34;} 1027 1395066363000
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http_requests_total{method=&amp;#34;post&amp;#34;,code=&amp;#34;400&amp;#34;} 3 1395066363000
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span># Escaping in label values:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>msdos_file_access_time_seconds{path=&amp;#34;C:\\DIR\\FILE.TXT&amp;#34;,error=&amp;#34;Cannot find file:\n\&amp;#34;FILE.TXT\&amp;#34;&amp;#34;} 1.458255915e9
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span># Minimalistic line:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>metric_without_timestamp_and_labels 12.47
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span># A weird metric from before the epoch:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>something_weird{problem=&amp;#34;division by zero&amp;#34;} +Inf -3982045
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Note：上面通过 http 采集到的数据就是文本格式的 Metrics，格式一定是上述的样子，每个时间序列都分为 3 个部分。&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;h1 id="help-时间序列名称-时间序列描述">HELP 时间序列名称 时间序列描述&lt;/h1>
+&lt;/li>
+&lt;li>
+&lt;h1 id="type-时间序列名称-时间序列类型">TYPE 时间序列名称 时间序列类型&lt;/h1>
+&lt;/li>
+&lt;li>非#开头的每一行表示当前 Node Exporter 采集到的一个监控样本：node_cpu 和 node_load1 表明了当前指标的名称、大括号中的标签则反映了当前样本的一些特征和维度、浮点数则是该监控样本的具体值。
+&lt;ol>
+&lt;li>如果有多个 Metrics 的项目，则会有多行&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>主要由三个部分组成：样本的一般注释信息（HELP），样本的类型注释信息（TYPE）和样本。Prometheus 会对 Exporter 响应的内容逐行解析：&lt;/p>
+&lt;p>如果当前行以# HELP 开始，Prometheus 将会按照以下规则对内容进行解析，得到当前的指标名称以及相应的说明信息：&lt;/p>
+&lt;h2 id="-help"># HELP&lt;/h2>
+&lt;p>如果当前行以# TYPE 开始，Prometheus 会按照以下规则对内容进行解析，得到当前的指标名称以及指标类型:&lt;/p>
+&lt;h2 id="-type"># TYPE&lt;/h2>
+&lt;p>TYPE 注释行必须出现在指标的第一个样本之前。如果没有明确的指标类型需要返回为 untyped。&lt;/p>
+&lt;h2 id="metricsname-与-metrics-的值">MetricsName 与 Metrics 的值&lt;/h2>
+&lt;p>除了# 开头的所有行都会被视为是监控样本数据。 每一行样本需要满足以下格式规范:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>metric_name &lt;span style="color:#f92672">[{&lt;/span> label_name &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;label_value&amp;#34;&lt;/span> &lt;span style="color:#f92672">{&lt;/span> , label_name &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;label_value&amp;#34;&lt;/span> &lt;span style="color:#f92672">}&lt;/span> &lt;span style="color:#f92672">[&lt;/span> ,... &lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#f92672">}]&lt;/span> value &lt;span style="color:#f92672">[&lt;/span> timestamp &lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>其中 metric_name 和 label_name 必须遵循 PromQL 的格式规范要求。value 是一个 float 格式的数据，timestamp 的类型为 int64（从 1970-01-01 00:00:00 以来的毫秒数），timestamp 为可选默认为当前时间。具有相同 metric_name 的样本必须按照一个组的形式排列，并且每一行必须是唯一的指标名称和标签键值对组合。&lt;/p></description></item></channel></rss>
