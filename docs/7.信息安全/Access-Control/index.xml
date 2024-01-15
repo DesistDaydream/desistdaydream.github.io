@@ -1,0 +1,321 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Access Control</title><link>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Access-Control/</link><description>Recent content in Access Control on 断念梦</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Access-Control/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Access Control</title><link>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Access-Control/Access-Control/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Access-Control/Access-Control/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/vhwA-1UrE_6R7lICCMpG6A">RBAC 的演进历史、设计理念及简洁实现&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Access Control(访问控制)&lt;/strong>&lt;/p>
+&lt;h2 id="译者序">译者序&lt;/h2>
+&lt;p>本文翻译自 2021 年的一篇英文博客：RBAC like it was meant to be[1]。&lt;/p>
+&lt;p>很多系统（例如 Kubernetes）都在使用某种形式的 RBAC 做权限 / 访问控制。&lt;/p>
+&lt;p>本文基于 access control 的发展历史，从设计层面分析了&lt;code>DAC -&amp;gt; MAC -&amp;gt; RBAC -&amp;gt; ABAC&lt;/code>的演进历程及各模型的优缺点、适用场景等， 然后从实际需求出发，一步一步地设计出一个实用、简洁、真正符合 RBAC 理念的访问控制系统。&lt;/p>
+&lt;p>&lt;strong>由于译者水平有限，本文不免存在遗漏或错误之处。如有疑问，请查阅原文。&lt;/strong>&lt;/p>
+&lt;p>以下是译文。&lt;/p>
+&lt;hr>
+&lt;p>大部分人都听说过&lt;strong>基于角色的访问控制&lt;/strong>（role-based access control, RBAC）以及它 的后继演进版&lt;strong>基于属性的访问控制&lt;/strong>（attribute-based access control, ABAC）， 但我们经常遗忘或不懂得欣赏其中的伟大思想。&lt;/p>
+&lt;p>大部分如今常见的 RBAC 系统都经过了某种程度的简化，因此比最初的设计要弱一些。而本文想要说明，只要回到 RBAC 最初的设计，我们就能构建一个真正的 RBAC/ABAC 安全模型[2]，它比你能见到的那些系统更简单而强大，而且不管网络规模大还是小，它都能适用。&lt;/p>
+&lt;p>客户经常跟我们反馈说，他们如何震惊于如下事实：在 Tailscale 平台上，只用如此少的规则就能表达他们的安全策略。这并非偶然！但在解释为什么之前，我们先来回顾一些历史。&lt;/p>
+&lt;p>RBAC/ABAC 的概念和术语都源自几十年前的美国军方。[Role-Based Access Controls (Ferraiolo and Kuhn, 1992)](https://www.researchgate.net/publication/24164143_Role-Based_Access_Controls&amp;gt; &amp;ldquo;Role-Based Access Controls (Ferraiolo and Kuhn, 1992&amp;quot;Role-Based Access Controls (Ferraiolo and Kuhn, 1992)&amp;rdquo;)&amp;quot;) 是一篇很好的介绍。下面来看一下它们的一些演进过程。&lt;/p>
+&lt;h2 id="11-dac自主访问控制各文件-owner-自主设置文件权限">1.1 DAC（自主访问控制）：各文件 owner 自主设置文件权限&lt;/h2>
+&lt;p>最早出现的是 DAC（Discretionary Access Control），直到今天仍然很常见。&lt;/p>
+&lt;h3 id="设计">设计&lt;/h3>
+&lt;p>如下图所示，在 DAC 中 object owner 有权设置该 object 的访问权限。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>通过授予 individuals/groups 以 read/write/execute 权限， object (file) 的创建者能完全控制该 object 的内容和权限。&lt;/p>
+&lt;p>例如，&lt;/p>
+&lt;ol>
+&lt;li>在 Unix 系统中，设置 file permission（“模式”，这也是 &lt;code>chmod&lt;/code> change mode 的来历） 就能授予别人 &lt;code>读 / 写 / 执行&lt;/code> 这个文件的权限。&lt;/li>
+&lt;li>在 Google Doc 中，点击 share 按钮能授予权限。&lt;/li>
+&lt;/ol>
+&lt;h3 id="使用场景普通用户的文件权限控制">使用场景：普通用户的文件权限控制&lt;/h3>
+&lt;ul>
+&lt;li>军方不怎么喜欢 DAC，因为这种方式中，合规性很难保证，机密文件很容易被恶意 reshare 出去。&lt;/li>
+&lt;li>但在普通用户场景中，这种方式还是很常用也很合理的。&lt;/li>
+&lt;/ul>
+&lt;h2 id="12-mac强制访问控制强制由专门的-admin-设置文件权限">1.2 MAC（强制访问控制）：（强制由）专门的 admin 设置文件权限&lt;/h2>
+&lt;blockquote>
+&lt;p>注意：不要把 MAC (mandatory access control) 与网络术语 &amp;ldquo;MAC address&amp;rdquo; 中的 MAC (media access address) 搞混了，二者没有任何关系，只是碰巧缩写相同。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="设计dac-基础上引入专门的-admin-角色">设计：DAC 基础上引入专门的 admin 角色&lt;/h3>
+&lt;p>MAC (Mandatory access control) 对 DAC 做了增强。如下图所示， 由 administrator（管理员）或 administrative rule（管理员级别的规则） 来定义 rules。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>文件 owner 只能设置一个文件 type，这个 type 包含了哪些权限是由 admin 或 policy 设置的。用户能编辑文件内容，但无法修改文件权限。&lt;/p>
+&lt;p>因此在 MAC 模型中，一个人做某些事情的 能力是无法再分享给其他人的，从而避免了文件被 reshare 的问题。&lt;/p>
+&lt;h3 id="例子tcpudp-端口号">例子：TCP/UDP 端口号&lt;/h3>
+&lt;p>MAC 很难解释，因为在实际中很少看到它，甚至看到了之后，你都不觉得它是 “访问控制”。&lt;/p>
+&lt;p>Wikipedia 给了一个很好的例子：TCP 或 UDP 端口号。当你占用了一个 local port 之后（假设没设置 SO_REUSEADDR[3]）， 这台机器上的其他任何人就都无法再用这个端口号了 —— 不管他们是什么级别的特权用户。这里，端口范围不可重叠这一条件，就是强制性的（mandatory）。&lt;/p>
+&lt;h3 id="适用场景文档--系统访问控制">适用场景：文档 / 系统访问控制&lt;/h3>
+&lt;p>之前关于 file locking[4] 的文章中，我讨论了 advisory locks 和 mandatory locks 之间的区别：&lt;/p>
+&lt;ul>
+&lt;li>advisory lock：其他 apps 可以安全地读这个文件；&lt;/li>
+&lt;li>mandatory lock：按照规则，其他不允许 apps 读任何内容。&lt;/li>
+&lt;/ul>
+&lt;p>可以看出，MAC 适用于对文档或系统的访问控制，这就不难理解为什么 军方对 MAC —— 至少在理论上 —— 如此兴奋了。理想场景：&lt;/p>
+&lt;ul>
+&lt;li>一个带锁的房间，门口有警卫站岗，&lt;/li>
+&lt;li>出示门禁卡能进入这个房间，&lt;/li>
+&lt;li>但警卫禁止携带相机进入房间。&lt;/li>
+&lt;/ul>
+&lt;p>在这种场景下，你自己有权限查看房间内的文档，但无法将其分享给其他人。&lt;/p>
+&lt;p>这个例子给我们的一个启示是：数字系统中，MAC 在理论要比在实际中简单（easier in theory than in practice）。&lt;/p>
+&lt;ul>
+&lt;li>一个功能完整的（full-on）MAC 系统是很难真正实现的。&lt;/li>
+&lt;li>Digital restrictions management(DRM，数字限制管理) 是 MAC 的 一种，在这种模型中，文件的接收方无法再将文件分享给别人—— 每个 BitTorrent 用户都能体会到这种方式是如何奏效的。&lt;/li>
+&lt;/ul>
+&lt;h2 id="13-mac-之双因素登录two-factor-login-as-mac">1.3 MAC 之双因素登录（two-factor login as MAC）&lt;/h2>
+&lt;p>大家可能没意识到，另一种 MAC 是 multi-factor authentication (MFA or 2FA):&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>2FA as MAC：密码可以共享，但硬件 token 不能。密码是 DAC，而硬件 token 是 MAC。&lt;/p>
+&lt;p>用 MFA 能允许特定的人登录一台计算机或服务，如果这个人不是管理员（admin），那他 自己能登录，但将无法进一步将计算机共享给其他人，将密码告诉他们也不行。&lt;/p>
+&lt;p>这种 login 是强制性的（mandatory，单有密码不行，还必须有硬件 token 才能登录）。在这个模型中，假设了第二因素（the second factor，即硬件 token）是不可分享的。&lt;/p>
+&lt;h2 id="14-图片分享dacmac-模型比较">1.4 图片分享：DAC/MAC 模型比较&lt;/h2>
+&lt;p>另一个例子是分享图片。&lt;/p>
+&lt;ul>
+&lt;li>在某些服务中，任何有正确 secret URL 的人都能访问给定的图片 / 消息 / 文件，并且任何有这个 URL 的人都能继续分享它，这是 DAC 模式。&lt;/li>
+&lt;li>在另一些服务中，单有这个 URL 还不行，必须要登录有权限查看这个文件的账号之后， 才能 reshare：这 MAC 模式。虽然某些人能通过特定的 URL 访问 这个文件，但 reshre 这个 URL 并不能让其他人看到这个文件。&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>当然，如果一个人能下载这个文件，然后发送副本给别人，那结果还是泄露了这个文件 。这也是为什么一些人认为 secret URL 的安全性在数学上与 MAC 是等价的，因为现在 分享 URL 已经和分享文件一样难了。但二者有一个区别：你可以关闭一个 URL 的共享，但无法追回一个已经发送出去的文件副本。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="15-mac-概念限制太多又好像没什么限制">1.5 MAC 概念：限制太多，又好像没什么限制&lt;/h2>
+&lt;p>历史上，军方中的 MAC 是围绕 multi-level security[5] 构建的，这里的设计思想是：并非只有 admin 和 non-admin 两种用户，实际上有很多层的访问。他们最初将其设想为同心圆（“最高机密许可”、“机密许可” 等等），但最后证明 表达力太弱（too unexpressive）。&lt;/p>
+&lt;p>如今的访问控制更像是独立的 flags 或 subgroups。例如， SELinux 提供了对每个进程内的每个权限的细粒度控制，而传统 Unix/Linux 上只有 root 和常规用户权限的区分。但最终证明 SELinux 这套东西是噩梦般的复杂， 难以真正实用 —— 除非你在 NSA（发明 SELinux 的机构）工作，但即使 你在 NSA 也不一定会用。&lt;/p>
+&lt;p>最终来说，MAC 的概念证明是过于限制又过于模糊（both too restrictive and too vague）。当人们谈论 MAC 时，我们很难搞清楚他们到底指的是什么，唯一知道是：这东西用起来非常让人抓狂。&lt;/p>
+&lt;h2 id="21-rbac基于角色的访问控制">2.1 RBAC（基于角色的访问控制）&lt;/h2>
+&lt;p>RBAC 是 MAC 的一个子集，它是一种特殊类型的 MAC，更加具体，因此 在讨论及使用上会更加方便。&lt;/p>
+&lt;p>RBAC 与常见的 users/groups 模型类似。在 RBAC 中，&lt;/p>
+&lt;ul>
+&lt;li>admin 将某些 user 放到一个 group，然后&lt;/li>
+&lt;li>可以指定将某些资源（文件、计算机等）共享给某个 group（role）；&lt;/li>
+&lt;li>系统确保只有指定的 role 能访问指定的资源；&lt;/li>
+&lt;li>文件的接收方没有 reshare 权限 —— 除非拷贝一份，否则是无法 reshare 的。&lt;/li>
+&lt;/ul>
+&lt;h2 id="22-abac基于属性的访问控制">2.2 ABAC（基于属性的访问控制）&lt;/h2>
+&lt;p>Attribute-based access control (Hu, Kuhn, Ferraiolo, 2015)[6] 是对 RBAC 的改进，加了一些细节（属性，Attributes）。&lt;/p>
+&lt;ul>
+&lt;li>属性可以是位置、客户端设备平台、认证类型、用户的 http cookies 等。&lt;/li>
+&lt;li>当系统判断是否授予某个用户对某资源的访问权限时，ABAC 系统除了检查他们的 RBAC role（group），还会检查这个人携带的各种属性。&lt;/li>
+&lt;/ul>
+&lt;p>如果你遇到过下面这种情况 —— 登录某个服务时弹出额外的图片识别认证 reCAPTCHA[7]， 而你旁边的朋友登录时却不用 —— 就说明你遇到了 ABAC。&lt;/p>
+&lt;p>ABAC 很有用，因为这些额外的属性能给我们带来很多有用信息，尤其 是对于那些连接到互联网的、攻击矢量特别多的系统。但在概念上，ABAC 与 RBAC 类似，只是稍微向前演进了一点。属性的解析和认证工作是中心式的，大部分都实现 在各家的 identity provider 中。有鉴于此，接下来我们的讨论重点扔将放在 RBAC。&lt;/p>
+&lt;h2 id="23-也许你从未用过真正的-rbac">2.3 也许你从未用过真正的 RBAC&lt;/h2>
+&lt;p>RBAC 与前面提到的 users/groups 模型类似。接下来看一个具体的文件系统安全模型，例如 Windows。&lt;/p>
+&lt;blockquote>
+&lt;p>这里也可以拿 Unix 作为例子，但经典 Unix 文件安全与常见的安全模型不同， 它只支持单个 owner、单个 group，以及 self/group/other 文件模式。如今 Linux 也支持 facls[8]， 这算是 RBAC，但没人知道怎么用，因此这个也不算数。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="windows-文件安全模型每个文件一个-acl">Windows 文件安全模型：每个文件一个 ACL&lt;/h3>
+&lt;p>在 Windows 中，&lt;/p>
+&lt;ol>
+&lt;li>每个文件（或目录）都有一个 users 和 groups 列表，以及&lt;/li>
+&lt;li>每个列表中的成员可以对这个文件做什么操作。&lt;/li>
+&lt;/ol>
+&lt;p>这是一种访问控制列表（access control list，ACL）。owner 设置 ACL，操作系 统执行 ACL。这是 MAC，对吧？&lt;/p>
+&lt;p>对的 —— 大部分情况下。想一下，任何有文件读权限的人，都可以拷贝一份，然后在副本上 设置权限，因此这是某种形式的 DAC，或者说在执行上充满漏洞的 MAC。但在真实文件上（而非 API 上）执行 MAC 非常难。我们将这个难题留给军方，现在把关注点放在 ACL 语义上。&lt;/p>
+&lt;p>在一个 Windows filesystem ACL 中，有如下概念：&lt;/p>
+&lt;ol>
+&lt;li>User：在这个文件上执行操作的用户。在经典 RBAC 术语中，称为 subject。&lt;/li>
+&lt;li>Group 或 Role：由管理员定义的一组 user。&lt;/li>
+&lt;li>File：需要做访问控制的资源（resource）。也称为 object。subject 对 object 进行操作。&lt;/li>
+&lt;li>Permission 或 Entitlement：一条 &lt;code>subject-action-object&lt;/code>（用户 - 动作 - 目标文件）规则。有时会说某个 subject 有一条 entitlement，或者说某个 object 允许某个 permission，这两种表达方式本质上是一样的，只是从不同的角度描述。&lt;/li>
+&lt;li>ACL：一个 entitlements 列表。&lt;/li>
+&lt;/ol>
+&lt;h3 id="控制谁能访问哪个文件">控制谁能访问哪个文件&lt;/h3>
+&lt;p>每个文件都有一个 ACL（permission 列表）。&lt;/p>
+&lt;blockquote>
+&lt;ul>
+&lt;li>每个文件都有一个 ACL。该 ACL 可能从文件所在子目录的 ACL 中继承某些 entry，也 可能不会，这些对我们目前的讨论来说不重要。&lt;/li>
+&lt;li>ACL 相同的文件，它们的 ACL 可能在磁盘上是分别存储的，这些是实现细节，我们这里 也不关心。&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>如果想控制谁能访问这些文件，可通过以下任一种方式：&lt;/p>
+&lt;ol>
+&lt;li>找到 ACL 对应的 groups/roles，在其中添加或删除 user（称为修改 group/role 的 membership）；或者，&lt;/li>
+&lt;li>直接修改 ACL，添加或删除 permissions。&lt;/li>
+&lt;/ol>
+&lt;p>如果想一次修改一组文件的 ACL，可以&lt;/p>
+&lt;ol>
+&lt;li>修改 group/role membership（简单），或者&lt;/li>
+&lt;li>找到所有相关文件，逐个修改对应的 ACL（慢且易出错）。&lt;/li>
+&lt;/ol>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>文件多了之后，逐个修改 ACL 就不切实际了。&lt;/p>
+&lt;h2 id="24-存在的问题acl-太多到处重复批量修改麻烦">2.4 存在的问题：ACL 太多，到处重复，批量修改麻烦&lt;/h2>
+&lt;p>最后一点，也是访问控制开始出现漏洞的地方。&lt;/p>
+&lt;ul>
+&lt;li>几乎所有系统，不管是不是 RBAC，都支持寻找文件系统中的 objects，然后修改它们的 ACL， 但配套的 object 管理系统可能做的很差。&lt;/li>
+&lt;li>在分布式系统中，这些 objects 可能分散在世界各地，放在各种不同的存储系统中，而 它们的共同之处就是都依赖你的 identity 系统。&lt;/li>
+&lt;li>如果某天发现一个 permission 给错了，就必须找到这个 permission 的所有副本并解 决之，否则就遗留了一个安全问题。但如果 objects 管理系统做得比较糟糕，这里做起 来就会很麻烦。&lt;/li>
+&lt;/ul>
+&lt;p>被以上问题折磨多次之后，你可能会尝试一些新东西：&lt;/p>
+&lt;ul>
+&lt;li>将尽量多的信息从 ACL（分散在各处）中移出，&lt;/li>
+&lt;li>将尽量多的东西移入 user groups（集中式存储，而且能审计）。&lt;/li>
+&lt;/ul>
+&lt;h2 id="31-仍以-windows-文件系统为例">3.1 仍以 Windows 文件系统为例&lt;/h2>
+&lt;p>仍然以 Windows 文件系统为例，如下图所示，你可能会创建两个 group &lt;code>report-readers&lt;/code>和 &lt;code>report-writers&lt;/code>：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>将尽量多的东西从 ACL 中移出，将尽量多的东西移入 groups 中。&lt;/p>
+&lt;p>效果是：所有 reports 文件能被 &lt;code>report-readers&lt;/code> 组内的用户读，能被 &lt;code>report-writers&lt;/code>组内的用户写。&lt;/p>
+&lt;blockquote>
+&lt;p>经验不足的人在这里会犯的一个错误是：只创建一个名为 &lt;code>report&lt;/code> 的 group，然后给 予这个 group read/write 权限。通常来说，需要文件读权限的用户，要比需要 写权限的用户更多。甚至在某些情况下，writer 和 reader 用户之间都没有重叠（例如审计日志场景）。&lt;/p>
+&lt;/blockquote>
+&lt;p>这种 per-file-type group（每种文件访问类型一个单独的 user group）结构是 Don&amp;rsquo;t Repeat Yourself(DRY) 原则在实际应用中的一个例子：上一节 RBAC/ABAC 模型中，根源问题是每个文件都有自己的 ACL， 这些 ACL 到处重复，因此这里提取出了重复部分放到了一个公共的地方。&lt;/p>
+&lt;h2 id="32-存在的问题">3.2 存在的问题&lt;/h2>
+&lt;p>这个改进比较合理，尤其是在有很多 objects 的大公司中工作良好，但也有几个问题：&lt;/p>
+&lt;ol>
+&lt;li>现在需要有某种形式的 IAM admin 访问控制，也就是对用户组的增删查改做控制。
+上一节的 RBAC/ABAC 模型中无需这种功能，因为它直接修改文件的 ACL。IAM admin 管控带来的一个新问题是：&lt;/li>
+&lt;/ol>
+&lt;ul>
+&lt;li>如果管控太松，会导致很多人都有 IAM 的访问权限，存在风险；&lt;/li>
+&lt;li>如果管控太紧，大部分都无权修改 group membership，又会使得这种模型的好处大打折扣。&lt;/li>
+&lt;/ul>
+&lt;ol start="3">
+&lt;li>End users 仍然能四处游荡，在需要时能修改每个 report 文件的 ACL（“Alice 真的真的需要查看这个文件”），破坏了你精心设计的系统 —— 而你自己都无法察觉。&lt;/li>
+&lt;li>现在需要为每个 ACL 组合创建一个 user group。
+最后会发现，公司的每个工程师都属于 975 个 group，每个 group 都需要定义 read/write 两种类型。你必须 review 每个 group 的 membership。这种方式虽然比 老的 ad-hoc 文件权限方式审计性要好，但也好不了太多。&lt;/li>
+&lt;/ol>
+&lt;p>至此，我们决定放弃文件系统的 ACL，原因是：文件系统已经设计成这样了， 基于文件系统的 ACL 我们只能做到目前这样。你大概率无法解决现有的文件系统和操作系统中这些问题。&lt;/p>
+&lt;p>但接下来的好消息是：如今的服务都运行在无状态容器内， 大部分 VM 都无需密码就能执行 sudo， 因此我们不用再对文件系统进行控制，而是对 web 应用和 NoSQL 的 API 做控制。这也许不是巧合，因为对细粒度分布式安全（fine-grained distributed security）的需求一直在增长，而文件系统还停留在 1980s 年代。&lt;/p>
+&lt;p>那么，接下来就开始设计我们想要的 permission 系统！&lt;/p>
+&lt;h2 id="41-根据-user-type-而非-file-type-创建-user-group">4.1 根据 user type 而非 file type 创建 user group&lt;/h2>
+&lt;p>首先，注意到，前面两节的文件系统 ACL 方案其实并不是真正意义上基于角色的（role-based）访问控制。为什么呢？它把 user groups 作为 roles —— 这没有问题 —— 但如果你有 975 个像 &lt;code>report-readers&lt;/code> 和 &lt;code>report-writers&lt;/code>一样的 group，那这些就不算不上是真正的 human-relevant roles。HR 并不知道 你的新员工是否应该是 report-reader，这个决策太底层了（low-level）。&lt;/p>
+&lt;p>因此我们得到的第一个启示就是：应该根据用户类型（user types）而非文件类型（file types）来创建 user groups。如下图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;h2 id="42-roles-去扁平化增强表达力将-acl-定义为一组策略规则">4.2 Roles 去扁平化，增强表达力：将 ACL 定义为一组策略规则&lt;/h2>
+&lt;p>以上 group-per-user-type 格式还是过于扁平了（too flat）：它已经丢失了 “为什么某人会在某 group” 的语义含义（semantic meaning）。如果 Bob 离职了，我们必须修改所有可能包含 Bob 的 groups。这虽然已经比跟踪每个 &lt;code>report&lt;/code> 类型的文件 然后 double check 它的 permissions 是否还正确要好，但仍然很容易出错。&lt;/p>
+&lt;p>我们假设有如下角色（roles）：Accounting（审计人员）、DevOps（研发运维人员）、Engineering（工程师）、Executive（高管）。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>然后我们就可以将 ACL 定义为一组策略规则（a set of policy rules）：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>这种模型与最初的 flat 模型表达的东西是一样的，但通过增加一个间接层（indirection）， 它表达了我们一直想表达（而没有表达出来）的东西。有了这个模型， 接下来就可以讨论：&lt;/p>
+&lt;ul>
+&lt;li>由 HR 部门定义的 human-relevant roles，以及&lt;/li>
+&lt;li>由安全部门定义的标签（tags），以及&lt;/li>
+&lt;li>二者是如何联系到一起的。&lt;/li>
+&lt;/ul>
+&lt;h2 id="43-关于策略规则的进一步解释">4.3 关于策略规则的进一步解释&lt;/h2>
+&lt;p>我们正在设计一个新的权限系统。&lt;/p>
+&lt;p>现在，先将刚才设计的能转换成的 roles 的 policy rules 进一步表示为：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>有了这样一种格式的描述之后，当我们需要满足 SOC2 合规性要求时，只需将 &lt;code>database&lt;/code>的 readers 改为，例如 &lt;code>[DevOps, Prod]&lt;/code>，这将会立即锁定所有数据库相关的对象。&lt;/p>
+&lt;h2 id="44-其他特性">4.4 其他特性&lt;/h2>
+&lt;p>最后，我们来加两个其他特性：&lt;/p>
+&lt;p>首先，与文件只有一种 type（读或写）不同，一个对象可以有零或多个 tags。因此，与数据库相关的源文件可以打上 &lt;code>database&lt;/code> 和 &lt;code>sourcefile&lt;/code> 两个 tag，对应地， 它获得的是两种 permission set 的交集。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>第二，只有 tag 的 owner 有权限增加或删除任何对象上的该 tag。例如在下图中，只有 Engineering 可以在某个对象打 &lt;code>sourcefile&lt;/code> tag。这能够避免意外将对象分享给应该完全隔离的人，或在不期望的地方错误地应用已有策略。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;h2 id="45-mac-归来">4.5 MAC 归来&lt;/h2>
+&lt;p>至此，我们看到了 MAC 回归的身影。但是，现在它，&lt;/p>
+&lt;ol>
+&lt;li>不需要一个针对 security policy 的 global admin access control。&lt;/li>
+&lt;li>每个 tag owner 能直接对他们的 objects 进行授权，但他们能授予哪些访问权限，是 由整体上的安全策略（the overall security policy，即 roles）控制的。&lt;/li>
+&lt;/ol>
+&lt;h2 id="46-例子api-访问控制">4.6 例子：API 访问控制&lt;/h2>
+&lt;p>在类似 Tailscale 的网络系统中，我们其实并不会用 readers 和 writers 这样的文件系统术语。我们定义 node 和 port，以及允许谁连接到这些 node 和 port。例如可能会如下规则：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>有了以上规则，&lt;/p>
+&lt;ol>
+&lt;li>Engineering 中的任何人都可以启动一个&lt;code>dev-api-server&lt;/code> node，&lt;/li>
+&lt;li>该 node 能接受从任何 &lt;code>dev-api-client&lt;/code> node 来的非加密连接（TLS 太难了！开发环境就放行非加密连接吧），但反之并不亦然。&lt;/li>
+&lt;li>只有 Ops 中的人能启动 &lt;code>prod-api-server&lt;/code> 和 &lt;code>prod-api-client&lt;/code> nodes，它们只处理 https 流量，拒绝非加密 http。&lt;/li>
+&lt;/ol>
+&lt;p>下面是效果：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>这里注意：我们递归地用一些 tag names 来定义 permissions for other tags。Ops 中的某个人可以启动一个 node 并打上 &lt;code>prod-api-server&lt;/code> tag， 这个 node 就会获得与 &lt;code>prod-api-server&lt;/code> 而不是 Ops 相关联的 permissions 和 entitlements（ 这很重要，因为&lt;code>prod-api-server&lt;/code> instance 无法像 Ops 一样启动更多 instance）。&lt;/p>
+&lt;p>真实的 Tailscale ACLs 和 tags[9] 与此很像，但更加具体。&lt;/p>
+&lt;h2 id="51-根据-policy-rules-和-user-groups-自动生成访问权限">5.1 根据 policy rules 和 user groups 自动生成访问权限&lt;/h2>
+&lt;p>如果试图将这个模型反向适配到 legacy-style filesystem permissions， 我们就会发现 roles 和 tag definitions 其实是相同类型的对象（都是 lists of users）， 二者之间通过一个（“安全策略”）算法进行单向转换：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ef62c7f4-2473-4713-a153-66b5d85aa2f0/640" alt="">&lt;/p>
+&lt;p>将 roles 扩展成 tags，然后适配到传统文件系统的权限控制模型。&lt;/p>
+&lt;p>你可以类似地写一些脚本，将给定的 roles 和 group membership rules 自动生成你的 /etc/group 内容，我知道有些公司就是这样做的。这不是标准方式，维护很痛苦，而且通常用定时任务来批量执行，这意味着当修改 一个 tag 或 group membership 之后，必须要等上一段时间才能生效。但本质上来说，这 种方式是能工作的，而且比典型的操作系统默认值要好多了。&lt;/p>
+&lt;h2 id="52-tags-和-roles-各自的适用场景">5.2 Tags 和 roles 各自的适用场景&lt;/h2>
+&lt;p>前面说 tags（用于 ACL 目的）和 roles（用于 user management 目的）都是 “用户列表”（lists of users），其实这种说法有误导性。二者用于不同场景。最重要的是，不同的人负责系统的不同部分：&lt;/p>
+&lt;ol>
+&lt;li>Roles 描述的是 identity system (authentication) 中的人。Roles 变化很少，通常在入职、晋升或转岗时由 HR 部门设置。&lt;/li>
+&lt;li>Object types (tags) 由 object owner 在这个 object 创建时设置。&lt;/li>
+&lt;li>Entitlements 用 &lt;code>(Role, Tag)&lt;/code> 描述，由简单的程序（安全策略）来定义，由安全团队设置。&lt;/li>
+&lt;/ol>
+&lt;p>在这个架构中，这三种类型的人只有很少时候才需要交互：&lt;/p>
+&lt;ol>
+&lt;li>Accounting 部门中的财报 writer 并不关心谁是 Executive，也不关心 Executive 是否 有权查看或编辑财报。他们只需知道要给 report 文件打上 financial-report tag。&lt;/li>
+&lt;li>安全团队并不关心哪个文件打了 &lt;code>financial-report&lt;/code>（讨论一般情况下），也不关心谁是 Executive。他们需要的是&lt;/li>
+&lt;/ol>
+&lt;ul>
+&lt;li>能读、写对应的安全策略，以及确保策略生效：&lt;/li>
+&lt;li>确保 financial-report tag 只能被 Accounting 部门打，对应的文件只能被 Executives 和 Accounting 读（read only）。&lt;/li>
+&lt;/ul>
+&lt;ol start="4">
+&lt;li>HR 团队不知道也不关心文件或安全策略，他们只关心这周招了一个 Accounting role 的人。&lt;/li>
+&lt;/ol>
+&lt;h2 id="53-小结">5.3 小结&lt;/h2>
+&lt;p>回到 network permissions 场景：在大公司中，正确地围绕这些概念设计你的模型，就能避免大量摩擦。&lt;/p>
+&lt;p>我们在实际工作中可能会遇到如下类似的例子：工程师创建了一个新的开发（&lt;code>dev&lt;/code>）集群后，还要去提个工单，让安全团队给他开防火墙端口。为什么会这样？因为在这些公司中，安全团队维护的策略并不规范，没有收敛到以上模型：&lt;/p>
+&lt;ol>
+&lt;li>允许 Engineers 运行 dev API servers，接受来自本机或 dev API clients 的 incoming 连接 —— 这个没问题；&lt;/li>
+&lt;li>通常不允许创建 outgoing connections —— 这个也没问题；&lt;/li>
+&lt;li>噢对了，Carol 的 dev API server 需要主动访问数据库服务器，只能开单独策略了 —— 问题来了。&lt;/li>
+&lt;/ol>
+&lt;p>如果安全团队能将这些安全规则固化成代码片段，结果将会更好，能确保它们在整张 网络上得到一致执行。&lt;/p>
+&lt;p>以上提到的所有东西，users、roles、object types、policies 都不是新概念， 它们都来自 1992 提出 RBAC 模型的那篇论文，只是术语稍有不同。&lt;/p>
+&lt;p>如今，几乎每个人都在使用 users、groups、ACLs 了。一些人认为，我们实现的东西已经 是 RBAC，但事实告诉我们：并不是。还没有谁实现过完整的 RBAC 模型：&lt;/p>
+&lt;ol>
+&lt;li>每个人都是一个 User (subject)。&lt;/li>
+&lt;li>每个 user 都有一个或多个 Roles。&lt;/li>
+&lt;li>每个 object 都有一个或多个 Tags。&lt;/li>
+&lt;li>一条 &amp;ldquo;security policy&amp;rdquo; 定义一个将 &lt;code>(Role, Tag)&lt;/code> 转换成 Entitlements 的公式。&lt;/li>
+&lt;li>一个执行层（enforcement layer）负责 enforce security policy，并为每个 object 生成有效 entitlements 列表（ACL）。&lt;/li>
+&lt;/ol>
+&lt;p>但另一方面，实现这样一个模型比实现常见的 users+groups 模型并没有复杂多少—— 只要从一开始就将其放到系统的核心。&lt;/p>
+&lt;p>最后回到文初，这就是为什么 Tailscale RBAC、ABAC 和 security policy 不同寻常的地方[10]。Tailscale objects 都是设备和端口（devices and ports），而非文件，但所有概念在使用上与在文件系统中是一样的。最终的产品在理念设计上很简洁：&lt;/p>
+&lt;ol>
+&lt;li>Device 或 container 的 owner 可以设置 tag；&lt;/li>
+&lt;li>安全团队决定谁 own 哪些 tag、每个 tag 关联了哪些 permissions、tags 会授权给哪些 roles；&lt;/li>
+&lt;li>Identity/HR 团队决定哪些 users 应该属于哪些 roles。&lt;/li>
+&lt;/ol>
+&lt;h3 id="引用链接">引用链接&lt;/h3>
+&lt;p>[1]&lt;/p>
+&lt;p>RBAC like it was meant to be: &lt;a href="https://tailscale.com/blog/rbac-like-it-was-meant-to-be/">&lt;em>https://tailscale.com/blog/rbac-like-it-was-meant-to-be/&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[2]&lt;/p>
+&lt;p>真正的 RBAC/ABAC 安全模型: &lt;a href="https://tailscale.com/kb/1018/acls/">&lt;em>https://tailscale.com/kb/1018/acls/&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[3]&lt;/p>
+&lt;p>SO*REUSEADDR: &lt;a href="https://man7.org/linux/man-pages/man7/socket.7.html">_https://man7.org/linux/man-pages/man7/socket.7.html*&lt;/a>&lt;/p>
+&lt;p>[4]&lt;/p>
+&lt;p>之前关于 file locking: &lt;a href="https://apenwarr.ca/log/20101213">&lt;em>https://apenwarr.ca/log/20101213&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[5]&lt;/p>
+&lt;p>multi-level security: &lt;a href="https://en.wikipedia.org/wiki/Multilevel_security">&lt;em>https://en.wikipedia.org/wiki/Multilevel_security&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[6]&lt;/p>
+&lt;p>Attribute-based access control (Hu, Kuhn, Ferraiolo, 2015): &lt;a href="https://www.researchgate.net/publication/273393378_Attribute-Based_Access_Control">&lt;em>https://www.researchgate.net/publication/273393378_Attribute-Based_Access_Control&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[7]&lt;/p>
+&lt;p>reCAPTCHA: &lt;a href="https://www.google.com/recaptcha/about/">&lt;em>https://www.google.com/recaptcha/about/&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[8]&lt;/p>
+&lt;p>facls: &lt;a href="https://www.usenix.org/legacy/publications/library/proceedings/usenix03/tech/freenix03/full_papers/gruenbacher/gruenbacher_html/main.html">&lt;em>https://www.usenix.org/legacy/publications/library/proceedings/usenix03/tech/freenix03/full_papers/gruenbacher/gruenbacher_html/main.html&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[9]&lt;/p>
+&lt;p>真实的 Tailscale ACLs 和 tags: &lt;a href="https://tailscale.com/kb/1018/acls/">&lt;em>https://tailscale.com/kb/1018/acls/&lt;/em>&lt;/a>&lt;/p>
+&lt;p>[10]&lt;/p>
+&lt;p>Tailscale RBAC、ABAC 和 security policy 不同寻常的地方: &lt;a href="https://tailscale.com/kb/1018/acls/">&lt;em>https://tailscale.com/kb/1018/acls/&lt;/em>&lt;/a>&lt;/p></description></item><item><title>Docs: RBAC</title><link>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Access-Control/RBAC/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Access-Control/RBAC/</guid><description>
+&lt;p>基于角色的权限访问控制（Role-Based Access Control）作为传统访问控制（自主访问，强制访问）的有前景的代替受到广泛的关注。在 RBAC 中，权限与角色相关联，用户通过成为适当角色的成员而得到这些角色的权限。这就极大地简化了权限的管理。在一个组织中，角色是为了完成各种工作而创造，用户则依据它的责任和资格来被指派相应的角色，用户可以很容易地从一个角色被指派到另一个角色。角色可依新的需求和系统的合并而赋予新的权限，而权限也可根据需要而从某角色中回收。角色与角色的关系可以建立起来以囊括更广泛的客观情况。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/wn3hwi/1616125478657-b931db83-6f72-44d0-9371-0e19ae04ee25.jpeg" alt="">&lt;/p>
+&lt;p>RBAC 支持三个著名的安全原则：最小权限原则，责任分离原则和数据抽象原则。&lt;/p>
+&lt;p>（1）最小权限原则之所以被 RBAC 所支持，是因为 RBAC 可以将其角色配置成其完成任务所需要的最小的权限集。&lt;/p>
+&lt;p>（2）责任分离原则可以通过调用相互独立互斥的角色来共同完成敏感的任务而体现，比如要求一个计帐员和财务管理员共参与同一过帐。&lt;/p>
+&lt;p>（3）数据抽象可以通过权限的抽象来体现，如财务操作用借款、存款等抽象权限，而不用操作系统提供的典型的读、写、执行权限。然而这些原则必须通过 RBAC 各部件的详细配置才能得以体现。&lt;/p>
+&lt;p>RBAC 有许多部件(BUCU)，这使得 RBAC 的管理多面化。尤其是，我们要分割这些问题来讨论：用户与角色的指派；角色与权限的指派；为定义角色的继承进行的角色与角色的指派。这些活动都要求把用户和权限联系起来。然而在很多情况下它们最好由不同的管理员或管理角色来做。对角色指派权限是典型的应用管理者的职责。银行应用中，把借款、存款操作权限指派给出纳角色，把批准贷款操作权限指派给经理角色。而将具体人员指派给相应的出纳角色和管理者角色是人事管理的范畴。角色与角色的指派包含用户与角色的指派、角色与权限的指派的一些特点。更一般来说，角色与角色的关系体现了更广泛的策略。&lt;/p>
+&lt;h2 id="基本概念">基本概念&lt;/h2>
+&lt;p>RBAC 认为权限授权实际上是 Who、What、How 的问题。在 RBAC 模型中，who、what、how 构成了访问权限三元组,也就是“Who 对 What(Which)进行 How 的操作”。&lt;/p>
+&lt;p>Who：权限的拥用者或主体（如 Principal、User、Group、Role、Actor 等等）。&lt;/p>
+&lt;p>What：权限针对的对象或资源（Resource、Class）。&lt;/p>
+&lt;p>How：具体的权限（Privilege,正向授权与负向授权）。&lt;/p>
+&lt;p>Operator：操作。表明对 What 的 How 操作。也就是 Privilege+Resource&lt;/p>
+&lt;p>Role：角色，一定数量的权限的集合。权限分配的单位与载体,目的是隔离 User 与 Privilege 的逻辑关系.&lt;/p>
+&lt;p>Group：用户组，权限分配的单位与载体。权限不考虑分配给特定的用户而给组。组可以包括组(以实现权限的继承)，也可以包含用户，组内用户继承组的权限。User 与 Group 是多对多的关系。Group 可以层次化，以满足不同层级权限控制的要求。&lt;/p>
+&lt;p>RBAC 的关注点在于 Role 和 User, Permission（允许/权限）的关系。称为 User assignment(UA)和 Permission assignment(PA).关系的左右两边都是 Many-to-Many 关系。就是 user 可以有多个 role，role 可以包括多个 user。&lt;/p>
+&lt;p>凡是用过 RDBMS 都知道，n:m 的关系需要一个中间表来保存两个表的关系。这 UA 和 PA 就相当于中间表。事实上，整个 RBAC 都是基于关系模型。&lt;/p>
+&lt;p>Session 在 RBAC 中是比较隐晦的一个元素。标准上说：每个 Session 是一个映射，一个用户到多个 role 的映射。当一个用户激活他所有角色的一个子集的时候，建立一个 session。每个 Session 和单个的 user 关联，并且每个 User 可以关联到一或多个 Session.&lt;/p>
+&lt;p>在 RBAC 系统中，User 实际上是在扮演角色(Role)，可以用 Actor 来取代 User，这个想法来自于 Business Modeling With UML 一书 Actor-Role 模式。考虑到多人可以有相同权限，RBAC 引入了 Group 的概念。Group 同样也看作是 Actor。而 User 的概念就具象到一个人。&lt;/p>
+&lt;p>这里的 Group 和 GBAC（Group-Based Access Control）中的 Group（组）不同。GBAC 多用于操作系统中。其中的 Group 直接和权限相关联，实际上 RBAC 也借鉴了一些 GBAC 的概念。&lt;/p>
+&lt;p>Group 和 User 都和组织机构有关，但不是组织机构。二者在概念上是不同的。组织机构是物理存在的公司结构的抽象模型，包括部门，人，职位等等，而权限模型是对抽象概念描述。组织结构一般用 Martin fowler 的 Party 或责任模式来建模。&lt;/p>
+&lt;p>Party 模式中的 Person 和 User 的关系，是每个 Person 可以对应到一个 User，但可能不是所有的 User 都有对应的 Person。Party 中的部门 Department 或组织 Organization，都可以对应到 Group。反之 Group 未必对应一个实际的机构。例如，可以有副经理这个 Group，这是多人有相同职责。&lt;/p>
+&lt;p>引入 Group 这个概念，除了用来解决多人相同角色问题外，还用以解决组织机构的另一种授权问题：例如，A 部门的新闻我希望所有的 A 部门的人都能看。有了这样一个 A 部门对应的 Group，就可直接授权给这个 Group&lt;/p></description></item></channel></rss>
