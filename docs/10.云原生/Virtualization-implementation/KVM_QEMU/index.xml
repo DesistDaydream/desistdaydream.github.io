@@ -1,0 +1,504 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – KVM/QEMU</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/</link><description>Recent content in KVM/QEMU on 断念梦</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: KVM/QEMU</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/KVM_QEMU/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/KVM_QEMU/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.linux-kvm.org/page/Main_Page">KVM 官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://ubuntu.com/server/docs/virtualization-qemu">Ubuntu 官方文档，虚拟化-qemu&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="kvm-背景">KVM 背景&lt;/h2>
+&lt;p>&lt;strong>Kernel-based Virtual Machine(基于内核的虚拟化机器，简称 KVM)&lt;/strong>， 是 Linux 的一个内核模块，就叫 &lt;strong>kvm&lt;/strong>，只用于管理虚拟 CPU 和内存。该内核模块使得 Linux 变成了一个 Hypervisor。&lt;/p>
+&lt;ul>
+&lt;li>它由 Quramnet 开发，该公司于 2008 年&lt;strong>被 Red Hat 收购&lt;/strong>。&lt;/li>
+&lt;li>它支持 x86 (32 and 64 位), s390, Powerpc 等 CPU。&lt;/li>
+&lt;li>它从 Linux 2.6.20 起就作为一模块被包含在 Linux 内核中。&lt;/li>
+&lt;li>它需要支持虚拟化扩展的 CPU。&lt;/li>
+&lt;li>它是完全开源的。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zuowkm/1616124035086-2c826a6e-2fd2-402b-babd-06bfe2380e3d.png" alt="">&lt;/p>
+&lt;p>KVM 实际是 Linux 内核提供的虚拟化架构，可将内核直接充当 Hypervisor 来使用。KVM 需要宿主机的 CPU 本身支持虚拟化扩展，如 intel VT 和 AMD AMD-V 技术。KVM 自 2.6.20 版本后已合入主干并发行。除了支持 x86 的处理器，同时也支持 S/390,PowerPC,IA-61 以及 ARM 等平台。&lt;/p>
+&lt;p>KVM 包含包含两个内核模块&lt;/p>
+&lt;ol>
+&lt;li>kvm 用来实现核心虚拟化功能&lt;/li>
+&lt;li>kvm-intel # 与处理器强相关的模块&lt;/li>
+&lt;/ol>
+&lt;p>KVM 本身只提供了 CPU 和 Memory 的虚拟化，并暴露了一个 &lt;strong>&lt;code>/dev/kvm&lt;/code>&lt;/strong> 设备，以供宿主机上的用户空间的程序访问(比如 下文提到的 QEMU)。用户空间的程序通过 &lt;strong>/dev/kvm&lt;/strong> 接口可以实现多种功能&lt;/p>
+&lt;h2 id="qemu-背景">QEMU 背景&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.qemu.org/">QEMU 官网&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>QEMU 是一个通过软件实现的完全虚拟化程序，通过动态二进制转换来模拟 CPU，并模拟一系列的硬件，使虚拟机认为自己和硬件直接打交道，其实是同 QEMU 模拟出来的硬件打交道，QEMU 再将这些指令翻译给真正硬件进行操作。通过这种模式，虚拟机可以和主机上的硬盘，网卡，CPU，CD-ROM，音频设备和 USB 设备进行交互。但由于所有指令都需要经过 QEMU 来翻译，因而性能会比较差&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zuowkm/1616124035102-78899618-45f3-4dcc-9de1-9c80ecd532cb.jpeg" alt="">&lt;/p>
+&lt;h2 id="kvmqemu-诞生">KVM/QEMU 诞生&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zuowkm/1616124035098-45602829-f8bc-4f49-b65d-56b8dba6c466.png" alt="图片来源：RedHat8 Virtualization Architecture 在 KVM/QEMU Storage Stack Performance Discussion 这篇文章中，作者还画了一个非常形象的图，可以作为参考，下面缩小的图就是">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zuowkm/1616124035057-cdeb1319-ee83-4674-99c3-70a16da96211.jpeg" alt="">&lt;/p>
+&lt;p>从前面的背景介绍可知，KVM 实现了 CPU 和 Memory 的虚拟化，但 KVM 并不能模拟其他设备，所以需要其他东西来支持其他设备的模拟；而 QEMU 是通过纯软件实现的一套完整的虚拟化，但是性能非常低下。所以 KVM 与 QEMU 天然得相辅相成，KVM 的开发者选择了比较成熟的开源虚拟化软件 QEMU 来模拟 I/O 设备(网卡，磁盘等)，最后形成了 KVM/QEMU。&lt;/p>
+&lt;p>在 KVM/QEMU 中，KVM 运行在内核空间，QEMU 运行在用户空间，实际模拟创建、管理各种虚拟硬件，QEMU 将 KVM 整合了进来，通过 ioctl() 系统调用来调用 /dev/kvm 设备，从而将 CPU 指令的部分交给内核模块来做，KVM 实现了 CPU 和 Memory 的虚拟化，QEMU 模拟 IO 设备(磁盘，网卡，显卡等)，KVM 加上 QEMU 后就是完整意义上的服务器虚拟化。&lt;/p>
+&lt;p>综上所述，QEMU-KVM 具有两大作用：&lt;/p>
+&lt;ul>
+&lt;li>KVM 负责 cpu，内存 的虚拟&lt;/li>
+&lt;li>QEMU 负责 I/O 设备 的模拟。比如显卡、PCI、USB、声卡、网卡、存储设备等等。&lt;/li>
+&lt;/ul>
+&lt;h2 id="结语">结语&lt;/h2>
+&lt;p>QEMU-KVM，是 QEMU 的一个特定于 KVM 加速模块的分支，里面包含了很多关于 KVM 的特定代码，与 KVM 模块一起配合使用。&lt;/p>
+&lt;p>目前 QEMU-KVM 已经与 QEMU 合二为一，所有特定于 KVM 的代码也都合入了 QEMU，当需要与 KVM 模块配合使用的时候，只需要在 QEMU 命令行加上 &amp;ndash;enable-kvm 就可以。&lt;/p>
+&lt;h1 id="kvmqeum-虚拟化实现原理">KVM/QEUM 虚拟化实现原理&lt;/h1>
+&lt;p>KVM/QEMU 主要通过以下组件来实现完整的虚拟化功能&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>kvm.ko.xz&lt;/strong> # kvm 内核模块。用来模拟 CPU 与 RAM。&lt;/li>
+&lt;li>&lt;strong>/dev/kvm&lt;/strong> # 一个字符设备(也是一个接口)。供用户空间的程序使用 &lt;code>ioctl()&lt;/code> 系统调用来访问 kvm 模块&lt;/li>
+&lt;li>&lt;strong>qemu-system&lt;/strong> # 一个二进制文件。用来调用 &lt;code>/dev/kvm&lt;/code> 设备，并为虚拟机模拟各种 I/O 设备。qemu-system 也是最基本的用于创建虚拟机的命令行工具。&lt;/li>
+&lt;/ul>
+&lt;p>KVM/QEMU 通过 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization%20implementation/KVM_QEMU/KVM_QEMU%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/qemu-img.md">qemu-img 命令行工具&lt;/a>来创建 VM 文件。&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization%20implementation/KVM_QEMU/KVM_QEMU%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/qemu-system.md">qemu-system&lt;/a> 程序使用 /dev/kvm 接口来调用 kvm 模块，以运行 VM。qemu-kvm 和 qemu-system 两个工具也是创建与运行 VM 的最基础工具。&lt;/p>
+&lt;p>使用 /dev/kvm 接口的 qemu-system 程序可以提供如下能力：&lt;/p>
+&lt;ul>
+&lt;li>设置 VM 的地址空间。宿主机必须提供固件镜像(通常为模拟出来的 BIOS)以便让 VM 可以引导到 操作系统中&lt;/li>
+&lt;li>为 VM 模拟 I/O 设备。&lt;/li>
+&lt;li>将 VM 的视频显示映射回宿主机上。&lt;/li>
+&lt;/ul>
+&lt;h2 id="virtualization-cpu--memory">Virtualization CPU &amp;amp;&amp;amp; Memory&lt;/h2>
+&lt;h3 id="cpu-虚拟化">CPU 虚拟化&lt;/h3>
+&lt;p>QEMU 创建 CPU 线程，在初始化的时候设置好相应的虚拟 CPU 寄存器的值，然后调用 KVM 的接口，运行虚拟机，在物理 CPU 上执行虚拟机代码。&lt;/p>
+&lt;p>在虚拟机运行时，KVM 会截获虚拟机中的敏感指令，当虚拟机中的代码是敏感指令或者满足了一定的退出条件时，CPU 会从 VMX non-root 模式退出到 KVM，这就是下图的 VM exit。虚拟机的退出首先陷入到 KVM 进行处理，但是如果遇到 KVM 无法处理的事件，比如虚拟机写了设备的寄存器地址，那么 KVM 就会将这个操作交给 QEMU 处理。当 QEMU/KVM 处理好了退出事件后，又会将 CPU 置于 VMX non-root 模式，也就是下图的 VM Entry。&lt;/p>
+&lt;p>KVM 使用 VMCS 结构来保存 VM Exit 和 VM Entry
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zuowkm/1616124035076-0336490e-7922-482c-91be-ee6b0a2ba562.png" alt="">&lt;/p>
+&lt;h3 id="memory-虚拟化">Memory 虚拟化&lt;/h3>
+&lt;p>QEMU 初始化时调用 KVM 接口告知 KVM，虚拟机所需要的物理内存，通过 mmap 分配宿主机的虚拟内存空间作为虚拟机的物理内存，QEMU 在更新内存布局时会持续调用 KVM 通知内核 KVM 模块虚拟机的内存分布。&lt;/p>
+&lt;p>在 CPU 支持 EPT（拓展页表）后，CPU 会自动完成&lt;strong>虚拟机物理地址&lt;/strong>到&lt;strong>宿主机物理地址&lt;/strong>的转换。虚拟机第一次访问内存的时候会陷入 KVM，KVM 逐渐建立起 EPT 页面。这样后续的虚拟机的虚拟 CPU 访问虚拟机&lt;strong>虚拟内存地址&lt;/strong>时，会先被转换为&lt;strong>虚拟机物理地址&lt;/strong>，接着查找 EPT 表，获取宿主机物理地址
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zuowkm/1616124035074-4de2d638-b8fb-499c-a1de-92ce5e6a10b3.png" alt="">&lt;/p>
+&lt;h2 id="paravirtualized-devices半虚拟化设备">Paravirtualized Devices(半虚拟化设备)&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.qemu.org/docs/master/system/device-emulation.html">官方文档，系统模拟-设备模拟&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/virtualization_getting_started_guide/sec-virtualization_getting_started-products-virtualized-hardware-devices#sec-Virtualization_Getting_Started-Products-paravirtdevices">RedHat7 虚拟化硬件设备章节中的半虚拟化章节&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>半虚拟化设备，就是 Qemu 模拟的各种 I/O 设备&lt;/p>
+&lt;p>在 QEMU/KVM 早期模拟其他的硬件(如存储、网络设备)性能不足。为了提高 IO 设备性能，所以产生了 &lt;strong>Paravirtualized Devices(半虚拟化设备)&lt;/strong>，Paravirtualized(半虚拟化) 为 VM 使用宿主机上的设备提供了&lt;strong>快速且高效的通讯方式&lt;/strong>。KVM/QEMU 使用 &lt;strong>Virtio API&lt;/strong> 作为 VM 与 Hypervisor 的中间层，以便为 VM 提供 Paravirtualized Devices(半虚拟化设备)。&lt;/p>
+&lt;blockquote>
+&lt;p>一些半虚拟化设备可以有效减少 I/O 的延迟，并把 I/O 的吞吐量提高至接近裸机的水平。&lt;/p>
+&lt;/blockquote>
+&lt;p>所有 &lt;strong>Virtio&lt;/strong> 设备都&lt;strong>由两部分组成&lt;/strong>：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Host Device&lt;/strong> # 宿主机设备
+&lt;ul>
+&lt;li>也称为 &lt;strong>Device Back End(后端设备)&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Guest Device&lt;/strong> # 虚拟机设备
+&lt;ul>
+&lt;li>也称为 &lt;strong>Device Front End(前端设备)&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>Paravirtualizd device driver(半虚拟化设备驱动) 可以让 VM 直接访问宿主机上的物理硬件设备。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zuowkm/1616124035106-08438d88-b937-43b9-af1c-01ddb6771941.jpeg" alt="">
+现阶段有多种半虚拟化设备可供使用&lt;/p>
+&lt;ul>
+&lt;li>virtio-net(半虚拟化网络设备) # 半虚拟化网络设备是一种虚拟网络设备，可通过增加的 I/O 性能和较低的延迟为虚拟机提供网络访问。&lt;/li>
+&lt;li>virtio-blk(半虚拟化块设备) # 半虚拟化块设备是一种高性能的虚拟存储设备，可为虚拟机提供更高的 I / O 性能和更低的延迟。 虚拟机管理程序支持半虚拟化的块设备，该设备已连接到虚拟机（必须仿真的软盘驱动器除外）。&lt;/li>
+&lt;li>virtio-scsi(半虚拟化控制器设备) # 半虚拟化 SCSI 控制器设备是一种更为灵活且可扩展的 virtio-blk 替代品。virtio-scsi 客机能继承目标设备的各种特征，并且能操作几百个设备，相比之下，virtio-blk 仅能处理 28 台设备。&lt;/li>
+&lt;li>半虚拟化时钟&lt;/li>
+&lt;li>virtio-serial(半虚拟化串口设备) #&lt;/li>
+&lt;li>virtio-ballon(气球设备) # 气球（ballon）设备可以指定虚拟机的部分内存为没有被使用（这个过程被称为气球“&lt;em>充气&lt;/em> ” — inflation），从而使这部分内存可以被主机（或主机上的其它虚拟机）使用。当虚拟机这部分内存时，气球可以进行“&lt;em>放气&lt;/em> ”（deflated），主机就会把这部分内存重新分配给虚拟机。&lt;/li>
+&lt;li>virtio-rng(半虚拟化随机数生成器)&lt;/li>
+&lt;li>QXL(半虚拟化显卡) # 半虚拟化显卡与 QXL 驱动一同提供了一个有效地显示来自远程主机的虚拟机图形界面。SPICE 需要 QXL 驱动。&lt;/li>
+&lt;/ul>
+&lt;h3 id="创建虚拟机示例">创建虚拟机示例&lt;/h3>
+&lt;p>qemu-kvm 命令中的 &lt;code>-device&lt;/code> 选项用于指定前端设备，比如 网卡、磁盘、usb 等等。而 &lt;code>-XXXXdev&lt;/code>等选项则是为了指定宿后端设备。比如宿主机上的文件、socket 等等&lt;/p>
+&lt;p>qemu-kvm 使用 &lt;code>-device&lt;/code> 选项指定的参数将这些模拟出来的硬件设备，通过 ID 关联到&lt;code>-XXXdev&lt;/code>定的宿主机文件上。&lt;/p>
+&lt;p>而在新版，则使用了更简单的方式，通过一个选项，来直接指定半虚拟化的两端设备，比如使用 &lt;code>-drive&lt;/code> 代替 &lt;code>-device&lt;/code> 和 &lt;code>-blockdev&lt;/code>、使用 &lt;code>-nic&lt;/code> 代替 &lt;code>-device&lt;/code> 和 &lt;code>-netdev&lt;/code> 等等。&lt;/p>
+&lt;p>比如下面的示例：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>qemu-system-x86_64 -m &lt;span style="color:#ae81ff">4096&lt;/span> -smp &lt;span style="color:#ae81ff">2&lt;/span> -name test &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>&lt;span style="color:#75715e"># 模拟块设备&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># -drive 使新版选项，是 -blockdev 和 -device 两个参数的集合，可以模拟一个块设备&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Host Device 为 /var/lib/libvirt/images/test-2.bj-net.qcow2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Guest Device 为 virtio-blk 设备&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-drive file&lt;span style="color:#f92672">=&lt;/span>/var/lib/libvirt/images/test-2.bj-net.qcow2,format&lt;span style="color:#f92672">=&lt;/span>qcow2,if&lt;span style="color:#f92672">=&lt;/span>virtio &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-vnc :3 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>&lt;span style="color:#75715e"># 模拟网卡&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># -netdev 指定 Host Device(宿主机设备) 为 tap 类型的网络设备&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># -device 指定 Guest Device(虚拟机设备) 为 virtio-net 设备&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-netdev tap,id&lt;span style="color:#f92672">=&lt;/span>n1 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-net,netdev&lt;span style="color:#f92672">=&lt;/span>n1 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>&lt;span style="color:#75715e"># 模拟串口&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># -chardev 指定 Host Device(宿主机设备)为 socket&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># -device 指定 Guest Device(虚拟机设备)为 virtio-serial&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># virtserialport 是 virtio-serial-port 的意思&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-chardev socket,path&lt;span style="color:#f92672">=&lt;/span>/tmp/qga.sock,server,nowait,id&lt;span style="color:#f92672">=&lt;/span>qga0 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-serial &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtserialport,chardev&lt;span style="color:#f92672">=&lt;/span>qga0,name&lt;span style="color:#f92672">=&lt;/span>org.qemu.guest_agent.0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到，所有通过 -device 选项在 VM 中模拟的硬件设备，都会根据 ID 关联到宿主机的某个文件或者设备上。&lt;/p>
+&lt;p>而且还有一个 -drive 选项这种更简单的使用方式，来免去设定 ID 的困扰，并且输入的字符更少。&lt;/p>
+&lt;h2 id="总结一下">总结一下&lt;/h2>
+&lt;p>KVM/QEMU 虚拟化环境中，除了 CPU 与 Memory 是通过 KVM 虚拟化的，其他所有硬件设备，都是通过 QEMU 模拟出来，并且，要想让模拟出来的硬件设备能正常工作(模拟的硬件与宿主机交互)，则还需要在宿主机上创建与之关联的文件。所以，一共两部分来实现 QEMU 的模拟功能。&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>一部分是 QEMU 在 VM 中模拟出来的各种硬件&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>另一部分是在宿主机中与 VM 中模拟出来的硬件对应的各种文件或设备&lt;/strong>。&lt;/li>
+&lt;/ol>
+&lt;p>这两部分共同实现了 VM 中模拟的硬件与宿主机交互的能力。如果 VM 中的硬件与宿主机无法交互，那么是无法使用滴~~~&lt;/p>
+&lt;h1 id="不同-cpu-架构的模拟">不同 CPU 架构的模拟&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.qemu.org/docs/master/system/targets.html">官方文档，系统模拟-QEMU 系统模拟目标&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>QEMU 是一个通用的模拟器，它可以模拟很多机器。qemu-system 工具的大多数选项对于所有机器都是相似的。以下各节将提及有关各种目标的具体信息。&lt;/p>
+&lt;p>&lt;a href="https://www.qemu.org/docs/master/system/target-arm.html">Arm 系统模拟&lt;/a>&lt;/p>
+&lt;h2 id="todo-不同-cpu-架构之间的互相模拟">TODO: 不同 CPU 架构之间的互相模拟&lt;/h2>
+&lt;p>这个可以实现吗？amd 机器上开 arm 的虚拟机，或者 arm 机器上开 amd 的虚拟机&lt;/p></description></item><item><title>Docs: QEMU 设备模拟逻辑</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/QEMU-%E8%AE%BE%E5%A4%87%E6%A8%A1%E6%8B%9F%E9%80%BB%E8%BE%91/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/QEMU-%E8%AE%BE%E5%A4%87%E6%A8%A1%E6%8B%9F%E9%80%BB%E8%BE%91/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.qemu.org/docs/master/system/device-emulation.html">官方文档，系统模拟-设备模拟&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>QEMU 模拟设备主要是半虚拟化设备，从&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization%20implementation/KVM_QEMU/KVM_QEMU.md#Paravirtualized%20Devices(%E5%8D%8A%E8%99%9A%E6%8B%9F%E5%8C%96%E8%AE%BE%E5%A4%87)">这里&lt;/a>可以看到简单的介绍。&lt;/p>
+&lt;h1 id="qemu-storage-emulationqemu-存储模拟">QEMU Storage Emulation(QEMU 存储模拟)&lt;/h1>
+&lt;p>与 &lt;a href="#QEMU%20Network%20Emulation(QEMU%20%E7%BD%91%E7%BB%9C%E6%A8%A1%E6%8B%9F)">网络模拟&lt;/a> 类似，QEMU 想要让虚拟机获得一块硬盘，也需要由两部分组成一个完整的存储功能。&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>front-end(前端)&lt;/strong> # VM 中的 块设备&lt;/li>
+&lt;li>&lt;strong>back-end(后端)&lt;/strong> # 宿主机中的与 VM 中模拟出来的块设备进行交互的设备。&lt;/li>
+&lt;/ol>
+&lt;h1 id="qemu-network-emulationqemu-网络模拟">QEMU Network Emulation(QEMU 网络模拟)&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://wiki.qemu.org/Documentation/Networking">https://wiki.qemu.org/Documentation/Networking&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.qemu.org/docs/master/system/net.html">https://www.qemu.org/docs/master/system/net.html&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.qemu.org/2018/05/31/nic-parameter/">https://www.qemu.org/2018/05/31/nic-parameter/&lt;/a>，老版原理，将弃用&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>QEMU 想要让虚拟机与外界互通，需要由两部分组成一个完整的网络功能：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>front-end(前端)&lt;/strong> # VM 中的 NIC(Network Interface Controller，即人们常说的&lt;code>网卡&lt;/code>)。
+&lt;ul>
+&lt;li>VM 中的 NIC 是由 QEMU 模拟出来的，在支持 PCI 卡的系统上，通常可以是 e1000 网卡、rtl8139 网卡、virtio-net 设备。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>back-end(后端)&lt;/strong> # 宿主机中的与 VM 中模拟出来的 NIC 进行交互的设备。
+&lt;ul>
+&lt;li>back-end 有多种类型可以使用，这些后端可以用于将 VM 连接到真实网络，或连接到另一个 VM
+&lt;ul>
+&lt;li>&lt;a href="https://www.qemu.org/docs/master/system/net.html#using-tap-network-interfaces">TAP&lt;/a># 将 VM 连接到真实网络的标准方法&lt;/li>
+&lt;li>&lt;a href="https://www.qemu.org/docs/master/system/net.html#using-the-user-mode-network-stack">User mode network stack&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>效果如图所示：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zuowkm/1616124035097-0a64383e-f37f-4cc3-bdc2-3c7502189b7d.png" alt="">&lt;/p>
+&lt;h2 id="基本应用示例">基本应用示例&lt;/h2>
+&lt;p>在使用 qemu-kvm 命令创建虚拟机时，通过一组两个选项来为虚拟机创建一个网络设备。比如：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>-netdev tap,id=n1&lt;/code> # 在宿主机创建一个&lt;code>后端设备&lt;/code>，这是一个 tap 类型的网络设备(tap 类型的设备路径为 /dev/net/tun)&lt;/li>
+&lt;li>&lt;code>-device virtio-net-pci,netdev=n1&lt;/code> # 在 VM 中模拟一个&lt;code>前端设备&lt;/code>，这是一个 virtio-net-pci 类型的网卡&lt;/li>
+&lt;/ul>
+&lt;p>完整的命令如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>qemu-kvm -m &lt;span style="color:#ae81ff">4096&lt;/span> -smp &lt;span style="color:#ae81ff">2&lt;/span> -name test &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-drive file&lt;span style="color:#f92672">=&lt;/span>/var/lib/libvirt/images/test-1.bj-net.qcow2,format&lt;span style="color:#f92672">=&lt;/span>qcow2,if&lt;span style="color:#f92672">=&lt;/span>virtio &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-netdev tap,id&lt;span style="color:#f92672">=&lt;/span>n1 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-net-pci,netdev&lt;span style="color:#f92672">=&lt;/span>n1 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-vnc :3
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>此时 qemu-kvm 发现 &lt;code>后端设备的 id&lt;/code> 与 &lt;code>前端设备的属性(netdev)的值&lt;/code> 一致，那么 qemu-kvm 就会将 两端设备关联。因此，在 VM 启动时，其打开了设备文件 /dev/net/tun 并获得了读写该文件的文件描述符 (FD)XX，同时向内核注册了一个 tap 类型虚拟网卡 tapX，tapX 与 FD XX 关联，虚拟机关闭时 tapX 设备会被内核释放。此虚拟网卡 tapX 一端连接用户空间程序 qemu-kvm，另一端连接主机链路层。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 通过进程，获取该进程所使用的网络设备&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 当先宿主机上有3个虚拟机，分别对应 82649、82747、144776 这三个进程&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 82649 与 82747 使用网卡多队列功能，启用了8个队列，144776 仅有一个网卡队列&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 所以，82649 与 82747 打开了8个 /dev/net/tun 设备，而 144776 打开了1个 /dev/net/tun 设备&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@host-3 fdinfo&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># lsof /dev/net/tun&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82649&lt;/span> qemu 27u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82649&lt;/span> qemu 29u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82649&lt;/span> qemu 31u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82649&lt;/span> qemu 32u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82649&lt;/span> qemu 33u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82649&lt;/span> qemu 34u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82649&lt;/span> qemu 35u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82649&lt;/span> qemu 36u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82747&lt;/span> qemu 28u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82747&lt;/span> qemu 31u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82747&lt;/span> qemu 32u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82747&lt;/span> qemu 33u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82747&lt;/span> qemu 34u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82747&lt;/span> qemu 35u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82747&lt;/span> qemu 36u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">82747&lt;/span> qemu 37u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-kvm &lt;span style="color:#ae81ff">144776&lt;/span> qemu 31u CHR 10,200 0t0 &lt;span style="color:#ae81ff">102414&lt;/span> /dev/net/tun
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 查看 144776 进程的 fdinfo 中的 31 号描述符文件，可以看到该进程关联的网络设备是 vnet2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@host-3 fdinfo&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat /proc/144776/fdinfo/31&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pos: &lt;span style="color:#ae81ff">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>flags: &lt;span style="color:#ae81ff">0104002&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>mnt_id: &lt;span style="color:#ae81ff">20&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>iff: vnet2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 通过网络设备，获取使用该设备的进程&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 可以通过一条命令来直接获取使用指定 pid 设备的进程&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 下面的命令可以获取使用 vnet2 这个 tap 类型的网络设备的进程。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@host-3 fdinfo&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># egrep -l iff:.*vnet2 /proc/*/fdinfo/* 2&amp;gt; /dev/null | cut -d/ -f3&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">144776&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>所以 144776 这个进程下的虚拟机经过其内部网卡发送的数据包，都会发送到 /dev/net/tun 设备上，然后根据其文件描述符，找到对应的 tap 设备，将数据包转发过去。这样，虚拟机的数据就通过网络，发送到物理机上了。&lt;/p>
+&lt;blockquote>
+&lt;p>获取 tap 设备 与 VM 关联性的方法参考：&lt;a href="https://unix.stackexchange.com/questions/462171/how-to-find-the-connection-between-tap-interface-and-its-file-descriptor">https://unix.stackexchange.com/questions/462171/how-to-find-the-connection-between-tap-interface-and-its-file-descriptor&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="virbr0-说明">virbr0 说明&lt;/h2>
+&lt;p>virbr0 是 KVM 默认创建的一个 Bridge，其作用是为连接其上的虚机网卡提供 NAT 访问外网的功能。virbr0 默认分配了一个 IP 192.168.122.1，并为连接其上的其他虚拟网卡提供 DHCP 服务。&lt;/p>
+&lt;ul>
+&lt;li>需要说明的是，使用 NAT 的虚机 VM1 可以访问外网，但外网无法直接访问 VM1。 因为 VM1 发出的网络包源地址并不是 192.168.122.6，而是被 NAT 替换为宿主机的 IP 了。&lt;/li>
+&lt;li>这个与使用 br0 不一样，在 br0 的情况下，VM1 通过自己的 IP 直接与外网通信，不会经过 NAT 地址转换。&lt;/li>
+&lt;/ul></description></item><item><title>Docs: KVM/QEMU 部署</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/KVM_QEMU-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/KVM_QEMU-%E9%83%A8%E7%BD%B2/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档，安装 TODO: 官方文档里没有教安装 qemu-system 的地方呀~o(╯□╰)o&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="前期准备">前期准备&lt;/h1>
+&lt;p>查看 CPU 是否支持 KVM，筛选出来相关信息才可以正常使用 KVM&lt;/p>
+&lt;ul>
+&lt;li>egrep &amp;ldquo;(svm|vmx)&amp;rdquo; /proc/cpuinfo&lt;/li>
+&lt;/ul>
+&lt;h1 id="安装虚拟化组件">安装虚拟化组件&lt;/h1>
+&lt;h2 id="centos">CentOS&lt;/h2>
+&lt;p>yum install qemu-kvm&lt;/p>
+&lt;h2 id="ubuntu">Ubuntu&lt;/h2>
+&lt;p>检查环境&lt;/p>
+&lt;ul>
+&lt;li>sudo apt update&lt;/li>
+&lt;li>sudo apt install -y cpu-checker&lt;/li>
+&lt;li>kvm-ok&lt;/li>
+&lt;/ul>
+&lt;p>sudo apt install qemu-system&lt;/p>
+&lt;h2 id="qemu-system-与-cpu-架构的说明">qemu-system 与 CPU 架构的说明&lt;/h2>
+&lt;h3 id="arm">ARM&lt;/h3>
+&lt;p>QEMU 可以模拟 32 位和 64 位 Arm CPU。使用 qemu-system-aarch64 可执行文件模拟 64 位 Arm 机器。您可以使用 qemu-system-arm 或 qemu-system-aarch64 来模拟 32 位 Arm 机器：通常，适用于 qemu-system-arm 的命令行在与 qemu-system-aarch64 一起使用时表现相同。&lt;/p></description></item><item><title>Docs: KVM/QEMU 镜像管理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/KVM_QEMU-%E9%95%9C%E5%83%8F%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/KVM_QEMU-%E9%95%9C%E5%83%8F%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://qemu-project.gitlab.io/qemu/system/images.html">官方文档，系统模拟-磁盘镜像&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/qemu/qemu/blob/master/docs/interop/qcow2.txt">GitHub 文档，qemu/qemu/docs/interop/qcow2.txt&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Qcow">Wiki，qcow&lt;/a>&lt;/li>
+&lt;li>其他
+&lt;ul>
+&lt;li>&lt;a href="https://www.unixmen.com/qemu-kvm-using-copy-write-mode/">https://www.unixmen.com/qemu-kvm-using-copy-write-mode/&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://opengers.github.io/virtualization/kvm-libvirt-qemu-5/">https://opengers.github.io/virtualization/kvm-libvirt-qemu-5/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>KVM/QEMU 通过 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization%20implementation/KVM_QEMU/KVM_QEMU%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/qemu-img.md">qemu-img&lt;/a> 命令行工具管理虚拟机镜像。&lt;/p>
+&lt;h1 id="qemu-copy-on-write">QEMU Copy On Write&lt;/h1>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>使用该特性创建出来虚拟机之后，整个快照链的根节点(i.e.backingfile 虚拟机)一定要不有任何更改，否则会导致基于其创建的其他所有虚拟机文件系统出现问题。比如变成 read-only 状态。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>QEMU Copy On Write(QEMU 写时复制，简称 QCOW)&lt;/strong> 是 QEMU 创建的虚拟机使用的磁盘镜像文件的文件格式。&lt;/p>
+&lt;p>当使用 QCOW 时，不会对原始磁盘映像应用任何更改。所有更改都记录在其他的 QCOW 文件中。多个 QCOW 文件可以指向同一个镜像，而不会危及基本系统。QEMU/KVM 允许将 QCOW 文件的更改合并到原始图像中。&lt;/p>
+&lt;h1 id="修改-backingfile-后导致依赖-backingfile-的虚拟机的文件系统崩溃">修改 backingfile 后，导致依赖 backingfile 的虚拟机的文件系统崩溃&lt;/h1>
+&lt;p>&lt;a href="https://www.cnblogs.com/fengrenzw/p/3383773.html">https://www.cnblogs.com/fengrenzw/p/3383773.html&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://www.cnblogs.com/fengrenzw/p/3383773.html">https://www.cnblogs.com/fengrenzw/p/3383773.html&lt;/a>&lt;/p>
+&lt;p>我们知道 qcow2 的磁盘格式可以带来很大的便利性，因为部署的时候可以减少大量的时间、空间，可以增量备份、快照等非常诱人的特性。&lt;/p>
+&lt;p>因为下边可能会有点绕：&lt;/p>
+&lt;p>backing_file：后端，母镜像&lt;/p>
+&lt;p>qcow2：前端，子镜像&lt;/p>
+&lt;p>在使用的时候可能会遇到一种情况，就是使用 backing_file 时，如果修改了 backing_file，“可能”会导致前端的 qcow2 的崩溃，出现这种问题个人觉得是很正常的，并且是可以完全避免的。所以，在 openstack 在使用 qcow2 的过程中会使用 glance 镜像管理来保证它的安全和完整性，我们在使用 qcow2 的时候也务必不回去修改它。&lt;/p>
+&lt;p>至于为什么会出现这种现象，下面简单分析一下，可能会有些纰漏、错误，但感觉整体思路上不会有太大的偏差。&lt;/p>
+&lt;p>什么是 qcow2？&lt;/p>
+&lt;p>之前的博客也讲述过，qcow2：就是 qemu 的 cow 磁盘的第 2 版。既然是 cow，必然是创建的前端磁盘内容是“空”的，即只有 qcow2 磁盘格式的数据结构（当然包含 backing_file 的指针），而不包含任何磁盘内应该存放的实际内容。&lt;/p>
+&lt;p>我们启动虚拟机的时候，指定的是 qcow2，但同时会加载 backing_file（使用 qmp，info block 可以查看，或者/proc/$pid/fd/）。当读取文件的时候，根据 qcow2 内部的指针指向 backing_file，读取 backing_file 磁盘块上的内容。如果需要修改文件，则修改后的文件会保存到 qcow2 文件上。&lt;/p>
+&lt;p>那我们在使用 backing_file 特性时，再修改 backing_file（后端）时可能就出现大概三种情况：&lt;/p>
+&lt;ul>
+&lt;li>backing_ing 删除或修改了 qcow2 中没修改过的内容&lt;/li>
+&lt;/ul>
+&lt;p>因为 qcow2 本来就没有什么数据，所有能查看到的数据都是通过 backing_file 的指针查看到的，所以当 backing_file 修改了，qcow2 还是直接去读 backing_file，就相当于同步了，并不会有冲突或腐败。&lt;/p>
+&lt;ul>
+&lt;li>backing_ing 删除或修改了 qcow2 中修改过的内容&lt;/li>
+&lt;/ul>
+&lt;p>因为 qcow2 的 cow 机制，修改后的文件会保存到 qcow2 文件中，所以 backing_file 修改不会对 qcow2 文件造成任何影响，因为压根就没去读 backing_file。（但有个前提，修改的幅度不应太大，如果文件的 inode 也变了，可能会造成冲突和错误（不过，这都不是重点！）&lt;/p>
+&lt;ul>
+&lt;li>backing_ing 创建了 qcow2 中没有的内容&lt;/li>
+&lt;/ul>
+&lt;p>这种情况有点复杂，因为创建文件肯定会影响到文件系统的 inode，如果这个 inode 没有在 qcow2 做修改的话，会直接读取 backing_file,自然能够找到新添加的文件，如果 qcow2 的文件系统内的 inode 做了修改，我按照我自己的 inode 去找 backing_file 中的 block 发现对应不上，就会照成文件系统的损坏甚至崩溃；另一种情况是在 qcow2 中删除了一些文件或者将某个目录清空，然而在 backing_file 又在这个目录写了一些东西，qcow2 中的 inode 中可能去查看到这个数据，但因为 qcow2 中的这块数据已经修改，不会去查看 backing_file，就会导致有了 inode，但找不到 block。无论是有 inode 查看不到 block 还是 inode 删除，但 block 还在，不是我们所希望的。&lt;/p>
+&lt;p>所以，如果使用 qcow2 的 backing_file，请务必保证其安全和完整性。&lt;/p></description></item><item><title>Docs: KVM/QEMU 运行时管理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/KVM_QEMU-%E8%BF%90%E8%A1%8C%E6%97%B6%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/KVM_QEMU-%E8%BF%90%E8%A1%8C%E6%97%B6%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;/blockquote>
+&lt;p>KVM/QEMU 通过 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization%20implementation/KVM_QEMU/KVM_QEMU%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/qemu-system.md">qemu-system&lt;/a> 命令行工具管理虚拟机运行时&lt;/p></description></item><item><title>Docs: 访问虚拟机</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/%E8%AE%BF%E9%97%AE%E8%99%9A%E6%8B%9F%E6%9C%BA/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/%E8%AE%BF%E9%97%AE%E8%99%9A%E6%8B%9F%E6%9C%BA/</guid><description/></item><item><title>Docs: QEMU Guest Agent</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/QEMU-Guest-Agent/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/QEMU-Guest-Agent/</guid><description/></item><item><title>Docs: KVM_QEMU 命令行工具</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/KVM_QEMU-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/KVM_QEMU-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description/></item><item><title>Docs: 最佳实践</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/KVM_QEMU/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.qemu.org/docs/master/system/introduction.html#running">QEMU 文档，系统模拟-介绍-运行&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://notes.wadeism.net/post/kvm-create-vm-clone-by-overlay/">https://notes.wadeism.net/post/kvm-create-vm-clone-by-overlay/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>注意：本最佳实践仅适用于独立使用 qemu-img、qemu-system 等 KVM/QEMU 的命令行工具，不包括 libvirtd 的工具&lt;/strong>&lt;/p>
+&lt;p>QEMU 命令行的一般形式可以表示为：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ qemu-system-x86_64 &lt;span style="color:#f92672">[&lt;/span>machine opts&lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#f92672">[&lt;/span>cpu opts&lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#f92672">[&lt;/span>accelerator opts&lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#f92672">[&lt;/span>device opts&lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#f92672">[&lt;/span>backend opts&lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#f92672">[&lt;/span>interface opts&lt;span style="color:#f92672">]&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#f92672">[&lt;/span>boot opts&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在下面的示例中，我们首先定义一台机器，它是用于运行 Aarch64 来宾的通用平台。我们启用虚拟化，因此我们可以在模拟来宾中使用 KVM。由于机器带有一些内置的 pflash 设备，我们给它们命名，以便我们稍后可以覆盖默认值。virtvirt&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ qemu-system-aarch64 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -machine type&lt;span style="color:#f92672">=&lt;/span>virt,virtualization&lt;span style="color:#f92672">=&lt;/span>on,pflash0&lt;span style="color:#f92672">=&lt;/span>rom,pflash1&lt;span style="color:#f92672">=&lt;/span>efivars &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -m &lt;span style="color:#ae81ff">4096&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>然后，我们使用为我们提供 QEMU 能够模拟的所有 Arm 功能的选项定义 4 个 vCPU。我们启用了更加仿真友好的 Arm 指针身份验证算法实现。我们明确指定 TCG 加速，即使 QEMU 无论如何都会默认为它。&lt;/p>
+&lt;pre tabindex="0">&lt;code class="language-baash" data-lang="baash">-cpu max,pauth-impdef=on \
+-smp 4 \
+-accel tcg \
+&lt;/code>&lt;/pre>&lt;p>由于平台没有任何默认网络或存储设备，我们需要定义它们。我们给他们 id 以便我们稍后可以将他们与后端链接。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>-device virtio-net-pci,netdev&lt;span style="color:#f92672">=&lt;/span>unet &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-scsi-pci &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device scsi-hd,drive&lt;span style="color:#f92672">=&lt;/span>hd &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们将用户模式网络连接到我们的网络设备。由于无法从外部直接访问用户模式网络，我们将本地主机端口 2222 转发到访客上的 ssh 端口。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>-netdev user,id&lt;span style="color:#f92672">=&lt;/span>unet,hostfwd&lt;span style="color:#f92672">=&lt;/span>tcp::2222-:22 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们将来宾可见块设备连接到为来宾预留的 LVM 分区。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>-blockdev driver&lt;span style="color:#f92672">=&lt;/span>raw,node-name&lt;span style="color:#f92672">=&lt;/span>hd,file.driver&lt;span style="color:#f92672">=&lt;/span>host_device,file.filename&lt;span style="color:#f92672">=&lt;/span>/dev/lvm-disk/debian-bullseye-arm64 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>然后我们告诉 QEMU 将 QEMU Monitor 与串行端口输出进行多路复用（我们可以使用字符后端多路复用器中的键在两者之间切换）。由于没有默认的图形设备，我们禁用了显示，因为我们可以完全在终端中工作。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>-serial mon:stdio &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-display none &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>最后，我们覆盖默认固件以确保我们有一些存储空间供 EFI 保留其配置。该固件负责查找磁盘、引导 grub 并最终运行我们的系统。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>-blockdev node-name&lt;span style="color:#f92672">=&lt;/span>rom,driver&lt;span style="color:#f92672">=&lt;/span>file,filename&lt;span style="color:#f92672">=(&lt;/span>pwd&lt;span style="color:#f92672">)&lt;/span>/pc-bios/edk2-aarch64-code.fd,read-only&lt;span style="color:#f92672">=&lt;/span>true &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-blockdev node-name&lt;span style="color:#f92672">=&lt;/span>efivars,driver&lt;span style="color:#f92672">=&lt;/span>file,filename&lt;span style="color:#f92672">=&lt;/span>$HOME/images/qemu-arm64-efivars
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>全部(有问题)&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>qemu-system--x86_64 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-machine type&lt;span style="color:#f92672">=&lt;/span>virt,virtualization&lt;span style="color:#f92672">=&lt;/span>on,pflash0&lt;span style="color:#f92672">=&lt;/span>rom,pflash1&lt;span style="color:#f92672">=&lt;/span>efivars &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-m &lt;span style="color:#ae81ff">4096&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-cpu max,pauth-impdef&lt;span style="color:#f92672">=&lt;/span>on &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-smp &lt;span style="color:#ae81ff">4&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-accel tcg &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-net-pci,netdev&lt;span style="color:#f92672">=&lt;/span>unet &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-scsi-pci &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device scsi-hd,drive&lt;span style="color:#f92672">=&lt;/span>hd &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-netdev user,id&lt;span style="color:#f92672">=&lt;/span>unet,hostfwd&lt;span style="color:#f92672">=&lt;/span>tcp::2222-:22 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-blockdev driver&lt;span style="color:#f92672">=&lt;/span>raw,node-name&lt;span style="color:#f92672">=&lt;/span>hd,file.driver&lt;span style="color:#f92672">=&lt;/span>host_device,file.filename&lt;span style="color:#f92672">=&lt;/span>/dev/lvm-disk/debian-bullseye-arm64 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-serial mon:stdio &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-display none &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-blockdev node-name&lt;span style="color:#f92672">=&lt;/span>rom,driver&lt;span style="color:#f92672">=&lt;/span>file,filename&lt;span style="color:#f92672">=(&lt;/span>pwd&lt;span style="color:#f92672">)&lt;/span>/pc-bios/edk2-aarch64-code.fd,read-only&lt;span style="color:#f92672">=&lt;/span>true &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-blockdev node-name&lt;span style="color:#f92672">=&lt;/span>efivars,driver&lt;span style="color:#f92672">=&lt;/span>file,filename&lt;span style="color:#f92672">=&lt;/span>$HOME/images/qemu-arm64-efivars
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>TODO:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>qemu-system-x86_64 qemu-install-test.qcow2 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-m &lt;span style="color:#ae81ff">4096&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-cdrom ./CentOS-7-x86_64-DVD-2009.iso &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-smp &lt;span style="color:#ae81ff">2&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-accel tcg &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-net-pci,netdev&lt;span style="color:#f92672">=&lt;/span>unet &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-scsi-pci &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-netdev user,id&lt;span style="color:#f92672">=&lt;/span>unet,hostfwd&lt;span style="color:#f92672">=&lt;/span>tcp::2222-:22 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-serial mon:stdio &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-vnc 0.0.0.0:10
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="应用示例">应用示例&lt;/h1>
+&lt;h2 id="准备连接虚拟机的工具">准备连接虚拟机的工具&lt;/h2>
+&lt;ol>
+&lt;li>
+&lt;p>使用 vnc 客户端工具(&lt;a href="https://www.realvnc.com/">vnc-viewer&lt;/a> 等&amp;hellip;) 连接并安装系统即可。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>我们也可以通过各种终端(XShell 等)的 X11 转发连接。在宿主机系统中安装 tigervnc 后，在系统下执行如下命令即可。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>vncview :3
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="前期准备">前期准备&lt;/h2>
+&lt;p>创建 bridge 网络设备，并配置 ip，然后将宿主机的外部网卡关联的网络设备加入到 bridge 上。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>export IPADDR&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;172.19.42.249/24&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ip link add br0 type bridge
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ip addr add &lt;span style="color:#e6db74">${&lt;/span>IPADDR&lt;span style="color:#e6db74">}&lt;/span> dev br0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ip link set dev eth0 master br0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>创建一个 qcow2 格式的镜像文件，用作块设备&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>export VM_QCOW2_FILE&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;/var/lib/libvirt/images/test/qemu-install-test.qcow2&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-img create -f qcow2 &lt;span style="color:#e6db74">${&lt;/span>VM_QCOW2_FILE&lt;span style="color:#e6db74">}&lt;/span> 10G
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="启动虚拟机并安装系统">启动虚拟机并安装系统&lt;/h2>
+&lt;p>使用 &lt;code>qemu-install-test.qcow2&lt;/code> 文件启动虚拟机，并挂载系统镜像。&lt;/p>
+&lt;blockquote>
+&lt;p>注意&lt;/p>
+&lt;ul>
+&lt;li>如果不分配内存，会提示无法加载 VFS 导致无法启动微型系统来安装系统。默认模拟 1 个 CPU。&lt;/li>
+&lt;li>&lt;code>:3&lt;/code> 为 vncview 的访问时的端口，3 默认为 5903&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>qemu-system-x86_64 &lt;span style="color:#e6db74">${&lt;/span>VM_QCOW2_FILE&lt;span style="color:#e6db74">}&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-m &lt;span style="color:#ae81ff">4096&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-smp &lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-vnc 0.0.0.0:3 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-cdrom /root/iso/CentOS-7-x86_64-DVD-2009.iso
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="连接虚拟机">连接虚拟机&lt;/h3>
+&lt;h3 id="完成安装">完成安装&lt;/h3>
+&lt;p>安装完成后，不用指定 cdrom 即可启动虚拟机&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>qemu-system-x86_64 &lt;span style="color:#e6db74">${&lt;/span>VM_QCOW2_FILE&lt;span style="color:#e6db74">}&lt;/span> -m &lt;span style="color:#ae81ff">4096&lt;/span> -vnc 0.0.0.0:3
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="启动一个正常可用的虚拟机">启动一个正常可用的虚拟机&lt;/h2>
+&lt;h3 id="生成脚本">生成脚本&lt;/h3>
+&lt;p>生成 -netdev 选项所用的启动脚本&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &amp;gt; /etc/qemu-ifup &lt;span style="color:#e6db74">&amp;lt;&amp;lt;\EOF
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">#!/bin/bash
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">BRIDGE=br0
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">if [ -n $1 ]; then
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> ip link set dev $1 master ${BRIDGE}
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> ip link set dev $1 up
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">[ $? -eq 0 ] &amp;amp;&amp;amp; exit 0 || exit 1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">else
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> echo &amp;#34;Error: no interface specified.&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">exit 1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">fi
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>chmod &lt;span style="color:#ae81ff">755&lt;/span> /etc/qemu-ifup
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="启动虚拟机">启动虚拟机&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>qemu-system-x86_64 -m &lt;span style="color:#ae81ff">4096&lt;/span> -smp &lt;span style="color:#ae81ff">2&lt;/span> -name test &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-drive file&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>VM_QCOW2_FILE&lt;span style="color:#e6db74">}&lt;/span>,format&lt;span style="color:#f92672">=&lt;/span>qcow2,if&lt;span style="color:#f92672">=&lt;/span>virtio &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-netdev tap,id&lt;span style="color:#f92672">=&lt;/span>n1 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-device virtio-net,netdev&lt;span style="color:#f92672">=&lt;/span>n1 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>-vnc :3
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="连接虚拟机-1">连接虚拟机&lt;/h3>
+&lt;h3 id="结语">结语&lt;/h3>
+&lt;p>现在是使用 qemu-system-x86_64 工具自动创建的 tap 设备，若是使用已经已经存在的网络设备，那么还需要创建一个 downscript 脚本，以便可以在虚拟机关闭时，自动处理，将网络设备从 bridge 上拆下来，否则下次再次启动，网络设备已经在 bridge 上，就会报错，导致虚拟机无法启动。&lt;/p>
+&lt;h2 id="通过-virsh-domxml-to-native-命令转换出-wiki-来的-qemu-system-命令行其中一部分">通过 virsh domxml-to-native 命令，转换出 wiki 来的 qemu-system 命令行其中一部分&lt;/h2>
+&lt;p>其中使用 &lt;code>...&lt;/code> 省略了很多无用参数&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 使用 qemu-system 程序创建一个名为 lichenhao.bj-net 的虚拟机&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>qemu-system-x86_64 -name lichenhao.bj-net
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 虚拟机使用哪种类型的机器，这里是 i440fx 红帽7&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-machine pc-i440fx-rhel7.0.0,accel&lt;span style="color:#f92672">=&lt;/span>kvm,usb&lt;span style="color:#f92672">=&lt;/span>off,dump-guest-core&lt;span style="color:#f92672">=&lt;/span>off
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 虚拟机所使用的 CPU 类型&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-cpu Skylake-Server-IBRS,-ds,-acpi,+ss,-ht,-tm,-pbe,-dtes64,-monitor,-ds_cpl,-vmx,-smx,-est,-tm2,-xtpr,-pdcm,-dca,-osxsave,-tsc_adjust,+clflushopt,-intel-pt,+pku,-ospke,+avx512vnni,+md-clear,+stibp,+ssbd,+hypervisor,-arat
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 虚拟机的内存大小&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-m &lt;span style="color:#ae81ff">4096&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-realtime mlock&lt;span style="color:#f92672">=&lt;/span>off
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 虚拟机有2个CPU，模拟成2个插槽，每个插槽的CPU有一个核心，每个核心1个线程&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-smp 2,sockets&lt;span style="color:#f92672">=&lt;/span>2,cores&lt;span style="color:#f92672">=&lt;/span>1,threads&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 虚拟机中 virtio-blk-pci 设备，是 VM 的硬盘&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 宿主机中 qcow2 文件，id 为 drive-virtio-disk0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 两者通过 drive 中的 id参数 与 device 中的 drive 参数保持一致，进行关联&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-drive file&lt;span style="color:#f92672">=&lt;/span>/var/lib/libvirt/images/master-3.bj-net.qcow2,format&lt;span style="color:#f92672">=&lt;/span>qcow2,...,id&lt;span style="color:#f92672">=&lt;/span>drive-virtio-disk0,...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-device virtio-blk-pci,...,drive&lt;span style="color:#f92672">=&lt;/span>drive-virtio-disk0,...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 略 drive 中的 id 与 device 中的 drive 相同。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-drive &lt;span style="color:#66d9ef">if&lt;/span>&lt;span style="color:#f92672">=&lt;/span>none,id&lt;span style="color:#f92672">=&lt;/span>drive-ide0-0-0,...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-device ide-cd,bus&lt;span style="color:#f92672">=&lt;/span>ide.0,...,drive&lt;span style="color:#f92672">=&lt;/span>drive-ide0-0-0,...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 虚拟机中 virtio-net-pci 设备，是 VM 中的网卡&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 宿主机中 tap 设备，id 为hostnet0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 两者通过 netdev 中的 id参数 与 device 中的 netdev 参数保持一致，进行关联。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-netdev tap,...id&lt;span style="color:#f92672">=&lt;/span>hostnet0,...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-device virtio-net-pci,...,netdev&lt;span style="color:#f92672">=&lt;/span>hostnet0,...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 略，chardev 中的 id 与 device 中的 chardev 相同&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-chardev pty,id&lt;span style="color:#f92672">=&lt;/span>charserial0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-device isa-serial,chardev&lt;span style="color:#f92672">=&lt;/span>charserial0,...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 略，chardev 中的 id 与 device 中的 chardev 相同&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-chardev socket,id&lt;span style="color:#f92672">=&lt;/span>charchannel0,path&lt;span style="color:#f92672">=&lt;/span>/var/lib/libvirt/qemu/channel/target/domain--1-lichenhao.bj-net/org.qemu.guest_agent.0,server,nowait
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-device virtserialport,bus&lt;span style="color:#f92672">=&lt;/span>virtio-serial0.0,nr&lt;span style="color:#f92672">=&lt;/span>1,chardev&lt;span style="color:#f92672">=&lt;/span>charchannel0,id&lt;span style="color:#f92672">=&lt;/span>channel0,name&lt;span style="color:#f92672">=&lt;/span>org.qemu.guest_agent.0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.....
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item></channel></rss>

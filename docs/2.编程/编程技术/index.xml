@@ -44,6 +44,41 @@
 &lt;p>在早期互联网不发达的时候，页面内容是不变的，数据也是静态的，但是随着互联网的发展，信息增多，一个页面的数据需要在用户操作时可以变化，此时就需要用到 &lt;a href="https://desistdaydream.github.io/docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/ECMAScript/ECMAScript%20%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/AJAX.md">AJAX&lt;/a> 以动态的方式进行数据展示。&lt;/p>
 &lt;p>现在静态数据的网站已经很少见了，比如 &lt;a href="https://world.digimoncard.com/cardlist/?search=true&amp;amp;category=522018">DTCG 卡牌列表&lt;/a>（截至 2023.12.19），这种就属于静态数据。静态数据有个弊端，就是哪怕不展示，也是全量加载，比如这个 卡牌列表 网站，虽然也分成了 4 页，但是在访问的时候，实际上是加载了所有页中的所有数据到前端，然后前端通过分页隐藏了其他页的数据。这种做法无形中增加了每次访问的流量，一共 4 页数据全加载了，但是真实情况却并不需要看到。&lt;/p>
 &lt;p>而动态数据，则并不需要在访问网站时加载所有页的数据，只需要在访问其他页的数据的时候，通过 XHR/Fetch 等 AJAX 手段，向后端再发起请求即可。&lt;/p>
+&lt;h1 id="前后端分离编程">前后端分离编程&lt;/h1>
+&lt;p>前后端分离的编程通常分为两大类，主要围绕静态资源文件的响应方式分类：&lt;/p>
+&lt;ul>
+&lt;li>由后端代码监听端口并返回静态资源文件&lt;/li>
+&lt;li>由 Nginx、NodeJS 等工具监听端口并返回资源文件&lt;/li>
+&lt;/ul>
+&lt;h2 id="以-go-和-js-为例">以 go 和 js 为例&lt;/h2>
+&lt;h3 id="对于页面简单的程序">对于页面简单的程序&lt;/h3>
+&lt;p>Go 程序启动监听程序，&lt;strong>并向浏览器响应静态资源文件&lt;/strong>。&lt;/p>
+&lt;p>Go 程序注册路由时分为两部分&lt;/p>
+&lt;ul>
+&lt;li>由浏览器通过 URL 直接发起的请求 #&lt;/li>
+&lt;li>由浏览器通过 JS 文件发起的请求 # 这些请求的路由通常单独放在一个目录中，并且规划路径为 /api/XXX，在浏览器拿到 html 与 js 后，由浏览器通过 js 代码发起请求&lt;/li>
+&lt;/ul>
+&lt;h3 id="对于页面复杂的程序">对于页面复杂的程序&lt;/h3>
+&lt;p>Go 程序单独启动监听一个端口，&lt;strong>不响应任何静态资源文件&lt;/strong>。&lt;/p>
+&lt;p>由 Nginx 或 NodeJS 环境启动监听程序，并&lt;strong>向浏览器响应静态资源文件&lt;/strong>。通常都会有一个 Nginx，用来响应、负载某些需要从后端直接返回文件的请求。&lt;/p>
+&lt;p>比如这样的 Nginx 的配置&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-nginx" data-lang="nginx">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">server&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">listen&lt;/span> &lt;span style="color:#ae81ff">80&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">server_name&lt;/span> &lt;span style="color:#e6db74">demo.mogutou.xyz&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">root&lt;/span> &lt;span style="color:#e6db74">/opt/mogutouERP-demo/dist&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">index&lt;/span> &lt;span style="color:#e6db74">index.html&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">location&lt;/span> &lt;span style="color:#e6db74">/&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">try_files&lt;/span> $uri $uri/ &lt;span style="color:#e6db74">/index.html&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">location&lt;/span> &lt;span style="color:#e6db74">/api&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">proxy_pass&lt;/span> &lt;span style="color:#e6db74">http://0.0.0.0:8088&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>location /&lt;/code> 是用来返回所有前端静态文件的&lt;/p>
+&lt;p>&lt;code>location /api&lt;/code> 则是用来当前端静态 JS 文件中有需要访问后端 API 接口的，则代理到后端&lt;/p>
 &lt;h1 id="打包与编译">打包与编译&lt;/h1>
 &lt;p>&lt;strong>Bundle(打包)&lt;/strong> 与 &lt;strong>Compile(编译)&lt;/strong> 是两种常见的构建代码的手段。&lt;/p>
 &lt;p>后端构建代码常用 Compile，前端常用 Bundle。&lt;/p>

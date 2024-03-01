@@ -1,0 +1,101 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – 虚拟化管理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/</link><description>Recent content in 虚拟化管理 on 断念梦</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 虚拟化管理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;p>尽管 QEMU 有一个 CLI(&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization%20implementation/KVM_QEMU/KVM_QEMU%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/qemu-system.md">qemu-system&lt;/a>) 和一个 &lt;a href="https://qemu-project.gitlab.io/qemu/system/monitor.html">monior&lt;/a> 来与 VM 进行交互，但这些工具通常仅用于开发目的，也就是调试底层逻辑。&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization%20implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Libvirt.md">Libvirt&lt;/a> 提供了对特定版本和管理程序的抽象，并封装了一些解决方法和最佳实践&lt;/p>
+&lt;blockquote>
+&lt;p>虽然 Libvirt 最终在文件系统中，也是调用 qemu-system 工具启动虚拟机，但是使用起来，不用记很多晦涩的参数，并且还提供 GUI 给用户使用。&lt;/p>
+&lt;/blockquote></description></item><item><title>Docs: 部署 KVM/QEMU 虚拟化环境</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E9%83%A8%E7%BD%B2-KVM_QEMU-%E8%99%9A%E6%8B%9F%E5%8C%96%E7%8E%AF%E5%A2%83/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E9%83%A8%E7%BD%B2-KVM_QEMU-%E8%99%9A%E6%8B%9F%E5%8C%96%E7%8E%AF%E5%A2%83/</guid><description>
+&lt;h1 id="概述">概述&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/configuring_and_managing_virtualization/assembly_enabling-virtualization-in-rhel-9_configuring-and-managing-virtualization">RedHat 官方文档，9-配置和管理虚拟化-开启虚拟化&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://ubuntu.com/server/docs/virtualization-introduction">Ubuntu 官方文档，虚拟化介绍&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="前期准备">前期准备&lt;/h1>
+&lt;p>查看 CPU 是否支持 KVM，筛选出来相关信息才可以正常使用 KVM&lt;/p>
+&lt;ul>
+&lt;li>egrep &amp;ldquo;(svm|vmx)&amp;rdquo; /proc/cpuinfo&lt;/li>
+&lt;/ul>
+&lt;h1 id="安装虚拟化组件">安装虚拟化组件&lt;/h1>
+&lt;h2 id="centos">CentOS&lt;/h2>
+&lt;ul>
+&lt;li>yum group install -y &amp;lsquo;Virtualization Host&amp;rsquo; # 安装虚拟化组
+&lt;ul>
+&lt;li>若安装完成后，模块未装载，则手动装载 KVM 模块
+&lt;ul>
+&lt;li>modprobe kvm&lt;/li>
+&lt;li>modprobe kvm-intel&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>验证系统是否已经准备好称为虚拟化主机
+&lt;ul>
+&lt;li>virt-host-validate&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>启动 libvirt 服务
+&lt;ul>
+&lt;li>systemctl enable libvirtd &amp;ndash;now&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>创建连接使用命令
+&lt;ul>
+&lt;li>ln -sv /usr/libexec/qemu-kvm /usr/bin/&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>安装 X 服务端程序
+&lt;ul>
+&lt;li>yum install -y xorg-x11-xauth xorg-x11-server-utils&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>安装图形管理工具
+&lt;ul>
+&lt;li>yum install virt-manager -y&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>安装 qemu 以模拟 I/O 设备
+&lt;ul>
+&lt;li>yum install qemu-system-x86 qemu-img -y&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>安装 virt 安装命令
+&lt;ul>
+&lt;li>yum install virt-install -y&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>安装虚拟机文件系统的管理工具
+&lt;ul>
+&lt;li>yum install libguestfs-tools -y&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="ubuntu">Ubuntu&lt;/h2>
+&lt;p>检查环境&lt;/p>
+&lt;ul>
+&lt;li>sudo apt update&lt;/li>
+&lt;li>sudo apt install -y cpu-checker&lt;/li>
+&lt;li>kvm-ok&lt;/li>
+&lt;/ul>
+&lt;p>安装虚拟化环境&lt;/p>
+&lt;ul>
+&lt;li>sudo apt install -y qemu-kvm libvirt-daemon-system libvirt-daemon libvirt-clients&lt;/li>
+&lt;/ul>
+&lt;p>安装虚拟机文件系统的管理工具&lt;/p>
+&lt;ul>
+&lt;li>apt install libguestfs-tools -y&lt;/li>
+&lt;li>apt install virt-manager -y&lt;/li>
+&lt;/ul>
+&lt;h1 id="安装-vnc-与桌面可选">安装 VNC 与桌面(可选)&lt;/h1>
+&lt;h2 id="centos-1">CentOS&lt;/h2>
+&lt;ul>
+&lt;li>yum install -y tigervnc-server # 安装 vnc 服务端&lt;/li>
+&lt;li>yum groups install -y &amp;lsquo;GNOME Desktop&amp;rsquo; #&lt;/li>
+&lt;/ul>
+&lt;h1 id="其他">其他&lt;/h1>
+&lt;p>yum -y install mesa-libGLES-devel.x86_64 mesa-dri-drivers&lt;/p>
+&lt;p>若不安装这两个包，当使用 virt-mangaer 工具是，可能会出现如下报错：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>libGL error: unable to load driver: swrast_dri.so
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>libGL error: failed to load driver: swrast
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: 性能优化与故障处理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</guid><description/></item><item><title>Docs: 虚拟化管理案例</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86%E6%A1%88%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86%E6%A1%88%E4%BE%8B/</guid><description/></item><item><title>Docs: Libvirt</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/</guid><description/></item></channel></rss>
