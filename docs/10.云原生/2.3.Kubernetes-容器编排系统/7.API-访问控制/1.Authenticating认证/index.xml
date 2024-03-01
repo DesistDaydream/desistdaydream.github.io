@@ -20,8 +20,8 @@
 &lt;p>一个 User 可以管理多个 k8s 集群、也可以多个 User 管理一个集群，权限不同。User 只有在 KubeConfig 文件中才具有实际意义。&lt;/p>
 &lt;p>由于 User 不属于 K8S 资源，那么则无法通过 API 调用来添加 User Account。但是任何提供了由群集的证书颁发机构(CA)签名的有效证书的用户都将被视为已认证。基于这种情况，Kubernetes 使用证书中的 subject 字段中的 Common Name(通用名称,即 CN)的值，作为用户名。接下来，基于授权概念中的 RBAC 子系统会确定用户是否有权针对某资源执行特定的操作。&lt;/p>
 &lt;p>如果想创建一个 User，则可以通过证书的方式来创建。比如像下面这样， 这就创建了一个名为 lch 的 User Account。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>openssl genrsa -out lch.key &lt;span style="color:#ae81ff">2048&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl req -new -key lch.key -out lch.csr -subj &lt;span style="color:#e6db74">&amp;#34;/CN=lch&amp;#34;&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>openssl genrsa -out lch.key &lt;span style="color:#0000cf;font-weight:bold">2048&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>openssl req -new -key lch.key -out lch.csr -subj &lt;span style="color:#4e9a06">&amp;#34;/CN=lch&amp;#34;&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果想使用 lch 这个 UA，则需要使用 kubectl config set-credentials 命令指定 lch 所需的相关凭证即可。还需要为 lch 绑定[授权概念](&amp;lt;/docs/10.云原生/2.3.Kubernetes%20 容器编排系统/7.API%20 访问控制/2.Authorization(授权).md&amp;raquo;)中的 Role 以便让该用户具有某些操作权限，然后 lch 这个 UA 即可对所绑定的集群有 Role 中所指定的操作权限。其中为 -subj 选项中 CN 的值就是 User 的名称。这个值也是在后面为 User 赋予 RBAC 权限的 rolebinding 时所使用的 &lt;code>subjects.name&lt;/code> 字段的值。&lt;/p>
 &lt;p>进一步的细节可参阅 &lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#normal-user">证书请求&lt;/a> 下普通用户主题。&lt;/p>
 &lt;h3 id="service-account-服务账号">Service Account 服务账号&lt;a class="td-heading-self-link" href="#service-account-%e6%9c%8d%e5%8a%a1%e8%b4%a6%e5%8f%b7" aria-label="Heading self-link">&lt;/a>&lt;/h3>
@@ -63,7 +63,7 @@
 &lt;p>&lt;a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#x509-client-certs">https://kubernetes.io/docs/reference/access-authn-authz/authentication/#x509-client-certs&lt;/a>&lt;/p>
 &lt;p>通过给 API 服务器传递 &amp;ndash;client-ca-file=SOMEFILE 选项，就可以启动客户端证书身份认证。 所引用的文件必须包含一个或者多个证书机构，用来验证向 API 服务器提供的客户端证书。 如果提供了客户端证书并且证书被验证通过，则 subject 中的公共名称（Common Name）就被 作为请求的用户名。 自 Kubernetes 1.4 开始，客户端证书还可以通过证书的 organization 字段标明用户的组成员信息。 要包含用户的多个组成员信息，可以在证书种包含多个 organization 字段。&lt;/p>
 &lt;p>例如，使用 openssl 命令行工具生成一个证书签名请求：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>openssl req -new -key jbeda.pem -out jbeda-csr.pem -subj &lt;span style="color:#e6db74">&amp;#34;/CN=jbeda/O=app1/O=app2&amp;#34;&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>openssl req -new -key jbeda.pem -out jbeda-csr.pem -subj &lt;span style="color:#4e9a06">&amp;#34;/CN=jbeda/O=app1/O=app2&amp;#34;&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>此命令将使用用户名 jbeda 生成一个证书签名请求（CSR），且该用户属于 &amp;ldquo;app&amp;rdquo; 和 &amp;ldquo;app2&amp;rdquo; 两个用户组。&lt;/p>
 &lt;p>参阅&lt;a href="https://kubernetes.io/docs/concepts/cluster-administration/certificates/">管理证书&lt;/a>了解如何生成客户端证书&lt;/p>
 &lt;h2 id="static-token-file静态令牌文件">Static Token File(静态令牌文件)&lt;a class="td-heading-self-link" href="#static-token-file%e9%9d%99%e6%80%81%e4%bb%a4%e7%89%8c%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
@@ -91,17 +91,17 @@ curl --cacert ${CAPATH} -H &amp;quot;Authorization: Bearer ${TOKEN}&amp;quot; ht
 &lt;p>详解 Service Account 之前，需要了解这么一个 k8s 的运行逻辑：&lt;strong>每个 Pod 在创建成功后，都会声明并使用一个 ServiceAccount 作为自己与集群通信的认证，默认使用 Pod 所在 Namepace 的名为 default 的 ServiceAccount&lt;/strong>&lt;/p>
 &lt;p>上面这个默认的 default 具有很高的权限，如果想对该 default 进行安全保护，可以修改绑定到 default 的 role 的权限&lt;/p>
 &lt;p>每个 ServiceAccount 对象在被创建出来之后，都会自动生成一个对应的 Secrets 对象，认证信息即在该 Secret 中。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 与 ServiceAccount 关联的 secret 会以 SAName-token-STRING 的方式命名。&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 效果如下，在monitoring 名称空间中每个 sa 都有一个 secret 对应。(SA 是 ServiceAccount 的简称)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master alertmanager&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># kubectl get serviceaccount -n monitoring&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 与 ServiceAccount 关联的 secret 会以 SAName-token-STRING 的方式命名。&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 效果如下，在monitoring 名称空间中每个 sa 都有一个 secret 对应。(SA 是 ServiceAccount 的简称)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@master alertmanager&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># kubectl get serviceaccount -n monitoring&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME SECRETS AGE
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>alertmanager-main &lt;span style="color:#ae81ff">1&lt;/span> 2m18s
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>default &lt;span style="color:#ae81ff">1&lt;/span> 13d
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>alertmanager-main &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> 2m18s
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>default &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> 13d
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>....
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master alertmanager&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># kubectl get secrets -n monitoring&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@master alertmanager&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># kubectl get secrets -n monitoring&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME TYPE DATA AGE
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>alertmanager-main-token-h4vfx kubernetes.io/service-account-token &lt;span style="color:#ae81ff">3&lt;/span> 2m22s
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>default-token-8hww4 kubernetes.io/service-account-token &lt;span style="color:#ae81ff">3&lt;/span> 13d
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>alertmanager-main-token-h4vfx kubernetes.io/service-account-token &lt;span style="color:#0000cf;font-weight:bold">3&lt;/span> 2m22s
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>default-token-8hww4 kubernetes.io/service-account-token &lt;span style="color:#0000cf;font-weight:bold">3&lt;/span> 13d
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.......
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>该 Secret 中包含 3 个数据&lt;/p>
 &lt;ol>
@@ -116,12 +116,12 @@ curl --cacert ${CAPATH} -H &amp;quot;Authorization: Bearer ${TOKEN}&amp;quot; ht
 &lt;/li>
 &lt;/ol>
 &lt;p>这几个数据文件在 Pod 启动后会被自动挂载到 容器内的 /var/run/secrets/kubernetes.io/serviceaccount/ 目录下(该目录下的证书和 token 和 namespace 就类似于 kubeclt 命令的配置文件里的证书和 token 和 namespace)。效果如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@master-1 ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># kubectl exec -it myapp -- /bin/sh&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/ &lt;span style="color:#75715e"># ls -l /var/run/secrets/kubernetes.io/serviceaccount/&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#ae81ff">0&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">13&lt;/span> Sep &lt;span style="color:#ae81ff">16&lt;/span> 13:24 ca.crt -&amp;gt; ..data/ca.crt
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">16&lt;/span> Sep &lt;span style="color:#ae81ff">16&lt;/span> 13:24 namespace -&amp;gt; ..data/namespace
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#ae81ff">1&lt;/span> root root &lt;span style="color:#ae81ff">12&lt;/span> Sep &lt;span style="color:#ae81ff">16&lt;/span> 13:24 token -&amp;gt; ..data/token
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@master-1 ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># kubectl exec -it myapp -- /bin/sh&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/ &lt;span style="color:#8f5902;font-style:italic"># ls -l /var/run/secrets/kubernetes.io/serviceaccount/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">13&lt;/span> Sep &lt;span style="color:#0000cf;font-weight:bold">16&lt;/span> 13:24 ca.crt -&amp;gt; ..data/ca.crt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">16&lt;/span> Sep &lt;span style="color:#0000cf;font-weight:bold">16&lt;/span> 13:24 namespace -&amp;gt; ..data/namespace
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">12&lt;/span> Sep &lt;span style="color:#0000cf;font-weight:bold">16&lt;/span> 13:24 token -&amp;gt; ..data/token
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Service Account 相关流程&lt;/p>
 &lt;p>从上面的介绍中可以看到，Pod 启动后，会自动加载 token ，SA 生成后会自动创建 token ，那么这些工作，都是由谁来完成的呢？~&lt;/p>
 &lt;p>在 Kubernetes 中有三个组件来协作完成 SA 的自动化工作&lt;/p>

@@ -17,9 +17,9 @@
 &lt;p>&lt;strong>Pluggable Authentication Modules(可插入式认证模块，简称 PAM)&lt;/strong> 是由 Sun 提出的一种认证机制。它通过提供一些动态链接库和一套统一的 API，将系统提供的服务和该服务的认证方式分开，使得系统管理员可以灵活地根据需要给不同的服务配置不同的认证方式而无需更改服务程序，同时也便于向系统中添加新的认证手段。&lt;/p>
 &lt;p>在过去，我们想要对一个使用者进行 Authentication(认证)，得要要求用户输入账号密码，然后通过自行撰写的程序来判断该账号密码是否正确。也因为如此，我们常常使用不同的机制来判断账号密码，所以搞的一部主机上面拥有多个各别的认证系统，也造成账号密码可能不同步的验证问题！为了解决这个问题因此有了 PAM 的机制！&lt;/p>
 &lt;p>以常见的 su 命令来说，它可以实现用户切换，从 root 切换至其他用户不需要密码、从非 root 用户切换至其他用户则需要验证目标用户的密码，一旦认证成功就以目标用户身份启动 shell 以供使用。本质上，su 只做两件事：(1)认证；(2)启动 shell 。按照传统思路，两件事都很容易实现，例如认证逻辑可以用伪代码这样简单的描述：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">if&lt;/span> &lt;span style="color:#f92672">(&lt;/span> uid &lt;span style="color:#f92672">==&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#f92672">)&lt;/span> 认证成功
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>elseif &lt;span style="color:#f92672">(&lt;/span> 输入的密码 &lt;span style="color:#f92672">==&lt;/span> 目标用户的密码 &lt;span style="color:#f92672">)&lt;/span> 认证成功
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">else&lt;/span> 认证失败
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">if&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span> &lt;span style="color:#000">uid&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">==&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> 认证成功
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>elseif &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span> &lt;span style="color:#000">输入的密码&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">==&lt;/span> 目标用户的密码 &lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> 认证成功
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">else&lt;/span> 认证失败
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>但是，认证需求不是一成不变的。例如：&lt;/p>
 &lt;ul>
 &lt;li>(1)为了方便运维团队成员(也就是 wheel 组)，希望 wheel 组中的用户无需输入密码也能直接进行用户切换；&lt;/li>
@@ -33,9 +33,9 @@
 &lt;h1 id="linux-pam">Linux-PAM&lt;a class="td-heading-self-link" href="#linux-pam" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>Linux-PAM 就是一种 Linux 平台上的 PAM 实现&lt;/p>
 &lt;p>我们可以通过 &lt;code>ldd&lt;/code> 命令查出来进程是否支持 PAM&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ldd $(which login) | grep pam&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> libpam.so.0 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; /lib/x86_64-linux-gnu/libpam.so.0 &lt;span style="color:#f92672">(&lt;/span>0x00007f53a3720000&lt;span style="color:#f92672">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> libpam_misc.so.0 &lt;span style="color:#f92672">=&lt;/span>&amp;gt; /lib/x86_64-linux-gnu/libpam_misc.so.0 &lt;span style="color:#f92672">(&lt;/span>0x00007f53a371b000&lt;span style="color:#f92672">)&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ldd $(which login) | grep pam&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> libpam.so.0 &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&amp;gt; /lib/x86_64-linux-gnu/libpam.so.0 &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>0x00007f53a3720000&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> libpam_misc.so.0 &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&amp;gt; /lib/x86_64-linux-gnu/libpam_misc.so.0 &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>0x00007f53a371b000&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Linux-PAM 可以说是一套 API 与 Library，为应用程序提供完整的 &lt;strong>Autherntication(认证)&lt;/strong> 机制，只要使用者将认证阶段的需求告知 PAM 后，PAM 就能够回报使用者认证的结果(成功或失败)。由于 PAM 仅是一套认证的机制，又可以提供给其他程序所呼叫引用，因此不论你使用什么程序，都可以使用 PAM 来进行认证，如此一来，就能够让账号密码或者是其他方式的认证具有一致的结果！也让程序设计师方不在着重处理认证的问题。&lt;/p>
 &lt;h2 id="linux-pam-管理组认证功能的分组">Linux-PAM 管理组(认证功能的分组)&lt;a class="td-heading-self-link" href="#linux-pam-%e7%ae%a1%e7%90%86%e7%bb%84%e8%ae%a4%e8%af%81%e5%8a%9f%e8%83%bd%e7%9a%84%e5%88%86%e7%bb%84" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>Linux-PAM 将认证功能分为 4 个管理组(也可以称为：管理类型)，注意：相同的 PAM 模块关联到不同的管理类型时，产生的效果是不同的。&lt;/p>
@@ -66,25 +66,25 @@
 &lt;p>另外，从某种角度看，这 4 个管理类型，也可以称为 4 个 stack(栈)，每个&lt;strong>栈&lt;/strong>都是由一组规则组成。&lt;strong>规则栈&lt;/strong>的概念在下文有详细描述。&lt;/p>
 &lt;p>上述 4 种功能，都可以通过位于 /lib/security/ 或 /lib64/security/ 中的各种 PAM 模块实现，模块名称一般都符合 &lt;code>pam_*.so&lt;/code> 格式&lt;/p>
 &lt;h2 id="linux-pam-的运行方式">Linux-PAM 的运行方式&lt;a class="td-heading-self-link" href="#linux-pam-%e7%9a%84%e8%bf%90%e8%a1%8c%e6%96%b9%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span> +----------------+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | application: X |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +----------------+ / +----------+ +&lt;span style="color:#f92672">================&lt;/span>+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | authentication-&lt;span style="color:#f92672">[&lt;/span>----&amp;gt;----&lt;span style="color:#f92672">]&lt;/span> Linux- |--&amp;lt;--| PAM config file|
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | + &lt;span style="color:#f92672">[&lt;/span>----&amp;lt;--/--&lt;span style="color:#f92672">]&lt;/span> PAM | |&lt;span style="color:#f92672">================&lt;/span>|
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> |&lt;span style="color:#f92672">[&lt;/span>conversation&lt;span style="color:#f92672">()][&lt;/span>--+ &lt;span style="color:#ae81ff">\ &lt;/span> | | | X auth .. a.so |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +----------------+ | / +-n--n-----+ | X auth .. b.so |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | | | __| | | _____/
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | service user | A | | |____,-----&lt;span style="color:#960050;background-color:#1e0010">&amp;#39;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | | | V A
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +----------------+ +------|-----|---------+ -----+------+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +---u-----u----+ | | |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | auth.... |--&lt;span style="color:#f92672">[&lt;/span> a &lt;span style="color:#f92672">]&lt;/span>--&lt;span style="color:#f92672">[&lt;/span> b &lt;span style="color:#f92672">]&lt;/span>--&lt;span style="color:#f92672">[&lt;/span> c &lt;span style="color:#f92672">]&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span> +----------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> application: X &lt;span style="color:#000;font-weight:bold">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +----------------+ / +----------+ +&lt;span style="color:#ce5c00;font-weight:bold">================&lt;/span>+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> authentication-&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>----&amp;gt;----&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span> Linux- &lt;span style="color:#000;font-weight:bold">|&lt;/span>--&amp;lt;--&lt;span style="color:#000;font-weight:bold">|&lt;/span> PAM config file&lt;span style="color:#000;font-weight:bold">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> + &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>----&amp;lt;--/--&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span> PAM &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">================&lt;/span>&lt;span style="color:#000;font-weight:bold">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>conversation&lt;span style="color:#ce5c00;font-weight:bold">()][&lt;/span>--+ &lt;span style="color:#4e9a06">\ &lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> X auth .. a.so &lt;span style="color:#000;font-weight:bold">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +----------------+ &lt;span style="color:#000;font-weight:bold">|&lt;/span> / +-n--n-----+ &lt;span style="color:#000;font-weight:bold">|&lt;/span> X auth .. b.so &lt;span style="color:#000;font-weight:bold">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> __&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> _____/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> service user &lt;span style="color:#000;font-weight:bold">|&lt;/span> A &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>____,-----&lt;span style="color:#a40000">&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> V A
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +----------------+ +------&lt;span style="color:#000;font-weight:bold">|&lt;/span>-----&lt;span style="color:#000;font-weight:bold">|&lt;/span>---------+ -----+------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +---u-----u----+ &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> auth.... &lt;span style="color:#000;font-weight:bold">|&lt;/span>--&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> a &lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>--&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> b &lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>--&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> c &lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +--------------+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | acct.... |--&lt;span style="color:#f92672">[&lt;/span> b &lt;span style="color:#f92672">]&lt;/span>--&lt;span style="color:#f92672">[&lt;/span> d &lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> acct.... &lt;span style="color:#000;font-weight:bold">|&lt;/span>--&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> b &lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>--&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> d &lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +--------------+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | password |--&lt;span style="color:#f92672">[&lt;/span> b &lt;span style="color:#f92672">]&lt;/span>--&lt;span style="color:#f92672">[&lt;/span> c &lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> password &lt;span style="color:#000;font-weight:bold">|&lt;/span>--&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> b &lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>--&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> c &lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> +--------------+
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | session |--&lt;span style="color:#f92672">[&lt;/span> e &lt;span style="color:#f92672">]&lt;/span>--&lt;span style="color:#f92672">[&lt;/span> c &lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> session &lt;span style="color:#000;font-weight:bold">|&lt;/span>--&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> e &lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>--&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> c &lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>PAM 大体分为三个部分&lt;/p>
 &lt;ul>
 &lt;li>应用层 # 包括 ftpd、login、passwd 等应用程序&lt;/li>
@@ -123,7 +123,7 @@
 &lt;/ul>
 &lt;h2 id="rules-stack规则栈">Rules stack(规则栈)&lt;a class="td-heading-self-link" href="#rules-stack%e8%a7%84%e5%88%99%e6%a0%88" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>Linux-PAM 可以通过一组规则栈，对一个程序进行多重验证，假如现在有下面一个服务所使用的 PAM 配置：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>auth requisite pam_authtok_get.so.1
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>auth requisite pam_authtok_get.so.1
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_dhkeys.so.1
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_unix_cred.so.1
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_unix_auth.so.1
@@ -145,24 +145,24 @@
 /usr/lib/x86_64-linux-gnu/&lt;/em> # Ubuntu 发行版的 PAM 模块存放目录&lt;/p>
 &lt;h1 id="linux-pam-认证机制示例">Linux-PAM 认证机制示例&lt;a class="td-heading-self-link" href="#linux-pam-%e8%ae%a4%e8%af%81%e6%9c%ba%e5%88%b6%e7%a4%ba%e4%be%8b" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;h2 id="system-auth">system-auth&lt;a class="td-heading-self-link" href="#system-auth" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># grep -v ^# /etc/pam.d/system-auth&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># grep -v ^# /etc/pam.d/system-auth&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_env.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth sufficient pam_unix.so nullok try_first_pass
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth requisite pam_succeed_if.so uid &amp;gt;&lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">500&lt;/span> quiet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth requisite pam_succeed_if.so uid &amp;gt;&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">500&lt;/span> quiet
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_deny.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>account required pam_unix.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>account sufficient pam_localuser.so
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>account sufficient pam_succeed_if.so uid &amp;lt; &lt;span style="color:#ae81ff">500&lt;/span> quiet
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>account sufficient pam_succeed_if.so uid &amp;lt; &lt;span style="color:#0000cf;font-weight:bold">500&lt;/span> quiet
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>account required pam_permit.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>password requisite pam_cracklib.so try_first_pass retry&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">3&lt;/span> type&lt;span style="color:#f92672">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>password requisite pam_cracklib.so try_first_pass &lt;span style="color:#000">retry&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">3&lt;/span> &lt;span style="color:#000">type&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>password sufficient pam_unix.so sha512 shadow nullok try_first_pass use_authtok
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>password required pam_deny.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session optional pam_keyinit.so revoke
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session required pam_limits.so
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session &lt;span style="color:#f92672">[&lt;/span>success&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span> default&lt;span style="color:#f92672">=&lt;/span>ignore&lt;span style="color:#f92672">]&lt;/span> pam_succeed_if.so service in crond quiet use_uid
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>&lt;span style="color:#000">success&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> &lt;span style="color:#000">default&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>ignore&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span> pam_succeed_if.so service in crond quiet use_uid
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>session required pam_unix.so
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>第一部分表示，当用户登录的时候，首先会通过 auth 类接口对用户身份进行识别和密码认证。所以在该过程中验证会经过几个带 auth 的配置项。&lt;/p>
 &lt;p>其中的第一步是通过 pam_env.so 模块来定义用户登录之后的环境变量， pam_env.so 允许设置和更改用户登录时候的环境变量，默认情况下，若没有特别指定配置文件，将依据/etc/security/pam_env.conf 进行用户登录之后环境变量的设置。&lt;/p>
@@ -181,7 +181,7 @@
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>这是一个最基本的配置文件示例：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">#%PAM-1.0&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">#%PAM-1.0&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>auth required pam_deny.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>account required pam_deny.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>password required pam_deny.so
@@ -313,13 +313,13 @@
 &lt;/table>
 &lt;h2 id="module-path">Module-Path&lt;a class="td-heading-self-link" href="#module-path" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>在 CentOS 中，模块文件默认在 /usr/lib64/security/ 目录中，以 .so 结尾&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># ls /usr/lib64/security/&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ls /usr/lib64/security/&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_access.so pam_cracklib.so pam_env.so pam_filter pam_issue.so pam_listfile.so pam_mkhomedir.so pam_permit.so pam_rhosts.so pam_selinux.so pam_succeed_if.so pam_timestamp.so pam_unix_auth.so pam_userdb.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_cap.so pam_debug.so pam_exec.so pam_filter.so pam_keyinit.so pam_localuser.so pam_motd.so pam_postgresok.so pam_rootok.so pam_sepermit.so pam_systemd.so pam_tty_audit.so pam_unix_passwd.so pam_warn.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_chroot.so pam_deny.so pam_faildelay.so pam_ftp.so pam_lastlog.so pam_loginuid.so pam_namespace.so pam_pwhistory.so pam_securetty.so pam_shells.so pam_tally2.so pam_umask.so pam_unix_session.so pam_wheel.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_console.so pam_echo.so pam_faillock.so pam_group.so pam_limits.so pam_mail.so pam_nologin.so pam_pwquality.so pam_selinux_permit.so pam_stress.so pam_time.so pam_unix_acct.so pam_unix.so pam_xauth.so
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 Ubuntu 中，模块文件默认在 /usr/lib/x86_64-linux-gnu/security/ 目录中，以 .so 结尾&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>$ ls /usr/lib/x86_64-linux-gnu/security/
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>$ ls /usr/lib/x86_64-linux-gnu/security/
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_access.so pam_echo.so pam_faildelay.so pam_ftp.so pam_issue.so pam_listfile.so pam_mkhomedir.so pam_permit.so pam_securetty.so pam_stress.so pam_tally.so pam_umask.so pam_wheel.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_cap.so pam_env.so pam_faillock.so pam_gdm.so pam_keyinit.so pam_localuser.so pam_motd.so pam_pwhistory.so pam_selinux.so pam_succeed_if.so pam_time.so pam_unix.so pam_xauth.so
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pam_debug.so pam_exec.so pam_filter.so pam_gnome_keyring.so pam_lastlog.so pam_loginuid.so pam_namespace.so pam_rhosts.so pam_sepermit.so pam_systemd.so pam_timestamp.so pam_userdb.so

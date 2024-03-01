@@ -251,7 +251,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;p>文件系统设计者当然知道这样的存储方式很不理想，所以需要优化存储方式。如何优化？对于这种类似的问题的解决方法是使用索引，通过扫描索引找到对应的数据，而且索引可以存储部分数据。&lt;/p>
 &lt;p>在文件系统上索引技术具体化为索引节点 (index node)，在索引节点上存储的部分数据即为文件的属性元数据及其他少量信息。一般来说索引占用的空间相比其索引的文件数据而言占用的空间就小得多，扫描它比扫描整个数据要快得多，否则索引就没有存在的意义。这样一来就解决了前面所有的问题。&lt;/p>
 &lt;p>在文件系统上的术语中，索引节点称为 inode。在 inode 中存储了 inode 号（注，inode 中并未存储 inode num，但为了方便理解，这里暂时认为它存储了 inode 号）、文件类型、权限、文件所有者、大小、时间戳等元数据信息，最重要的是还存储了指向属于该文件 block 的指针，这样读取 inode 就可以找到属于该文件的 block，进而读取这些 block 并获得该文件的数据。由于后面还会介绍一种指针，为了方便称呼和区分，暂且将这个 inode 记录中指向文件 data block 的指针称之为 block 指针。以下是 ext2 文件系统中 inode 包含的信息示例：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>Inode: 12 Type: regular Mode: 0644 Flags: 0x0
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>Inode: 12 Type: regular Mode: 0644 Flags: 0x0
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Generation: 1454951771 Version: 0x00000000:00000001
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>User: 0 Group: 0 Size: 5
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>File ACL: 0 Directory ACL: 0
@@ -320,7 +320,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;p>既然一个文件系统会分多个块组，那么文件系统怎么知道分了多少个块组呢？每个块组又有多少 block 多少 inode 号等等信息呢？还有，文件系统本身的属性信息如各种时间戳、block 总数量和空闲数量、inode 总数量和空闲数量、当前文件系统是否正常、什么时候需要自检等等，它们又存储在哪里呢？&lt;/p>
 &lt;p>毫无疑问，这些信息必须要存储在 block 中。存储这些信息占用 1024 字节，所以也要一个 block，这个 block 称为超级块 (superblock)，它的 block 号可能为 0 也可能为 1。&lt;strong>如果 block 大小为 1K，则引导块正好占用一个 block，这个 block 号为 0，所以 superblock 的号为 1；如果 block 大小大于 1K，则引导块和超级块同置在一个 block 中，这个 block 号为 0。总之 superblock 的起止位置是第二个 1024 (1024-2047) 字节&lt;/strong>。&lt;/p>
 &lt;p>使用 df 命令读取的就是每个文件系统的 superblock，所以它的统计速度非常快。相反，用 du 命令查看一个较大目录的已用空间就非常慢，因为不可避免地要遍历整个目录的所有文件。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# df -hT
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# df -hT
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Filesystem Type Size Used Avail Use% Mounted on
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/dev/sda3 ext4 18G 1.7G 15G 11% /
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>tmpfs tmpfs 491M 0 491M 0% /dev/shm
@@ -378,7 +378,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;p>软链接之所以也被称为特殊文件的原因是：它一般情况下不占用 data block，仅仅通过它对应的 inode 记录就能将其信息描述完成；符号链接的大小是其指向目标路径占用的字符个数，例如某个符号链接的指向方式为”rmt –&amp;gt; ../sbin/rmt”，则其文件大小为 11 字节；只有当符号链接指向的目标的路径名较长 (60 个字节) 时文件系统才会划分一个 data block 给它；它的权限如何也不重要，因它只是一个指向原文件的” 工具”，最终决定是否能读写执行的权限由原文件决定，所以很可能 ls -l 查看到的符号链接权限为 777。&lt;/p>
 &lt;p>注意，软链接的 block 指针存储的是目标文件名。也就是说，链接文件的一切都依赖于其目标文件名。这就解释了为什么 /mnt 的软链接 /tmp/mnt 在 /mnt 挂载文件系统后，通过软链接就能进入 /mnt 所挂载的文件系统。究其原因，还是因为其目标文件名”/mnt” 并没有改变。&lt;/p>
 &lt;p>例如以下筛选出了 /etc/ 下的符号链接，注意观察它们的权限和它们占用的空间大小。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# ll /etc/ | grep &amp;#39;^l&amp;#39;
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# ll /etc/ | grep &amp;#39;^l&amp;#39;
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx. 1 root root 56 Feb 18 2016 favicon.png -&amp;gt; /usr/share/icons/hicolor/16x16/apps/system-logo-icon.png
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx. 1 root root 22 Feb 18 2016 grub.conf -&amp;gt; ../boot/grub/grub.conf
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx. 1 root root 11 Feb 18 2016 init.d -&amp;gt; rc.d/init.d
@@ -398,7 +398,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="设备文件fifo套接字文件-设备文件fifo套接字文件设备文件fifo套接字文件">&lt;a href="#%E8%AE%BE%E5%A4%87%E6%96%87%E4%BB%B6%E3%80%81FIFO%E3%80%81%E5%A5%97%E6%8E%A5%E5%AD%97%E6%96%87%E4%BB%B6" title="设备文件、FIFO、套接字文件">&lt;/a>设备文件、FIFO、套接字文件&lt;a class="td-heading-self-link" href="#%e8%ae%be%e5%a4%87%e6%96%87%e4%bb%b6fifo%e5%a5%97%e6%8e%a5%e5%ad%97%e6%96%87%e4%bb%b6-%e8%ae%be%e5%a4%87%e6%96%87%e4%bb%b6fifo%e5%a5%97%e6%8e%a5%e5%ad%97%e6%96%87%e4%bb%b6%e8%ae%be%e5%a4%87%e6%96%87%e4%bb%b6fifo%e5%a5%97%e6%8e%a5%e5%ad%97%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>关于这 3 种文件类型的文件只需要通过 inode 就能完全保存它们的信息，它们不占用任何数据块，所以它们是特殊文件。&lt;/p>
 &lt;p>设备文件的主设备号和次设备号也保存在 inode 中。以下是 /dev/ 下的部分设备信息。注意到它们的第 5 列和第 6 列信息，它们分别是主设备号和次设备号，主设备号标识每一种设备的类型，次设备号标识同种设备类型的不同编号；也注意到这些信息中没有大小的信息，因为设备文件不占用数据块所以没有大小的概念。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# ll /dev | tail
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# ll /dev | tail
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>crw-rw---- 1 vcsa tty 7, 129 Oct 7 21:26 vcsa1
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>crw-rw---- 1 vcsa tty 7, 130 Oct 7 21:27 vcsa2
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>crw-rw---- 1 vcsa tty 7, 131 Oct 7 21:27 vcsa3
@@ -413,7 +413,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;h2 id="硬链接-硬链接硬链接">&lt;a href="#%E7%A1%AC%E9%93%BE%E6%8E%A5" title="硬链接">&lt;/a>硬链接&lt;a class="td-heading-self-link" href="#%e7%a1%ac%e9%93%be%e6%8e%a5-%e7%a1%ac%e9%93%be%e6%8e%a5%e7%a1%ac%e9%93%be%e6%8e%a5" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>虽然每个文件都有一个 inode，但是存在一种可能：多个文件的 inode 相同，也就即 inode 号、元数据、block 位置都相同，这是一种什么样的情况呢？能够想象这些 inode 相同的文件使用的都是同一条 inode 记录，所以代表的都是同一个文件，这些文件所在目录的 data block 中的 inode 号都是一样的，只不过各 inode 号对应的文件名互不相同而已。这种 inode 相同的文件在 Linux 中被称为” 硬链接”。&lt;/p>
 &lt;p>硬链接文件的 inode 都相同，每个文件都有一个” 硬链接数” 的属性，使用 ls -l 的第二列就是被硬链接数，它表示的就是该文件有几个硬链接。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# ls -l
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# ls -l
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total 48
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x 5 root root 4096 Oct 15 18:07 700
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-------. 1 root root 1082 Feb 18 2016 anaconda-ks.cfg
@@ -427,7 +427,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;p>删除文件的实质是删除该文件所在目录 data block 中的对应的 inode 行，所以也是减少硬链接次数，由于 block 指针是存储在 inode 中的，所以不是真的删除数据，如果仍有其他 inode 号链接到该 inode，那么该文件的 block 指针仍然是可用的。当硬链接次数为 1 时再删除文件就是真的删除文件了，此时 inode 记录中 block 指针也将被删除。&lt;/p>
 &lt;p>&lt;strong>不能跨分区创建硬链接&lt;/strong>，因为不同文件系统的 inode 号可能会相同，如果允许创建硬链接，复制到另一个分区时 inode 可能会和此分区已使用的 inode 号冲突。&lt;/p>
 &lt;p>&lt;strong>硬链接只能对文件创建，无法对目录创建硬链接&lt;/strong>。之所以无法对目录创建硬链接，是因为文件系统已经把每个目录的硬链接创建好了，它们就是相对路径中的”.” 和”..”，分别标识当前目录的硬链接和上级目录的硬链接。每一个目录中都会包含这两个硬链接，它包含了两个信息：(1) 一个没有子目录的目录文件的硬链接数是 2，其一是目录本身，即该目录 datablock 中的”.”，其二是其父目录 datablock 中该目录的记录，这两者都指向同一个 inode 号；(2) 一个包含子目录的目录文件，其硬链接数是 2 + 子目录数，因为每个子目录都关联一个父目录的硬链接”..”。很多人在计算目录的硬链接数时认为由于包含了”.” 和”..”，所以空目录的硬链接数是 2，这是错误的，因为”..” 不是本目录的硬链接。另外，还有一个特殊的目录应该纳入考虑，即”/“目录，它自身是一个文件系统的入口，是自引用 (下文中会解释自引用) 的，所以”/“目录下的”.” 和”..” 的 inode 号相同，它自身不占用硬链接，因为其 datablock 中只记录 inode 号相同的”.” 和”..”，不再像其他目录一样还记录一个名为”/“的目录，所以”/“的硬链接数也是 2 + 子目录数，但这个 2 是”.” 和”..” 的结果。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# ln /tmp /mydata
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# ln /tmp /mydata
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ln: `/tmp&amp;#39;: hard link not allowed for directory
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>为什么文件系统自己创建好了目录的硬链接就不允许人为创建呢？从”.” 和”..” 的用法上考虑，如果当前目录为 /usr，我们可以使用”./local” 来表示 /usr/local，但是如果我们人为创建了 /usr 目录的硬链接 /tmp/husr，难道我们也要使用”/tmp/husr/local” 来表示 /usr/local 吗？这其实已经是软链接的作用了。若要将其认为是硬链接的功能，这必将导致硬链接维护的混乱。&lt;/p>
 &lt;p>不过，通过 mount 工具的”–bind” 选项，可以将一个目录挂载到另一个目录下，实现伪” 硬链接”，它们的内容和 inode 号是完全相同的。&lt;/p>
@@ -441,7 +441,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;p>在设置软链接的时候，source_file 虽然不要求是绝对路径，但建议给绝对路径。是否还记得软链接文件的大小？它是根据软链接所指向路径的字符数计算的，例如某个符号链接的指向方式为”rmt –&amp;gt; ../sbin/rmt”，它的文件大小为 11 字节，也就是说只要建立了软链接后，软链接的指向路径是不会改变的，仍然是”../sbin/rmt”。如果此时移动软链接文件本身，它的指向是不会改变的，仍然是 11 个字符的”../sbin/rmt”，但此时该软链接父目录下可能根本就不存在 /sbin/rmt，也就是说此时该软链接是一个被破坏的软链接。&lt;/p>
 &lt;h2 id="inode大小和划分-inode大小和划分inode-大小和划分">&lt;a href="#inode%E5%A4%A7%E5%B0%8F%E5%92%8C%E5%88%92%E5%88%86" title="inode大小和划分">&lt;/a>inode 大小和划分&lt;a class="td-heading-self-link" href="#inode%e5%a4%a7%e5%b0%8f%e5%92%8c%e5%88%92%e5%88%86-inode%e5%a4%a7%e5%b0%8f%e5%92%8c%e5%88%92%e5%88%86inode-%e5%a4%a7%e5%b0%8f%e5%92%8c%e5%88%92%e5%88%86" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>inode 大小为 128 字节的倍数，最小为 128 字节。它有默认值大小，它的默认值由 /etc/mke2fs.conf 文件中指定。不同的文件系统默认值可能不同。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# cat /etc/mke2fs.conf
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# cat /etc/mke2fs.conf
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[defaults]
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> base_features = sparse_super,filetype,resize_inode,dir_index,ext_attr
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> enable_periodic_fsck = 1
@@ -463,7 +463,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;p>当然 inode size、inode 分配比例、block size 都可以在创建文件系统的时候人为指定。&lt;/p>
 &lt;h2 id="ext文件系统预留的inode号-ext文件系统预留的inode号ext-文件系统预留的-inode-号">&lt;a href="#ext%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E9%A2%84%E7%95%99%E7%9A%84inode%E5%8F%B7" title="ext文件系统预留的inode号">&lt;/a>ext 文件系统预留的 inode 号&lt;a class="td-heading-self-link" href="#ext%e6%96%87%e4%bb%b6%e7%b3%bb%e7%bb%9f%e9%a2%84%e7%95%99%e7%9a%84inode%e5%8f%b7-ext%e6%96%87%e4%bb%b6%e7%b3%bb%e7%bb%9f%e9%a2%84%e7%95%99%e7%9a%84inode%e5%8f%b7ext-%e6%96%87%e4%bb%b6%e7%b3%bb%e7%bb%9f%e9%a2%84%e7%95%99%e7%9a%84-inode-%e5%8f%b7" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>Ext 预留了一些 inode 做特殊特性使用，如下：某些可能并非总是准确，具体的 inode 号对应什么文件可以使用”find /-inum NUM” 查看。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>Ext4的特殊inode
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>Ext4的特殊inode
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Inode号 用途
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0 不存在0号inode，可用于标识目录data block中已删除的文件
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>1 虚拟文件系统，如/proc和/sys
@@ -478,7 +478,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>所以在 ext4 文件系统的 dumpe2fs 信息中，能观察到 fisrt inode 号可能为 11 也可能为 12。&lt;/p>
 &lt;p>并且注意到”/“的 inode 号为 2，这个特性在文件访问时会用上。&lt;/p>
 &lt;p>需要注意的是，每个文件系统都会分配自己的 inode 号，不同文件系统之间是可能会出现使用相同 inode 号文件的。例如：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# find / -ignore_readdir_race -inum 2 -ls
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi ~]# find / -ignore_readdir_race -inum 2 -ls
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 2 4 dr-xr-xr-x 22 root root 4096 Jun 9 09:56 /
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 2 2 dr-xr-xr-x 5 root root 1024 Feb 25 11:53 /boot
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 2 0 c--------- 1 root root Jun 7 02:13 /dev/pts/ptmx
@@ -576,17 +576,17 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;p>这里要明确的是，任何一个文件系统要在 Linux 上能正常使用，必须挂载在某个已经挂载好的文件系统中的某个目录下，例如 /dev/cdrom 挂载在 /mnt 上，/mnt 目录本身是在”/“文件系统下的。而且任意文件系统的一级挂载点必须是在根文件系统的某个目录下，因为只有”/“是自引用的。这里要说明挂载点的级别和自引用的概念。&lt;/p>
 &lt;p>假如 /dev/sdb1 挂载在 /mydata 上，/dev/cdrom 挂载在 /mydata/cdrom 上，那么 /mydata 就是一级挂载点，此时 /mydata 已经是文件系统 /dev/sdb1 的入口了，而 /dev/cdrom 所挂载的目录 /mydata/cdrom 是文件系统 /dev/sdb1 中的某个目录，那么 /mydata/cdrom 就是二级挂载点。一级挂载点必须在根文件系统下，所以可简述为：文件系统 2 挂载在文件系统 1 中的某个目录下，而文件系统 1 又挂载在根文件系统中的某个目录下。&lt;/p>
 &lt;p>再解释自引用。首先要说的是，自引用的只能是文件系统，而文件系统表现形式是一个目录，所以自引用是指该目录的 data block 中，”.” 和”..” 的记录中的 inode 号都对应 inode table 中同一个 inode 记录，所以它们 inode 号是相同的，即互为硬链接。而根文件系统是唯一可以自引用的文件系统。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi /]# ll -ai /
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi /]# ll -ai /
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total 102
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 2 dr-xr-xr-x. 22 root root 4096 Jun 6 18:13 .
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 2 dr-xr-xr-x. 22 root root 4096 Jun 6 18:13 ..
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>由此也能解释 cd /. 和 cd /.. 的结果都还是在根下，这是自引用最直接的表现形式。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi tmp]# cd /.
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@xuexi tmp]# cd /.
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[root@xuexi /]#
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[root@xuexi tmp]# cd /..
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[root@xuexi /]#
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>注意，根目录下的”.” 和”..” 都是”/“目录的硬链接，且其 datablock 中不记录名为”/“的条目，因此除去根目录下子目录数后的硬链接数为 2。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@server2 tmp]# a=$(ls -ld / | awk &amp;#39;{print $2}&amp;#39;)
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>[root@server2 tmp]# a=$(ls -ld / | awk &amp;#39;{print $2}&amp;#39;)
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[root@server2 tmp]# b=$(ls -l / | grep &amp;#34;^d&amp;#34; |wc -l)
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[root@server2 tmp]# echo $((a - b))
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>2
@@ -605,7 +605,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;p>而卸载文件系统，其实质是移除临时新建的 inode 记录 (当然，在移除前会检查是否正在使用) 及其指针，并将指针指回原来的 inode 记录，这样 inode 记录中的 block 指针也就同时生效而找回对应的 data block 了。由于卸载只是移除 inode 记录，所以使用挂载点和文件系统都可以实现卸载，因为它们是联系在一起的。&lt;/p>
 &lt;p>下面是分析或结论。&lt;/p>
 &lt;p>(1). 挂载点挂载时的 inode 记录是新分配的。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span># 挂载前挂载点/mnt的inode号
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span># 挂载前挂载点/mnt的inode号
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[root@server2 tmp]# ll -id /mnt
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>100663447 drwxr-xr-x. 2 root root 6 Aug 12 2015 /mnt
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
@@ -615,7 +615,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>1856 dr-xr-xr-x 8 root root 2048 Dec 10 2015 mnt
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>由此可以验证，inode 号确实是重新分配的。&lt;/p>
 &lt;p>(2). 挂载后，挂载点的内容将暂时不可见、不可用，卸载后文件又再次可见、可用。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span># 在挂载前，向挂载点中创建几个文件
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span># 在挂载前，向挂载点中创建几个文件
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[root@server2 tmp]# touch /mnt/a.txt
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[root@server2 tmp]# mkdir /mnt/abcdir
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span># 挂载
@@ -667,7 +667,7 @@ Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
 &lt;p>ext4 文件系统的最大特点是在 ext3 的基础上使用区 (extent，或称为段) 的概念来管理。一个 extent 尽可能的包含物理上连续的一堆 block。inode 寻址方面也一样使用区段树的方式进行了改进。&lt;/p>
 &lt;p>默认情况下，EXT4 不再使用 EXT3 的 block mapping 分配方式 ，而改为 Extent 方式分配。&lt;/p>
 &lt;p>以下是 ext4 文件系统中一个文件的 inode 属性示例，注意最后两行的 EXTENTS。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>Inode: 12 Type: regular Mode: 0644 Flags: 0x80000
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-plain" data-lang="plain">&lt;span style="display:flex;">&lt;span>Inode: 12 Type: regular Mode: 0644 Flags: 0x80000
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Generation: 476513974 Version: 0x00000000:00000001
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>User: 0 Group: 0 Size: 11
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>File ACL: 0 Directory ACL: 0

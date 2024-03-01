@@ -233,7 +233,7 @@ crictl rmp `crictl ps --name kube-controller-manager -q`
 &lt;p>还有问题吗？&lt;/p>
 &lt;p>你也可以连接到 Pod！&lt;/p>
 &lt;p>你可以使用 kubectl 中的 port-forward 命令连接到 service 并测试连接。&lt;/p>
-&lt;p>$ kubectl port-forward service/&lt;!-- raw HTML omitted --> 3000:80&lt;/p>
+&lt;p>$ kubectl port-forward service/&lt;service name> 3000:80&lt;/p>
 &lt;p>•service/ 是服务的名称- 在上面的 YAML 中是 “my-service”•3000 是你希望在计算机上打开的端口•80 是 service 通过 port 字段暴露的端口&lt;/p>
 &lt;p>如果可以连接，则说明设置正确。&lt;/p>
 &lt;p>如果不行，则很可能是你填写了错误的标签或端口不匹配。&lt;/p>
@@ -316,7 +316,7 @@ crictl rmp `crictl ps --name kube-controller-manager -q`
 &lt;p>•应用程序中存在错误，导致无法启动•你未正确配置容器•Liveness 探针失败太多次&lt;/p>
 &lt;p>你应该尝试从该容器中检索日志以调查其失败的原因。&lt;/p>
 &lt;p>如果由于容器重新启动太快而看不到日志，则可以使用以下命令：&lt;/p>
-&lt;p>$ kubectl logs &lt;!-- raw HTML omitted --> &amp;ndash;previous&lt;/p>
+&lt;p>$ kubectl logs &lt;pod-name> &amp;ndash;previous&lt;/p>
 &lt;p>这个命令打印前一个容器的错误消息。&lt;/p>
 &lt;p>RunContainerError&lt;/p>
 &lt;p>当容器无法启动时，出现此错误。&lt;/p>
@@ -330,7 +330,7 @@ crictl rmp `crictl ps --name kube-controller-manager -q`
 &lt;p>假设你的调度程序组件运行良好，可能的原因如下：&lt;/p>
 &lt;p>•集群没有足够的资源（例如 CPU 和内存）来运行 Pod•当前的命名空间具有 ResourceQuota 对象，创建 Pod 将使命名空间超过配额•该 Pod 绑定到一个处于 pending 状态的 PersistentVolumeClaim&lt;/p>
 &lt;p>最好的选择是检查 kubectl describe 命令输出的“事件”部分内容：&lt;/p>
-&lt;p>$ kubectl describe pod &lt;!-- raw HTML omitted -->&lt;/p>
+&lt;p>$ kubectl describe pod &lt;pod name>&lt;/p>
 &lt;p>对于因 ResourceQuotas 而导致的错误，可以使用以下方法检查集群的日志：&lt;/p>
 &lt;p>$ kubectl get events &amp;ndash;sort-by=.metadata.creationTimestamp&lt;/p>
 &lt;p>处于未就绪状态的 Pod&lt;/p>
@@ -344,14 +344,14 @@ crictl rmp `crictl ps --name kube-controller-manager -q`
 &lt;p>service 旨在根据流量的标签将流量路由到 Pod。&lt;/p>
 &lt;p>因此，你应该检查的第一件事是服务关联了多少个 Pod。&lt;/p>
 &lt;p>你可以通过检查服务中的端点( endpoint )来做到这一点：&lt;/p>
-&lt;p>$ kubectl describe service &lt;!-- raw HTML omitted --> | grep Endpoints&lt;/p>
+&lt;p>$ kubectl describe service &lt;service-name> | grep Endpoints&lt;/p>
 &lt;p>端点是一对，并且在服务（至少）以 Pod 为目标时，应该至少有一个端点。&lt;/p>
 &lt;p>如果“端点”部分为空，则有两种解释：&lt;/p>
 &lt;p>•你没有运行带有正确标签的 Pod（提示：你应检查自己是否在正确的命名空间中）•service 的 selector 标签上有错字&lt;/p>
 &lt;p>如果你看到端点列表，但仍然无法访问你的应用程序，则 targetPort 可能是你服务中的罪魁祸首。&lt;/p>
 &lt;p>你如何测试服务？&lt;/p>
 &lt;p>无论服务类型如何，你都可以使用 kubectl port-forward 来连接它：&lt;/p>
-&lt;p>$kubectl port-forward service/&lt;!-- raw HTML omitted --> 3000:80&lt;/p>
+&lt;p>$kubectl port-forward service/&lt;service-name> 3000:80&lt;/p>
 &lt;p>这里：&lt;/p>
 &lt;p>• 是服务的名称•3000 是你希望在计算机上打开的端口•80 是服务公开的端口&lt;/p>
 &lt;p>3.Ingress 的故障排除&lt;/p>
@@ -364,7 +364,7 @@ crictl rmp `crictl ps --name kube-controller-manager -q`
 &lt;p>Ingress 使用 serviceName 和 servicePort 连接到服务。&lt;/p>
 &lt;p>你应该检查这些配置是否正确。&lt;/p>
 &lt;p>你可以通过下面命令检查 Ingress 配置是否正确：&lt;/p>
-&lt;p>$kubectl describe ingress &lt;!-- raw HTML omitted -->&lt;/p>
+&lt;p>$kubectl describe ingress &lt;ingress-name>&lt;/p>
 &lt;p>如果 backend 一列为空，则配置中必然有一个错误。&lt;/p>
 &lt;p>如果你可以在 “backend” 列中看到端点，但是仍然无法访问该应用程序，则可能是以下问题：&lt;/p>
 &lt;p>•你如何将 Ingress 暴露于公共互联网•你如何将集群暴露于公共互联网&lt;/p>
@@ -415,23 +415,23 @@ crictl rmp `crictl ps --name kube-controller-manager -q`
 &lt;p>当我们发现 Pod 无法启动时，除了日常通过 kubectl 命令，查看日志等常规手段以外，还有可能需要让 Pod 强制启动，以便更深入排障&lt;/p>
 &lt;p>首先，编辑 Pod 的控制器，删除各种探针&lt;/p>
 &lt;p>然后利用 pod.spec.containers.tty 和 pod.spec.containers.command 两个字段，为 Pod 分配一个终端，并保持 Pod 运行状态&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">apiVersion&lt;/span>: &lt;span style="color:#ae81ff">apps/v1&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">kind&lt;/span>: &lt;span style="color:#ae81ff">Deployment&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">metadata&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">name&lt;/span>: &lt;span style="color:#ae81ff">myapp-bj-test&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">namespace&lt;/span>: &lt;span style="color:#ae81ff">test&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">spec&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">......&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">template&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">metadata&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">......&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">spec&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">containers&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#f92672">command&lt;/span>: [&lt;span style="color:#ae81ff">sh]&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">tty&lt;/span>: &lt;span style="color:#66d9ef">true&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">......&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">......&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这时，我们就可以通过 kubectl exec 命令进入这个容器中，进行各种调试了。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">apiVersion&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">apps/v1&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">kind&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">Deployment&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">metadata&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">name&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">myapp-bj-test&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">namespace&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">test&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">spec&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">......&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">template&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">metadata&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">......&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">spec&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">containers&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>- &lt;span style="color:#204a87;font-weight:bold">command&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000;font-weight:bold">[&lt;/span>&lt;span style="color:#000">sh]&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">tty&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">true&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">......&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">......&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这时，我们就可以通过 kubectl exec 命令进入这个容器中，进行各种调试了。&lt;/p>
 &lt;h1 id="kubernetes-debug">Kubernetes Debug&lt;a class="td-heading-self-link" href="#kubernetes-debug" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -457,59 +457,59 @@ crictl rmp `crictl ps --name kube-controller-manager -q`
 &lt;p>那么我们有了 Ephemeral Containers 能做哪些事情呢？&lt;/p>
 &lt;h3 id="1-pod-troubleshooting">1. POD Troubleshooting&lt;a class="td-heading-self-link" href="#1-pod-troubleshooting" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;p>如上文所说，我们可以直接通过 kubectl debug 命令进行容器调试。最直接简单的对一个 pod 进行调试命令如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl debug mypod -it --image&lt;span style="color:#f92672">=&lt;/span>busybox
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl debug mypod -it --image&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>busybox
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>默认情况下用户不指定临时容器名称的话，debug 容器名称就由 kubectl 自动生成一个唯一 id 的名称。如果用户需要自己指定容器名称则使用&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl debug mypod -c debugger --image&lt;span style="color:#f92672">=&lt;/span>busybox
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl debug mypod -c debugger --image&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>busybox
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>有了临时容器除了日常 debug 功能外，我们可以扩展出很多新花样的玩法。比如批量跑某个命名空间下的安全扫描的脚本而不用干扰原容器。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">for&lt;/span> pod in &lt;span style="color:#66d9ef">$(&lt;/span>kubectl get -o name pod&lt;span style="color:#66d9ef">)&lt;/span>;
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">do&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> kubectl debug --image security/pod_scanner -p $pod /sanner.sh
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">done&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">for&lt;/span> pod in &lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>kubectl get -o name pod&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> kubectl debug --image security/pod_scanner -p &lt;span style="color:#000">$pod&lt;/span> /sanner.sh
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">done&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="2-pod-troubleshooting-by-copy">2. POD Troubleshooting by Copy&lt;a class="td-heading-self-link" href="#2-pod-troubleshooting-by-copy" aria-label="Heading self-link">&lt;/a>&lt;/h4>
 &lt;p>对于没有开启 Ephemeral Containers 特性的集群，我们就只能通过复制模式来调试容器。它的原理是复制一个指定 pod 的新容器，并将 debug 作为 sidecar 跟随新容器一起启动。通过这种方式也能达到曲线救国的目的。此种方式的几个参数还是挺有意思：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>--copy-to 指定新pod的名称
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--replace&lt;span style="color:#f92672">=&lt;/span>true 是否删除原容器
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--same-node&lt;span style="color:#f92672">=&lt;/span>true 是否调度到和原容器一样的node上
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--share-processes&lt;span style="color:#f92672">=&lt;/span>true 是否共享容器pid空间
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>--copy-to 指定新pod的名称
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--replace&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87">true&lt;/span> 是否删除原容器
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--same-node&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87">true&lt;/span> 是否调度到和原容器一样的node上
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--share-processes&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87">true&lt;/span> 是否共享容器pid空间
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>例如我们就可以启动一个跟需要调试 pod 一样配置的 debug 容器如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl debug mypod -it &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>--container&lt;span style="color:#f92672">=&lt;/span>debug &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>--image&lt;span style="color:#f92672">=&lt;/span>busybox &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>--copy-to&lt;span style="color:#f92672">=&lt;/span>my-debugger &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>--same-node&lt;span style="color:#f92672">=&lt;/span>true &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>--share-processes&lt;span style="color:#f92672">=&lt;/span>true
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl debug mypod -it &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--container&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>debug &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--image&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>busybox &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--copy-to&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>my-debugger &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--same-node&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87">true&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--share-processes&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87">true&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="3-node-troubleshooting">3. Node Troubleshooting&lt;a class="td-heading-self-link" href="#3-node-troubleshooting" aria-label="Heading self-link">&lt;/a>&lt;/h4>
 &lt;p>对！你没看错！利用 Ephemeral Containers 还能对 Worker 节点进行调试。当以节点为目标调用时，kubectl debug 将创建一个带有 node 名称的 pod，并且调度到该节点。同时该容器还具备了 hostIPC、hostNetwork 和 hostPID 这些特权模式。不可思议的是 Worker 节点的根文件系统还被 mount 到了 debug 容器下的/host 目录下。
 直接执行这个命令就能 debug 主机。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl debug node/mynode -it --image&lt;span style="color:#f92672">=&lt;/span>busybox
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl debug node/mynode -it --image&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>busybox
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="debug-镜像">Debug 镜像&lt;a class="td-heading-self-link" href="#debug-%e9%95%9c%e5%83%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>工欲善其事，必先利其器。不管怎样我们都需要一套工具完善的 debug 镜像，在处理问题时能够得心应手。虽然网上也有不少 debug 镜像，不过都还是不如自己构建来的畅快。
 这里小白分享一个 Debug 镜像的 Dockerfile，大家可以根据自己条件修改即可。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>FROM golang:alpine as grpcurl
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>FROM golang:alpine as grpcurl
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ENV XXX 添加 go 代理
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN apk update &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> apk add --virtual build-dependencies git &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> apk add bash curl jq &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> go get -u github.com/fullstorydev/grpcurl &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN apk update &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span> apk add --virtual build-dependencies git &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span> apk add bash curl jq &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span> go get -u github.com/fullstorydev/grpcurl &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span> go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>FROM alpine:latest
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN sed -i &lt;span style="color:#e6db74">&amp;#39;s/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g&amp;#39;&lt;/span> /etc/apk/repositories &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> apk update &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> apk add --no-cache vim bash tcpdump curl wget strace mysql-client iproute2 redis jq iftop tzdata tar nmap bind-tools htop &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN wget -O /usr/bin/httpstat https://github.com/davecheney/httpstat/releases/download/v1.0.0/httpstat-linux-amd64-v1.0.0 &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> chmod +x /usr/bin/httpstat
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>COPY --from&lt;span style="color:#f92672">=&lt;/span>grpcurl /go/bin/grpcurl /usr/bin/grpcurl
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ENV TZ&lt;span style="color:#f92672">=&lt;/span>Asia/Shanghai LC_ALL&lt;span style="color:#f92672">=&lt;/span>C.UTF-8 LANG&lt;span style="color:#f92672">=&lt;/span>C.UTF-8 LANGUAGE&lt;span style="color:#f92672">=&lt;/span>C.UTF-8
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ENTRYPOINT &lt;span style="color:#f92672">[&lt;/span> &lt;span style="color:#e6db74">&amp;#34;/bin/bash&amp;#34;&lt;/span> &lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker build -t lchdzh/k8s-debug:v1 .
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl debug -n ingress-controller nginx-hw-cloud-ingress-nginx-controller-85m49 -it &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>--container&lt;span style="color:#f92672">=&lt;/span>debug &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>--image&lt;span style="color:#f92672">=&lt;/span>lchdzh/k8s-debug:v1 &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>--copy-to&lt;span style="color:#f92672">=&lt;/span>my-debugger &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>--same-node&lt;span style="color:#f92672">=&lt;/span>true &lt;span style="color:#ae81ff">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>--share-processes&lt;span style="color:#f92672">=&lt;/span>true
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN sed -i &lt;span style="color:#4e9a06">&amp;#39;s/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g&amp;#39;&lt;/span> /etc/apk/repositories &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> apk update &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> apk add --no-cache vim bash tcpdump curl wget strace mysql-client iproute2 redis jq iftop tzdata tar nmap bind-tools htop &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN wget -O /usr/bin/httpstat https://github.com/davecheney/httpstat/releases/download/v1.0.0/httpstat-linux-amd64-v1.0.0 &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> chmod +x /usr/bin/httpstat
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>COPY --from&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>grpcurl /go/bin/grpcurl /usr/bin/grpcurl
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ENV &lt;span style="color:#000">TZ&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>Asia/Shanghai &lt;span style="color:#000">LC_ALL&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>C.UTF-8 &lt;span style="color:#000">LANG&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>C.UTF-8 &lt;span style="color:#000">LANGUAGE&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>C.UTF-8
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ENTRYPOINT &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;/bin/bash&amp;#34;&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker build -t lchdzh/k8s-debug:v1 .
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl debug -n ingress-controller nginx-hw-cloud-ingress-nginx-controller-85m49 -it &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--container&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>debug &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--image&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>lchdzh/k8s-debug:v1 &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--copy-to&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>my-debugger &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--same-node&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87">true&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--share-processes&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87">true&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>``debug 镜像内支持的工具包如下图
 &lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ib9dxg/1627884711514-0a090b8c-a82b-481f-ac33-960e41a91080.png" alt="image.png">&lt;/p>
 &lt;h2 id="总结">总结&lt;a class="td-heading-self-link" href="#%e6%80%bb%e7%bb%93" aria-label="Heading self-link">&lt;/a>&lt;/h2>

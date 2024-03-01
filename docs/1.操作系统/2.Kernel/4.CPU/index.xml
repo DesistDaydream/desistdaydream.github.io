@@ -680,10 +680,10 @@
 &lt;/ul>
 &lt;/li>
 &lt;/ul>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">//把进程放进等待队列，把进程状态置为TASK_UNINTERRUPTIBLE
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#a6e22e">prepare_to_wait&lt;/span>(waitq, wait, TASK_UNINTERRUPTIBLE);
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">//切换进程
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#a6e22e">schedule&lt;/span>();
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">//把进程放进等待队列，把进程状态置为TASK_UNINTERRUPTIBLE
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span>&lt;span style="color:#000">prepare_to_wait&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">waitq&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">wait&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">TASK_UNINTERRUPTIBLE&lt;/span>&lt;span style="color:#000;font-weight:bold">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">//切换进程
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span>&lt;span style="color:#000">schedule&lt;/span>&lt;span style="color:#000;font-weight:bold">();&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
 &lt;li>所以，很多时候当 IO wait 过高时，其自愿上下文切换也会随之增长，因为默认时间片很短，而 IO 耗时很长，所以进程必然会被挂起等待 IO 完成，这个挂起操作，也就是一个上下文切换。&lt;/li>
 &lt;li>进程还在运行，但内核不让它继续使用 CPU 了：
@@ -703,55 +703,55 @@
 &lt;li>强制切换发生的时候，进程仍然处于运行状态(TASK_RUNNING)，通常是由于被优先级更高的进程抢占(preempt)，或者进程的时间片用完了。&lt;/li>
 &lt;/ul>
 &lt;p>注：实际情况更复杂一些，由于 Linux 内核支持抢占，kernel preemption 有可能发生在自愿切换的过程之中，比如进程正进入休眠，本来如果顺利完成的话就属于自愿切换，但休眠的过程并不是原子操作，进程状态先被置成 TASK_INTERRUPTIBLE，然后进程切换，如果 Kernel Preemption 恰好发生在两者之间，那就打断了休眠过程，自愿切换尚未完成，转而进入了强制切换的过程（虽然是强制切换，但此时的进程状态已经不是运行状态了），下一次进程恢复运行之后会继续完成休眠的过程。所以判断进程切换属于自愿还是强制的算法要考虑进程在切换时是否正处于被 抢占(preempt) 的过程中，参见以下内核代码：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>staticvoid__sched &lt;span style="color:#a6e22e">__schedule&lt;/span>(&lt;span style="color:#66d9ef">void&lt;/span>)
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>{
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ...
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> switch_count&lt;span style="color:#f92672">=&amp;amp;&lt;/span>prev&lt;span style="color:#f92672">-&amp;gt;&lt;/span>nivcsw;&lt;span style="color:#75715e">//强制切换的次数
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> &lt;span style="color:#66d9ef">if&lt;/span>(prev&lt;span style="color:#f92672">-&amp;gt;&lt;/span>state&lt;span style="color:#f92672">&amp;amp;&amp;amp;!&lt;/span>(&lt;span style="color:#a6e22e">preempt_count&lt;/span>()&lt;span style="color:#f92672">&amp;amp;&lt;/span>PREEMPT_ACTIVE)){&lt;span style="color:#75715e">//进程处于非运行状态并且允许抢占
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> ...
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> switch_count&lt;span style="color:#f92672">=&amp;amp;&lt;/span>prev&lt;span style="color:#f92672">-&amp;gt;&lt;/span>nvcsw;&lt;span style="color:#75715e">//自愿切换的次数
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span> }
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">staticvoid__sched&lt;/span> &lt;span style="color:#000">__schedule&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#204a87;font-weight:bold">void&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">switch_count&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&amp;amp;&lt;/span>&lt;span style="color:#000">prev&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">nivcsw&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>&lt;span style="color:#8f5902;font-style:italic">//强制切换的次数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">prev&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">state&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;!&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">preempt_count&lt;/span>&lt;span style="color:#000;font-weight:bold">()&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&lt;/span>&lt;span style="color:#000">PREEMPT_ACTIVE&lt;/span>&lt;span style="color:#000;font-weight:bold">)){&lt;/span>&lt;span style="color:#8f5902;font-style:italic">//进程处于非运行状态并且允许抢占
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000;font-weight:bold">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">switch_count&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&amp;amp;&lt;/span>&lt;span style="color:#000">prev&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">nvcsw&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>&lt;span style="color:#8f5902;font-style:italic">//自愿切换的次数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000;font-weight:bold">}&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">...&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span>(&lt;span style="color:#a6e22e">likely&lt;/span>(prev&lt;span style="color:#f92672">!=&lt;/span>next)){
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> rq&lt;span style="color:#f92672">-&amp;gt;&lt;/span>nr_switches&lt;span style="color:#f92672">++&lt;/span>;
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> rq&lt;span style="color:#f92672">-&amp;gt;&lt;/span>curr&lt;span style="color:#f92672">=&lt;/span>next;
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">++*&lt;/span>switch_count;&lt;span style="color:#75715e">//进程切换次数累加
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">context_switch&lt;/span>(rq,prev,next);&lt;span style="color:#75715e">/* unlocks the rq */&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e">/*
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> * The context switch have flipped the stack from under us
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> * and restored the local variables which were saved when
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> * this task called schedule() in the past. prev == current
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> * is still correct, but it can be moved to another cpu/rq.
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"> */&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> cpu&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#a6e22e">smp_processor_id&lt;/span>();
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> rq&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#a6e22e">cpu_rq&lt;/span>(cpu);
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }&lt;span style="color:#66d9ef">else&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">raw_spin_unlock_irq&lt;/span>(&lt;span style="color:#f92672">&amp;amp;&lt;/span>rq&lt;span style="color:#f92672">-&amp;gt;&lt;/span>lock);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">likely&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">prev&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">!=&lt;/span>&lt;span style="color:#000">next&lt;/span>&lt;span style="color:#000;font-weight:bold">)){&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">rq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">nr_switches&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">++&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">rq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">curr&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">next&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">++*&lt;/span>&lt;span style="color:#000">switch_count&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>&lt;span style="color:#8f5902;font-style:italic">//进程切换次数累加
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">context_switch&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">rq&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#000">prev&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#000">next&lt;/span>&lt;span style="color:#000;font-weight:bold">);&lt;/span>&lt;span style="color:#8f5902;font-style:italic">/* unlocks the rq */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#8f5902;font-style:italic">/*
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"> * The context switch have flipped the stack from under us
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"> * and restored the local variables which were saved when
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"> * this task called schedule() in the past. prev == current
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"> * is still correct, but it can be moved to another cpu/rq.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">cpu&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">smp_processor_id&lt;/span>&lt;span style="color:#000;font-weight:bold">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">rq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">cpu_rq&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">cpu&lt;/span>&lt;span style="color:#000;font-weight:bold">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">}&lt;/span>&lt;span style="color:#204a87;font-weight:bold">else&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">raw_spin_unlock_irq&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&lt;/span>&lt;span style="color:#000">rq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">lock&lt;/span>&lt;span style="color:#000;font-weight:bold">);&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ...
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">}&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>not_running&lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span>preemptive:voluntary
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">not_running&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span>&lt;span style="color:#f57900">preemptive&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#000">voluntary&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>最后，澄清几个容易产生误解的场景：&lt;/p>
 &lt;ul>
 &lt;li>进程可以通过调用 sched_yield()主动交出 CPU，这不是自愿切换，而是属于强制切换，因为进程仍然处于运行状态。&lt;/li>
 &lt;li>有时候内核代码会在耗时较长的循环体内通过调用 cond_resched()或 yield() ，主动让出 CPU，以免 CPU 被内核代码占据太久，给其它进程运行机会。这也属于强制切换，因为进程仍然处于运行状态。&lt;/li>
 &lt;/ul>
-&lt;p>进程自愿切换(Voluntary)和强制切换(Involuntary)的次数被统计在 /proc/&lt;!-- raw HTML omitted -->/status 中，其中 voluntary_ctxt_switches 表示自愿切换的次数，nonvoluntary_ctxt_switches 表示强制切换的次数，两者都是自进程启动以来的累计值。&lt;/p>
+&lt;p>进程自愿切换(Voluntary)和强制切换(Involuntary)的次数被统计在 /proc/&lt;pid>/status 中，其中 voluntary_ctxt_switches 表示自愿切换的次数，nonvoluntary_ctxt_switches 表示强制切换的次数，两者都是自进程启动以来的累计值。&lt;/p>
 &lt;pre>&lt;code># grep ctxt /proc/26995/status
 voluntary_ctxt_switches: 79
 nonvoluntary_ctxt_switches: 4
 &lt;/code>&lt;/pre>
 &lt;p>也可以用 pidstat -w 命令查看进程切换的每秒统计值：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># pidstat -w 1&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Linux3.10.0-229.14.1.el7.x86_64&lt;span style="color:#f92672">(&lt;/span>bj71s060&lt;span style="color:#f92672">)&lt;/span> 02/01/2018 _x86_64_ &lt;span style="color:#f92672">(&lt;/span>2CPU&lt;span style="color:#f92672">)&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># pidstat -w 1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Linux3.10.0-229.14.1.el7.x86_64&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>bj71s060&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> 02/01/2018 _x86_64_ &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>2CPU&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>12:05:20PM UID PID cswch/snvcswch/s Command
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>12:05:21PM &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">1299&lt;/span> 0.94 0.00 httpd
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>12:05:21PM &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">27687&lt;/span> 0.94 0.00 pidstat
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>12:05:21PM &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1299&lt;/span> 0.94 0.00 httpd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>12:05:21PM &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">27687&lt;/span> 0.94 0.00 pidstat
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>自愿切换和强制切换的统计值在实践中有什么意义呢？
 大致而言，如果一个进程的自愿切换占多数，意味着它对 CPU 资源的需求不高。如果一个进程的强制切换占多数，意味着对它来说 CPU 资源可能是个瓶颈，这里需要排除进程频繁调用 sched_yield()导致强制切换的情况。&lt;/p>
 &lt;h1 id="线程上下文切换">线程上下文切换&lt;a class="td-heading-self-link" href="#%e7%ba%bf%e7%a8%8b%e4%b8%8a%e4%b8%8b%e6%96%87%e5%88%87%e6%8d%a2" aria-label="Heading self-link">&lt;/a>&lt;/h1>
@@ -928,9 +928,9 @@ lmbench 相对更准确一些，因为考虑了切换后 Cache miss 导致的额
 &lt;p>接下来的问题就是操作系统如何确定是否还有进程需要运行。&lt;/p>
 &lt;h1 id="队列判空一个更好的设计">队列判空：一个更好的设计&lt;a class="td-heading-self-link" href="#%e9%98%9f%e5%88%97%e5%88%a4%e7%a9%ba%e4%b8%80%e4%b8%aa%e6%9b%b4%e5%a5%bd%e7%9a%84%e8%ae%be%e8%ae%a1" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>从上一节我们知道，实际上操作系统是用队列来管理进程的，那么很显然，如果队列已经为空，那么说明此时操作系统内部没有进程需要运行，这是 CPU 就空闲下来了，此时，我们需要做点什么，就像这样：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">if&lt;/span> (queue.empty()) {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> do_someting();
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">if&lt;/span> &lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">queue&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">empty&lt;/span>&lt;span style="color:#000;font-weight:bold">())&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">do_someting&lt;/span>&lt;span style="color:#000;font-weight:bold">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">}&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这些编写内核代码虽然简单，但内核中到处充斥着 if 这种异常处理的语句，这会让代码看起来一团糟，&lt;strong>因此更好的设计是没有异常&lt;/strong>，那么怎样才能没有异常呢？&lt;/p>
 &lt;p>很简单，&lt;strong>那就是让队列永远不会空&lt;/strong>，这样调度器永远能从队列中找到一个可供运行的进程。&lt;/p>
 &lt;p>而这也是为什么链表中通常会有哨兵节点的原因，就是为了避免各种判空，这样既容易出错也会让代码一团糟。&lt;/p>
@@ -951,11 +951,11 @@ lmbench 相对更准确一些，因为考虑了切换后 Cache miss 导致的额
 &lt;p>这样，当调度器在没有其它进程可供调度时就开始运行空间进程，也就是在循环中不断的执行 halt 指令，此时 CPU 开始进入低功耗状态。&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/68c7f538-cc9a-4877-84c7-a1925eb69e2d/640" alt="">&lt;/p>
 &lt;p>在 Linux 内核中，这段代码是这样写的：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-javascript" data-lang="javascript">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">while&lt;/span> (&lt;span style="color:#ae81ff">1&lt;/span>) {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">while&lt;/span> (&lt;span style="color:#f92672">!&lt;/span>&lt;span style="color:#a6e22e">need_resched&lt;/span>()) {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">cpuidle_idle_call&lt;/span>()
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-javascript" data-lang="javascript">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">while&lt;/span> &lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">1&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">while&lt;/span> &lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">!&lt;/span>&lt;span style="color:#000">need_resched&lt;/span>&lt;span style="color:#000;font-weight:bold">())&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">cpuidle_idle_call&lt;/span>&lt;span style="color:#000;font-weight:bold">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">}&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>其中 cpuidle_idle_call 函数最终会执行 halt 指令，注意，**这里删掉了很多细节，只保留最核心代码，**实际上 Linux 内核在实现空闲进程时还要考虑很多很多，不同类型的 CPU 可能会有深睡眠浅睡眠之类，操作系统必须要预测出系统可能的空闲时长并以此判断要进入哪种休眠等等，但这并不是我们关注的重点。&lt;/p>
 &lt;p>总的来说，这就是计算机系统空闲时 CPU 在干嘛，就是在执行这一段代码，本质上就是 CPU 在执行 halt 指令。&lt;/p>
 &lt;p>实际上，对于个人计算机来说，halt 可能是 CPU 执行最多的一条指令，&lt;strong>全世界的 CPU 大部分时间都用在这条指令上了&lt;/strong>，是不是很奇怪。&lt;/p>
@@ -1116,11 +1116,11 @@ CFS 彻底&lt;strong>抛弃了 时间片轮转&lt;/strong> 的策略，而是改
 &lt;p>CFS 的算法理念是想让分配给每个任务的 CPU 时间是一样，于是它为每个任务安排一个 vruntime(虚拟运行时间)，如果一个任务在运行，其运行的越久，该任务的 vruntime 自然就会越大，而没有被运行的任务，vruntime 是不会变化的。&lt;/p>
 &lt;p>那么，在 CFS 算法调度的时候，会优先选择 vruntime 少的任务，以保证每个任务的公平性。&lt;/p>
 &lt;p>这就好比，让你把一桶的奶茶平均分到 10 杯奶茶杯里，你看着哪杯奶茶少，就多倒一些；哪个多了，就先不倒，这样经过多轮操作，虽然不能保证每杯奶茶完全一样多，但至少是公平的。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>进程的运行时间计算公式为&lt;span style="color:#f92672">(&lt;/span>NICE_0_LOAD 默认为 1024&lt;span style="color:#f92672">)&lt;/span>：
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>进程运行时间 &lt;span style="color:#f92672">=&lt;/span> 调度周期 * 进程权重 / 所有进程权重之和
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>vruntime &lt;span style="color:#f92672">=&lt;/span> 进程运行时间 * NICE_0_LOAD / 进程权重
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#f92672">(&lt;/span>调度周期 * 进程权重 / 所有进程总权重&lt;span style="color:#f92672">)&lt;/span> * NICE_0_LOAD / 进程权重
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">=&lt;/span> 调度周期 * NICE_0_LOAD / 所有进程总权重
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>进程的运行时间计算公式为&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>NICE_0_LOAD 默认为 1024&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>：
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">进程运行时间&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> 调度周期 * 进程权重 / 所有进程权重之和
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">vruntime&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> 进程运行时间 * NICE_0_LOAD / &lt;span style="color:#000">进程权重&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>调度周期 * 进程权重 / 所有进程总权重&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> * NICE_0_LOAD / &lt;span style="color:#000">进程权重&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> 调度周期 * NICE_0_LOAD / 所有进程总权重
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过上面两个公式，可以看到 vruntime 不是进程实际占用 CPU 的时间，而是剔除权重影响之后的 CPU 时间，这样所有进程在被调度决策的时候的依据是一致的，而实际占用 CPU 时间是经进程优先级权重放大的。这种方式使得系统的调度粒度更小来，更加适合高负载和多交互的场景。&lt;/p>
 &lt;p>实际上 vruntime 就是根据权重将实际运行时间标准化，标准化之后，各个进程对资源的消耗情况就可以直接通过比较 vruntime 来知道，比如某个进程的 vruntime 比较小，我们就可以知道这个进程消耗 CPU 资源比较少，反之消耗 CPU 资源就比较多。&lt;/p>
 &lt;h2 id="cpu-运行队列">CPU 运行队列&lt;a class="td-heading-self-link" href="#cpu-%e8%bf%90%e8%a1%8c%e9%98%9f%e5%88%97" aria-label="Heading self-link">&lt;/a>&lt;/h2>
@@ -1172,10 +1172,10 @@ chrf -f 1 -p 1996
 &lt;p>/proc/sys/kernel/sched_wakeup_granularity_ns # 表示进程被唤醒后至少应该运行的时间，这个数值越小，那么发生抢占的概率也就越高&lt;/p>
 &lt;h3 id="sched_latency_ns-与-sched_min_granularity_ns-参数的白话示例">sched_latency_ns 与 sched_min_granularity_ns 参数的白话示例&lt;a class="td-heading-self-link" href="#sched_latency_ns-%e4%b8%8e-sched_min_granularity_ns-%e5%8f%82%e6%95%b0%e7%9a%84%e7%99%bd%e8%af%9d%e7%a4%ba%e4%be%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;p>假如现在系统参数如下&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat /proc/sys/kernel/sched_min_granularity_ns&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">10000000&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># cat /proc/sys/kernel/sched_latency_ns&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">24000000&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@lichenhao ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /proc/sys/kernel/sched_min_granularity_ns&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">10000000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@lichenhao ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /proc/sys/kernel/sched_latency_ns&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">24000000&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>那么就表明系统默认情况下，一个任务最少运行 1000 万纳秒(10 毫秒)，而一个调度周期是 2400 万纳秒(24 毫秒)，那么就说明，在一个调度周期内，可以运行 2.4(24 除以 10) 个任务。&lt;/p>
 &lt;p>这时候，如果同时有 5 个任务正在运行，那么一共需要 50 毫秒，这已经超出了 24 毫秒的调度周期。&lt;/p>
 &lt;blockquote>
