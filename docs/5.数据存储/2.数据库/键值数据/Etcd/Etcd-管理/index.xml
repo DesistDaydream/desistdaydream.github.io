@@ -1,5 +1,5 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦 – Etcd 管理</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/</link><description>Recent content in Etcd 管理 on 断念梦</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Etcd 调优</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E8%B0%83%E4%BC%98/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E8%B0%83%E4%BC%98/</guid><description>
-&lt;h1 id="etcd-tuning调优概述">Etcd Tuning(调优)概述&lt;/h1>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – Etcd 管理</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/</link><description>Recent content in Etcd 管理 on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Etcd 调优</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E8%B0%83%E4%BC%98/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E8%B0%83%E4%BC%98/</guid><description>
+&lt;h1 id="etcd-tuning调优概述">Etcd Tuning(调优)概述&lt;a class="td-heading-self-link" href="#etcd-tuning%e8%b0%83%e4%bc%98%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
@@ -16,7 +16,7 @@
 &lt;p>etcd 使用 Raft 一致性算法来在成员之间复制请求并达成一致。一致性性能，特别是提交延迟，受限于两个物理约束：网络 IO 延迟和磁盘 IO 延迟。完成一个 etcd 请求的最小时间是成员之间的网络往返时延 (Round Trip Time / RTT)，加需要提交数据到持久化存储的 fdatasync 时间。在一个数据中心内的 RTT 可能有数百毫秒。在美国典型的 RTT 是大概 50ms, 而在大陆之间可以慢到 400ms。旋转硬盘(注：指传统机械硬盘) 的典型 fdatasync 延迟是大概 10ms。对于 SSD 硬盘, 延迟通常低于 1ms。为了提高吞吐量, etcd 将多个请求打包在一起并提交给 Raft。这个批量策略让 etcd 在重负载试获得高吞吐量。也有其他子系统影响到 etcd 的整体性能。每个序列化的 etcd 请求必须通过 etcd 的 boltdb 支持的(boltdb-backed) MVCC 存储引擎, 它通常需要 10 微秒来完成。etcd 定期递增快照它最近实施的请求，将他们和之前在磁盘上的快照合并。这个过程可能导致延迟尖峰(latency spike)。虽然在 SSD 上这通常不是问题，在 HDD 上它可能加倍可观察到的延迟。而且，进行中的压缩可以影响 etcd 的性能。幸运的是，压缩通常无足轻重，因为压缩是错开的，因此它不和常规请求竞争资源。RPC 系统，gRPC，为 etcd 提供定义良好，可扩展的 API，但是它也引入了额外的延迟，尤其是本地读取。&lt;/p>
 &lt;p>Etcd 的默认配置在本地网络环境（localhost）下通常能够运行的很好，因为延迟很低。然而，当跨数据中心部署 Etcd 或网络延时很高时，etcd 的心跳间隔或选举超时时间等参数需要根据实际情况进行调整。&lt;/p>
 &lt;p>网络并不是导致延时的唯一来源。不论是 Follower 还是 Leader，其请求和响应都受磁盘 I/O 延时的影响。每个 timeout 都代表从请求发起到成功返回响应的总时间。&lt;/p>
-&lt;h2 id="时间参数">时间参数&lt;/h2>
+&lt;h2 id="时间参数">时间参数&lt;a class="td-heading-self-link" href="#%e6%97%b6%e9%97%b4%e5%8f%82%e6%95%b0" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>Etcd 底层的分布式一致性协议依赖两个时间参数来保证节点之间能够在部分节点掉钱的情况下依然能够正确处理主节点的选举。第一个参数就是所谓的心跳间隔，即主节点通知从节点它还是领导者的频率。实践数据表明，该参数应该设置成节点之间 RTT 的时间。Etcd 的心跳间隔默认是 100 毫秒。第二个参数是选举超时时间，即从节点等待多久没收到主节点的心跳就尝试去竞选领导者。Etcd 的选举超时时间默认是 1000 毫秒。&lt;/p>
 &lt;p>调整这些参数值是有条件的，此消波长。心跳间隔值推荐设置为临近节点间 RTT 的最大值，通常是 0.5~1.5 倍 RTT 值。如果心跳间隔设得太短，那么 Etcd 就会发送没必要的心跳信息，从而增加 CPU 和网络资源的消耗；如果设得太长，就会导致选举等待时间的超时。如果选举等待时间设置的过长，就会导致节点异常检测时间过长。评估 RTT 值的最简单的方法是使用 ping 的操作。&lt;/p>
 &lt;p>选举超时时间应该基于心跳间隔和节点之间的平均 RTT 值。选举超时必须至少是 RTT 10 倍的时间以便对网络波动。例如，如果 RTT 的值是 10 毫秒，那么选举超时时间必须至少是 100 毫秒。选举超时时间的上线是 50000 毫秒（50 秒），这个时间只能只用于全球范围内分布式部署的 Etcd 集群。美国大陆的一个 RTT 的合理时间大约是 130 毫秒，美国和日本的 RTT 大约是 350~400 毫秒。如果算上网络波动和重试的时间，那么 5 秒是一次全球 RTT 的安全上线。因为选举超时时间应该是心跳包广播时间的 10 倍，所以 50 秒的选举超时时间是全局分布式部署 Etcd 的合理上线值。&lt;/p>
@@ -25,7 +25,7 @@
 # 环境变量值
 $ ETCD_HEARTBEAT_INTERVAL=100 ETCD_ELECTION_TIMEOUT=500 etcd
 &lt;/code>&lt;/pre>
-&lt;h2 id="快照">快照&lt;/h2>
+&lt;h2 id="快照">快照&lt;a class="td-heading-self-link" href="#%e5%bf%ab%e7%85%a7" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>Etcd 总是向日志文件中追加 key，这样一来，日志文件会随着 key 的改动而线性增长。当 Etcd 集群使用较少时，保存完整的日志历史记录是没问题的，但如果 Etcd 集群规模比较大时，那么集群就会携带很大的日志文件。为了避免携带庞大的日志文件，Etcd 需要做周期性的快照。快照提供了一种通过保存系统的当前状态并移除旧日志文件的方式来压缩日志文件。&lt;/p>
 &lt;p>快照调优&lt;/p>
 &lt;p>为 v2 后端存储创建快照的代价是很高的，所以只用当参数累积到一定的数量时，Etcd 才会创建快照文件。默认情况下，修改数量达到 10000 时才会建立快照。如果 Etcd 的内存使用和磁盘使用过高，那么应该尝试调低快照触发的阈值，具体请参考如下命令。&lt;/p>
@@ -35,7 +35,7 @@ $ ETCD_HEARTBEAT_INTERVAL=100 ETCD_ELECTION_TIMEOUT=500 etcd
 &lt;p>环境变量：&lt;/p>
 &lt;pre>&lt;code>ETCD_SNAPSHOT_COUNT=5000 etcd
 &lt;/code>&lt;/pre>
-&lt;h2 id="磁盘">磁盘&lt;/h2>
+&lt;h2 id="磁盘">磁盘&lt;a class="td-heading-self-link" href="#%e7%a3%81%e7%9b%98" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>除了网络延迟，磁盘 IO 也严重影响 etcd 的稳定性， etcd 需要持久化数据，对磁盘速度很敏感，强烈建议对 ETCD 的数据挂 SSD。&lt;/p>
 &lt;p>另外，要确认机器上没有其他高 IO 操作，否则会影响 etcd 的 fsync，导致 etcd 丢失心跳，leader 更换等。一般磁盘有问题时，报错的关键字类似于：&lt;/p>
 &lt;pre>&lt;code>XXXXX took too long (1.483848046s) to execute
@@ -52,7 +52,7 @@ etcdserver: failed to send out heartbeat on time
 &lt;li>None 即 Best Effort，进程未指定策略和优先级时显示为 none，会使用依据 cpu nice 设置计算出优先级&lt;/li>
 &lt;/ul>
 &lt;p>Linux 中 etcd 的磁盘优先级可以使用 &lt;code>ionice -c2 -n0 -p &lt;/code>pgrep etcd` 命令进行配置(经过 benchmark 的测试，该调整有效果，但很小)&lt;/p>
-&lt;h2 id="网络">网络&lt;/h2>
+&lt;h2 id="网络">网络&lt;a class="td-heading-self-link" href="#%e7%bd%91%e7%bb%9c" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>etcd 中比较复杂的是网络的调优，因此大量的网络请求会在 peer 节点之间转发，而且整体网络吞吐也很大，但是还是再次强调不建议大家调整系统参数，大家可以通过修改 etcd 的 &amp;ndash;heartbeat-interval 与 &amp;ndash;election-timeout 启动参数来适当提高高吞吐网络下 etcd 的集群鲁棒性，通常同步吞吐在 100MB 左右的集群可以考虑将 &amp;ndash;heartbeat-interval 设置为 300ms-500ms，&amp;ndash;election-timeout 可以设置在 5000ms 左右。此外官方还有基于 TC 的网络优先传输方案，也是一个比较适用的调优手段。&lt;/p>
 &lt;p>如果 etcd 的 Leader 服务大量并发客户端，这就会导致 follower 的请求的处理被延迟因为网络延迟。follower 的 send buffer 中能看到错误的列表，如下所示：&lt;/p>
 &lt;pre>&lt;code>dropped MsgProp to 247ae21ff9436b2d since streamMsg's sending buffer is full
@@ -72,7 +72,7 @@ dropped MsgAppResp to 247ae21ff9436b2d since streamMsg's sending buffer is full
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> backlog 0b 0p requeues &lt;span style="color:#ae81ff">0&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 删除队列&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ tc qdisc del dev enp0s8 root
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="数据规模">数据规模&lt;/h2>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="数据规模">数据规模&lt;a class="td-heading-self-link" href="#%e6%95%b0%e6%8d%ae%e8%a7%84%e6%a8%a1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>etcd 的硬盘存储上限（默认是 2GB）, 当 etcd 数据量超过默认 quota 值后便不再接受写请求，可以通过设置 &amp;ndash;quota-backend-bytes 参数来增加存储大小,quota-backend-bytes 默认值为 0，即使用默认 quota 为 2GB，上限值为 8 GB，具体说明可参考官方文档：dev-guide/limit.md。&lt;/p>
 &lt;pre>&lt;code> The default storage size limit is 2GB, configurable with `--quota-backend-bytes` flag. 8GB is a suggested maximum size for normal environments and etcd warns at startup if the configured value exceeds it.
 &lt;/code>&lt;/pre>
@@ -84,7 +84,7 @@ dropped MsgAppResp to 247ae21ff9436b2d since streamMsg's sending buffer is full
 pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://github.com/etcd-io/bbolt/pull/141&lt;/a>&lt;/p>
 &lt;/blockquote>
 &lt;p>目前社区已发布的 v3.4 系列版本并没有说明支持数据规模可达 100 G。&lt;/p></description></item><item><title>Docs: Etcd 管理</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E7%AE%A1%E7%90%86/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
@@ -98,17 +98,17 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;/blockquote>
 &lt;p>Etcd 集群需要定期 &lt;strong>Maintenacne(维护)&lt;/strong> 才能保持可靠性。根据 etcd 应用程序的需求，通常可以自动执行该维护，而无需停机或性能显着降低。&lt;/p>
 &lt;p>所有 etcd 维护都管理 etcd 键空间消耗的存储资源。存储空间配额可以防止无法充分控制键空间大小；如果 etcd 成员的空间不足，则配额将触发群集范围的警报，这将使系统进入有限操作维护模式。为了避免空间不足以写入键空间，必须压缩 etcd 键空间历史记录。可以通过对 etcd 成员进行碎片整理来回收存储空间本身。最后，etcd 成员状态的定期快照备份使恢复由于操作错误引起的意外逻辑数据丢失或损坏成为可能。&lt;/p>
-&lt;h1 id="raft-log-retentionraft-日志保留">Raft Log Retention(Raft 日志保留)&lt;/h1>
+&lt;h1 id="raft-log-retentionraft-日志保留">Raft Log Retention(Raft 日志保留)&lt;a class="td-heading-self-link" href="#raft-log-retentionraft-%e6%97%a5%e5%bf%97%e4%bf%9d%e7%95%99" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>&lt;a href="https://etcd.io/docs/v3.5/op-guide/maintenance/#raft-log-retention">https://etcd.io/docs/v3.5/op-guide/maintenance/#raft-log-retention&lt;/a>&lt;/p>
-&lt;h1 id="auto-compaction自动压缩">Auto Compaction(自动压缩)&lt;/h1>
+&lt;h1 id="auto-compaction自动压缩">Auto Compaction(自动压缩)&lt;a class="td-heading-self-link" href="#auto-compaction%e8%87%aa%e5%8a%a8%e5%8e%8b%e7%bc%a9" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>&lt;a href="https://etcd.io/docs/v3.5/op-guide/maintenance/#auto-compaction">https://etcd.io/docs/v3.5/op-guide/maintenance/#auto-compaction&lt;/a>&lt;/p>
-&lt;h1 id="defragmentation碎片整理">Defragmentation(碎片整理)&lt;/h1>
+&lt;h1 id="defragmentation碎片整理">Defragmentation(碎片整理)&lt;a class="td-heading-self-link" href="#defragmentation%e7%a2%8e%e7%89%87%e6%95%b4%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>&lt;a href="https://etcd.io/docs/v3.5/op-guide/maintenance/#defragmentation">https://etcd.io/docs/v3.5/op-guide/maintenance/#defragmentation&lt;/a>&lt;/p>
 &lt;p>在压缩 keyspace 之后，Etcd 数据库可能会出现内部 &lt;strong>Fragmentation(碎片)&lt;/strong>。任何内部碎片都是后端可以免费使用但仍会占用存储空间的空间。通过在后端数据库中留下空白来在内部压缩旧修订版碎片 etcd。碎片空间可供 etcd 使用，但主机文件系统不可用。换句话说，删除应用程序数据不会回收磁盘空间。&lt;/p>
 &lt;p>碎片整理过程将此存储空间释放回文件系统。碎片整理是针对每个成员进行的，因此可以避免集群范围内的延迟峰值。&lt;/p>
 &lt;p>在 kube-prometheus-stack 项目中，会自带碎片所占空间的告警，告警名称为 &lt;strong>etcdDatabaseHighFragmentationRatio&lt;/strong>，当出现该告警时，即可执行碎片整理操作。&lt;/p>
 &lt;p>具体用法详见 &lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/etcdctl.md#defrag">etcdctl&lt;/a>&lt;/p>
-&lt;h1 id="etcd-space-quotaetcd-空间配额">Etcd Space Quota(Etcd 空间配额)&lt;/h1>
+&lt;h1 id="etcd-space-quotaetcd-空间配额">Etcd Space Quota(Etcd 空间配额)&lt;a class="td-heading-self-link" href="#etcd-space-quotaetcd-%e7%a9%ba%e9%97%b4%e9%85%8d%e9%a2%9d" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
@@ -118,7 +118,7 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;p>etcd 通过 &lt;strong>Space Quota(空间配额)&lt;/strong> 确保集群以可靠的方式运行，空间配额指的是 etcd 可以储存的数据量上限。没有空间配额，如果密钥空间过大，etcd 可能会遭受性能不佳的影响，或者它可能只是用尽了存储空间，从而导致了不可预测的集群行为。&lt;/p>
 &lt;p>默认情况下，etcd 的空间配额适合大多数应用程序的使用情况。不过，可以通过 quota-backend-bytes 命令行参数修改配额的值&lt;/p>
 &lt;p>注意如果 etcd 中的数据超&lt;strong>过了配额的值&lt;/strong>，则&lt;strong>无法再写入新数据&lt;/strong>。并且 etcd 会在集群中发出一个 alarm(警报)，该警报会告诉各节点，并且集群将会变为 maintenance mode(维护模式)，处于维护模式的集群仅接受 key 的读取和删除操作。并且如果想让集群恢复正常运行，需要进行如下操作&lt;/p>
-&lt;h3 id="测试用写入数据触发告警">(测试用)写入数据触发告警&lt;/h3>
+&lt;h3 id="测试用写入数据触发告警">(测试用)写入数据触发告警&lt;a class="td-heading-self-link" href="#%e6%b5%8b%e8%af%95%e7%94%a8%e5%86%99%e5%85%a5%e6%95%b0%e6%8d%ae%e8%a7%a6%e5%8f%91%e5%91%8a%e8%ad%a6" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 使用一个循环填满 keyspace(键空间)，空间爆满后，触发了告警&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># while [ 1 ]; do dd if=/dev/urandom bs=1024 count=1024 | etcdctl put key || break; done&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
@@ -139,7 +139,7 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">[&lt;/span>root@lichenhao ~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># etcdctl put /hello world&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">{&lt;/span>&lt;span style="color:#e6db74">&amp;#34;level&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;warn&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;ts&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;2020-11-19T22:35:16.870+0800&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;caller&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;clientv3/retry_interceptor.go:62&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;msg&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;retrying of unary invoker failed&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;target&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;endpoint://client-ed96eb23-4bc4-41e9-84bf-1a357fde2b6f/127.0.0.1:2379&amp;#34;&lt;/span>,&lt;span style="color:#e6db74">&amp;#34;attempt&amp;#34;&lt;/span>:0,&lt;span style="color:#e6db74">&amp;#34;error&amp;#34;&lt;/span>:&lt;span style="color:#e6db74">&amp;#34;rpc error: code = ResourceExhausted desc = etcdserver: mvcc: database space exceeded&amp;#34;&lt;/span>&lt;span style="color:#f92672">}&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Error: etcdserver: mvcc: database space exceeded
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="释放足够的空间并对数据库进行碎片整理">释放足够的空间并对数据库进行碎片整理&lt;/h3>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="释放足够的空间并对数据库进行碎片整理">释放足够的空间并对数据库进行碎片整理&lt;a class="td-heading-self-link" href="#%e9%87%8a%e6%94%be%e8%b6%b3%e5%a4%9f%e7%9a%84%e7%a9%ba%e9%97%b4%e5%b9%b6%e5%af%b9%e6%95%b0%e6%8d%ae%e5%ba%93%e8%bf%9b%e8%a1%8c%e7%a2%8e%e7%89%87%e6%95%b4%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 获取当前 revision&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># rev=$(etcdctl endpoint status --write-out=&amp;#34;json&amp;#34; | egrep -o &amp;#39;&amp;#34;revision&amp;#34;:[0-9]*&amp;#39; | egrep -o &amp;#39;[0-9].*&amp;#39;)&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 压缩所有旧的 revisions&lt;/span>
@@ -148,12 +148,12 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 使用碎片整理，处理多余的空间&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># etcdctl defrag&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Finished defragmenting etcd member&lt;span style="color:#f92672">[&lt;/span>127.0.0.1:2379&lt;span style="color:#f92672">]&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="清除警报">清除警报&lt;/h3>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="清除警报">清除警报&lt;a class="td-heading-self-link" href="#%e6%b8%85%e9%99%a4%e8%ad%a6%e6%8a%a5" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 解除告警&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#f92672">]&lt;/span>&lt;span style="color:#75715e"># etcdctl alarm disarm&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>memberID:7309218425989510294 alarm:NOSPACE
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>etcd_mvcc_db_total_size_in_use_in_bytes 指标指示历史记录压缩后的实际数据库使用情况 etcd_mvcc_db_total_size_in_bytes 指标则显示数据库大小，包括等待进行碎片整理的可用空间。后者仅在前者接近时才增加，这意味着当这两个指标都接近配额时，需要进行历史压缩以避免触发空间配额告警。&lt;/p></description></item><item><title>Docs: etcd 问题处理案例</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/etcd-%E9%97%AE%E9%A2%98%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/etcd-%E9%97%AE%E9%A2%98%E5%A4%84%E7%90%86%E6%A1%88%E4%BE%8B/</guid><description/></item><item><title>Docs: Etcd 性能测试</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/2.%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95/</guid><description>
-&lt;h1 id="概述">概述&lt;/h1>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
@@ -165,7 +165,7 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># GOPATH should be set&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ ls $GOPATH/bin
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>benchmark
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="官方推荐的-etcd-性能数据">官方推荐的 etcd 性能数据&lt;/h1>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="官方推荐的-etcd-性能数据">官方推荐的 etcd 性能数据&lt;a class="td-heading-self-link" href="#%e5%ae%98%e6%96%b9%e6%8e%a8%e8%8d%90%e7%9a%84-etcd-%e6%80%a7%e8%83%bd%e6%95%b0%e6%8d%ae" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>其中官方使用的设备信息为：&lt;/p>
 &lt;ul>
 &lt;li>Google Cloud Compute Engine&lt;/li>
@@ -174,7 +174,7 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;li>Ubuntu 17.04&lt;/li>
 &lt;li>etcd 3.2.0, go 1.8.3&lt;/li>
 &lt;/ul>
-&lt;h3 id="etcd-写性能">etcd 写性能&lt;/h3>
+&lt;h3 id="etcd-写性能">etcd 写性能&lt;a class="td-heading-self-link" href="#etcd-%e5%86%99%e6%80%a7%e8%83%bd" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;table>
 &lt;thead>
 &lt;tr>
@@ -236,7 +236,7 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
-&lt;h3 id="etcd-读性能">etcd 读性能&lt;/h3>
+&lt;h3 id="etcd-读性能">etcd 读性能&lt;a class="td-heading-self-link" href="#etcd-%e8%af%bb%e6%80%a7%e8%83%bd" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;p>该测试的 &amp;ndash;endpoint 参数指定所有节点。&lt;/p>
 &lt;p>Linearizable(线性化) 读请求经过集群仲裁达成共识以获取最新数据，Serializable(串行化)读取请求比线性化读取要廉价一些，因为他们是通过任意一台 etcd 成员来相应请求，而不是具有法定人数的成员，这种请求获取到的数据有可能是过期的。由于 etcd 是强一致性的，其默认读取测试就是线性化读取。&lt;/p>
 &lt;table>
@@ -306,7 +306,7 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;/tbody>
 &lt;/table>
 &lt;p>官方鼓励在新环境中首次设置 etcd 集群时运行基准测试，以确保该集群获得足够的性能；群集延迟和吞吐量可能会对较小的环境差异敏感。&lt;/p>
-&lt;h1 id="etcdctl-check-perf-官方测试工具">etcdctl check perf 官方测试工具&lt;/h1>
+&lt;h1 id="etcdctl-check-perf-官方测试工具">etcdctl check perf 官方测试工具&lt;a class="td-heading-self-link" href="#etcdctl-check-perf-%e5%ae%98%e6%96%b9%e6%b5%8b%e8%af%95%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>直接使用 etcdctl 命令行工具的子命令，即可进行简单的测试&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~# etcdctl check perf
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">60&lt;/span> / &lt;span style="color:#ae81ff">60&lt;/span> Booooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo! 100.00% 1m0s
@@ -314,7 +314,7 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PASS: Slowest request took 0.101178s
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PASS: Stddev is 0.002695s
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PASS
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="benchmarks-官方测试工具">benchmarks 官方测试工具&lt;/h1>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="benchmarks-官方测试工具">benchmarks 官方测试工具&lt;a class="td-heading-self-link" href="#benchmarks-%e5%ae%98%e6%96%b9%e6%b5%8b%e8%af%95%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>对于写入测试，按照官方文档的测试方法指定不同数量的客户端和连接数以及 key 的大小，对于读取操作，分别测试了线性化读取以及串行化读取，由于 etcd 是强一致性的，其默认读取测试就是线性化读取。&lt;/p>
 &lt;p>Note:&lt;/p>
 &lt;ol>
@@ -326,7 +326,7 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;/li>
 &lt;li>测试结果中，关于延迟数据的单位是 secs，是秒的意思，1 秒=1000 毫秒(ms)&lt;/li>
 &lt;/ol>
-&lt;h3 id="写入测试">写入测试&lt;/h3>
+&lt;h3 id="写入测试">写入测试&lt;a class="td-heading-self-link" href="#%e5%86%99%e5%85%a5%e6%b5%8b%e8%af%95" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># write to leader&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>benchmark --endpoints&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>HOST_1&lt;span style="color:#e6db74">}&lt;/span> --target-leader --conns&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span> --clients&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#ae81ff">\
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> put --key-size&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span> --sequential-keys --total&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">10000&lt;/span> --val-size&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">256&lt;/span>
@@ -336,7 +336,7 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># write to all members&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>benchmark --endpoints&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>HOST_1&lt;span style="color:#e6db74">}&lt;/span>,&lt;span style="color:#e6db74">${&lt;/span>HOST_2&lt;span style="color:#e6db74">}&lt;/span>,&lt;span style="color:#e6db74">${&lt;/span>HOST_3&lt;span style="color:#e6db74">}&lt;/span> --conns&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">100&lt;/span> --clients&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1000&lt;/span> &lt;span style="color:#ae81ff">\
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> put --key-size&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">8&lt;/span> --sequential-keys --total&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">100000&lt;/span> --val-size&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">256&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="读取测试">读取测试&lt;/h3>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="读取测试">读取测试&lt;a class="td-heading-self-link" href="#%e8%af%bb%e5%8f%96%e6%b5%8b%e8%af%95" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># Single connection read requests&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>benchmark --endpoints&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">${&lt;/span>HOST_1&lt;span style="color:#e6db74">}&lt;/span>,&lt;span style="color:#e6db74">${&lt;/span>HOST_2&lt;span style="color:#e6db74">}&lt;/span>,&lt;span style="color:#e6db74">${&lt;/span>HOST_3&lt;span style="color:#e6db74">}&lt;/span> --conns&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span> --clients&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span> &lt;span style="color:#ae81ff">\
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> range YOUR_KEY --consistency&lt;span style="color:#f92672">=&lt;/span>l --total&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">10000&lt;/span>
@@ -359,7 +359,7 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ benchmark --conns&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">100&lt;/span> --clients&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1000&lt;/span> &lt;span style="color:#ae81ff">\
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span>range foo --consistency&lt;span style="color:#f92672">=&lt;/span>s --total&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">100000&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="第三方-fio-工具测试">第三方 fio 工具测试&lt;/h1>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="第三方-fio-工具测试">第三方 fio 工具测试&lt;a class="td-heading-self-link" href="#%e7%ac%ac%e4%b8%89%e6%96%b9-fio-%e5%b7%a5%e5%85%b7%e6%b5%8b%e8%af%95" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>参考：&lt;a href="https://www.chenshaowen.com/blog/the-use-of-etcd-and-etcdctl.html">https://www.chenshaowen.com/blog/the-use-of-etcd-and-etcdctl.html&lt;/a>&lt;/p>
 &lt;p>&lt;a href="https://www.ibm.com/cloud/blog/using-fio-to-tell-whether-your-storage-is-fast-enough-for-etcd?mhsrc=ibmsearch_a&amp;amp;mhq=fio%2520etcd">https://www.ibm.com/cloud/blog/using-fio-to-tell-whether-your-storage-is-fast-enough-for-etcd?mhsrc=ibmsearch_a&amp;amp;mhq=fio%20etcd&lt;/a>&lt;/p>
 &lt;p>&lt;a href="https://github.com/etcd-io/etcd/issues/10577">https://github.com/etcd-io/etcd/issues/10577&lt;/a>&lt;/p>
@@ -389,7 +389,7 @@ pull request ：&lt;a href="https://github.com/etcd-io/bbolt/pull/141">https://g
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --filename&lt;span style="color:#f92672">=&lt;/span>etcd_read_write.io &lt;span style="color:#ae81ff">\
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --bs&lt;span style="color:#f92672">=&lt;/span>4k --iodepth&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">64&lt;/span> --size&lt;span style="color:#f92672">=&lt;/span>4G &lt;span style="color:#ae81ff">\
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --readwrite&lt;span style="color:#f92672">=&lt;/span>randrw --rwmixread&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">75&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="etcd-官方推荐的硬件配置">etcd 官方推荐的硬件配置&lt;/h1>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="etcd-官方推荐的硬件配置">etcd 官方推荐的硬件配置&lt;a class="td-heading-self-link" href="#etcd-%e5%ae%98%e6%96%b9%e6%8e%a8%e8%8d%90%e7%9a%84%e7%a1%ac%e4%bb%b6%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>官方文档：&lt;a href="https://github.com/etcd-io/etcd/blob/master/Documentation/op-guide/hardware.md">https://github.com/etcd-io/etcd/blob/master/Documentation/op-guide/hardware.md&lt;/a>&lt;/p>
 &lt;p>etcd通常在开发或测试的时候用很少的资源就可以了，比如说使用普通的笔记本或者是廉价的云主机就可以，但是在生产环境上，还是需要按推荐的硬件配置进行部署，虽然这不是必须的，但是这样做可以增加集群的健壮性。一如既往，在上生产环境之前，需要先进行负载模拟测试。&lt;/p>
 &lt;p>CPUs&lt;/p>
@@ -409,7 +409,7 @@ etcd对磁盘带宽没什么要求，但是更大的磁盘带宽可以在失败�
 &lt;pre>&lt;code>多节点部署的etcd集群会受益于快速和可靠的网络。为了满足etcd集群的一致性和分区容忍，一个不可靠网络出现网络分区会导致部分节点无效。低延时可以保证etcd成员之间快速通信，高带宽可以减少etcd故障节点的恢复时间。1Gb网络就可以满足常见的etcd部署场景，对于大型etcd集群，使用10Gb网络可以减少平均故障恢复时间。
 如果有可能，尽量将所有etcd成员节点部署在同一个数据中心，这样可以避免网络延时开销，降低发生网络分区的可能性。如果需要另外的数据中心级故障域，尽量选择和当前数据中心离得比较近的。也可以阅读性能调优文档，了解跨数据中心部署的更多信息。
 &lt;/code>&lt;/pre>
-&lt;h2 id="示例硬件配置">示例硬件配置&lt;/h2>
+&lt;h2 id="示例硬件配置">示例硬件配置&lt;a class="td-heading-self-link" href="#%e7%a4%ba%e4%be%8b%e7%a1%ac%e4%bb%b6%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;pre>&lt;code>这有一些在AWS和GCE环境上的硬件配置例子。如上所述，但是还是有必要再强调一下，无论如何，管理员在将etcd集群投入生产环境使用之前，都应该做一下模拟负载测试。
 请注意：这些配置假设这些服务器只用来跑etcd服务。如果在这些服务器上还跑其他服务，可能会导致其他服务和etcd抢资源，存在资源竞争问题，导致etcd集群不稳定。
 &lt;/code>&lt;/pre>
