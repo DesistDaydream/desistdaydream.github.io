@@ -1,0 +1,1268 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – CPU</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/</link><description>Recent content in CPU on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: CPU</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://time.geekbang.org/column/article/69859">极客时间，Linux 性能优化实战-03 基础篇：经常说的 CPU 上下文切换是什么意思&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://linuxperf.com/?p=209">LinuxPerformance 博客，进程切换：自愿与强制&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在 Linux 中，CPU 的管理，绝大部分时间都是在进行任务的调度，所以很多时候也称为&lt;strong>调度管理&lt;/strong>。&lt;/p>
+&lt;h2 id="cpu-多线程并发并行-概念">CPU 多线程、并发、并行 概念&lt;a class="td-heading-self-link" href="#cpu-%e5%a4%9a%e7%ba%bf%e7%a8%8b%e5%b9%b6%e5%8f%91%e5%b9%b6%e8%a1%8c-%e6%a6%82%e5%bf%b5" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>Node：在这里时间片只是一种描述，理解 CPU 的并行与并发概念就好&lt;/p>
+&lt;p>1、CPU 时间分片、多线程？
+如果线程数不多于 CPU 核心数，会把各个线程都分配一个核心，不需分片，而当线程数多于 CPU 核心数时才会分片。&lt;/p>
+&lt;p>2、并发和并行的区别&lt;/p>
+&lt;ul>
+&lt;li>并发：当有多个线程在操作时,如果系统只有一个 CPU,把 CPU 运行时间划分成若干个时间片,分配给各个线程执行，在一个时间段的线程代码运行时，其它线程处于挂起状态。这种方式我们称之为_ _&lt;strong>Concurrent(并发)&lt;/strong>。并发=间隔发生&lt;/li>
+&lt;li>并行：当系统有一个以上 CPU 时,则线程的操作有可能非并发。当一个 CPU 执行一个线程时，另一个 CPU 可以执行另一个线程，两个线程互不抢占 CPU 资源，可以同时进行，这种方式我们称之为 &lt;strong>Parallel(并行)&lt;/strong>。 并行=同时进行&lt;/li>
+&lt;/ul>
+&lt;p>区别：并行是指两个或者多个事件在同一时刻发生；而并发是指两个或多个事件在同一时间间隔内发生。&lt;/p>
+&lt;p>并行是同时做多件事情。&lt;/p>
+&lt;p>并发表示同时发生了多件事情，通过时间片切换，哪怕只有单一的核心，也可以实现“同时做多件事情”这个效果。&lt;/p>
+&lt;p>根据底层是否有多处理器，并发与并行是可以等效的，这并不是两个互斥的概念。&lt;/p>
+&lt;p>举个我们开发中会遇到的例子，我们说资源请求并发数达到了 1 万。这里的意思是有 1 万个请求同时过来了。但是这里很明显不可能真正的同时去处理这 1 万个请求的吧！&lt;/p>
+&lt;p>如果这台机器的处理器有 4 个核心，不考虑超线程，那么我们认为同时会有 4 个线程在跑。也就是说，并发访问数是 1 万，而底层真实的并行处理的请求数是 4。如果并发数小一些只有 4 的话，又或者你的机器牛逼有 1 万个核心，那并发在这里和并行一个效果。也就是说，并发可以是虚拟的同时执行，也可以是真的同时执行。而并行的意思是真的同时执行。&lt;/p>
+&lt;p>结论是：并行是我们物理时空观下的同时执行，而并发则是操作系统用线程这个模型抽象之后站在线程的视角上看到的“同时”执行。&lt;/p>
+&lt;h3 id="time-slice时间片-概念">time slice(时间片) 概念&lt;a class="td-heading-self-link" href="#time-slice%e6%97%b6%e9%97%b4%e7%89%87-%e6%a6%82%e5%bf%b5" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://en.wikipedia.org/wiki/Preemption_(computing)#Time_slice">https://en.wikipedia.org/wiki/Preemption_(computing)#Time_slice&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>The period of time for which a process is allowed to run in a preemptive multitasking system is generally called the &lt;em>time slice&lt;/em> or &lt;em>quantum&lt;/em>.&lt;/p>
+&lt;p>&lt;strong>time slice(时间片)&lt;/strong> 是一个程序运行在&lt;a href="https://en.wikipedia.org/wiki/Preemption_(computing)">抢占式多任务系统&lt;/a>中的一段时间。也可以称为 quantum(量子)。&lt;/p>
+&lt;h2 id="cpu-使用率概念">CPU 使用率概念&lt;a class="td-heading-self-link" href="#cpu-%e4%bd%bf%e7%94%a8%e7%8e%87%e6%a6%82%e5%bf%b5" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>CPU 不像硬盘、内存，并不具备逻辑上数量、大小、空间之类的概念。只要使用 CPU，就是使用了这个 CPU 的全部，也就无法通过大小之类的概念来衡量一个 CPU，所以我们日常所说的 CPU 的使用率 ，实际上是指的在一段时间范围内，CPU 执行 &lt;strong>Tasks(任务)&lt;/strong> 花费时间的百分比。比如 60 分钟内，一颗 CPU 执行各种任务花费了 6 分钟，则 CPU 在这一小时时间内的使用率为 10%。&lt;/p>
+&lt;blockquote>
+&lt;p>上文说的 &lt;strong>Tasks(任务)&lt;/strong>，即会指系统中的进程、线程，也代表各种硬件去请求 CPU 执行的各种事情，比如网卡接收到数据，就会告诉 CPU 需要处理(i.e.中断)。&lt;/p>
+&lt;/blockquote>
+&lt;p>在 Linux 系统中，CPU 的使用率一般可分为 4 大类：&lt;/p>
+&lt;ol>
+&lt;li>User Time(用户进程运行时间)&lt;/li>
+&lt;li>System Time(系统内核运行时间)&lt;/li>
+&lt;li>Idle Time(空闲时间)&lt;/li>
+&lt;li>Steal Time(被抢占时间)&lt;/li>
+&lt;/ol>
+&lt;p>除了 Idle Time 外，CPU 在其余时间都处于工作运行状态。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/srucoz/1616168021555-68fba1de-f5d5-462d-bef6-a78b476521ad.png" alt="">&lt;/p>
+&lt;p>通常而言，我们泛指的整体 CPU 使用率为 User Time 和 Systime 占比之和(例如 tsar 中 CPU util)，即：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/srucoz/1616168021559-394ecaa6-59db-453a-b5b1-c5ab88193f49.png" alt="">&lt;/p>
+&lt;p>为了便于定位问题，大多数性能统计工具都将这 4 类时间片进一步扩展成了 8 类，如下图，是在 top 命令的 man 手册中对 CPU 使用率的分类。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/srucoz/1616168021546-ebe53556-f50b-49f2-8477-c10cf2b8f2f5.png" alt="">&lt;/p>
+&lt;ul>
+&lt;li>us：用户进程空间中未改变过优先级的进程占用 CPU 百分比&lt;/li>
+&lt;li>sy：内核空间占用 CPU 百分比&lt;/li>
+&lt;li>ni：用户进程空间内改变过优先级的进程占用 CPU 百分比&lt;/li>
+&lt;li>id：空闲时间百分比&lt;/li>
+&lt;li>wa：等待 I/O 的时间百分比&lt;/li>
+&lt;li>hi：硬中断时间百分比&lt;/li>
+&lt;li>si：软中断时间百分比&lt;/li>
+&lt;li>st：虚拟化时被其余 VM 窃取时间百分比&lt;/li>
+&lt;/ul>
+&lt;p>这 8 类分片中，除 wa 和 id 外，其余分片 CPU 都处于工作态。&lt;/p>
+&lt;h1 id="调度算法">调度算法&lt;a class="td-heading-self-link" href="#%e8%b0%83%e5%ba%a6%e7%ae%97%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>详见：&lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95.md">CPU 调度算法&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>首先明确一个概念：&lt;strong>Task(任务)&lt;/strong>，一个进程从处理到结束就算一个任务，处理网卡收到的数据包也算一个任务。一般来说，CPU 就是在处理一个个的 &lt;strong>Task(任务)&lt;/strong>，并度过其一生。&lt;/p>
+&lt;p>在 Linux 内核中，进程和线程都是用 tark_struct 结构体表示的，区别在于线程的 tark_struct 结构体里部分资源是共享了进程已创建的资源，比如内存地址空间、代码段、文件描述符等，所以 Linux 中的线程也被称为轻量级进程，因为线程的 tark_struct 相比进程的 tark_struct 承载的 资源比较少，因此以「轻」得名。&lt;/p>
+&lt;p>一般来说，没有创建线程的进程，是只有单个执行流，它被称为是主线程。如果想让进程处理更多的事情，可以创建多个线程分别去处理，但不管怎么样，它们对应到内核里都是 tark_struct。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/srucoz/1616168021545-596ecf70-ac19-4620-8845-bfe72ef7bdce.jpeg" alt="">&lt;/p>
+&lt;p>所以，Linux 内核里的调度器，调度的对象就是 tark_struct，接下来我们就把这个数据结构统称为任务。&lt;/p>
+&lt;p>在 Linux 系统中，根据任务的优先级以及响应要求，主要分为两种，其中优先级的数值越小，优先级越高：&lt;/p>
+&lt;ul>
+&lt;li>实时任务，对系统的响应时间要求很高，也就是要尽可能快的执行实时任务，优先级在 0~99 范围内的就算实时任务；&lt;/li>
+&lt;li>普通任务，响应时间没有很高的要求，优先级在 100~139 范围内都是普通任务级别；&lt;/li>
+&lt;/ul>
+&lt;p>也就是说，在 LInux 内核中，实时任务总是比普通任务的优先级要高。&lt;/p></description></item><item><title>Docs: 10.1.CPU 执行程序的秘密，藏在了这 15 张图里</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.1.CPU-%E6%89%A7%E8%A1%8C%E7%A8%8B%E5%BA%8F%E7%9A%84%E7%A7%98%E5%AF%86%E8%97%8F%E5%9C%A8%E4%BA%86%E8%BF%99-15-%E5%BC%A0%E5%9B%BE%E9%87%8C/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.1.CPU-%E6%89%A7%E8%A1%8C%E7%A8%8B%E5%BA%8F%E7%9A%84%E7%A7%98%E5%AF%86%E8%97%8F%E5%9C%A8%E4%BA%86%E8%BF%99-15-%E5%BC%A0%E5%9B%BE%E9%87%8C/</guid><description>
+&lt;p>&lt;strong>CPU 执行程序的秘密，藏在了这 15 张图里&lt;/strong>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986609-04faec22-1781-4936-b503-011b61590870.png" alt="">&lt;/p>
+&lt;p>&lt;strong>前言&lt;/strong>&lt;/p>
+&lt;p>代码写了那么多，你知道 a = 1 + 2 这条代码是怎么被 CPU 执行的吗？&lt;/p>
+&lt;p>软件用了那么多，你知道软件的 32 位和 64 位之间的区别吗？再来 32 位的操作系统可以运行在 64 位的电脑上吗？64 位的操作系统可以运行在 32 位的电脑上吗？如果不行，原因是什么？&lt;/p>
+&lt;p>CPU 看了那么多，我们都知道 CPU 通常分为 32 位和 64 位，你知道 64 位相比 32 位 CPU 的优势在哪吗？64 位 CPU 的计算性能一定比 32 位 CPU 高很多吗？&lt;/p>
+&lt;p>不知道也不用慌张，接下来就循序渐进的、一层一层的攻破这些问题。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986635-4f0dd824-1f30-45ba-b584-15ac570aca3a.png" alt="">&lt;/p>
+&lt;p>&lt;strong>正文&lt;/strong>&lt;/p>
+&lt;h1 id="图灵机的工作方式">图灵机的工作方式&lt;a class="td-heading-self-link" href="#%e5%9b%be%e7%81%b5%e6%9c%ba%e7%9a%84%e5%b7%a5%e4%bd%9c%e6%96%b9%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>要想知道程序执行的原理，我们可以先从「图灵机」说起，图灵的基本思想是用机器来模拟人们用纸笔进行数学运算的过程，而且还定义了计算机由哪些部分组成，程序又是如何执行的。&lt;/p>
+&lt;p>图灵机长什么样子呢？你从下图可以看到图灵机的实际样子：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986635-96dcf906-5b92-45b8-97a5-3cbdf0bba696.jpeg" alt="">&lt;/p>
+&lt;p>图来源自：&lt;a href="http://www.kristergustafsson.me/turing-machine/">http://www.kristergustafsson.me/turing-machine/&lt;/a>&lt;/p>
+&lt;p>图灵机的基本组成如下：&lt;/p>
+&lt;p>有一条「纸带」，纸带由一个个连续的格子组成，每个格子可以写入字符，纸带就好比内存，而纸带上的格子的字符就好比内存中的数据或程序；&lt;/p>
+&lt;p>有一个「读写头」，读写头可以读取纸带上任意格子的字符，也可以把字符写入到纸带的格子；&lt;/p>
+&lt;p>读写头上有一些部件，比如存储单元、控制单元以及运算单元：&lt;/p>
+&lt;p>1、存储单元用于存放数据；&lt;/p>
+&lt;p>2、控制单元用于识别字符是数据还是指令，以及控制程序的流程等；&lt;/p>
+&lt;p>3、运算单元用于执行运算指令；&lt;/p>
+&lt;p>知道了图灵机的组成后，我们以简单数学运算的 1 + 2 作为例子，来看看它是怎么执行这行代码的。&lt;/p>
+&lt;p>首先，用读写头把 「1、2、+」这 3 个字符分别写入到纸带上的 3 个格子，然后读写头先停在 1 字符对应的格子上；&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986659-6cca3462-fc81-4efe-a577-6b95d8ca1413.png" alt="">&lt;/p>
+&lt;p>接着，读写头读入 1 到存储设备中，这个存储设备称为图灵机的状态；&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986644-ca6ea397-384a-4dfb-b215-02c9b09127cc.png" alt="">&lt;/p>
+&lt;p>然后读写头向右移动一个格，用同样的方式把 2 读入到图灵机的状态，于是现在图灵机的状态中存储着两个连续的数字， 1 和 2；&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986643-d338c88c-73dc-4141-8351-044432fa93b5.png" alt="">&lt;/p>
+&lt;p>读写头再往右移动一个格，就会碰到 + 号，读写头读到 + 号后，将 + 号传输给「控制单元」，控制单元发现是一个 + 号而不是数字，所以没有存入到状态中，因为 + 号是运算符指令，作用是加和目前的状态，于是通知「运算单元」工作。运算单元收到要加和状态中的值的通知后，就会把状态中的 1 和 2 读入并计算，再将计算的结果 3 存放到状态中；&lt;/p>
+&lt;p>最后，运算单元将结果返回给控制单元，控制单元将结果传输给读写头，读写头向右移动，把结果 3 写入到纸带的格子中；&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986660-0f18003b-5037-45db-8f8f-7be09e53c639.png" alt="">&lt;/p>
+&lt;p>通过上面的图灵机计算 1 + 2 的过程，可以发现图灵机主要功能就是读取纸带格子中的内容，然后交给控制单元识别字符是数字还是运算符指令，如果是数字则存入到图灵机状态中，如果是运算符，则通知运算符单元读取状态中的数值进行计算，计算结果最终返回给读写头，读写头把结果写入到纸带的格子中。&lt;/p>
+&lt;p>事实上，图灵机这个看起来很简单的工作方式，和我们今天的计算机是基本一样的。接下来，我们一同再看看当今计算机的组成以及工作方式。&lt;/p>
+&lt;h1 id="冯诺依曼模型">冯诺依曼模型&lt;a class="td-heading-self-link" href="#%e5%86%af%e8%af%ba%e4%be%9d%e6%9b%bc%e6%a8%a1%e5%9e%8b" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>在 1945 年冯诺依曼和其他计算机科学家们提出了计算机具体实现的报告，其遵循了图灵机的设计，而且还提出用电子元件构造计算机，并约定了用二进制进行计算和存储，还定义计算机基本结构为 5 个部分，分别是&lt;strong>中央处理器（CPU）、内存、输入设备、输出设备、总线&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986644-4f2bef64-9ee8-4943-8a81-e6707ab11814.png" alt="">&lt;/p>
+&lt;p>这 5 个部分也被称为冯诺依曼模型，接下来看看这 5 个部分的具体作用。&lt;/p>
+&lt;p>&lt;strong>内存&lt;/strong>&lt;/p>
+&lt;p>我们的程序和数据都是存储在内存，存储的区域是线性的。&lt;/p>
+&lt;p>数据存储的单位是一个&lt;strong>二进制位（***&lt;strong>bit&lt;/strong>*&lt;/strong>）&lt;strong>，即 0 或 1。最小的存储单位是&lt;/strong>字节（&lt;strong>*&lt;strong>byte&lt;/strong>*&lt;/strong>）**，1 字节等于 8 位。&lt;/p>
+&lt;p>内存的地址是从 0 开始编号的，然后自增排列，最后一个地址为内存总字节数 - 1，这种结构好似我们程序里的数组，所以内存的读写任何一个数据的速度都是一样的。&lt;/p>
+&lt;p>&lt;strong>中央处理器&lt;/strong>&lt;/p>
+&lt;p>中央处理器也就是我们常说的 CPU，32 位和 64 位 CPU 最主要区别在于一次能计算多少字节数据：&lt;/p>
+&lt;p>32 位 CPU 一次可以计算 4 个字节；&lt;/p>
+&lt;p>64 位 CPU 一次可以计算 8 个字节；&lt;/p>
+&lt;p>这里的 32 位和 64 位，通常称为 CPU 的位宽。&lt;/p>
+&lt;p>之所以 CPU 要这样设计，是为了能计算更大的数值，如果是 8 位的 CPU，那么一次只能计算 1 个字节 0~255 范围内的数值，这样就无法一次完成计算 10000 * 500 ，于是为了能一次计算大数的运算，CPU 需要支持多个 byte 一起计算，所以 CPU 位宽越大，可以计算的数值就越大，比如说 32 位 CPU 能计算的最大整数是 4294967295。&lt;/p>
+&lt;p>CPU 内部还有一些组件，常见的有寄存器、控制单元和逻辑运算单元等。其中，控制单元负责控制 CPU 工作，逻辑运算单元负责计算，而寄存器可以分为多种类，每种寄存器的功能又不尽相同。&lt;/p>
+&lt;p>CPU 中的寄存器主要作用是存储计算时的数据，你可能好奇为什么有了内存还需要寄存器？原因很简单，因为内存离 CPU 太远了，而寄存器就在 CPU 里，还紧挨着控制单元和逻辑运算单元，自然计算时速度会很快。&lt;/p>
+&lt;p>常见的寄存器种类：&lt;/p>
+&lt;p>&lt;em>通用寄存器&lt;/em>，用来存放需要进行运算的数据，比如需要进行加和运算的两个数据。&lt;/p>
+&lt;p>&lt;em>程序计数器&lt;/em>，用来存储 CPU 要执行下一条指令「所在的内存地址」，注意不是存储了下一条要执行的指令，此时指令还在内存中，程序计数器只是存储了下一条指令的地址。&lt;/p>
+&lt;p>&lt;em>指令寄存器&lt;/em>，用来存放程序计数器指向的指令，也就是指令本身，指令被执行完成之前，指令都存储在这里。&lt;/p>
+&lt;p>&lt;strong>总线&lt;/strong>&lt;/p>
+&lt;p>总线是用于 CPU 和内存以及其他设备之间的通信，总线可分为 3 种：&lt;/p>
+&lt;p>&lt;em>地址总线&lt;/em>，用于指定 CPU 将要操作的内存地址；&lt;/p>
+&lt;p>&lt;em>数据总线&lt;/em>，用于读写内存的数据；&lt;/p>
+&lt;p>&lt;em>控制总线&lt;/em>，用于发送和接收信号，比如中断、设备复位等信号，CPU 收到信号后自然进行响应，这时也需要控制总线；&lt;/p>
+&lt;p>当 CPU 要读写内存数据的时候，一般需要通过两个总线：&lt;/p>
+&lt;p>首先要通过「地址总线」来指定内存的地址；&lt;/p>
+&lt;p>再通过「数据总线」来传输数据；&lt;/p>
+&lt;p>&lt;strong>输入、输出设备&lt;/strong>&lt;/p>
+&lt;p>输入设备向计算机输入数据，计算机经过计算后，把数据输出给输出设备。期间，如果输入设备是键盘，按下按键时是需要和 CPU 进行交互的，这时就需要用到控制总线了。&lt;/p>
+&lt;h1 id="线路位宽与-cpu-位宽">线路位宽与 CPU 位宽&lt;a class="td-heading-self-link" href="#%e7%ba%bf%e8%b7%af%e4%bd%8d%e5%ae%bd%e4%b8%8e-cpu-%e4%bd%8d%e5%ae%bd" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>数据是如何通过线路传输的呢？其实是通过操作电压，低电压表示 0，高压电压则表示 1。&lt;/p>
+&lt;p>如果构造了高低高这样的信号，其实就是 101 二进制数据，十进制则表示 5，如果只有一条线路，就意味着每次只能传递 1 bit 的数据，即 0 或 1，那么传输 101 这个数据，就需要 3 次才能传输完成，这样的效率非常低。&lt;/p>
+&lt;p>这样一位一位传输的方式，称为串行，下一个 bit 必须等待上一个 bit 传输完成才能进行传输。当然，想一次多传一些数据，增加线路即可，这时数据就可以并行传输。&lt;/p>
+&lt;p>为了避免低效率的串行传输的方式，线路的位宽最好一次就能访问到所有的内存地址。CPU 要想操作的内存地址就需要地址总线，如果地址总线只有 1 条，那每次只能表示 「0 或 1」这两种情况，所以 CPU 一次只能操作 2 个内存地址，如果想要 CPU 操作 4G 的内存，那么就需要 32 条地址总线，因为 2 ^ 32 = 4G。&lt;/p>
+&lt;p>知道了线路位宽的意义后，我们再来看看 CPU 位宽。&lt;/p>
+&lt;p>CPU 的位宽最好不要小于线路位宽，比如 32 位 CPU 控制 40 位宽的地址总线和数据总线的话，工作起来就会非常复杂且麻烦，所以 32 位的 CPU 最好和 32 位宽的线路搭配，因为 32 位 CPU 一次最多只能操作 32 位宽的地址总线和数据总线。&lt;/p>
+&lt;p>如果用 32 位 CPU 去加和两个 64 位大小的数字，就需要把这 2 个 64 位的数字分成 2 个低位 32 位数字和 2 个高位 32 位数字来计算，先加个两个低位的 32 位数字，算出进位，然后加和两个高位的 32 位数字，最后再加上进位，就能算出结果了，可以发现 32 位 CPU 并不能一次性计算出加和两个 64 位数字的结果。&lt;/p>
+&lt;p>对于 64 位 CPU 就可以一次性算出加和两个 64 位数字的结果，因为 64 位 CPU 可以一次读入 64 位的数字，并且 64 位 CPU 内部的逻辑运算单元也支持 64 位数字的计算。&lt;/p>
+&lt;p>但是并不代表 64 位 CPU 性能比 32 位 CPU 高很多，很少应用需要算超过 32 位的数字，所以&lt;strong>如果计算的数额不超过 32 位数字的情况下，32 位和 64 位 CPU 之间没什么区别的，只有当计算超过 32 位数字的情况下，64 位的优势才能体现出来&lt;/strong>。&lt;/p>
+&lt;p>另外，32 位 CPU 最大只能操作 4GB 内存，就算你装了 8 GB 内存条，也没用。而 64 位 CPU 寻址范围则很大，理论最大的寻址空间为 2^64。&lt;/p>
+&lt;h1 id="程序执行的基本过程">程序执行的基本过程&lt;a class="td-heading-self-link" href="#%e7%a8%8b%e5%ba%8f%e6%89%a7%e8%a1%8c%e7%9a%84%e5%9f%ba%e6%9c%ac%e8%bf%87%e7%a8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>在前面，我们知道了程序在图灵机的执行过程，接下来我们来看看程序在冯诺依曼模型上是怎么执行的。&lt;/p>
+&lt;p>程序实际上是一条一条指令，所以程序的运行过程就是把每一条指令一步一步的执行起来，负责执行指令的就是 CPU 了。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986660-52f55e75-28af-466c-8a6b-7f736a5c9fee.png" alt="">&lt;/p>
+&lt;p>那 CPU 执行程序的过程如下：&lt;/p>
+&lt;p>第一步，CPU 读取「程序计数器」的值，这个值是指令的内存地址，然后 CPU 的「控制单元」操作「地址总线」指定需要访问的内存地址，接着通知内存设备准备数据，数据准备好后通过「数据总线」将指令数据传给 CPU，CPU 收到内存传来的数据后，将这个指令数据存入到「指令寄存器」。&lt;/p>
+&lt;p>第二步，CPU 分析「指令寄存器」中的指令，确定指令的类型和参数，如果是计算类型的指令，就把指令交给「逻辑运算单元」运算；如果是存储类型的指令，则交由「控制单元」执行；&lt;/p>
+&lt;p>第三步，CPU 执行完指令后，「程序计数器」的值自增，表示指向下一条指令。这个自增的大小，由 CPU 的位宽决定，比如 32 位的 CPU，指令是 4 个字节，需要 4 个内存地址存放，因此「程序计数器」的值会自增 4；&lt;/p>
+&lt;p>简单总结一下就是，一个程序执行的时候，CPU 会根据程序计数器里的内存地址，从内存里面把需要执行的指令读取到指令寄存器里面执行，然后根据指令长度自增，开始顺序读取下一条指令。&lt;/p>
+&lt;p>CPU 从程序计数器读取指令、到执行、再到下一条指令，这个过程会不断循环，直到程序执行结束，这个不断循环的过程被称为 &lt;strong>CPU 的指令周期&lt;/strong>。&lt;/p>
+&lt;h1 id="a--1--2-执行具体过程">a = 1 + 2 执行具体过程&lt;a class="td-heading-self-link" href="#a--1--2-%e6%89%a7%e8%a1%8c%e5%85%b7%e4%bd%93%e8%bf%87%e7%a8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>知道了基本的程序执行过程后，接下来用 a = 1 + 2 的作为例子，进一步分析该程序在冯诺伊曼模型的执行过程。&lt;/p>
+&lt;p>CPU 是不认识 a = 1 + 2 这个字符串，这些字符串只是方便我们程序员认识，要想这段程序能跑起来，还需要把整个程序翻译成&lt;strong>汇编语言&lt;/strong>的程序，这个过程称为编译成汇编代码。&lt;/p>
+&lt;p>针对汇编代码，我们还需要用汇编器翻译成机器码，这些机器码由 0 和 1 组成的机器语言，这一条条机器码，就是一条条的&lt;strong>计算机指令&lt;/strong>，这个才是 CPU 能够真正认识的东西。&lt;/p>
+&lt;p>下面来看看 a = 1 + 2 在 32 位 CPU 的执行过程。&lt;/p>
+&lt;p>程序编译过程中，编译器通过分析代码，发现 1 和 2 是数据，于是程序运行时，内存会有个专门的区域来存放这些数据，这个区域就是「数据段」。如下图，数据 1 和 2 的区域位置：&lt;/p>
+&lt;p>数据 1 被存放到 0x100 位置；&lt;/p>
+&lt;p>数据 2 被存放到 0x104 位置；&lt;/p>
+&lt;p>注意，数据和指令是分开区域存放的，存放指令区域的地方称为「正文段」。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986667-0dc00e68-0216-4422-b789-cee6595d926a.png" alt="">&lt;/p>
+&lt;p>编译器会把 a = 1 + 2 翻译成 4 条指令，存放到正文段中。如图，这 4 条指令被存放到了 0x200 ~ 0x20c 的区域中：&lt;/p>
+&lt;p>0x200 的内容是 load 指令将 0x100 地址中的数据 1 装入到寄存器 R0；&lt;/p>
+&lt;p>0x204 的内容是 load 指令将 0x104 地址中的数据 2 装入到寄存器 R1；&lt;/p>
+&lt;p>0x208 的内容是 add 指令将寄存器 R0 和 R1 的数据相加，并把结果存放到寄存器 R2；&lt;/p>
+&lt;p>0x20c 的内容是 store 指令将寄存器 R2 中的数据存回数据段中的 0x108 地址中，这个地址也就是变量 a 内存中的地址；&lt;/p>
+&lt;p>编译完成后，具体执行程序的时候，程序计数器会被设置为 0x200 地址，然后依次执行这 4 条指令。&lt;/p>
+&lt;p>上面的例子中，由于是在 32 位 CPU 执行的，因此一条指令是占 32 位大小，所以你会发现每条指令间隔 4 个字节。&lt;/p>
+&lt;p>而数据的大小是根据你在程序中指定的变量类型，比如 int 类型的数据则占 4 个字节，char 类型的数据则占 1 个字节。&lt;/p>
+&lt;p>&lt;strong>指令&lt;/strong>&lt;/p>
+&lt;p>上面的例子中，图中指令的内容我写的是简易的汇编代码，目的是为了方便理解指令的具体内容，事实上指令的内容是一串二进制数字的机器码，每条指令都有对应的机器码，CPU 通过解析机器码来知道指令的内容。&lt;/p>
+&lt;p>不同的 CPU 有不同的指令集，也就是对应着不同的汇编语言和不同的机器码，接下来选用最简单的 MIPS 指集，来看看机器码是如何生成的，这样也能明白二进制的机器码的具体含义。&lt;/p>
+&lt;p>MIPS 的指令是一个 32 位的整数，高 6 位代表着操作码，表示这条指令是一条什么样的指令，剩下的 26 位不同指令类型所表示的内容也就不相同，主要有三种类型 R、I 和 J。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986662-fadca5ca-0ef4-4fee-8a44-7caa05f36c1c.png" alt="">&lt;/p>
+&lt;p>一起具体看看这三种类型的含义：&lt;/p>
+&lt;p>&lt;em>R 指令&lt;/em>，用在算术和逻辑操作，里面由读取和写入数据的寄存器地址。如果是逻辑位移操作，后面还有位移操作的「位移量」，而最后的「功能码」则是再前面的操作码不够的时候，扩展操作码来表示对应的具体指令的；&lt;/p>
+&lt;p>&lt;em>I 指令&lt;/em>，用在数据传输、条件分支等。这个类型的指令，就没有了位移量和操作码，也没有了第三个寄存器，而是把这三部分直接合并成了一个地址值或一个常数；&lt;/p>
+&lt;p>&lt;em>J 指令&lt;/em>，用在跳转，高 6 位之外的 26 位都是一个跳转后的地址；&lt;/p>
+&lt;p>接下来，我们把前面例子的这条指令：「add 指令将寄存器 R0 和 R1 的数据相加，并把结果放入到 R3」，翻译成机器码。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986665-5620a3ba-3048-4722-8bd3-139e0f4b37f0.png" alt="">&lt;/p>
+&lt;p>加和运算 add 指令是属于 R 指令类型：&lt;/p>
+&lt;p>add 对应的 MIPS 指令里操作码是 000000，以及最末尾的功能码是 100000，这些数值都是固定的，查一下 MIPS 指令集的手册就能知道的；&lt;/p>
+&lt;p>rs 代表第一个寄存器 R0 的编号，即 00000；&lt;/p>
+&lt;p>rt 代表第二个寄存器 R1 的编号，即 00001；&lt;/p>
+&lt;p>rd 代表目标的临时寄存器 R2 的编号，即 00010；&lt;/p>
+&lt;p>因为不是位移操作，所以位移量是 00000&lt;/p>
+&lt;p>把上面这些数字拼在一起就是一条 32 位的 MIPS 加法指令了，那么用 16 进制表示的机器码则是 0x00011020。&lt;/p>
+&lt;p>编译器在编译程序的时候，会构造指令，这个过程叫做指令的编码。CPU 执行程序的时候，就会解析指令，这个过程叫作指令的解码。&lt;/p>
+&lt;p>现代大多数 CPU 都使用来流水线的方式来执行指令，所谓的流水线就是把一个任务拆分成多个小任务，于是一条指令通常分为 4 个阶段，称为 4 级流水线，如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986662-4a7d3fce-516a-485c-8123-60ae96bb4281.png" alt="">&lt;/p>
+&lt;p>四个阶段的具体含义：&lt;/p>
+&lt;p>CPU 通过程序计数器读取对应内存地址的指令，这个部分称为 &lt;strong>Fetch（取得指令）&lt;/strong>；&lt;/p>
+&lt;p>CPU 对指令进行解码，这个部分称为 &lt;strong>Decode（指令译码）&lt;/strong>；&lt;/p>
+&lt;p>CPU 执行指令，这个部分称为 &lt;strong>Execution（执行指令）&lt;/strong>；&lt;/p>
+&lt;p>CPU 将计算结果存回寄存器或者将寄存器的值存入内存，这个部分称为 &lt;strong>Store（数据回写）&lt;/strong>；&lt;/p>
+&lt;p>上面这 4 个阶段，我们称为&lt;strong>指令周期（***&lt;strong>Instrution Cycle&lt;/strong>*&lt;/strong>）**，CPU 的工作就是一个周期接着一个周期，周而复始。&lt;/p>
+&lt;p>事实上，不同的阶段其实是由计算机中的不同组件完成的：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986677-ccdce1c2-c357-4c5a-8413-00c2e4501486.png" alt="">&lt;/p>
+&lt;p>取指令的阶段，我们的指令是存放在&lt;strong>存储器&lt;/strong>里的，实际上，通过程序计数器和指令寄存器取出指令的过程，是由&lt;strong>控制器&lt;/strong>操作的；&lt;/p>
+&lt;p>指令的译码过程，也是由&lt;strong>控制器&lt;/strong>进行的；&lt;/p>
+&lt;p>指令执行的过程，无论是进行算术操作、逻辑操作，还是进行数据传输、条件分支操作，都是由&lt;strong>算术逻辑单元&lt;/strong>操作的，也就是由&lt;strong>运算器&lt;/strong>处理的。但是如果是一个简单的无条件地址跳转，则是直接在&lt;strong>控制器&lt;/strong>里面完成的，不需要用到运算器。&lt;/p>
+&lt;p>&lt;strong>指令的类型&lt;/strong>&lt;/p>
+&lt;p>指令从功能角度划分，可以分为 5 大类：&lt;/p>
+&lt;p>&lt;em>数据传输类型的指令&lt;/em>，比如 store/load 是寄存器与内存间数据传输的指令，mov 是将一个内存地址的数据移动到另一个内存地址的指令；&lt;/p>
+&lt;p>&lt;em>运算类型的指令&lt;/em>，比如加减乘除、位运算、比较大小等等，它们最多只能处理两个寄存器中的数据；&lt;/p>
+&lt;p>&lt;em>跳转类型的指令&lt;/em>，通过修改程序计数器的值来达到跳转执行指令的过程，比如编程中常见的 if-else、swtich-case、函数调用等。&lt;/p>
+&lt;p>&lt;em>信号类型的指令&lt;/em>，比如发生中断的指令 trap；&lt;/p>
+&lt;p>&lt;em>闲置类型的指令&lt;/em>，比如指令 nop，执行后 CPU 会空转一个周期；&lt;/p>
+&lt;p>&lt;strong>指令的执行速度&lt;/strong>&lt;/p>
+&lt;p>CPU 的硬件参数都会有 GHz 这个参数，比如一个 1 GHz 的 CPU，指的是时钟频率是 1 G，代表着 1 秒会产生 1G 次数的脉冲信号，每一次脉冲信号高低电平的转换就是一个周期，称为时钟周期。&lt;/p>
+&lt;p>对于 CPU 来说，在一个时钟周期内，CPU 仅能完成一个最基本的动作，时钟频率越高，时钟周期就越短，工作速度也就越快。&lt;/p>
+&lt;p>一个时钟周期一定能执行完一条指令吗？答案是不一定的，大多数指令不能在一个时钟周期完成，通常需要若干个时钟周期。不同的指令需要的时钟周期是不同的，加法和乘法都对应着一条 CPU 指令，但是乘法需要的时钟周期就要比加法多。&lt;/p>
+&lt;blockquote>
+&lt;p>如何让程序跑的更快？&lt;/p>
+&lt;/blockquote>
+&lt;p>程序执行的时候，耗费的 CPU 时间少就说明程序是快的，对于程序的 CPU 执行时间，我们可以拆解成 &lt;strong>CPU 时钟周期数（***&lt;strong>CPU Cycles&lt;/strong>*&lt;/strong>）和时钟周期时间（&lt;strong>*&lt;strong>Clock Cycle Time&lt;/strong>*&lt;/strong>）的乘积**。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986686-313c2570-8f61-4e7a-998b-9a4d61aa59cf.png" alt="">&lt;/p>
+&lt;p>时钟周期时间就是我们前面提及的 CPU 主频，主频越高说明 CPU 的工作速度就越快，比如我手头上的电脑的 CPU 是 2.4 GHz 四核 Intel Core i5，这里的 2.4 GHz 就是电脑的主频，时钟周期时间就是 1/2.4G。&lt;/p>
+&lt;p>要想 CPU 跑的更快，自然缩短时钟周期时间，也就是提升 CPU 主频，但是今非彼日，摩尔定律早已失效，当今的 CPU 主频已经很难再做到翻倍的效果了。&lt;/p>
+&lt;p>另外，换一个更好的 CPU，这个也是我们软件工程师控制不了的事情，我们应该把目光放到另外一个乘法因子 —— CPU 时钟周期数，如果能减少程序所需的 CPU 时钟周期数量，一样也是能提升程序的性能的。&lt;/p>
+&lt;p>对于 CPU 时钟周期数我们可以进一步拆解成：「&lt;strong>指令数 x 每条指令的平均时钟周期数（***&lt;strong>Cycles Per Instruction&lt;/strong>*&lt;/strong>，简称 CPI）**」，于是程序的 CPU 执行时间的公式可变成如下：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986659-a71dea63-d1c9-489c-843a-e0ad3ba0382e.png" alt="">&lt;/p>
+&lt;p>因此，要想程序跑的更快，优化这三者即可：&lt;/p>
+&lt;p>&lt;em>指令数&lt;/em>，表示执行程序所需要多少条指令，以及哪些指令。这个层面是基本靠编译器来优化，毕竟同样的代码，在不同的编译器，编译出来的计算机指令会有各种不同的表示方式。&lt;/p>
+&lt;p>&lt;em>每条指令的平均时钟周期数 CPI&lt;/em>，表示一条指令需要多少个时钟周期数，现代大多数 CPU 通过流水线技术（Pipline），让一条指令需要的 CPU 时钟周期数尽可能的少；&lt;/p>
+&lt;p>&lt;em>时钟周期时间&lt;/em>，表示计算机主频，取决于计算机硬件。有的 CPU 支持超频技术，打开了超频意味着把 CPU 内部的时钟给调快了，于是 CPU 工作速度就变快了，但是也是有代价的，CPU 跑的越快，散热的压力就会越大，CPU 会很容易奔溃。&lt;/p>
+&lt;p>很多厂商为了跑分而跑分，基本都是在这三个方面入手的哦，特别是超频这一块。&lt;/p>
+&lt;p>总结&lt;/p>
+&lt;p>最后我们再来回答开头的问题。&lt;/p>
+&lt;blockquote>
+&lt;p>64 位相比 32 位 CPU 的优势在哪吗？64 位 CPU 的计算性能一定比 32 位 CPU 高很多吗？&lt;/p>
+&lt;/blockquote>
+&lt;p>64 位相比 32 位 CPU 的优势主要体现在两个方面：&lt;/p>
+&lt;p>64 位 CPU 可以一次计算超过 32 位的数字，而 32 位 CPU 如果要计算超过 32 位的数字，要分多步骤进行计算，效率就没那么高，但是大部分应用程序很少会计算那么大的数字，所以&lt;strong>只有运算大数字的时候，64 位 CPU 的优势才能体现出来，否则和 32 位 CPU 的计算性能相差不大&lt;/strong>。&lt;/p>
+&lt;p>64 位 CPU 可以&lt;strong>寻址更大的内存空间&lt;/strong>，32 位 CPU 最大的寻址地址是 4G，即使你加了 8G 大小的内存，也还是只能寻址到 4G，而 64 位 CPU 最大寻址地址是 2^64，远超于 32 位 CPU 最大寻址地址的 2^32。&lt;/p>
+&lt;blockquote>
+&lt;p>你知道软件的 32 位和 64 位之间的区别吗？再来 32 位的操作系统可以运行在 64 位的电脑上吗？64 位的操作系统可以运行在 32 位的电脑上吗？如果不行，原因是什么？&lt;/p>
+&lt;/blockquote>
+&lt;p>64 位和 32 位软件，实际上代表指令是 64 位还是 32 位的：&lt;/p>
+&lt;p>如果 32 位指令在 64 位机器上执行，需要一套兼容机制，就可以做到兼容运行了。但是&lt;strong>如果 64 位指令在 32 位机器上执行，就比较困难了，因为 32 位的寄存器存不下 64 位的指令&lt;/strong>；&lt;/p>
+&lt;p>操作系统其实也是一种程序，我们也会看到操作系统会分成 32 位操作系统、64 位操作系统，其代表意义就是操作系统中程序的指令是多少位，比如 64 位操作系统，指令也就是 64 位，因此不能装在 32 位机器上。&lt;/p>
+&lt;p>总之，硬件的 64 位和 32 位指的是 CPU 的位宽，软件的 64 位和 32 位指的是指令的位宽。&lt;/p></description></item><item><title>Docs: 10.2.知道硬盘很慢，但没想到比 CPU Cache 慢 10000000 倍</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.2.%E7%9F%A5%E9%81%93%E7%A1%AC%E7%9B%98%E5%BE%88%E6%85%A2%E4%BD%86%E6%B2%A1%E6%83%B3%E5%88%B0%E6%AF%94-CPU-Cache-%E6%85%A2-10000000-%E5%80%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.2.%E7%9F%A5%E9%81%93%E7%A1%AC%E7%9B%98%E5%BE%88%E6%85%A2%E4%BD%86%E6%B2%A1%E6%83%B3%E5%88%B0%E6%AF%94-CPU-Cache-%E6%85%A2-10000000-%E5%80%8D/</guid><description>
+&lt;h1 id="heading">&lt;a class="td-heading-self-link" href="#heading" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>天啦噜！知道硬盘很慢，但没想到比 CPU Cache 慢 10000000 倍&lt;/strong>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976182-90f7bdd1-15f5-4e79-9992-a3d41847a5da.png" alt="">&lt;/p>
+&lt;p>&lt;strong>前言&lt;/strong>&lt;/p>
+&lt;p>大家如果想自己组装电脑的话，肯定需要购买一个 CPU，但是存储器方面的设备，分类比较多，那我们肯定不能只买一种存储器，比如你除了要买内存，还要买硬盘，而针对硬盘我们还可以选择是固态硬盘还是机械硬盘。&lt;/p>
+&lt;p>相信大家都知道内存和硬盘都属于计算机的存储设备，断电后内存的数据是会丢失的，而硬盘则不会，因为硬盘是持久化存储设备，同时也是一个 I/O 设备。&lt;/p>
+&lt;p>但其实 CPU 内部也有存储数据的组件，这个应该比较少人注意到，比如&lt;strong>寄存器、CPU L1/L2/L3 Cache&lt;/strong> 也都是属于存储设备，只不过它们能存储的数据非常小，但是它们因为靠近 CPU 核心，所以访问速度都非常快，快过硬盘好几个数量级别。&lt;/p>
+&lt;p>问题来了，&lt;strong>那机械硬盘、固态硬盘、内存这三个存储器，到底和 CPU L1 Cache 相比速度差多少倍呢？&lt;/strong>&lt;/p>
+&lt;p>在回答这个问题之前，我们先来看看「&lt;strong>存储器的层次结构&lt;/strong>」，好让我们对存储器设备有一个整体的认识。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976178-e4b64e37-9cd2-4db1-a4e7-5cb4fd1e498f.png" alt="">&lt;/p>
+&lt;p>&lt;strong>正文&lt;/strong>&lt;/p>
+&lt;p>存储器的层次结构&lt;/p>
+&lt;p>我们想象中一个场景，大学期末准备考试了，你前去图书馆临时抱佛脚。那么，在看书的时候，我们的大脑会思考问题，也会记忆知识点，另外我们通常也会把常用的书放在自己的桌子上，当我们要找一本不常用的书，则会去图书馆的书架找。&lt;/p>
+&lt;p>就是这么一个小小的场景，已经把计算机的存储结构基本都涵盖了。&lt;/p>
+&lt;p>我们可以把 CPU 比喻成我们的大脑，大脑正在思考的东西，就好比 CPU 中的&lt;strong>寄存器&lt;/strong>，处理速度是最快的，但是能存储的数据也是最少的，毕竟我们也不能一下同时思考太多的事情，除非你练过。&lt;/p>
+&lt;p>我们大脑中的记忆，就好比 &lt;strong>CPU Cache&lt;/strong>，中文称为 CPU 高速缓存，处理速度相比寄存器慢了一点，但是能存储的数据也稍微多了一些。&lt;/p>
+&lt;p>CPU Cache 通常会分为 &lt;strong>L1、L2、L3 三层&lt;/strong>，其中 L1 Cache 通常分成「数据缓存」和「指令缓存」，L1 是距离 CPU 最近的，因此它比 L2、L3 的读写速度都快、存储空间都小。我们大脑中短期记忆，就好比 L1 Cache，而长期记忆就好比 L2/L3 Cache。&lt;/p>
+&lt;p>寄存器和 CPU Cache 都是在 CPU 内部，跟 CPU 挨着很近，因此它们的读写速度都相当的快，但是能存储的数据很少，毕竟 CPU 就这么丁点大。&lt;/p>
+&lt;p>知道 CPU 内部的存储器的层次分布，我们放眼看看 CPU 外部的存储器。&lt;/p>
+&lt;p>当我们大脑记忆中没有资料的时候，可以从书桌或书架上拿书来阅读，那我们桌子上的书，就好比&lt;strong>内存&lt;/strong>，我们虽然可以一伸手就可以拿到，但读写速度肯定远慢于寄存器，那图书馆书架上的书，就好比&lt;strong>硬盘&lt;/strong>，能存储的数据非常大，但是读写速度相比内存差好几个数量级，更别说跟寄存器的差距了。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976201-6b166920-3f84-42b1-9e26-d7647ca04812.png" alt="">&lt;/p>
+&lt;p>我们从图书馆书架取书，把书放到桌子上，再阅读书，我们大脑就会记忆知识点，然后再经过大脑思考，这一系列过程相当于，数据从硬盘加载到内存，再从内存加载到 CPU 的寄存器和 Cache 中，然后再通过 CPU 进行处理和计算。&lt;/p>
+&lt;p>&lt;strong>对于存储器，它的速度越快、能耗会越高、而且材料的成本也是越贵的，以至于速度快的存储器的容量都比较小。&lt;/strong>&lt;/p>
+&lt;p>CPU 里的寄存器和 Cache，是整个计算机存储器中价格最贵的，虽然存储空间很小，但是读写速度是极快的，而相对比较便宜的内存和硬盘，速度肯定比不上 CPU 内部的存储器，但是能弥补存储空间的不足。&lt;/p>
+&lt;p>存储器通常可以分为这么几个级别：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976207-7bc9e5b2-f04a-4fbe-a0d8-8b6226c3f760.png" alt="">&lt;/p>
+&lt;p>寄存器；&lt;/p>
+&lt;p>CPU Cache；&lt;/p>
+&lt;p>L1-Cache；&lt;/p>
+&lt;p>L2-Cache；&lt;/p>
+&lt;p>L3-Cahce；&lt;/p>
+&lt;p>内存；&lt;/p>
+&lt;p>SSD/HDD 硬盘&lt;/p>
+&lt;p>&lt;strong>寄存器&lt;/strong>&lt;/p>
+&lt;p>最靠近 CPU 的控制单元和逻辑计算单元的存储器，就是寄存器了，它使用的材料速度也是最快的，因此价格也是最贵的，那么数量不能很多。&lt;/p>
+&lt;p>存储器的数量通常在几十到几百之间，每个寄存器可以用来存储一定的字节（byte）的数据。比如：&lt;/p>
+&lt;p>32 位 CPU 中大多数寄存器可以存储 4 个字节；&lt;/p>
+&lt;p>64 位 CPU 中大多数寄存器可以存储 8 个字节。&lt;/p>
+&lt;p>寄存器的访问速度非常快，一般要求在半个 CPU 时钟周期内完成读写，CPU 时钟周期跟 CPU 主频息息相关，比如 2 GHz 主频的 CPU，那么它的时钟周期就是 1/2G，也就是 0.5ns（纳秒）。&lt;/p>
+&lt;p>CPU 处理一条指令的时候，除了读写寄存器，还需要解码指令、控制指令执行和计算。如果寄存器的速度太慢，则会拉长指令的处理周期，从而给用户的感觉，就是电脑「很慢」。&lt;/p>
+&lt;p>&lt;strong>CPU Cache&lt;/strong>&lt;/p>
+&lt;p>CPU Cache 用的是一种叫 &lt;strong>SRAM（***&lt;strong>Static Random-Access&lt;/strong>*&lt;/strong> Memory，静态随机存储器）** 的芯片。&lt;/p>
+&lt;p>SRAM 之所以叫「静态」存储器，是因为只要有电，数据就可以保持存在，而一旦断电，数据就会丢失了。&lt;/p>
+&lt;p>在 SRAM 里面，一个 bit 的数据，通常需要 6 个晶体管，所以 SRAM 的存储密度不高，同样的物理空间下，能存储的数据是有限的，不过也因为 SRAM 的电路简单，所以访问速度非常快。&lt;/p>
+&lt;p>CPU 的高速缓存，通常可以分为 L1、L2、L3 这样的三层高速缓存，也称为一级缓存、二次缓存、三次缓存。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976196-0ddbce05-2f7e-4a12-b171-42621ad3551a.png" alt="">&lt;/p>
+&lt;p>&lt;strong>L1 高速缓存&lt;/strong>&lt;/p>
+&lt;p>L1 高速缓存的访问速度几乎和寄存器一样快，通常只需要 2~4 个时钟周期，而大小在几十 KB 到几百 KB 不等。&lt;/p>
+&lt;p>每个 CPU 核心都有一块属于自己的 L1 高速缓存，指令和数据在 L1 是分开存放的，所以 L1 高速缓存通常分成&lt;strong>指令缓存&lt;/strong>和&lt;strong>数据缓存&lt;/strong>。&lt;/p>
+&lt;p>在 Linux 系统，我们可以通过这条命令，查看 CPU 里的 L1 Cache 「数据」缓存的容量大小：&lt;/p>
+&lt;p>$ cat /sys/devices/system/cpu/cpu0/cache/index0/size&lt;/p>
+&lt;p>32K&lt;/p>
+&lt;p>而查看 L1 Cache 「指令」缓存的容量大小，则是：&lt;/p>
+&lt;p>$ cat /sys/devices/system/cpu/cpu0/cache/index1/size&lt;/p>
+&lt;p>32K&lt;/p>
+&lt;p>&lt;strong>L2 高速缓存&lt;/strong>&lt;/p>
+&lt;p>L2 高速缓存同样每个 CPU 核心都有，但是 L2 高速缓存位置比 L1 高速缓存距离 CPU 核心 更远，它大小比 L1 高速缓存更大，CPU 型号不同大小也就不同，通常大小在几百 KB 到几 MB 不等，访问速度则更慢，速度在 10~20 个时钟周期。&lt;/p>
+&lt;p>在 Linux 系统，我们可以通过这条命令，查看 CPU 里的 L2 Cache 的容量大小：&lt;/p>
+&lt;p>$ cat /sys/devices/system/cpu/cpu0/cache/index2/size&lt;/p>
+&lt;p>256K&lt;/p>
+&lt;p>&lt;strong>L3 高速缓存&lt;/strong>&lt;/p>
+&lt;p>L3 高速缓存通常是多个 CPU 核心共用的，位置比 L2 高速缓存距离 CPU 核心 更远，大小也会更大些，通常大小在几 MB 到几十 MB 不等，具体值根据 CPU 型号而定。&lt;/p>
+&lt;p>访问速度相对也比较慢一些，访问速度在 20~60 个时钟周期。&lt;/p>
+&lt;p>在 Linux 系统，我们可以通过这条命令，查看 CPU 里的 L3 Cache 的容量大小：&lt;/p>
+&lt;p>$ cat /sys/devices/system/cpu/cpu0/cache/index3/size&lt;/p>
+&lt;p>3072K&lt;/p>
+&lt;p>&lt;strong>内存&lt;/strong>&lt;/p>
+&lt;p>内存用的芯片和 CPU Cache 有所不同，它使用的是一种叫作 &lt;strong>DRAM （***&lt;strong>Dynamic Random Access Memory&lt;/strong>*&lt;/strong>，动态随机存取存储器）** 的芯片。&lt;/p>
+&lt;p>相比 SRAM，DRAM 的密度更高，功耗更低，有更大的容量，而且造价比 SRAM 芯片便宜很多。&lt;/p>
+&lt;p>DRAM 存储一个 bit 数据，只需要一个晶体管和一个电容就能存储，但是因为数据会被存储在电容里，电容会不断漏电，所以需要「定时刷新」电容，才能保证数据不会被丢失，这就是 DRAM 之所以被称为「动态」存储器的原因，只有不断刷新，数据才能被存储起来。&lt;/p>
+&lt;p>DRAM 的数据访问电路和刷新电路都比 SRAM 更复杂，所以访问的速度会更慢，内存速度大概在 200~300 个 时钟周期之间。&lt;/p>
+&lt;p>&lt;strong>SSD/HDD 硬盘&lt;/strong>&lt;/p>
+&lt;p>SSD（&lt;em>Solid-state disk&lt;/em>） 就是我们常说的固体硬盘，结构和内存类似，但是它相比内存的优点是断电后数据还是存在的，而内存、寄存器、高速缓存断电后数据都会丢失。内存的读写速度比 SSD 大概快 10~1000 倍。&lt;/p>
+&lt;p>当然，还有一款传统的硬盘，也就是机械硬盘（&lt;em>Hard Disk Drive, HDD&lt;/em>），它是通过物理读写的方式来访问数据的，因此它访问速度是非常慢的，它的速度比内存慢 10W 倍左右。&lt;/p>
+&lt;p>由于 SSD 的价格快接近机械硬盘了，因此机械硬盘已经逐渐被 SSD 替代了。&lt;/p>
+&lt;p>存储器的层次关系&lt;/p>
+&lt;p>现代的一台计算机，都用上了 CPU Cahce、内存、到 SSD 或 HDD 硬盘这些存储器设备了。&lt;/p>
+&lt;p>其中，存储空间越大的存储器设备，其访问速度越慢，所需成本也相对越少。&lt;/p>
+&lt;p>CPU 并不会直接和每一种存储器设备直接打交道，而是每一种存储器设备只和它相邻的存储器设备打交道。&lt;/p>
+&lt;p>比如，CPU Cache 的数据是从内存加载过来的，写回数据的时候也只写回到内存，CPU Cache 不会直接把数据写到硬盘，也不会直接从硬盘加载数据，而是先加载到内存，再从内存加载到 CPU Cache 中。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976245-22932169-bec2-42f5-8712-f60b0d797733.png" alt="">&lt;/p>
+&lt;p>所以，&lt;strong>每个存储器只和相邻的一层存储器设备打交道，并且存储设备为了追求更快的速度，所需的材料成本必然也是更高，也正因为成本太高，所以 CPU 内部的寄存器、L1L2L3 Cache 只好用较小的容量，相反内存、硬盘则可用更大的容量，这就我们今天所说的存储器层次结构&lt;/strong>。&lt;/p>
+&lt;p>另外，当 CPU 需要访问内存中某个数据的时候，如果寄存器有这个数据，CPU 就直接从寄存器取数据即可，如果寄存器没有这个数据，CPU 就会查询 L1 高速缓存，如果 L1 没有，则查询 L2 高速缓存，L2 还是没有的话就查询 L3 高速缓存，L3 依然没有的话，才去内存中取数据。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976227-007bd129-b81d-4e1f-906c-234362160317.png" alt="">&lt;/p>
+&lt;p>所以，存储层次结构也形成了&lt;strong>缓存&lt;/strong>的体系。&lt;/p>
+&lt;p>存储器之间的实际价格和性能差距&lt;/p>
+&lt;p>前面我们知道了，速度越快的存储器，造价成本往往也越高，那我们就以实际的数据来看看，不同层级的存储器之间的性能和价格差异。&lt;/p>
+&lt;p>下面这张表格是不同层级的存储器之间的成本对比图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976218-0076c2a7-a83f-4f00-a6ac-29d76746d7ad.png" alt="">&lt;/p>
+&lt;p>你可以看到 L1 Cache 的访问延时是 1 纳秒，而内存已经是 100 纳秒了，相比 L1 Cache 速度慢了 100 倍。另外，机械硬盘的访问延时更是高达 10 毫秒，相比 L1 Cache 速度慢了 10000000 倍，差了好几个数量级别。&lt;/p>
+&lt;p>在价格上，每生产 MB 大小的 L1 Cache 相比内存贵了 466 倍，相比机械硬盘那更是贵了 175000 倍。&lt;/p>
+&lt;p>我在某东逛了下各个存储器设备的零售价，8G 内存 + 1T 机械硬盘 + 256G 固态硬盘的总价格，都不及一块 Intle i5-10400 的 CPU 的价格，这款 CPU 的高速缓存的总大小也就十多 MB。&lt;/p>
+&lt;p>总结&lt;/p>
+&lt;p>各种存储器之间的关系，可以用我们在图书馆学习这个场景来理解。&lt;/p>
+&lt;p>CPU 可以比喻成我们的大脑，我们当前正在思考和处理的知识的过程，就好比 CPU 中的&lt;strong>寄存器&lt;/strong>处理数据的过程，速度极快，但是容量很小。而 CPU 中的 &lt;strong>L1-L3 Cache&lt;/strong> 好比我们大脑中的短期记忆和长期记忆，需要小小花费点时间来调取数据并处理。&lt;/p>
+&lt;p>我们面前的桌子就相当于&lt;strong>内存&lt;/strong>，能放下更多的书（数据），但是找起来和看起来就要花费一些时间，相比 CPU Cache 慢不少。而图书馆的书架相当于&lt;strong>硬盘&lt;/strong>，能放下比内存更多的数据，但找起来就更费时间了，可以说是最慢的存储器设备了。&lt;/p>
+&lt;p>从 寄存器、CPU Cache，到内存、硬盘，这样一层层下来的存储器，访问速度越来越慢，存储容量越来越大，价格也越来越便宜，而且每个存储器只和相邻的一层存储器设备打交道，于是这样就形成了存储器的层次结构。&lt;/p>
+&lt;p>再来回答，开头的问题：那机械硬盘、固态硬盘、内存这三个存储器，到底和 CPU L1 Cache 相比速度差多少倍呢？&lt;/p>
+&lt;p>CPU L1 Cache 随机访问延时是 1 纳秒，内存则是 100 纳秒，所以 &lt;strong>CPU L1 Cache 比内存快 100 倍左右&lt;/strong>。&lt;/p>
+&lt;p>SSD 随机访问延时是 150 微妙，所以 &lt;strong>CPU L1 Cache 比 SSD 快 150000 倍左右&lt;/strong>。&lt;/p>
+&lt;p>最慢的机械硬盘随机访问延时已经高达 10 毫秒，我们来看看机械硬盘到底有多「龟速」：&lt;/p>
+&lt;p>&lt;strong>SSD 比机械硬盘快 70 倍左右；&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>内存比机械硬盘快 100000 倍左右，即 10W 倍；&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>CPU L1 Cache 比机械硬盘快 10000000 倍左右，即 1000W 倍；&lt;/strong>&lt;/p>
+&lt;p>我们把上述的时间比例差异放大后，就能非常直观感受到它们的性能差异了。如果 CPU 访问 L1 Cache 的缓存时间是 1 秒，那访问内存则需要大约 2 分钟，随机访问 SSD 里的数据则需要 1.7 天，访问机械硬盘那更久，长达近 4 个月。&lt;/p>
+&lt;p>可以发现，不同的存储器之间性能差距很大，构造存储器分级很有意义，分级的目的是要构造&lt;strong>缓存&lt;/strong>体系。&lt;/p>
+&lt;p>&lt;strong>絮叨&lt;/strong>&lt;/p>
+&lt;p>新的&lt;strong>技术交流群&lt;/strong>已经慢慢人多起来了，群里的大牛真的多，大家交流都很踊跃，也有很多热心分享和回答问题的小伙伴，是你交朋友好地方，更是你上班划水的好入口。&lt;/p>
+&lt;p>准备入冬了，一起来抱团取暖吧，加群方式很简单，只需要加我的微信二维码，备注「&lt;strong>加群&lt;/strong>」即可。&lt;/p>
+&lt;p>&lt;em>哈喽，我是小林，就爱图解计算机基础，如果觉得文章对你有帮助，欢迎分享给你的朋友，也给小林点个「在看」，这对小林非常重要，谢谢你们，给各位小姐姐小哥哥们抱拳了，我们下次见！&lt;/em>&lt;/p>
+&lt;p>&lt;strong>推荐阅读&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>CPU 执行程序的秘密，藏在了这 15 张图里&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>原来 8 张图，就可以搞懂「零拷贝」了&lt;/strong>&lt;/p>
+&lt;p>喜欢此内容的人还喜欢&lt;/p></description></item><item><title>Docs: 10.3.如何写出让 CPU 跑得更快的代码？</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.3.%E5%A6%82%E4%BD%95%E5%86%99%E5%87%BA%E8%AE%A9-CPU-%E8%B7%91%E5%BE%97%E6%9B%B4%E5%BF%AB%E7%9A%84%E4%BB%A3%E7%A0%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.3.%E5%A6%82%E4%BD%95%E5%86%99%E5%87%BA%E8%AE%A9-CPU-%E8%B7%91%E5%BE%97%E6%9B%B4%E5%BF%AB%E7%9A%84%E4%BB%A3%E7%A0%81/</guid><description>
+&lt;p>&lt;strong>面试官：如何写出让 CPU 跑得更快的代码？&lt;/strong>&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966333-fcc2cbcc-df13-4b74-904f-8fbdbc6aaa18.png" alt="">&lt;/p>
+&lt;p>&lt;strong>前言&lt;/strong>&lt;/p>
+&lt;p>代码都是由 CPU 跑起来的，我们代码写的好与坏就决定了 CPU 的执行效率，特别是在编写计算密集型的程序，更要注重 CPU 的执行效率，否则将会大大影响系统性能。&lt;/p>
+&lt;p>CPU 内部嵌入了 CPU Cache（高速缓存），它的存储容量很小，但是离 CPU 核心很近，所以缓存的读写速度是极快的，那么如果 CPU 运算时，直接从 CPU Cache 读取数据，而不是从内存的话，运算速度就会很快。&lt;/p>
+&lt;p>但是，大多数人不知道 CPU Cache 的运行机制，以至于不知道如何才能够写出能够配合 CPU Cache 工作机制的代码，一旦你掌握了它，你写代码的时候，就有新的优化思路了。&lt;/p>
+&lt;p>那么，接下来我们就来看看，CPU Cache 到底是什么样的，是如何工作的呢，又该写出让 CPU 执行更快的代码呢？&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966344-839ec392-0df1-430a-be2b-d275b1dedefe.png" alt="">&lt;/p>
+&lt;p>&lt;strong>正文&lt;/strong>&lt;/p>
+&lt;p>CPU Cache 有多快？&lt;/p>
+&lt;p>你可能会好奇为什么有了内存，还需要 CPU Cache？根据摩尔定律，CPU 的访问速度每 18 个月就会翻倍，相当于每年增长 60% 左右，内存的速度当然也会不断增长，但是增长的速度远小于 CPU，平均每年只增长 7% 左右。于是，CPU 与内存的访问性能的差距不断拉大。&lt;/p>
+&lt;p>到现在，一次内存访问所需时间是 200~300 多个时钟周期，这意味着 CPU 和内存的访问速度已经相差 200~300 多倍了。&lt;/p>
+&lt;p>为了弥补 CPU 与内存两者之间的性能差异，就在 CPU 内部引入了 CPU Cache，也称高速缓存。&lt;/p>
+&lt;p>CPU Cache 通常分为大小不等的三级缓存，分别是 &lt;strong>L1 Cache、L2 Cache 和 L3 Cache&lt;/strong>。&lt;/p>
+&lt;p>由于 CPU Cache 所使用的材料是 SRAM，价格比内存使用的 DRAM 高出很多，在当今每生产 1 MB 大小的 CPU Cache 需要 7 美金的成本，而内存只需要 0.015 美金的成本，成本方面相差了 466 倍，所以 CPU Cache 不像内存那样动辄以 GB 计算，它的大小是以 KB 或 MB 来计算的。&lt;/p>
+&lt;p>在 Linux 系统中，我们可以使用下图的方式来查看各级 CPU Cache 的大小，比如我这手上这台服务器，离 CPU 核心最近的 L1 Cache 是 32KB，其次是 L2 Cache 是 256KB，最大的 L3 Cache 则是 3MB。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966311-20378e45-3623-4562-808a-9f94352ee96f.png" alt="">&lt;/p>
+&lt;p>其中，&lt;strong>L1 Cache 通常会分为「数据缓存」和「指令缓存」&lt;/strong>，这意味着数据和指令在 L1 Cache 这一层是分开缓存的，上图中的 index0 也就是数据缓存，而 index1 则是指令缓存，它两的大小通常是一样的。&lt;/p>
+&lt;p>另外，你也会注意到，L3 Cache 比 L1 Cache 和 L2 Cache 大很多，这是因为 &lt;strong>L1 Cache 和 L2 Cache 都是每个 CPU 核心独有的，而 L3 Cache 是多个 CPU 核心共享的。&lt;/strong>&lt;/p>
+&lt;p>程序执行时，会先将内存中的数据加载到共享的 L3 Cache 中，再加载到每个核心独有的 L2 Cache，最后进入到最快的 L1 Cache，之后才会被 CPU 读取。它们之间的层级关系，如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966328-3691d0d5-5c9f-462c-b524-a5c041404c0f.png" alt="">&lt;/p>
+&lt;p>越靠近 CPU 核心的缓存其访问速度越快，CPU 访问 L1 Cache 只需要 2~4 个时钟周期，访问 L2 Cache 大约 10~20 个时钟周期，访问 L3 Cache 大约 20~60 个时钟周期，而访问内存速度大概在 200~300 个 时钟周期之间。如下表格：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966337-070a39a4-d3c6-4d56-8f34-79fee79119d6.png" alt="">&lt;/p>
+&lt;p>&lt;strong>所以，CPU 从 L1 Cache 读取数据的速度，相比从内存读取的速度，会快 100 多倍。&lt;/strong>&lt;/p>
+&lt;p>CPU Cache 的数据结构和读取过程是什么样的？&lt;/p>
+&lt;p>CPU Cache 的数据是从内存中读取过来的，它是以一小块一小块读取数据的，而不是按照单个数组元素来读取数据的，在 CPU Cache 中的，这样一小块一小块的数据，称为 &lt;strong>Cache Line（缓存块）&lt;/strong>。&lt;/p>
+&lt;p>你可以在你的 Linux 系统，用下面这种方式来查看 CPU 的 Cache Line，你可以看我服务器的 L1 Cache Line 大小是 64 字节，也就意味着 &lt;strong>L1 Cache 一次载入数据的大小是 64 字节&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966325-a8749b7a-e2e9-4dff-aa68-5886817385a0.png" alt="">&lt;/p>
+&lt;p>比如，有一个 int array[100] 的数组，当载入 array[0] 时，由于这个数组元素的大小在内存只占 4 字节，不足 64 字节，CPU 就会&lt;strong>顺序加载&lt;/strong>数组元素到 array[15]，意味着 array[0]~array[15] 数组元素都会被缓存在 CPU Cache 中了，因此当下次访问这些数组元素时，会直接从 CPU Cache 读取，而不用再从内存中读取，大大提高了 CPU 读取数据的性能。&lt;/p>
+&lt;p>事实上，CPU 读取数据的时候，无论数据是否存放到 Cache 中，CPU 都是先访问 Cache，只有当 Cache 中找不到数据时，才会去访问内存，并把内存中的数据读入到 Cache 中，CPU 再从 CPU Cache 读取数据。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966332-609f98be-defe-4e78-a338-f38e9a9df854.png" alt="">&lt;/p>
+&lt;p>这样的访问机制，跟我们使用「内存作为硬盘的缓存」的逻辑是一样的，如果内存有缓存的数据，则直接返回，否则要访问龟速一般的硬盘。&lt;/p>
+&lt;p>那 CPU 怎么知道要访问的内存数据，是否在 Cache 里？如果在的话，如何找到 Cache 对应的数据呢？我们从最简单、基础的&lt;strong>直接映射 Cache（***&lt;strong>Direct Mapped Cache&lt;/strong>*&lt;/strong>）** 说起，来看看整个 CPU Cache 的数据结构和访问逻辑。&lt;/p>
+&lt;p>前面，我们提到 CPU 访问内存数据时，是一小块一小块数据读取的，具体这一小块数据的大小，取决于 coherency_line_size 的值，一般 64 字节。在内存中，这一块的数据我们称为&lt;strong>内存块（***&lt;strong>Bock&lt;/strong>*&lt;/strong>）**，读取的时候我们要拿到数据所在内存块的地址。&lt;/p>
+&lt;p>对于直接映射 Cache 采用的策略，就是把内存块的地址始终「映射」在一个 CPU Line（缓存块） 的地址，至于映射关系实现方式，则是使用「取模运算」，取模运算的结果就是内存块地址对应的 CPU Line（缓存块） 的地址。&lt;/p>
+&lt;p>举个例子，内存共被划分为 32 个内存块，CPU Cache 共有 8 个 CPU Line，假设 CPU 想要访问第 15 号内存块，如果 15 号内存块中的数据已经缓存在 CPU Line 中的话，则是一定映射在 7 号 CPU Line 中，因为 15 % 8 的值是 7。&lt;/p>
+&lt;p>机智的你肯定发现了，使用取模方式映射的话，就会出现多个内存块对应同一个 CPU Line，比如上面的例子，除了 15 号内存块是映射在 7 号 CPU Line 中，还有 7 号、23 号、31 号内存块都是映射到 7 号 CPU Line 中。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966355-998adf7a-4dd3-405d-a75c-c7d501add3a8.png" alt="">&lt;/p>
+&lt;p>因此，为了区别不同的内存块，在对应的 CPU Line 中我们还会存储一个&lt;strong>组标记（Tag）&lt;/strong>。这个组标记会记录当前 CPU Line 中存储的数据对应的内存块，我们可以用这个组标记来区分不同的内存块。&lt;/p>
+&lt;p>除了组标记信息外，CPU Line 还有两个信息：&lt;/p>
+&lt;p>一个是，从内存加载过来的实际存放&lt;strong>数据（***&lt;strong>Data&lt;/strong>*&lt;/strong>）**。&lt;/p>
+&lt;p>另一个是，&lt;strong>有效位（***&lt;strong>Valid bit&lt;/strong>*&lt;/strong>）**，它是用来标记对应的 CPU Line 中的数据是否是有效的，如果有效位是 0，无论 CPU Line 中是否有数据，CPU 都会直接访问内存，重新加载数据。&lt;/p>
+&lt;p>CPU 在从 CPU Cache 读取数据的时候，并不是读取 CPU Line 中的整个数据块，而是读取 CPU 所需要的一个数据片段，这样的数据统称为一个&lt;strong>字（***&lt;strong>Word&lt;/strong>*&lt;/strong>）&lt;strong>。那怎么在对应的 CPU Line 中数据块中找到所需的字呢？答案是，需要一个&lt;/strong>偏移量（Offset）**。&lt;/p>
+&lt;p>因此，一个内存的访问地址，包括&lt;strong>组标记、CPU Line 索引、偏移量&lt;/strong>这三种信息，于是 CPU 就能通过这些信息，在 CPU Cache 中找到缓存的数据。而对于 CPU Cache 里的数据结构，则是由&lt;strong>索引 + 有效位 + 组标记 + 数据块&lt;/strong>组成。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966336-8de340f2-1dc3-43b2-bab4-fe709883899e.png" alt="">&lt;/p>
+&lt;p>如果内存中的数据已经在 CPU Cahe 中了，那 CPU 访问一个内存地址的时候，会经历这 4 个步骤：&lt;/p>
+&lt;p>根据内存地址中索引信息，计算在 CPU Cahe 中的索引，也就是找出对应的 CPU Line 的地址；&lt;/p>
+&lt;p>找到对应 CPU Line 后，判断 CPU Line 中的有效位，确认 CPU Line 中数据是否是有效的，如果是无效的，CPU 就会直接访问内存，并重新加载数据，如果数据有效，则往下执行；&lt;/p>
+&lt;p>对比内存地址中组标记和 CPU Line 中的组标记，确认 CPU Line 中的数据是我们要访问的内存数据，如果不是的话，CPU 就会直接访问内存，并重新加载数据，如果是的话，则往下执行；&lt;/p>
+&lt;p>根据内存地址中偏移量信息，从 CPU Line 的数据块中，读取对应的字。&lt;/p>
+&lt;p>到这里，相信你对直接映射 Cache 有了一定认识，但其实除了直接映射 Cache 之外，还有其他通过内存地址找到 CPU Cache 中的数据的策略，比如全相连 Cache （&lt;em>Fully Associative Cache&lt;/em>）、组相连 Cache （&lt;em>Set Associative Cache&lt;/em>）等，这几种策策略的数据结构都比较相似，我们理解流直接映射 Cache 的工作方式，其他的策略如果你有兴趣去看，相信很快就能理解的了。&lt;/p>
+&lt;p>如何写出让 CPU 跑得更快的代码？&lt;/p>
+&lt;p>我们知道 CPU 访问内存的速度，比访问 CPU Cache 的速度慢了 100 多倍，所以如果 CPU 所要操作的数据在 CPU Cache 中的话，这样将会带来很大的性能提升。访问的数据在 CPU Cache 中的话，意味着&lt;strong>缓存命中&lt;/strong>，缓存命中率越高的话，代码的性能就会越好，CPU 也就跑的越快。&lt;/p>
+&lt;p>于是，「如何写出让 CPU 跑得更快的代码？」这个问题，可以改成「如何写出 CPU 缓存命中率高的代码？」。&lt;/p>
+&lt;p>在前面我也提到， L1 Cache 通常分为「数据缓存」和「指令缓存」，这是因为 CPU 会别处理数据和指令，比如 1+1=2 这个运算，+ 就是指令，会被放在「指令缓存」中，而输入数字 1 则会被放在「数据缓存」里。&lt;/p>
+&lt;p>因此，&lt;strong>我们要分开来看「数据缓存」和「指令缓存」的缓存命中率&lt;/strong>。&lt;/p>
+&lt;p>&lt;strong>如何提升数据缓存的命中率？&lt;/strong>&lt;/p>
+&lt;p>假设要遍历二维数组，有以下两种形式，虽然代码执行结果是一样，但你觉得哪种形式效率最高呢？为什么高呢？&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966322-4154dab1-01c4-4529-a35c-c2fc0b58d0c3.png" alt="">&lt;/p>
+&lt;p>经过测试，形式一 array[i][j] 执行时间比形式二 array[j][i] 快好几倍。&lt;/p>
+&lt;p>之所以有这么大的差距，是因为二维数组 array 所占用的内存是连续的，比如长度 N 的指是 2 的话，那么内存中的数组元素的布局顺序是这样的：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966317-b57a3a48-955f-40b0-a349-eaf10221bc77.png" alt="">&lt;/p>
+&lt;p>形式一用 array[i][j] 访问数组元素的顺序，正是和内存中数组元素存放的顺序一致。当 CPU 访问 array[0][0] 时，由于该数据不在 Cache 中，于是会「顺序」把跟随其后的 3 个元素从内存中加载到 CPU Cache，这样当 CPU 访问后面的 3 个数组元素时，就能在 CPU Cache 中成功地找到数据，这意味着缓存命中率很高，缓存命中的数据不需要访问内存，这便大大提高了代码的性能。&lt;/p>
+&lt;p>而如果用形式二的 array[j][i] 来访问，则访问的顺序就是：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966343-b1bd88fb-ea52-4dce-b579-890397fa5469.png" alt="">&lt;/p>
+&lt;p>你可以看到，访问的方式跳跃式的，而不是顺序的，那么如果 N 的数值很大，那么操作 array[j][i] 时，是没办法把 array[j+1][i] 也读入到 CPU Cache 中的，既然 array[j+1][i] 没有读取到 CPU Cache，那么就需要从内存读取该数据元素了。很明显，这种不连续性、跳跃式访问数据元素的方式，可能不能充分利用到了 CPU Cache 的特性，从而代码的性能不高。&lt;/p>
+&lt;p>那访问 array[0][0] 元素时，CPU 具体会一次从内存中加载多少元素到 CPU Cache 呢？这个问题，在前面我们也提到过，这跟 CPU Cache Line 有关，它表示 &lt;strong>CPU Cache 一次性能加载数据的大小&lt;/strong>，可以在 Linux 里通过 coherency_line_size 配置查看 它的大小，通常是 64 个字节。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966332-54c661d9-1e92-4842-ad7a-bbb36d017c1b.png" alt="">&lt;/p>
+&lt;p>也就是说，当 CPU 访问内存数据时，如果数据不在 CPU Cache 中，则会一次性会连续加载 64 字节大小的数据到 CPU Cache，那么当访问 array[0][0] 时，由于该元素不足 64 字节，于是就会往后&lt;strong>顺序&lt;/strong>读取 array[0][0]~array[0][15] 到 CPU Cache 中。顺序访问的 array[i][j] 因为利用了这一特点，所以就会比跳跃式访问的 array[j][i] 要快。&lt;/p>
+&lt;p>&lt;strong>因此，遇到这种遍历数组的情况时，按照内存布局顺序访问，将可以有效的利用 CPU Cache 带来的好处，这样我们代码的性能就会得到很大的提升，&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>如何提升指令缓存的命中率？&lt;/strong>&lt;/p>
+&lt;p>提升数据的缓存命中率的方式，是按照内存布局顺序访问，那针对指令的缓存该如何提升呢？&lt;/p>
+&lt;p>我们以一个例子来看看，有一个元素为 0 到 100 之间随机数字组成的一维数组：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966335-6aaaed0e-683e-430b-9353-77fd5e6c8faf.png" alt="">&lt;/p>
+&lt;p>接下来，对这个数组做两个操作：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966340-751d6efc-c848-46df-86e1-e510e00bd386.png" alt="">&lt;/p>
+&lt;p>第一个操作，循环遍历数组，把小于 50 的数组元素置为 0；&lt;/p>
+&lt;p>第二个操作，将数组排序；&lt;/p>
+&lt;p>那么问题来了，你觉得先遍历再排序速度快，还是先排序再遍历速度快呢？&lt;/p>
+&lt;p>在回答这个问题之前，我们先了解 CPU 的&lt;strong>分支预测器&lt;/strong>。对于 if 条件语句，意味着此时至少可以选择跳转到两段不同的指令执行，也就是 if 还是 else 中的指令。那么，&lt;strong>如果分支预测可以预测到接下来要执行 if 里的指令，还是 else 指令的话，就可以「提前」把这些指令放在指令缓存中，这样 CPU 可以直接从 Cache 读取到指令，于是执行速度就会很快&lt;/strong>。&lt;/p>
+&lt;p>当数组中的元素是随机的，分支预测就无法有效工作，而当数组元素都是顺序的，分支预测器会动态地根据历史命中数据对未来进行预测，这样命中率就会很高。&lt;/p>
+&lt;p>因此，先排序再遍历速度会更快，这是因为排序之后，数字是从小到大的，那么前几次循环命中 if &amp;lt; 50 的次数会比较多，于是分支预测就会缓存 if 里的 array[i] = 0 指令到 Cache 中，后续 CPU 执行该指令就只需要从 Cache 读取就好了。&lt;/p>
+&lt;p>如果你肯定代码中的 if 中的表达式判断为 true 的概率比较高，我们可以使用显示分支预测工具，比如在 C/C++ 语言中编译器提供了 likely 和 unlikely 这两种宏，如果 if 条件为 ture 的概率大，则可以用 likely 宏把 if 里的表达式包裹起来，反之用 unlikely 宏。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966345-b3b92b9e-0575-44ac-8224-7c1e4f638267.png" alt="">&lt;/p>
+&lt;p>实际上，CPU 自身的动态分支预测已经是比较准的了，所以只有当非常确信 CPU 预测的不准，且能够知道实际的概率情况时，才建议使用这两种宏。&lt;/p>
+&lt;p>&lt;strong>如果提升多核 CPU 的缓存命中率？&lt;/strong>&lt;/p>
+&lt;p>在单核 CPU，虽然只能执行一个进程，但是操作系统给每个进程分配了一个时间片，时间片用完了，就调度下一个进程，于是各个进程就按时间片交替地占用 CPU，从宏观上看起来各个进程同时在执行。&lt;/p>
+&lt;p>而现代 CPU 都是多核心的，进程可能在不同 CPU 核心来回切换执行，这对 CPU Cache 不是有利的，虽然 L3 Cache 是多核心之间共享的，但是 L1 和 L2 Cache 都是每个核心独有的，&lt;strong>如果一个进程在不同核心来回切换，各个核心的缓存命中率就会受到影响&lt;/strong>，相反如果进程都在同一个核心上执行，那么其数据的 L1 和 L2 Cache 的缓存命中率可以得到有效提高，缓存命中率高就意味着 CPU 可以减少访问 内存的频率。&lt;/p>
+&lt;p>当有多个同时执行「计算密集型」的线程，为了防止因为切换到不同的核心，而导致缓存命中率下降的问题，我们可以把&lt;strong>线程绑定在某一个 CPU 核心上&lt;/strong>，这样性能可以得到非常可观的提升。&lt;/p>
+&lt;p>在 Linux 上提供了 sched_setaffinity 方法，来实现将线程绑定到某个 CPU 核心这一功能。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966341-95bc957c-656a-4e0b-af3f-52b13f6e6bd0.png" alt="">&lt;/p>
+&lt;p>总结&lt;/p>
+&lt;p>由于随着计算机技术的发展，CPU 与 内存的访问速度相差越来越多，如今差距已经高达好几百倍了，所以 CPU 内部嵌入了 CPU Cache 组件，作为内存与 CPU 之间的缓存层，CPU Cache 由于离 CPU 核心很近，所以访问速度也是非常快的，但由于所需材料成本比较高，它不像内存动辄几个 GB 大小，而是仅有几十 KB 到 MB 大小。&lt;/p>
+&lt;p>当 CPU 访问数据的时候，先是访问 CPU Cache，如果缓存命中的话，则直接返回数据，就不用每次都从内存读取速度了。因此，缓存命中率越高，代码的性能越好。&lt;/p>
+&lt;p>但需要注意的是，当 CPU 访问数据时，如果 CPU Cache 没有缓存该数据，则会从内存读取数据，但是并不是只读一个数据，而是一次性读取一块一块的数据存放到 CPU Cache 中，之后才会被 CPU 读取。&lt;/p>
+&lt;p>内存地址映射到 CPU Cache 地址里的策略有很多种，其中比较简单是直接映射 Cache，它巧妙的把内存地址拆分成「索引 + 组标记 + 偏移量」的方式，使得我们可以将很大的内存地址，映射到很小的 CPU Cache 地址里。&lt;/p>
+&lt;p>要想写出让 CPU 跑得更快的代码，就需要写出缓存命中率高的代码，CPU L1 Cache 分为数据缓存和指令缓存，因而需要分别提高它们的缓存命中率：&lt;/p>
+&lt;p>对于数据缓存，我们在遍历数据的时候，应该按照内存布局的顺序操作，这是因为 CPU Cache 是根据 CPU Cache Line 批量操作数据的，所以顺序地操作连续内存数据时，性能能得到有效的提升；&lt;/p>
+&lt;p>对于指令缓存，有规律的条件分支语句能够让 CPU 的分支预测器发挥作用，进一步提高执行的效率；&lt;/p>
+&lt;p>另外，对于多核 CPU 系统，线程可能在不同 CPU 核心来回切换，这样各个核心的缓存命中率就会受到影响，于是要想提高进程的缓存命中率，可以考虑把线程绑定 CPU 到某一个 CPU 核心。&lt;/p>
+&lt;p>&lt;strong>絮叨&lt;/strong>&lt;/p>
+&lt;p>分享个喜事，小林平日里忙着输出文章，今天收到一份特别的快递，是 CSDN 寄来的奖状。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966339-251ae183-2daf-4f55-83a3-1c832a0f772b.jpeg" alt="">&lt;/p>
+&lt;p>骄傲的说，你们关注的是 CSDN 首届技术原创第一名的博主，以后简历又可以吹牛逼了&lt;/p>
+&lt;p>没有啦，其实主要还是&lt;strong>谢谢你们不离不弃的支持&lt;/strong>。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966347-a0f25fc4-8940-466b-8305-e8d5108835b5.png" alt="">&lt;/p>
+&lt;p>&lt;em>哈喽，我是小林，就爱图解计算机基础，如果觉得文章对你有帮助，欢迎分享给你的朋友，也给小林点个「在看」，这对小林非常重要，谢谢你们，给各位小姐姐小哥哥们抱拳了，我们下次见！&lt;/em>&lt;/p>
+&lt;p>&lt;strong>推荐阅读&lt;/strong>&lt;/p>
+&lt;p>这个星期不知不觉输出了 3 篇文章了，前面的 2 篇还没看过的同学，赶紧去看看呀！&lt;/p>
+&lt;p>&lt;strong>天啦噜！知道硬盘很慢，但没想到比 CPU Cache 慢 10000000 倍&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>CPU 执行程序的秘密，藏在了这 15 张图里&lt;/strong>&lt;/p>
+&lt;p>喜欢此内容的人还喜欢&lt;/p></description></item><item><title>Docs: 10.4.CPU 缓存一致性</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.4.CPU-%E7%BC%93%E5%AD%98%E4%B8%80%E8%87%B4%E6%80%A7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.4.CPU-%E7%BC%93%E5%AD%98%E4%B8%80%E8%87%B4%E6%80%A7/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/PDUqwAIaUxNkbjvRfovaCg">公众号,小林 coding-10 张图打开 CPU 缓存一致性的大门&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/otJfvn1M3ObNqonrkFTiYg">公众号,小林 coding-用动图的方式，理解 CPU 缓存一致性协议！&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.scss.tcd.ie/Jeremy.Jones/VivioJS/caches/MESIHelp.htm">在线体验 MESI 协议状态转换&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="cpu-cache-的数据写入">CPU Cache 的数据写入&lt;a class="td-heading-self-link" href="#cpu-cache-%e7%9a%84%e6%95%b0%e6%8d%ae%e5%86%99%e5%85%a5" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>随着时间的推移，CPU 和内存的访问性能相差越来越大，于是就在 CPU 内部嵌入了 CPU Cache（高速缓存），CPU Cache 离 CPU 核心相当近，因此它的访问速度是很快的，于是它充当了 CPU 与内存之间的缓存角色。&lt;/p>
+&lt;p>CPU Cache 通常分为三级缓存：L1 Cache、L2 Cache、L3 Cache，级别越低的离 CPU 核心越近，访问速度也快，但是存储容量相对就会越小。其中，在多核心的 CPU 里，每个核心都有各自的 L1/L2 Cache，而 L3 Cache 是所有核心共享使用的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951900-5b473df4-ff48-449e-a160-95bf38f43801.jpeg" alt="">&lt;/p>
+&lt;p>我们先简单了解下 CPU Cache 的结构，CPU Cache 是由很多个 Cache Line 组成的，CPU Line 是 CPU 从内存读取数据的基本单位，而 CPU Line 是由各种标志（Tag）+ 数据块（Data Block）组成，你可以在下图清晰的看到：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951908-bd5942d3-a3de-45e7-8488-540091ab9e59.jpeg" alt="">&lt;/p>
+&lt;p>我们当然期望 CPU 读取数据的时候，都是尽可能地从 CPU Cache 中读取，而不是每一次都要从内存中获取数据。所以，身为程序员，我们要尽可能写出缓存命中率高的代码，这样就有效提高程序的性能，具体的做法，你可以参考我上一篇文章「如何写出让 CPU 跑得更快的代码？」&lt;/p>
+&lt;p>事实上，数据不光是只有读操作，还有写操作，那么如果数据写入 Cache 之后，内存与 Cache 相对应的数据将会不同，这种情况下 Cache 和内存数据都不一致了，于是我们肯定是要把 Cache 中的数据同步到内存里的。&lt;/p>
+&lt;p>问题来了，那在什么时机才把 Cache 中的数据写回到内存呢？为了应对这个问题，下面介绍两种针对写入数据的方法：&lt;/p>
+&lt;ul>
+&lt;li>写直达（Write Through）&lt;/li>
+&lt;li>写回（Write Back）&lt;/li>
+&lt;/ul>
+&lt;h2 id="写直达">写直达&lt;a class="td-heading-self-link" href="#%e5%86%99%e7%9b%b4%e8%be%be" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>保持内存与 Cache 一致性最简单的方式是，把数据同时写入内存和 Cache 中，这种方法称为写直达（Write Through）。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951906-df475ba6-3f90-4374-99a5-ae55826374e8.jpeg" alt="">&lt;/p>
+&lt;p>在这个方法里，写入前会先判断数据是否已经在 CPU Cache 里面了：&lt;/p>
+&lt;ul>
+&lt;li>如果数据已经在 Cache 里面，先将数据更新到 Cache 里面，再写入到内存里面；&lt;/li>
+&lt;li>如果数据没有在 Cache 里面，就直接把数据更新到内存里面。&lt;/li>
+&lt;/ul>
+&lt;p>写直达法很直观，也很简单，但是问题明显，无论数据在不在 Cache 里面，每次写操作都会写回到内存，这样写操作将会花费大量的时间，无疑性能会受到很大的影响。&lt;/p>
+&lt;h2 id="写回">写回&lt;a class="td-heading-self-link" href="#%e5%86%99%e5%9b%9e" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>既然写直达由于每次写操作都会把数据写回到内存，而导致影响性能，于是为了要减少数据写回内存的频率，就出现了写回（Write Back）的方法。&lt;/p>
+&lt;p>在写回机制中，当发生写操作时，新的数据仅仅被写入 Cache Block 里，只有当修改过的 Cache Block「被替换」时才需要写到内存中，减少了数据写回内存的频率，这样便可以提高系统的性能。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951903-03199e9b-3ad0-460c-a0a7-6735e031f7a9.jpeg" alt="">&lt;/p>
+&lt;p>那具体如何做到的呢？下面来详细说一下：&lt;/p>
+&lt;ul>
+&lt;li>如果当发生写操作时，数据已经在 CPU Cache 里的话，则把数据更新到 CPU Cache 里，同时标记 CPU Cache 里的这个 Cache Block 为脏（Dirty）的，这个脏的标记代表这个时候，我们 CPU Cache 里面的这个 Cache Block 的数据和内存是不一致的，这种情况是不用把数据写到内存里的；&lt;/li>
+&lt;li>如果当发生写操作时，数据所对应的 Cache Block 里存放的是「别的内存地址的数据」的话，就要检查这个 Cache Block 里的数据有没有被标记为脏的，如果是脏的话，我们就要把这个 Cache Block 里的数据写回到内存，然后再把当前要写入的数据，写入到这个 Cache Block 里，同时也把它标记为脏的；如果 Cache Block 里面的数据没有被标记为脏，则就直接将数据写入到这个 Cache Block 里，然后再把这个 Cache Block 标记为脏的就好了。&lt;/li>
+&lt;/ul>
+&lt;p>可以发现写回这个方法，在把数据写入到 Cache 的时候，只有在缓存不命中，同时数据对应的 Cache 中的 Cache Block 为脏标记的情况下，才会将数据写到内存中，而在缓存命中的情况下，则在写入后 Cache 后，只需把该数据对应的 Cache Block 标记为脏即可，而不用写到内存里。&lt;/p>
+&lt;p>这样的好处是，如果我们大量的操作都能够命中缓存，那么大部分时间里 CPU 都不需要读写内存，自然性能相比写直达会高很多。&lt;/p>
+&lt;hr>
+&lt;h1 id="缓存一致性问题">缓存一致性问题&lt;a class="td-heading-self-link" href="#%e7%bc%93%e5%ad%98%e4%b8%80%e8%87%b4%e6%80%a7%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>现在 CPU 都是多核的，由于 L1/L2 Cache 是多个核心各自独有的，那么会带来多核心的缓存一致性（Cache Coherence） 的问题，如果不能保证缓存一致性的问题，就可能造成结果错误。&lt;/p>
+&lt;p>那缓存一致性的问题具体是怎么发生的呢？我们以一个含有两个核心的 CPU 作为例子看一看。&lt;/p>
+&lt;p>假设 A 号核心和 B 号核心同时运行两个线程，都操作共同的变量 i（初始值为 0 ）。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951921-649fb781-7ec2-47eb-9a35-aabc2a1883ec.jpeg" alt="">&lt;/p>
+&lt;p>这时如果 A 号核心执行了 i++ 语句的时候，为了考虑性能，使用了我们前面所说的写回策略，先把值为 1 的执行结果写入到 L1/L2 Cache 中，然后把 L1/L2 Cache 中对应的 Block 标记为脏的，这个时候数据其实没有被同步到内存中的，因为写回策略，只有在 A 号核心中的这个 Cache Block 要被替换的时候，数据才会写入到内存里。&lt;/p>
+&lt;p>如果这时旁边的 B 号核心尝试从内存读取 i 变量的值，则读到的将会是错误的值，因为刚才 A 号核心更新 i 值还没写入到内存中，内存中的值还依然是 0。这个就是所谓的缓存一致性问题，A 号核心和 B 号核心的缓存，在这个时候是不一致，从而会导致执行结果的错误。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951914-92906a08-0de2-4801-b39e-e2f1ac5b5bb4.jpeg" alt="">&lt;/p>
+&lt;p>那么，要解决这一问题，就需要一种机制，来同步两个不同核心里面的缓存数据。要实现的这个机制的话，要保证做到下面这 2 点：&lt;/p>
+&lt;ul>
+&lt;li>第一点，某个 CPU 核心里的 Cache 数据更新时，必须要传播到其他核心的 Cache，这个称为写传播（Wreite Propagation）；&lt;/li>
+&lt;li>第二点，某个 CPU 核心里对数据的操作顺序，必须在其他核心看起来顺序是一样的，这个称为事务的串形化（Transaction Serialization）。&lt;/li>
+&lt;/ul>
+&lt;p>第一点写传播很容易就理解，当某个核心在 Cache 更新了数据，就需要同步到其他核心的 Cache 里。&lt;/p>
+&lt;p>而对于第二点事务的串形化，我们举个例子来理解它。&lt;/p>
+&lt;p>假设我们有一个含有 4 个核心的 CPU，这 4 个核心都操作共同的变量 i（初始值为 0 ）。A 号核心先把 i 值变为 100，而此时同一时间，B 号核心先把 i 值变为 200，这里两个修改，都会「传播」到 C 和 D 号核心。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951934-35edc494-8326-40b1-a58f-c9b5624f0526.jpeg" alt="">&lt;/p>
+&lt;p>那么问题就来了，C 号核心先收到了 A 号核心更新数据的事件，再收到 B 号核心更新数据的事件，因此 C 号核心看到的变量 i 是先变成 100，后变成 200。&lt;/p>
+&lt;p>而如果 D 号核心收到的事件是反过来的，则 D 号核心看到的是变量 i 先变成 200，再变成 100，虽然是做到了写传播，但是各个 Cache 里面的数据还是不一致的。&lt;/p>
+&lt;p>所以，我们要保证 C 号核心和 D 号核心都能看到相同顺序的数据变化，比如变量 i 都是先变成 100，再变成 200，这样的过程就是事务的串形化。&lt;/p>
+&lt;p>要实现事务串形化，要做到 2 点：&lt;/p>
+&lt;ul>
+&lt;li>CPU 核心对于 Cache 中数据的操作，需要同步给其他 CPU 核心；&lt;/li>
+&lt;li>要引入「锁」的概念，如果两个 CPU 核心里有相同数据的 Cache，那么对于这个 Cache 数据的更新，只有拿到了「锁」，才能进行对应的数据更新。&lt;/li>
+&lt;/ul>
+&lt;p>那接下来我们看看，写传播和事务串形化具体是用什么技术实现的。&lt;/p>
+&lt;hr>
+&lt;h1 id="总线嗅探">总线嗅探&lt;a class="td-heading-self-link" href="#%e6%80%bb%e7%ba%bf%e5%97%85%e6%8e%a2" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>写传播的原则就是当某个 CPU 核心更新了 Cache 中的数据，要把该事件广播通知到其他核心。最常见实现的方式是总线嗅探（Bus Snooping）。&lt;/p>
+&lt;p>我还是以前面的 i 变量例子来说明总线嗅探的工作机制，当 A 号 CPU 核心修改了 L1 Cache 中 i 变量的值，通过总线把这个事件广播通知给其他所有的核心，然后每个 CPU 核心都会监听总线上的广播事件，并检查是否有相同的数据在自己的 L1 Cache 里面，如果 B 号 CPU 核心的 L1 Cache 中有该数据，那么也需要把该数据更新到自己的 L1 Cache。&lt;/p>
+&lt;p>可以发现，总线嗅探方法很简单， CPU 需要每时每刻监听总线上的一切活动，但是不管别的核心的 Cache 是否缓存相同的数据，都需要发出一个广播事件，这无疑会加重总线的负载。&lt;/p>
+&lt;p>另外，总线嗅探只是保证了某个 CPU 核心的 Cache 更新数据这个事件能被其他 CPU 核心知道，但是并不能保证事务串形化。&lt;/p>
+&lt;p>于是，有一个协议基于总线嗅探机制实现了事务串形化，也用状态机机制降低了总线带宽压力，这个协议就是 MESI 协议，这个协议就做到了 CPU 缓存一致性。&lt;/p>
+&lt;hr>
+&lt;h1 id="mesi-协议">MESI 协议&lt;a class="td-heading-self-link" href="#mesi-%e5%8d%8f%e8%ae%ae" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>MESI 协议其实是 4 个状态单词的开头字母缩写，分别是：&lt;/p>
+&lt;ul>
+&lt;li>Modified，已修改&lt;/li>
+&lt;li>Exclusive，独占&lt;/li>
+&lt;li>Shared，共享&lt;/li>
+&lt;li>Invalidated，已失效&lt;/li>
+&lt;/ul>
+&lt;p>这四个状态来标记 Cache Line 四个不同的状态。&lt;/p>
+&lt;p>「已修改」状态就是我们前面提到的脏标记，代表该 Cache Block 上的数据已经被更新过，但是还没有写到内存里。而「已失效」状态，表示的是这个 Cache Block 里的数据已经失效了，不可以读取该状态的数据。&lt;/p>
+&lt;p>「独占」和「共享」状态都代表 Cache Block 里的数据是干净的，也就是说，这个时候 Cache Block 里的数据和内存里面的数据是一致性的。&lt;/p>
+&lt;p>「独占」和「共享」的差别在于，独占状态的时候，数据只存储在一个 CPU 核心的 Cache 里，而其他 CPU 核心的 Cache 没有该数据。这个时候，如果要向独占的 Cache 写数据，就可以直接自由地写入，而不需要通知其他 CPU 核心，因为只有你这有这个数据，就不存在缓存一致性的问题了，于是就可以随便操作该数据。&lt;/p>
+&lt;p>另外，在「独占」状态下的数据，如果有其他核心从内存读取了相同的数据到各自的 Cache ，那么这个时候，独占状态下的数据就会变成共享状态。&lt;/p>
+&lt;p>那么，「共享」状态代表着相同的数据在多个 CPU 核心的 Cache 里都有，所以当我们要更新 Cache 里面的数据的时候，不能直接修改，而是要先向所有的其他 CPU 核心广播一个请求，要求先把其他核心的 Cache 中对应的 Cache Line 标记为「无效」状态，然后再更新当前 Cache 里面的数据。&lt;/p>
+&lt;p>我们举个具体的例子来看看这四个状态的转换：&lt;/p>
+&lt;ol>
+&lt;li>当 A 号 CPU 核心从内存读取变量 i 的值，数据被缓存在 A 号 CPU 核心自己的 Cache 里面，此时其他 CPU 核心的 Cache 没有缓存该数据，于是标记 Cache Line 状态为「独占」，此时其 Cache 中的数据与内存是一致的；&lt;/li>
+&lt;li>然后 B 号 CPU 核心也从内存读取了变量 i 的值，此时会发送消息给其他 CPU 核心，由于 A 号 CPU 核心已经缓存了该数据，所以会把数据返回给 B 号 CPU 核心。在这个时候， A 和 B 核心缓存了相同的数据，Cache Line 的状态就会变成「共享」，并且其 Cache 中的数据与内存也是一致的；&lt;/li>
+&lt;li>当 A 号 CPU 核心要修改 Cache 中 i 变量的值，发现数据对应的 Cache Line 的状态是共享状态，则要向所有的其他 CPU 核心广播一个请求，要求先把其他核心的 Cache 中对应的 Cache Line 标记为「无效」状态，然后 A 号 CPU 核心才更新 Cache 里面的数据，同时标记 Cache Line 为「已修改」状态，此时 Cache 中的数据就与内存不一致了。&lt;/li>
+&lt;li>如果 A 号 CPU 核心「继续」修改 Cache 中 i 变量的值，由于此时的 Cache Line 是「已修改」状态，因此不需要给其他 CPU 核心发送消息，直接更新数据即可。&lt;/li>
+&lt;li>如果 A 号 CPU 核心的 Cache 里的 i 变量对应的 Cache Line 要被「替换」，发现 Cache Line 状态是「已修改」状态，就会在替换前先把数据同步到内存。&lt;/li>
+&lt;/ol>
+&lt;p>所以，可以发现当 Cache Line 状态是「已修改」或者「独占」状态时，修改更新其数据不需要发送广播给其他 CPU 核心，这在一定程度上减少了总线带宽压力。&lt;/p>
+&lt;p>事实上，整个 MESI 的状态可以用一个有限状态机来表示它的状态流转。还有一点，对于不同状态触发的事件操作，可能是来自本地 CPU 核心发出的广播事件，也可以是来自其他 CPU 核心通过总线发出的广播事件。下图即是 MESI 协议的状态图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951942-efbb5e13-2833-489a-ab0c-b19f9f08cc7f.jpeg" alt="">&lt;/p>
+&lt;p>MESI 协议的四种状态之间的流转过程，我汇总成了下面的表格，你可以更详细的看到每个状态转换的原因：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951966-4cb5c454-ae77-4873-ae61-6d60d2d09d1c.jpeg" alt="">&lt;/p>
+&lt;hr>
+&lt;h1 id="总结">总结&lt;a class="td-heading-self-link" href="#%e6%80%bb%e7%bb%93" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>CPU 在读写数据的时候，都是在 CPU Cache 读写数据的，原因是 Cache 离 CPU 很近，读写性能相比内存高出很多。对于 Cache 里没有缓存 CPU 所需要读取的数据的这种情况，CPU 则会从内存读取数据，并将数据缓存到 Cache 里面，最后 CPU 再从 Cache 读取数据。&lt;/p>
+&lt;p>而对于数据的写入，CPU 都会先写入到 Cache 里面，然后再在找个合适的时机写入到内存，那就有「写直达」和「写回」这两种策略来保证 Cache 与内存的数据一致性：&lt;/p>
+&lt;ul>
+&lt;li>写直达，只要有数据写入，都会直接把数据写入到内存里面，这种方式简单直观，但是性能就会受限于内存的访问速度；&lt;/li>
+&lt;li>写回，对于已经缓存在 Cache 的数据的写入，只需要更新其数据就可以，不用写入到内存，只有在需要把缓存里面的脏数据交换出去的时候，才把数据同步到内存里，这种方式在缓存命中率高的情况，性能会更好；&lt;/li>
+&lt;/ul>
+&lt;p>当今 CPU 都是多核的，每个核心都有各自独立的 L1/L2 Cache，只有 L3 Cache 是多个核心之间共享的。所以，我们要确保多核缓存是一致性的，否则会出现错误的结果。&lt;/p>
+&lt;p>要想实现缓存一致性，关键是要满足 2 点：&lt;/p>
+&lt;ul>
+&lt;li>第一点是写传播，也就是当某个 CPU 核心发生写入操作时，需要把该事件广播通知给其他核心；&lt;/li>
+&lt;li>第二点是事物的串行化，这个很重要，只有保证了这个，次啊能保障我们的数据是真正一致的，我们的程序在各个不同的核心上运行的结果也是一致的；&lt;/li>
+&lt;/ul>
+&lt;p>基于总线嗅探机制的 MESI 协议，就满足上面了这两点，因此它是保障缓存一致性的协议。&lt;/p>
+&lt;p>MESI 协议，是已修改、独占、共享、已实现这四个状态的英文缩写的组合。整个 MSI 状态的变更，则是根据来自本地 CPU 核心的请求，或者来自其他 CPU 核心通过总线传输过来的请求，从而构成一个流动的状态机。另外，对于在「已修改」或者「独占」状态的 Cache Line，修改更新其数据不需要发送广播给其他 CPU 核心。&lt;/p>
+&lt;hr>
+&lt;p>说几句&lt;/p>
+&lt;p>前几个星期建的技术交流群，没想到很快就满 500 人了，群里的大牛真的多，大家交流都很踊跃，也有很多热心分享和回答问题的小伙伴。&lt;/p>
+&lt;p>不过没关系，小林最近又新建了技术交流群，相信这里是你交朋友好地方，也是你上班划水的好入口。&lt;/p>
+&lt;p>准备入冬了，一起来抱团取暖吧，群满 100、200、300、500 人，小林都会发红包的，赶快来吧，加群方式很简单，扫码下方二维码，回复「加群」。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951941-dd55c18e-4d43-4d12-9da6-b237c07d6caf.jpeg" alt="">&lt;/p>
+&lt;p>哈喽，我是小林，就爱图解计算机基础，如果觉得文章对你有帮助，欢迎分享给你的朋友，也给小林点个「在看」，这对小林非常重要，谢谢你们，给各位小姐姐小哥哥们抱拳了，我们下次见！&lt;/p>
+&lt;hr>
+&lt;p>推荐阅读&lt;/p>
+&lt;p>如何写出让 CPU 跑得更快的代码？&lt;/p>
+&lt;p>读者问：小林你的 500 张图是怎么画的？&lt;/p>
+&lt;p>喜欢此内容的人还喜欢&lt;/p></description></item><item><title>Docs: Context Switch(上下文切换)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Context-Switch%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%87%E6%8D%A2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Context-Switch%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%87%E6%8D%A2/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://time.geekbang.org/column/article/69859">极客时间，Linux 性能优化实战-03 基础篇：经常说的 CPU 上下文切换是什么意思&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://linuxperf.com/?p=209">LinuxPerformance 博客，进程切换：自愿与强制&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Context_switch">Wiki，Context Swtich&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.jianshu.com/p/ebf1f832694c">简书，进程/线程上下问切换会用掉你多少 CPU&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>我们都知道，Linux 是一个多任务操作系统，它支持远大于 CPU 数量的任务同时运行。当然，这些任务实际上并不是真的在同时运行，而是因为系统在很短的时间内，将 CPU 轮流分配给它们，造成多任务同时运行的错觉。&lt;/p>
+&lt;p>而在每个任务运行前，CPU 都需要知道任务从哪里加载、又从哪里开始运行，也就是说，需要系统事先帮它设置好 CPU 寄存器和程序计数器（Program Counter，PC）。&lt;/p>
+&lt;p>CPU 寄存器，是 CPU 内置的容量小、但速度极快的内存。而程序计数器，则是用来存储 CPU 正在执行的指令位置、或者即将执行的下一条指令位置。它们都是 CPU 在运行任何任务前，必须的依赖环境，因此也被叫做 CPU 上下文
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dr9st4/1616168021551-0a8538d2-8938-4fa1-989b-989b818630ed.png" alt="">
+知道了什么是 CPU 上下文，我想你也很容易理解 CPU 上下文切换。CPU 上下文切换，就是先把前一个任务的 CPU 上下文（也就是 CPU 寄存器和程序计数器）保存起来，然后加载新任务的上下文到这些寄存器和程序计数器，最后再跳转到程序计数器所指的新位置，运行新任务。&lt;/p>
+&lt;p>而这些保存下来的上下文，会存储在系统内核中，并在任务重新调度执行时再次加载进来。这样就能保证任务原来的状态不受影响，让任务看起来还是连续运行。&lt;/p>
+&lt;p>我猜肯定会有人说，CPU 上下文切换无非就是更新了 CPU 寄存器的值嘛，但这些寄存器，本身就是为了快速运行任务而设计的，为什么会影响系统的 CPU 性能呢？&lt;/p>
+&lt;p>在回答这个问题前，不知道你有没有想过，操作系统管理的这些“任务”到底是什么呢？也许你会说，任务就是进程，或者说任务就是线程。是的，进程和线程正是最常见的任务。但是除此之外，还有没有其他的任务呢？&lt;/p>
+&lt;p>不要忘了，硬件通过触发信号，会导致中断处理程序的调用，也是一种常见的任务。&lt;/p>
+&lt;p>所以，根据任务的不同，CPU 的上下文切换就可以分为几个不同的场景:&lt;/p>
+&lt;ol>
+&lt;li>进程上下文切换&lt;/li>
+&lt;li>线程上下文切换&lt;/li>
+&lt;li>中断上下文切换&lt;/li>
+&lt;/ol>
+&lt;h1 id="进程上下文切换">进程上下文切换&lt;a class="td-heading-self-link" href="#%e8%bf%9b%e7%a8%8b%e4%b8%8a%e4%b8%8b%e6%96%87%e5%88%87%e6%8d%a2" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>Linux 按照特权等级，把进程的运行空间分为内核空间和用户空间，分别对应着下图中， CPU 特权等级的 Ring 0 和 Ring 3。&lt;/p>
+&lt;ul>
+&lt;li>内核空间（Ring 0）具有最高权限，可以直接访问所有资源；&lt;/li>
+&lt;li>用户空间（Ring 3）只能访问受限资源，不能直接访问内存等硬件设备，必须通过系统调用陷入到内核中，才能访问这些特权资源。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dr9st4/1639707508426-61144010-3664-4065-983d-beae7ddd974f.png" alt="image.png">
+换个角度看，也就是说，进程既可以在用户空间运行，又可以在内核空间中运行。进程在用户空间运行时，被称为进程的用户态，而陷入内核空间的时候，被称为进程的内核态。&lt;/p>
+&lt;p>从用户态到内核态的转变，需要通过&lt;strong>系统调用&lt;/strong>来完成。比如，当我们查看文件内容时，就需要多次系统调用来完成：首先调用 open() 打开文件，然后调用 read() 读取文件内容，并调用 write() 将内容写到标准输出，最后再调用 close() 关闭文件。&lt;/p>
+&lt;p>那么，系统调用的过程有没有发生 CPU 上下文的切换呢？答案自然是肯定的。&lt;/p>
+&lt;p>CPU 寄存器里原来用户态的指令位置，需要先保存起来。接着，为了执行内核态代码，CPU 寄存器需要更新为内核态指令的新位置。最后才是跳转到内核态运行内核任务。&lt;/p>
+&lt;p>而系统调用结束后，CPU 寄存器需要&lt;strong>恢复&lt;/strong>原来保存的用户态，然后再切换到用户空间，继续运行进程。所以，一次系统调用的过程，其实是发生了两次 CPU 上下文切换。&lt;/p>
+&lt;p>不过，需要注意的是，系统调用过程中，并不会涉及到虚拟内存等进程用户态的资源，也不会切换进程。这跟我们通常所说的进程上下文切换是不一样的：&lt;/p>
+&lt;p>进程上下文切换，是指从一个进程切换到另一个进程运行。&lt;/p>
+&lt;p>而系统调用过程中一直是同一个进程在运行。&lt;/p>
+&lt;p>所以，系统调用过程通常称为特权模式切换，而不是上下文切换。但实际上，系统调用过程中，CPU 的上下文切换还是无法避免的。&lt;/p>
+&lt;p>那么，进程上下文切换跟系统调用又有什么区别呢？&lt;/p>
+&lt;p>首先，你需要知道，进程是由内核来管理和调度的，进程的切换只能发生在内核态。所以，进程的上下文不仅包括了虚拟内存、栈、全局变量等用户空间的资源，还包括了内核堆栈、寄存器等内核空间的状态。&lt;/p>
+&lt;p>因此，进程的上下文切换就比系统调用时多了一步：在保存当前进程的内核状态和 CPU 寄存器之前，需要先把该进程的虚拟内存、栈等保存下来；而加载了下一进程的内核态后，还需要刷新进程的虚拟内存和用户栈。&lt;/p>
+&lt;p>如下图所示，保存上下文和恢复上下文的过程并不是“免费”的，需要内核在 CPU 上运行才能完成。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dr9st4/1639707525999-858a932b-e1e2-4c68-92f4-50d8d41b12bc.png" alt="image.png">
+根据 Tsuna 的测试报告，每次上下文切换都需要几十纳秒到数微秒的 CPU 时间。这个时间还是相当可观的，特别是在进程上下文切换次数较多的情况下，很容易导致 CPU 将大量时间耗费在寄存器、内核栈以及虚拟内存等资源的保存和恢复上，进而大大缩短了真正运行进程的时间。这也正是上一节中我们所讲的，导致平均负载升高的一个重要因素。&lt;/p>
+&lt;p>另外，我们知道， Linux 通过 TLB（Translation Lookaside Buffer）来管理虚拟内存到物理内存的映射关系。当虚拟内存更新后，TLB 也需要刷新，内存的访问也会随之变慢。特别是在多处理器系统上，缓存是被多个处理器共享的，刷新缓存不仅会影响当前处理器的进程，还会影响共享缓存的其他处理器的进程。&lt;/p>
+&lt;p>知道了进程上下文切换潜在的性能问题后，我们再来看，究竟什么时候会切换进程上下文。&lt;/p>
+&lt;p>显然，进程切换时才需要切换上下文，换句话说，只有在进程调度的时候，才需要切换上下文。Linux 为每个 CPU 都维护了一个就绪队列，将活跃进程（即正在运行和正在等待 CPU 的进程）按照优先级和等待 CPU 的时间排序，然后选择最需要 CPU 的进程，也就是优先级最高和等待 CPU 时间最长的进程来运行。&lt;/p>
+&lt;p>那么，进程在什么时候才会被调度到 CPU 上运行呢？&lt;/p>
+&lt;p>最容易想到的一个时机，就是进程执行完终止了，它之前使用的 CPU 会释放出来，这个时候再从就绪队列里，拿一个新的进程过来运行。其实还有很多其他场景，也会触发进程调度，在这里我给你逐个梳理下。&lt;/p>
+&lt;p>其一，为了保证所有进程可以得到公平调度，CPU 时间被划分为一段段的时间片，这些时间片再被轮流分配给各个进程。这样，当某个进程的时间片耗尽了，就会被系统挂起，切换到其它正在等待 CPU 的进程运行。&lt;/p>
+&lt;p>其二，进程在系统资源不足（比如内存不足）时，要等到资源满足后才可以运行，这个时候进程也会被挂起，并由系统调度其他进程运行。&lt;/p>
+&lt;p>其三，当进程通过睡眠函数 sleep 这样的方法将自己主动挂起时，自然也会重新调度。&lt;/p>
+&lt;p>其四，当有优先级更高的进程运行时，为了保证高优先级进程的运行，当前进程会被挂起，由高优先级进程来运行。&lt;/p>
+&lt;p>最后一个，发生硬件中断时，CPU 上的进程会被中断挂起，转而执行内核中的中断服务程序。&lt;/p>
+&lt;p>了解这几个场景是非常有必要的，因为一旦出现上下文切换的性能问题，它们就是幕后凶手。&lt;/p>
+&lt;h3 id="自愿切换与非自愿切换">自愿切换与非自愿切换&lt;a class="td-heading-self-link" href="#%e8%87%aa%e6%84%bf%e5%88%87%e6%8d%a2%e4%b8%8e%e9%9d%9e%e8%87%aa%e6%84%bf%e5%88%87%e6%8d%a2" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>进程与线程的上下文切换分为两类&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>voluntary context switches(自愿上下文切换)&lt;/strong> # 是指进程无法获取所需资源，导致的上下文切换。比如说，I/O、内存等系统资源不足时，就会发生自愿上下文切换。&lt;/li>
+&lt;li>&lt;strong>non voluntary context switches(非自愿上下文切换)、有的地方也叫 involuntary(强制上下文切换)&lt;/strong> # 指进程由于时间片已到等原因，被系统强制调度，进而发生的上下文切换。比如说，大量进程都在争抢 CPU 时，就容易发生非自愿上下文切换。&lt;/li>
+&lt;/ul>
+&lt;p>从进程的角度看，CPU 是共享资源，由所有的进程按特定的策略轮番使用。一个进程离开 CPU、另一个进程占据 CPU 的过程，称为进程切换(process switch)。进程切换是在内核中通过调用 schedule()完成的。&lt;/p>
+&lt;p>发生进程切换的场景有以下三种：&lt;/p>
+&lt;ul>
+&lt;li>进程运行不下去了：
+&lt;ul>
+&lt;li>比如因为要等待 IO 完成，或者等待某个资源、某个事件，典型的内核代码如下：&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">//把进程放进等待队列，把进程状态置为TASK_UNINTERRUPTIBLE
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span>&lt;span style="color:#000">prepare_to_wait&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">waitq&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">wait&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">TASK_UNINTERRUPTIBLE&lt;/span>&lt;span style="color:#000;font-weight:bold">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">//切换进程
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span>&lt;span style="color:#000">schedule&lt;/span>&lt;span style="color:#000;font-weight:bold">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>所以，很多时候当 IO wait 过高时，其自愿上下文切换也会随之增长，因为默认时间片很短，而 IO 耗时很长，所以进程必然会被挂起等待 IO 完成，这个挂起操作，也就是一个上下文切换。&lt;/li>
+&lt;li>进程还在运行，但内核不让它继续使用 CPU 了：
+&lt;ul>
+&lt;li>比如进程的时间片用完了，或者优先级更高的进程来了，所以该进程必须把 CPU 的使用权交出来；&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>进程还可以运行，但它自己的算法决定主动交出 CPU 给别的进程：
+&lt;ul>
+&lt;li>用户程序可以通过系统调用 sched_yield()来交出 CPU，内核则可以通过函数 cond_resched()或者 yield()来做到。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>以上场景 1 属于自愿切换，场景 2 和 3 属于非自愿切换。如何分辨自愿切换和强制切换呢？&lt;/p>
+&lt;ul>
+&lt;li>自愿切换发生的时候，进程不再处于运行状态，比如由于等待 IO 而阻塞(TASK_UNINTERRUPTIBLE)，或者因等待资源和特定事件而休眠(TASK_INTERRUPTIBLE)，又或者被 debug/trace 设置为 TASK_STOPPED/TASK_TRACED 状态；&lt;/li>
+&lt;li>强制切换发生的时候，进程仍然处于运行状态(TASK_RUNNING)，通常是由于被优先级更高的进程抢占(preempt)，或者进程的时间片用完了。&lt;/li>
+&lt;/ul>
+&lt;p>注：实际情况更复杂一些，由于 Linux 内核支持抢占，kernel preemption 有可能发生在自愿切换的过程之中，比如进程正进入休眠，本来如果顺利完成的话就属于自愿切换，但休眠的过程并不是原子操作，进程状态先被置成 TASK_INTERRUPTIBLE，然后进程切换，如果 Kernel Preemption 恰好发生在两者之间，那就打断了休眠过程，自愿切换尚未完成，转而进入了强制切换的过程（虽然是强制切换，但此时的进程状态已经不是运行状态了），下一次进程恢复运行之后会继续完成休眠的过程。所以判断进程切换属于自愿还是强制的算法要考虑进程在切换时是否正处于被 抢占(preempt) 的过程中，参见以下内核代码：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">staticvoid__sched&lt;/span> &lt;span style="color:#000">__schedule&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#204a87;font-weight:bold">void&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">switch_count&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&amp;amp;&lt;/span>&lt;span style="color:#000">prev&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">nivcsw&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>&lt;span style="color:#8f5902;font-style:italic">//强制切换的次数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">prev&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">state&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;!&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">preempt_count&lt;/span>&lt;span style="color:#000;font-weight:bold">()&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&lt;/span>&lt;span style="color:#000">PREEMPT_ACTIVE&lt;/span>&lt;span style="color:#000;font-weight:bold">)){&lt;/span>&lt;span style="color:#8f5902;font-style:italic">//进程处于非运行状态并且允许抢占
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000;font-weight:bold">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">switch_count&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&amp;amp;&lt;/span>&lt;span style="color:#000">prev&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">nvcsw&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>&lt;span style="color:#8f5902;font-style:italic">//自愿切换的次数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">likely&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">prev&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">!=&lt;/span>&lt;span style="color:#000">next&lt;/span>&lt;span style="color:#000;font-weight:bold">)){&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">rq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">nr_switches&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">++&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">rq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">curr&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">next&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">++*&lt;/span>&lt;span style="color:#000">switch_count&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>&lt;span style="color:#8f5902;font-style:italic">//进程切换次数累加
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">context_switch&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">rq&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#000">prev&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#000">next&lt;/span>&lt;span style="color:#000;font-weight:bold">);&lt;/span>&lt;span style="color:#8f5902;font-style:italic">/* unlocks the rq */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#8f5902;font-style:italic">/*
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"> * The context switch have flipped the stack from under us
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"> * and restored the local variables which were saved when
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"> * this task called schedule() in the past. prev == current
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"> * is still correct, but it can be moved to another cpu/rq.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">cpu&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">smp_processor_id&lt;/span>&lt;span style="color:#000;font-weight:bold">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">rq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">cpu_rq&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">cpu&lt;/span>&lt;span style="color:#000;font-weight:bold">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">}&lt;/span>&lt;span style="color:#204a87;font-weight:bold">else&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">raw_spin_unlock_irq&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&lt;/span>&lt;span style="color:#000">rq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">-&amp;gt;&lt;/span>&lt;span style="color:#000">lock&lt;/span>&lt;span style="color:#000;font-weight:bold">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">not_running&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span>&lt;span style="color:#f57900">preemptive&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#000">voluntary&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>最后，澄清几个容易产生误解的场景：&lt;/p>
+&lt;ul>
+&lt;li>进程可以通过调用 sched_yield()主动交出 CPU，这不是自愿切换，而是属于强制切换，因为进程仍然处于运行状态。&lt;/li>
+&lt;li>有时候内核代码会在耗时较长的循环体内通过调用 cond_resched()或 yield() ，主动让出 CPU，以免 CPU 被内核代码占据太久，给其它进程运行机会。这也属于强制切换，因为进程仍然处于运行状态。&lt;/li>
+&lt;/ul>
+&lt;p>进程自愿切换(Voluntary)和强制切换(Involuntary)的次数被统计在 /proc/&lt;pid>/status 中，其中 voluntary_ctxt_switches 表示自愿切换的次数，nonvoluntary_ctxt_switches 表示强制切换的次数，两者都是自进程启动以来的累计值。&lt;/p>
+&lt;pre>&lt;code># grep ctxt /proc/26995/status
+voluntary_ctxt_switches: 79
+nonvoluntary_ctxt_switches: 4
+&lt;/code>&lt;/pre>
+&lt;p>也可以用 pidstat -w 命令查看进程切换的每秒统计值：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># pidstat -w 1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Linux3.10.0-229.14.1.el7.x86_64&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>bj71s060&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> 02/01/2018 _x86_64_ &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>2CPU&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>12:05:20PM UID PID cswch/snvcswch/s Command
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>12:05:21PM &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1299&lt;/span> 0.94 0.00 httpd
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>12:05:21PM &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">27687&lt;/span> 0.94 0.00 pidstat
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>自愿切换和强制切换的统计值在实践中有什么意义呢？
+大致而言，如果一个进程的自愿切换占多数，意味着它对 CPU 资源的需求不高。如果一个进程的强制切换占多数，意味着对它来说 CPU 资源可能是个瓶颈，这里需要排除进程频繁调用 sched_yield()导致强制切换的情况。&lt;/p>
+&lt;h1 id="线程上下文切换">线程上下文切换&lt;a class="td-heading-self-link" href="#%e7%ba%bf%e7%a8%8b%e4%b8%8a%e4%b8%8b%e6%96%87%e5%88%87%e6%8d%a2" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>线程是调度的基本单位，而进程则是资源拥有的基本单位&lt;/p>
+&lt;p>说完了进程的上下文切换，我们再来看看线程相关的问题。&lt;/p>
+&lt;p>线程与进程最大的区别在于，线程是调度的基本单位，而进程则是资源拥有的基本单位。说白了，所谓内核中的任务调度，实际上的调度对象是线程；而进程只是给线程提供了虚拟内存、全局变量等资源。所以，对于线程和进程，我们可以这么理解：&lt;/p>
+&lt;p>当进程只有一个线程时，可以认为进程就等于线程。&lt;/p>
+&lt;p>当进程拥有多个线程时，这些线程会共享相同的虚拟内存和全局变量等资源。这些资源在上下文切换时是不需要修改的。&lt;/p>
+&lt;p>另外，线程也有自己的私有数据，比如栈和寄存器等，这些在上下文切换时也是需要保存的。&lt;/p>
+&lt;p>这么一来，线程的上下文切换其实就可以分为两种情况：&lt;/p>
+&lt;p>第一种， 前后两个线程属于不同进程。此时，因为资源不共享，所以切换过程就跟进程上下文切换是一样。&lt;/p>
+&lt;p>第二种，前后两个线程属于同一个进程。此时，因为虚拟内存是共享的，所以在切换时，虚拟内存这些资源就保持不动，只需要切换线程的私有数据、寄存器等不共享的数据。&lt;/p>
+&lt;p>到这里你应该也发现了，虽然同为上下文切换，但同进程内的线程切换，要比多进程间的切换消耗更少的资源，而这，也正是多线程代替多进程的一个优势。&lt;/p>
+&lt;h1 id="中断上下文切换">中断上下文切换&lt;a class="td-heading-self-link" href="#%e4%b8%ad%e6%96%ad%e4%b8%8a%e4%b8%8b%e6%96%87%e5%88%87%e6%8d%a2" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>除了前面两种上下文切换，还有一个场景也会切换 CPU 上下文，那就是中断。&lt;/p>
+&lt;p>为了快速响应硬件的事件，中断处理会打断进程的正常调度和执行，转而调用中断处理程序，响应设备事件。而在打断其他进程时，就需要将进程当前的状态保存下来，这样在中断结束后，进程仍然可以从原来的状态恢复运行。&lt;/p>
+&lt;p>跟进程上下文不同，中断上下文切换并不涉及到进程的用户态。所以，即便中断过程打断了一个正处在用户态的进程，也不需要保存和恢复这个进程的虚拟内存、全局变量等用户态资源。中断上下文，其实只包括内核态中断服务程序执行所必需的状态，包括 CPU 寄存器、内核堆栈、硬件中断参数等。&lt;/p>
+&lt;p>对同一个 CPU 来说，中断处理比进程拥有更高的优先级，所以中断上下文切换并不会与进程上下文切换同时发生。同样道理，由于中断会打断正常进程的调度和执行，所以大部分中断处理程序都短小精悍，以便尽可能快的执行结束。&lt;/p>
+&lt;p>另外，跟进程上下文切换一样，中断上下文切换也需要消耗 CPU，切换次数过多也会耗费大量的 CPU，甚至严重降低系统的整体性能。所以，当你发现中断次数过多时，就需要注意去排查它是否会给你的系统带来严重的性能问题。&lt;/p>
+&lt;h1 id="发生上下文切换的原因">发生上下文切换的原因&lt;a class="td-heading-self-link" href="#%e5%8f%91%e7%94%9f%e4%b8%8a%e4%b8%8b%e6%96%87%e5%88%87%e6%8d%a2%e7%9a%84%e5%8e%9f%e5%9b%a0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>工作线程数量高于 CPU 核数&lt;/p>
+&lt;h1 id="上下文切换的消耗">上下文切换的消耗&lt;a class="td-heading-self-link" href="#%e4%b8%8a%e4%b8%8b%e6%96%87%e5%88%87%e6%8d%a2%e7%9a%84%e6%b6%88%e8%80%97" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>进程是操作系统的伟大发明之一，对应用程序屏蔽了 CPU 调度、内存管理等硬件细节，而抽象出一个进程的概念，让应用程序专心于实现自己的业务逻辑既可，而且在有限的 CPU 上可以“同时”进行许多个任务。但是它为用户带来方便的同时，也引入了一些额外的开销。如下图，在进程运行中间的时间里，虽然 CPU 也在忙于干活，但是却没有完成任何的用户工作，这就是进程机制带来的额外开销。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dr9st4/1639740154171-b27851d6-33e2-40b2-8b7b-3bd0970faf37.jpeg" alt="">
+在进程 A 切换到进程 B 的过程中，先保存 A 进程的上下文，以便于等 A 恢复运行的时候，能够知道 A 进程的下一条指令是啥。然后将要运行的 B 进程的上下文恢复到寄存器中。这个过程被称为上下文切换。上下文切换开销在进程不多、切换不频繁的应用场景下问题不大。但是现在 Linux 操作系统被用到了高并发的网络程序后端服务器。在单机支持成千上万个用户请求的时候，这个开销就得拿出来说道说道了。因为用户进程在请求 Redis、Mysql 数据等网络 IO 阻塞掉的时候，或者在进程时间片到了，都会引发上下文切换。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dr9st4/1639740237986-8af3ac7a-6b14-438c-8428-146985497f6e.png" alt="image.png">&lt;/p>
+&lt;h2 id="一个简单的进程上下文切换开销测试实验">一个简单的进程上下文切换开销测试实验&lt;a class="td-heading-self-link" href="#%e4%b8%80%e4%b8%aa%e7%ae%80%e5%8d%95%e7%9a%84%e8%bf%9b%e7%a8%8b%e4%b8%8a%e4%b8%8b%e6%96%87%e5%88%87%e6%8d%a2%e5%bc%80%e9%94%80%e6%b5%8b%e8%af%95%e5%ae%9e%e9%aa%8c" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>废话不多说，我们先用个实验测试一下，到底一次上下文切换需要多长的 CPU 时间！实验方法是创建两个进程并在它们之间传送一个令牌。其中一个进程在读取令牌时就会引起阻塞。另一个进程发送令牌后等待其返回时也处于阻塞状态。如此往返传送一定的次数，然后统计他们的平均单次切换时间开销。
+具体的实验代码参见&lt;a href="https://links.jianshu.com/go?to=tests%2Ftest04%2Fmain.c">test04&lt;/a>&lt;/p>
+&lt;pre>&lt;code> Before Context Switch Time1565352257 s, 774767 us
+After Context SWitch Time1565352257 s, 842852 us
+&lt;/code>&lt;/pre>
+&lt;p>每次执行的时间会有差异，多次运行后&lt;strong>平均每次上下文切换耗时 3.5us 左右&lt;/strong>。当然了这个数字因机器而异，而且建议在实机上测试。&lt;/p>
+&lt;p>前面我们测试系统调用的时候，最低值是 200ns。可见，上下文切换开销要比系统调用的开销要大。系统调用只是在进程内将用户态切换到内核态，然后再切回来，而上下文切换可是直接从进程 A 切换到了进程 B。显然这个上下文切换需要完成的工作量更大。&lt;/p>
+&lt;h2 id="进程上下文切换开销都有哪些">进程上下文切换开销都有哪些&lt;a class="td-heading-self-link" href="#%e8%bf%9b%e7%a8%8b%e4%b8%8a%e4%b8%8b%e6%96%87%e5%88%87%e6%8d%a2%e5%bc%80%e9%94%80%e9%83%bd%e6%9c%89%e5%93%aa%e4%ba%9b" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>那么上下文切换的时候，CPU 的开销都具体有哪些呢？开销分成两种，一种是直接开销、一种是间接开销。&lt;/p>
+&lt;p>直接开销就是在切换时，cpu 必须做的事情，包括：&lt;/p>
+&lt;ul>
+&lt;li>1、切换页表全局目录&lt;/li>
+&lt;li>2、切换内核态堆栈&lt;/li>
+&lt;li>3、切换硬件上下文（进程恢复前，必须装入寄存器的数据统称为硬件上下文）
+&lt;ul>
+&lt;li>ip(instruction pointer)：指向当前执行指令的下一条指令&lt;/li>
+&lt;li>bp(base pointer): 用于存放执行中的函数对应的栈帧的栈底地址&lt;/li>
+&lt;li>sp(stack poinger): 用于存放执行中的函数对应的栈帧的栈顶地址&lt;/li>
+&lt;li>cr3:页目录基址寄存器，保存页目录表的物理地址&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>4、刷新 TLB&lt;/li>
+&lt;li>5、系统调度器的代码执行&lt;/li>
+&lt;/ul>
+&lt;p>间接开销主要指的是虽然切换到一个新进程后，由于各种缓存并不热，速度运行会慢一些。如果进程始终都在一个 CPU 上调度还好一些，如果跨 CPU 的话，之前热起来的 TLB、L1、L2、L3 因为运行的进程已经变了，所以以局部性原理 cache 起来的代码、数据也都没有用了，导致新进程穿透到内存的 IO 会变多。 其实我们上面的实验并没有很好地测量到这种情况，所以实际的上下文切换开销可能比 3.5us 要大。&lt;/p>
+&lt;p>想了解更详细操作过程的同学请参考《深入理解 Linux 内核》中的第三章和第九章。&lt;/p>
+&lt;h2 id="一个更为专业的测试工具-lmbench">一个更为专业的测试工具-lmbench&lt;a class="td-heading-self-link" href="#%e4%b8%80%e4%b8%aa%e6%9b%b4%e4%b8%ba%e4%b8%93%e4%b8%9a%e7%9a%84%e6%b5%8b%e8%af%95%e5%b7%a5%e5%85%b7-lmbench" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>lmbench 用于评价系统综合性能的多平台开源 benchmark，能够测试包括文档读写、内存操作、进程创建销毁开销、网络等性能。使用方法简单，但就是跑有点慢，感兴趣的同学可以自己试一试。
+这个工具的优势是是进行了多组实验，每组 2 个进程、8 个、16 个。每个进程使用的数据大小也在变，充分模拟 cache miss 造成的影响。我用他测了一下结果如下：&lt;/p>
+&lt;pre>&lt;code>-------------------------------------------------------------------------
+Host OS 2p/0K 2p/16K 2p/64K 8p/16K 8p/64K 16p/16K 16p/64K
+ctxsw ctxsw ctxsw ctxsw ctxsw ctxsw ctxsw
+--------- ------------- ------ ------ ------ ------ ------ ------- -------
+bjzw_46_7 Linux 2.6.32- 2.7800 2.7800 2.7000 4.3800 4.0400 4.75000 5.48000
+&lt;/code>&lt;/pre>
+&lt;p>lmbench 显示的进程上下文切换耗时从 2.7us 到 5.48 之间。&lt;/p>
+&lt;h2 id="线程上下文切换耗时">线程上下文切换耗时&lt;a class="td-heading-self-link" href="#%e7%ba%bf%e7%a8%8b%e4%b8%8a%e4%b8%8b%e6%96%87%e5%88%87%e6%8d%a2%e8%80%97%e6%97%b6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>前面我们测试了进程上下文切换的开销，我们再继续在 Linux 测试一下线程。看看究竟比进程能不能快一些，快的话能快多少。&lt;/p>
+&lt;p>在 Linux 下其实本并没有线程，只是为了迎合开发者口味，搞了个轻量级进程出来就叫做了线程。轻量级进程和进程一样，都有自己独立的 task_struct 进程描述符，也都有自己独立的 pid。从操作系统视角看，调度上和进程没有什么区别，都是在等待队列的双向链表里选择一个 task_struct 切到运行态而已。只不过轻量级进程和普通进程的区别是可以共享同一内存地址空间、代码段、全局变量、同一打开文件集合而已。&lt;/p>
+&lt;blockquote>
+&lt;p>同一进程下的线程之所有 getpid()看到的 pid 是一样的，其实 task_struct 里还有一个 tgid 字段。 对于多线程程序来说，getpid()系统调用获取的实际上是这个 tgid，因此隶属同一进程的多线程看起来 PID 相同。&lt;/p>
+&lt;/blockquote>
+&lt;p>我们用一个实验来测试一下&lt;a href="https://links.jianshu.com/go?to=tests%2Ftest06%2Fmain.c">test06&lt;/a>。其原理和进程测试差不多，创建了 20 个线程，在线程之间通过管道来传递信号。接到信号就唤醒，然后再传递信号给下一个线程，自己睡眠。 这个实验里单独考虑了给管道传递信号的额外开销，并在第一步就统计了出来。&lt;/p>
+&lt;pre>&lt;code># gcc -lpthread main.c -o main
+0.508250
+4.363495
+&lt;/code>&lt;/pre>
+&lt;p>每次实验结果会有一些差异，上面的结果是取了多次的结果之后然后平均的，大约每次线程切换开销大约是 3.8us 左右。&lt;strong>从上下文切换的耗时上来看，Linux 线程（轻量级进程）其实和进程差别不太大&lt;/strong>。&lt;/p>
+&lt;h2 id="linux-相关命令">Linux 相关命令&lt;a class="td-heading-self-link" href="#linux-%e7%9b%b8%e5%85%b3%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>既然我们知道了上下文切换比较的消耗 CPU 时间，那么我们通过什么工具可以查看一下 Linux 里究竟在发生多少切换呢？如果上下文切换已经影响到了系统整体性能，我们有没有办法把有问题的进程揪出来，并把它优化掉呢？&lt;/p>
+&lt;pre>&lt;code># vmstat 1
+procs -----------memory---------- ---swap-- -----io---- --system-- -----cpu-----
+r b swpd free buff cache si so bi bo in cs us sy id wa st
+2 0 0 595504 5724 190884 0 0 295 297 0 0 14 6 75 0 4
+5 0 0 593016 5732 193288 0 0 0 92 19889 29104 20 6 67 0 7
+3 0 0 591292 5732 195476 0 0 0 0 20151 28487 20 6 66 0 8
+4 0 0 589296 5732 196800 0 0 116 384 19326 27693 20 7 67 0 7
+4 0 0 586956 5740 199496 0 0 216 24 18321 24018 22 8 62 0 8
+&lt;/code>&lt;/pre>
+&lt;p>或者是&lt;/p>
+&lt;pre>&lt;code># sar -w 1
+proc/s
+Total number of tasks created per second.
+cswch/s
+Total number of context switches per second.
+11:19:20 AM proc/s cswch/s
+11:19:21 AM 110.28 23468.22
+11:19:22 AM 128.85 33910.58
+11:19:23 AM 47.52 40733.66
+11:19:24 AM 35.85 30972.64
+11:19:25 AM 47.62 24951.43
+11:19:26 AM 47.52 42950.50
+......
+&lt;/code>&lt;/pre>
+&lt;p>上图的环境是一台生产环境机器，配置是 8 核 8G 的 KVM 虚机，环境是在 nginx+fpm 的，fpm 数量为 1000，平均每秒处理的用户接口请求大约 100 左右。其中&lt;strong>cs 列&lt;/strong>表示的就是在 1s 内系统发生的上下文切换次数，大约 1s 切换次数都达到 4W 次了。粗略估算一下，每核大约每秒需要切换 5K 次，则 1s 内需要花将近 20ms 在上下文切换上。要知道这是虚机，本身在虚拟化上还会有一些额外开销，而且还要真正消耗 CPU 在用户接口逻辑处理、系统调用内核逻辑处理、以及网络连接的处理以及软中断，所以 20ms 的开销实际上不低了。&lt;/p>
+&lt;p>那么进一步，我们看下到底是哪些进程导致了频繁的上下文切换？&lt;/p>
+&lt;pre>&lt;code># pidstat -w 1
+11:07:56 AM PID cswch/s nvcswch/s Command
+11:07:56 AM 32316 4.00 0.00 php-fpm
+11:07:56 AM 32508 160.00 34.00 php-fpm
+11:07:56 AM 32726 131.00 8.00 php-fpm
+......
+&lt;/code>&lt;/pre>
+&lt;p>由于 fpm 是同步阻塞的模式，每当请求 Redis、Memcache、Mysql 的时候就会阻塞导致 cswch/s 自愿上下文切换，而只有时间片到了之后才会触发 nvcswch/s 非自愿切换。可见 fpm 进程大部分的切换都是自愿的、非自愿的比较少。&lt;/p>
+&lt;p>如果想查看具体某个进程的上下文切换总情况，可以在/proc 接口下直接看，不过这个是总值。&lt;/p>
+&lt;pre>&lt;code>grep ctxt /proc/32583/status
+voluntary_ctxt_switches: 573066
+nonvoluntary_ctxt_switches: 89260
+&lt;/code>&lt;/pre>
+&lt;h2 id="本节结论">本节结论&lt;a class="td-heading-self-link" href="#%e6%9c%ac%e8%8a%82%e7%bb%93%e8%ae%ba" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>上下文切换具体做哪些事情我们没有必要记，只需要记住一个结论既可，测得作者开发机&lt;strong>上下文切换的开销大约是 2.7-5.48us 左右&lt;/strong>，你自己的机器可以用我提供的代码或工具进行一番测试。
+lmbench 相对更准确一些，因为考虑了切换后 Cache miss 导致的额外开销。&lt;/p>
+&lt;p>&lt;strong>个人公众号“开发内功修炼”，打通理论与实践的任督二脉。&lt;/strong>&lt;/p>
+&lt;h2 id="参考文献">参考文献&lt;a class="td-heading-self-link" href="#%e5%8f%82%e8%80%83%e6%96%87%e7%8c%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;ul>
+&lt;li>&lt;a href="https://links.jianshu.com/go?to=https%3A%2F%2Fwww.cnblogs.com%2Femperor_zark%2Farchive%2F2012%2F12%2F11%2Fcontext_switch_1.html">进程上下文切换，残酷的性能杀手&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://links.jianshu.com/go?to=https%3A%2F%2Focelot1985-163-com.iteye.com%2Fblog%2F1029949">测试上下文切换开销&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://links.jianshu.com/go?to=http%3A%2F%2Fwww.361way.com%2Flinux-context-switch%2F5131.html">进程上下文切换导致 Load 过高&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://links.jianshu.com/go?to=https%3A%2F%2Fiamzhongyong.iteye.com%2Fblog%2F1895728">CPU 上下文切换的次数和时间&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://links.jianshu.com/go?to=http%3A%2F%2Fcfdtesting.com%2F879156.html">Linux 操作系统测试工具&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://links.jianshu.com/go?to=http%3A%2F%2Fwww.bitmover.com%2Flmbench%2Flmbench.html">lmbench 官方文档&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://links.jianshu.com/go?to=http%3A%2F%2Fwww.itboth.com%2Fd%2FrU7FnmEzmYR3%2Flinux-build">lmbench 安装与使用&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h3 id="heading">&lt;a class="td-heading-self-link" href="#heading" aria-label="Heading self-link">&lt;/a>&lt;/h3></description></item><item><title>Docs: CPU 空闲时在干嘛？</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU-%E7%A9%BA%E9%97%B2%E6%97%B6%E5%9C%A8%E5%B9%B2%E5%98%9B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU-%E7%A9%BA%E9%97%B2%E6%97%B6%E5%9C%A8%E5%B9%B2%E5%98%9B/</guid><description>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://mp.weixin.qq.com/s/N4VLLKDCkkUVjuQm_9z9Mg">公众号原文&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>人空闲时会发呆会无聊，计算机呢？&lt;/p>
+&lt;p>假设你正在用计算机浏览网页，当网页加载完成后你开始阅读，此时你没有移动鼠标，没有敲击键盘，也没有网络通信，那么你的计算机此时在干嘛？&lt;/p>
+&lt;p>有的同学可能会觉得这个问题很简单，但实际上，这个问题涉及从硬件到软件、从 CPU 到操作系统等一系列环节，理解了这个问题你就能明白操作系统是如何工作的了。&lt;/p>
+&lt;h1 id="你的计算机-cpu-使用率是多少">你的计算机 CPU 使用率是多少？&lt;a class="td-heading-self-link" href="#%e4%bd%a0%e7%9a%84%e8%ae%a1%e7%ae%97%e6%9c%ba-cpu-%e4%bd%bf%e7%94%a8%e7%8e%87%e6%98%af%e5%a4%9a%e5%b0%91" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>如果此时你正在计算机旁，并且安装有 Windows 或者 Linux ，你可以立刻看到自己的计算机 CPU 使用率是多少。&lt;/p>
+&lt;p>这是博主的一台安装有 Win10 的笔记本：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/68c7f538-cc9a-4877-84c7-a1925eb69e2d/640" alt="">&lt;/p>
+&lt;p>可以看到大部分情况下 CPU 利用率很低，也就在 8% 左右，而且开启了 283 个进程，&lt;strong>这么多进程基本上无所事事&lt;/strong>，&lt;strong>都在等待某个特定事件来唤醒自己&lt;/strong>，就好比你写了一个打印用户输入的程序，如果用户一直不按键盘，那么你的进程就处于这种状态。&lt;/p>
+&lt;p>有的同学可能会想也就你的比较空闲吧，实际上大部分个人计算机 CPU 使用率都差不多这样 (排除掉看电影、玩游戏等场景)，如果你的使用率&lt;strong>总是&lt;/strong>很高，风扇一直在嗡嗡的转，那么不是软件 bug 就有可能是病毒。。。&lt;/p>
+&lt;p>那么有的同学可能会问，剩下的 CPU 时间都去哪里了？&lt;/p>
+&lt;h1 id="剩下的-cpu-时间去哪里了">剩下的 CPU 时间去哪里了？&lt;a class="td-heading-self-link" href="#%e5%89%a9%e4%b8%8b%e7%9a%84-cpu-%e6%97%b6%e9%97%b4%e5%8e%bb%e5%93%aa%e9%87%8c%e4%ba%86" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>这个问题也很简单，还是以 Win10 为例，打开任务管理器，找到 “详细信息” 这一栏，你会发现有一个 “系统空闲进程”，其 CPU 使用率达到了 99%，正是这个进程消耗了几乎所有的 CPU 时间。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/68c7f538-cc9a-4877-84c7-a1925eb69e2d/640" alt="">&lt;/p>
+&lt;p>那么为什么存在这样一个进程呢？以及这个进程什么时候开始运行呢？&lt;/p>
+&lt;p>这就要从操作系统说起了。&lt;/p>
+&lt;h1 id="程序进程与操作系统">程序、进程与操作系统&lt;a class="td-heading-self-link" href="#%e7%a8%8b%e5%ba%8f%e8%bf%9b%e7%a8%8b%e4%b8%8e%e6%93%8d%e4%bd%9c%e7%b3%bb%e7%bb%9f" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>当你用最喜欢的代码编辑器编写代码时，这时的代码不过就是磁盘上的普通文件，此时的程序和操作系统没有半毛钱关系，操作系统也不认知这种文本文件。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/68c7f538-cc9a-4877-84c7-a1925eb69e2d/640" alt="">&lt;/p>
+&lt;p>程序员写完代码后开始编译，这时编译器将普通的文本文件翻译成二进制可执行文件，此时的程序依然是保存在磁盘上的文件，和普通没有本质区别。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/68c7f538-cc9a-4877-84c7-a1925eb69e2d/640" alt="">&lt;/p>
+&lt;p>但此时不一样的是，该文件是可执行文件，也就是说操作系统开始 “懂得” 这种文件，所谓 “懂得” 是指操作系统可以识别、解析、加载，因此必定有某种类似协议的规范，这样编译器按照这种协议生成可执行文件，操作系统就能加载了。&lt;/p>
+&lt;p>在 Linux 下可执行文件格式为 ELF ，在 Windows 下是 EXE 。&lt;/p>
+&lt;p>此时虽然操作系统可以识别可执行程序，&lt;strong>但如果你不去双击一下 (或者在 Linux 下运行相应命令) 的依然和操作系统没有半毛钱关系。&lt;/strong>&lt;/p>
+&lt;p>但是当你运行可执行程序时魔法就出现了。&lt;/p>
+&lt;p>此时操作系统开始将可执行文件加载到内存，解析出代码段、数据段等，并为这个程序创建运行时需要的堆区栈区等内存区域，此时这个程序在内存中就是这样了：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/68c7f538-cc9a-4877-84c7-a1925eb69e2d/640" alt="">&lt;/p>
+&lt;p>最后，根据可执行文件的内容，操作系统知道该程序应该执行的第一条机器指令是什么，并将其告诉 CPU ，CPU 从该程序的第一条指令开始执行，程序就这样运行起来了。&lt;/p>
+&lt;p>一个在内存中运行起来的程序显然和保存在磁盘上的二进制文件是不一样的，总的有个名字吧，根据 “&lt;a href="https://mp.weixin.qq.com/s/BvU3ASLGkGBf5NIJmmESKA">弄不懂原则&lt;/a>”，这个名字就叫进程，英文名叫做 Process。&lt;/p>
+&lt;p>&lt;strong>我们把一个运行起来的程序叫做进程，这就是进程的由来&lt;/strong>。&lt;/p>
+&lt;p>此时操作系统开始掌管进程，现在进程已经有了，那么操作系统是怎么管理进程的呢？&lt;/p>
+&lt;h1 id="调度器与进程管理">调度器与进程管理&lt;a class="td-heading-self-link" href="#%e8%b0%83%e5%ba%a6%e5%99%a8%e4%b8%8e%e8%bf%9b%e7%a8%8b%e7%ae%a1%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>银行想必大家都去过，实际上如果你仔细观察的话银行的办事大厅就能体现出操作系统最核心的进程管理与调度。&lt;/p>
+&lt;p>首先大家去银行都要排队，类似的，进程在操作系统中也是通过队列来管理的。&lt;/p>
+&lt;p>同时银行还按照客户的重要程度&lt;strong>划分了优先级&lt;/strong>，大部分都是普通客户；但当你在这家银行存上几个亿时就能升级为 VIP 客户，优先级最高，每次去银行都不用排队，优先办理你的业务。&lt;/p>
+&lt;p>类似的，操作系统也会为进程划分优先级，操作系统会根据进程优先级将其放到相应的队列中供调度器调度。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/68c7f538-cc9a-4877-84c7-a1925eb69e2d/640" alt="">&lt;/p>
+&lt;p>这就是操作系统需要实现的最核心功能。&lt;/p>
+&lt;p>现在准备工作已经就绪。&lt;/p>
+&lt;p>接下来的问题就是操作系统如何确定是否还有进程需要运行。&lt;/p>
+&lt;h1 id="队列判空一个更好的设计">队列判空：一个更好的设计&lt;a class="td-heading-self-link" href="#%e9%98%9f%e5%88%97%e5%88%a4%e7%a9%ba%e4%b8%80%e4%b8%aa%e6%9b%b4%e5%a5%bd%e7%9a%84%e8%ae%be%e8%ae%a1" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>从上一节我们知道，实际上操作系统是用队列来管理进程的，那么很显然，如果队列已经为空，那么说明此时操作系统内部没有进程需要运行，这是 CPU 就空闲下来了，此时，我们需要做点什么，就像这样：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-cpp" data-lang="cpp">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">if&lt;/span> &lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">queue&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">empty&lt;/span>&lt;span style="color:#000;font-weight:bold">())&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">do_someting&lt;/span>&lt;span style="color:#000;font-weight:bold">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这些编写内核代码虽然简单，但内核中到处充斥着 if 这种异常处理的语句，这会让代码看起来一团糟，&lt;strong>因此更好的设计是没有异常&lt;/strong>，那么怎样才能没有异常呢？&lt;/p>
+&lt;p>很简单，&lt;strong>那就是让队列永远不会空&lt;/strong>，这样调度器永远能从队列中找到一个可供运行的进程。&lt;/p>
+&lt;p>而这也是为什么链表中通常会有哨兵节点的原因，就是为了避免各种判空，这样既容易出错也会让代码一团糟。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/68c7f538-cc9a-4877-84c7-a1925eb69e2d/640" alt="">&lt;/p>
+&lt;p>就这样，&lt;strong>内核设计者创建了一个叫做空闲任务的进程&lt;/strong>，这个进程就是 Windows 下的我们最开始看到的 “系统空闲进程”，在 Linux 下就是第 0 号进程。&lt;/p>
+&lt;p>当其它进程都处于不可运行状态时，调度器就从队列中取出空闲进程运行，显然，&lt;strong>空闲进程永远处于就绪状态，且优先级最低&lt;/strong>。&lt;/p>
+&lt;p>既然我们已经知道了，当系统无所事事后开始运行空闲进程，那么这个空闲进程到底在干嘛呢？&lt;/p>
+&lt;p>这就需要硬件来帮忙了。&lt;/p>
+&lt;h1 id="一切都要归结到硬件">一切都要归结到硬件&lt;a class="td-heading-self-link" href="#%e4%b8%80%e5%88%87%e9%83%bd%e8%a6%81%e5%bd%92%e7%bb%93%e5%88%b0%e7%a1%ac%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>在计算机系统中，&lt;strong>一切最终都要靠 CPU 来驱动&lt;/strong>，CPU 才是那个真正干活的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/68c7f538-cc9a-4877-84c7-a1925eb69e2d/640" alt="">&lt;/p>
+&lt;p>原来，CPU 设计者早就考虑到系统会存在空闲的可能，因此设计了一条机器指令，这个机器指令就是 halt 指令，停止的意思。&lt;/p>
+&lt;p>这条指令会让部分 CPU 进入休眠状态，从而&lt;strong>极大减少对电力的消耗&lt;/strong>，通常这条指令也被放到循环中执行，原因也很简单，就是要维持这种休眠状态。&lt;/p>
+&lt;p>值得注意的是，halt 指令是特权指令，也就是说只有在内核态下 CPU 才可以执行这条指令，程序员写的应用都运行在用户态，因此你没有办法在用户态让 CPU 去执行这条指令。&lt;/p>
+&lt;p>此外，不要把进程挂起和 halt 指令混淆，当我们调用 sleep 之类函数时，暂停运行的只是进程，此时如果还有其它进程可以运行那么 CPU 是不会空闲下来的，当 CPU 开始执行 halt 指令时就意味着系统中所有进程都已经暂停运行。&lt;/p>
+&lt;h1 id="软件硬件结合">软件硬件结合&lt;a class="td-heading-self-link" href="#%e8%bd%af%e4%bb%b6%e7%a1%ac%e4%bb%b6%e7%bb%93%e5%90%88" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>现在我们有了 halt 机器指令，同时有一个循环来不停的执行 halt 指令，这样空闲任务进程的实际上就已经实现了，其本质上就是这个不断执行 halt 指令的循环，大功告成。&lt;/p>
+&lt;p>这样，当调度器在没有其它进程可供调度时就开始运行空间进程，也就是在循环中不断的执行 halt 指令，此时 CPU 开始进入低功耗状态。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/68c7f538-cc9a-4877-84c7-a1925eb69e2d/640" alt="">&lt;/p>
+&lt;p>在 Linux 内核中，这段代码是这样写的：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-javascript" data-lang="javascript">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">while&lt;/span> &lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">1&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">while&lt;/span> &lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">!&lt;/span>&lt;span style="color:#000">need_resched&lt;/span>&lt;span style="color:#000;font-weight:bold">())&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">cpuidle_idle_call&lt;/span>&lt;span style="color:#000;font-weight:bold">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>其中 cpuidle_idle_call 函数最终会执行 halt 指令，注意，**这里删掉了很多细节，只保留最核心代码，**实际上 Linux 内核在实现空闲进程时还要考虑很多很多，不同类型的 CPU 可能会有深睡眠浅睡眠之类，操作系统必须要预测出系统可能的空闲时长并以此判断要进入哪种休眠等等，但这并不是我们关注的重点。&lt;/p>
+&lt;p>总的来说，这就是计算机系统空闲时 CPU 在干嘛，就是在执行这一段代码，本质上就是 CPU 在执行 halt 指令。&lt;/p>
+&lt;p>实际上，对于个人计算机来说，halt 可能是 CPU 执行最多的一条指令，&lt;strong>全世界的 CPU 大部分时间都用在这条指令上了&lt;/strong>，是不是很奇怪。&lt;/p>
+&lt;p>更奇怪的来了，有的同学可能已经注意到了，上面的循环可以是一个 while(1) 死循环，而且这个循环里没有 break 语句，也没有 return，那么&lt;strong>操作系统是怎样跳出这个循环的呢&lt;/strong>？&lt;/p>
+&lt;p>关于这个问题，我们将会在后续文章中讲解。&lt;/p>
+&lt;h1 id="总结">总结&lt;a class="td-heading-self-link" href="#%e6%80%bb%e7%bb%93" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>CPU 空闲时执行特定的 halt 指令，这看上去是一个很简单的问题，但实际上由于 halt 是特权指令，只有操作系统才可以去执行，因此 CPU 空闲时执行 halt 指令就变成了软件和硬件相结合的问题。&lt;/p>
+&lt;p>操作系统必须判断什么情况下系统是空闲的，这涉及到进程管理和进程调度，同时，halt 指令其实是放到了一个 while 死循环中，操作系统必须有办法能跳出循环，所以，CPU 空闲时执行 halt 指令并没有看上去那么简单。&lt;/p>
+&lt;p>希望这篇文章对大家理解 CPU 和操作系统有所帮助。&lt;/p>
+&lt;h5 id="_参考资料_">&lt;em>参考资料&lt;/em>&lt;a class="td-heading-self-link" href="#_%e5%8f%82%e8%80%83%e8%b5%84%e6%96%99_" aria-label="Heading self-link">&lt;/a>&lt;/h5>
+&lt;ol>
+&lt;li>&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU2NTYyOTQ4OQ==&amp;amp;mid=2247483736&amp;amp;idx=1&amp;amp;sn=4da1eec64e42567a0fdf4ae6d4e9344e&amp;amp;chksm=fcb98606cbce0f10090d950ec468b0a1e28087cd158a850bc7dc4c262fd2612a319851987220&amp;amp;scene=21#wechat_redirect">&lt;strong>什么是程序？&lt;/strong>&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU2NTYyOTQ4OQ==&amp;amp;mid=2247484668&amp;amp;idx=2&amp;amp;sn=dd7890df01d4879e40e0acd0382929f2&amp;amp;chksm=fcb983a2cbce0ab43ccb6a394f7590fc1744a9838f8055ad89298da1a487e182dd78f2c3bc75&amp;amp;scene=21#wechat_redirect">&lt;strong>进程调度器是如何实现的？&lt;/strong>&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU2NTYyOTQ4OQ==&amp;amp;mid=2247483850&amp;amp;idx=1&amp;amp;sn=b90a78604fa174f0e7314227a3002bdc&amp;amp;chksm=fcb98694cbce0f82024467c835c6e3b4984773b1a2f6c1625d573066c36b14420d996819bed7&amp;amp;scene=21#wechat_redirect">&lt;strong>程序员应如何理解 CPU ？&lt;/strong>&lt;/a>&lt;/li>
+&lt;li>&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU2NTYyOTQ4OQ==&amp;amp;mid=2247484768&amp;amp;idx=1&amp;amp;sn=049db350af9e5eea5cf3523ceb83f447&amp;amp;chksm=fcb9823ecbce0b28ca28d021e68c78138cde4a1b86ea7209c0c667d3d544d223d8b2aecbccec&amp;amp;scene=21#wechat_redirect">&lt;strong>看完这篇还不懂线程与线程池你来打我&lt;/strong>&lt;/a>&lt;/li>
+&lt;/ol>
+&lt;p>**&lt;/p></description></item><item><title>Docs: Interrupts(中断)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts%E4%B8%AD%E6%96%AD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts%E4%B8%AD%E6%96%AD/</guid><description/></item><item><title>Docs: Load Average 平均负载简述</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Load-Average-%E5%B9%B3%E5%9D%87%E8%B4%9F%E8%BD%BD%E7%AE%80%E8%BF%B0/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Load-Average-%E5%B9%B3%E5%9D%87%E8%B4%9F%E8%BD%BD%E7%AE%80%E8%BF%B0/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;a href="https://blog.csdn.net/u011183653/article/details/19489603">https://blog.csdn.net/u011183653/article/details/19489603&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://blog.csdn.net/slvher/article/details/9199439">https://blog.csdn.net/slvher/article/details/9199439&lt;/a>&lt;/p>
+&lt;h1 id="load-与-load-average">Load 与 Load Average&lt;a class="td-heading-self-link" href="#load-%e4%b8%8e-load-average" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;pre>&lt;code>LoadAverage = calc_load(TASK_RUNNING + TASK_UNINTERRUPTIBLE,n)
+&lt;/code>&lt;/pre>
+&lt;p>Load 是此时此刻 CPU 正在处理的进程数。进程可运行状态时，它处在一个运行队列 run queue 中，与其他可运行进程争夺 CPU 时间。 系统的 load 是指正在运行 running 和准备好运行 runnable 以及 不可中断睡眠 的进程的总数。比如现在系统有 2 个正在运行的进程，3 个可运行进程，那么系统的 load 就是 5&lt;/p>
+&lt;p>Load Average 为在特定时间间隔内运行队列中(在 CPU 上运行或者等待运行多少进程)的平均进程数。如果一个进程满足以下条件则其就会位于运行队列中：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>它没有在等待 I/O 操作的结果&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>它没有主动进入等待状态(也就是没有调用’wait’)&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>没有被停止(例如：等待终止)&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>在 Linux 中，进程分为三种状态，一种是阻塞的进程 blocked process，一种是可运行的进程 runnable process，另外就是正在运行的进程 running process。当进程阻塞时，进程会等待 I/O 设备的数据或者系统调用。&lt;/p>
+&lt;p>一、查看系统负荷&lt;/p>
+&lt;p>如果你的电脑很慢，你或许想查看一下，它的工作量是否太大了。&lt;/p>
+&lt;p>在 Linux 系统中，我们一般使用 uptime 命令查看（w 命令和 top 命令也行）。（另外，它们在苹果公司的 Mac 电脑上也适用。）&lt;/p>
+&lt;p>你在终端窗口键入 uptime，系统会返回一行信息。&lt;/p>
+&lt;pre>&lt;code>[root@lichenhao ~]# uptime
+17:00:00 up 2 days, 2:53, 1 user, load average: 0.09, 0.05, 0.01
+&lt;/code>&lt;/pre>
+&lt;p>这行信息的后半部分，显示&amp;quot;load average&amp;quot;，它的意思是&amp;quot;系统的平均负荷&amp;quot;，里面有三个数字，我们可以从中判断系统负荷是大还是小。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091810-b44dc550-47cf-44e2-94c4-de77c383db2c.jpeg" alt="">&lt;/p>
+&lt;p>为什么会有三个数字呢？你从手册中查到，它们的意思分别是 1 分钟、5 分钟、15 分钟内系统的平均负荷。&lt;/p>
+&lt;p>如果你继续看手册，它还会告诉你，当 CPU 完全空闲的时候，平均负荷为 0；当 CPU 工作量饱和的时候，平均负荷为 1。&lt;/p>
+&lt;p>那么很显然，&amp;ldquo;load average&amp;quot;的值越低，比如等于 0.2 或 0.3，就说明电脑的工作量越小，系统负荷比较轻。&lt;/p>
+&lt;p>但是，什么时候能看出系统负荷比较重呢？等于 1 的时候，还是等于 0.5 或等于 1.5 的时候？如果 1 分钟、5 分钟、15 分钟三个值不一样，怎么办？&lt;/p>
+&lt;p>二、一个类比&lt;/p>
+&lt;p>判断系统负荷是否过重，必须理解 load average 的真正含义。下面，我根据&amp;quot;Understanding Linux CPU Load&amp;quot;这篇文章，尝试用最通俗的语言，解释这个问题。&lt;/p>
+&lt;p>首先，假设最简单的情况，你的电脑只有一个 CPU，所有的运算都必须由这个 CPU 来完成。&lt;/p>
+&lt;p>那么，我们不妨把这个 CPU 想象成一座大桥，桥上只有一根车道，所有车辆都必须从这根车道上通过。（很显然，这座桥只能单向通行。）&lt;/p>
+&lt;p>系统负荷为 0，意味着大桥上一辆车也没有。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091810-e462799a-5a71-46cc-8f5a-560ab51b7f6b.jpeg" alt="">&lt;/p>
+&lt;p>系统负荷为 0.5，意味着大桥一半的路段有车。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091819-cf628c32-b0c1-4c81-a5fa-35c30d663944.jpeg" alt="">&lt;/p>
+&lt;p>系统负荷为 1.0，意味着大桥的所有路段都有车，也就是说大桥已经&amp;quot;满&amp;quot;了。但是必须注意的是，直到此时大桥还是能顺畅通行的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091800-0fa2f777-ecc8-43c3-8c10-029b54de5eb4.jpeg" alt="">&lt;/p>
+&lt;p>系统负荷为 1.7，意味着车辆太多了，大桥已经被占满了（100%），后面等着上桥的车辆为桥面车辆的 70%。以此类推，系统负荷 2.0，意味着等待上桥的车辆与桥面的车辆一样多；系统负荷 3.0，意味着等待上桥的车辆是桥面车辆的 2 倍。总之，当系统负荷大于 1，后面的车辆就必须等待了；系统负荷越大，过桥就必须等得越久。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091822-b290f2e0-2edb-4775-a7a1-fecd0d32bb3c.jpeg" alt="">&lt;/p>
+&lt;p>CPU 的系统负荷，基本上等同于上面的类比。大桥的通行能力，就是 CPU 的最大工作量；桥梁上的车辆，就是一个个等待 CPU 处理的进程（process）。&lt;/p>
+&lt;p>如果 CPU 每分钟最多处理 100 个进程，那么系统负荷 0.2，意味着 CPU 在这 1 分钟里只处理 20 个进程；系统负荷 1.0，意味着 CPU 在这 1 分钟里正好处理 100 个进程；系统负荷 1.7，意味着除了 CPU 正在处理的 100 个进程以外，还有 70 个进程正排队等着 CPU 处理。&lt;/p>
+&lt;p>Note：如果 CPU 一分钟的时间一直处理 1 个进程，那么 1 分钟的负载也是 1。&lt;/p>
+&lt;p>为了电脑顺畅运行，系统负荷最好不要超过 1.0，这样就没有进程需要等待了，所有进程都能第一时间得到处理。很显然，1.0 是一个关键值，超过这个值，系统就不在最佳状态了，你要动手干预了。&lt;/p>
+&lt;p>三、系统负荷的经验法则&lt;/p>
+&lt;p>1.0 是系统负荷的理想值吗？&lt;/p>
+&lt;p>不一定，系统管理员往往会留一点余地，当这个值达到 0.7，就应当引起注意了。经验法则是这样的：&lt;/p>
+&lt;p>当系统负荷持续大于 0.7，你必须开始调查了，问题出在哪里，防止情况恶化。&lt;/p>
+&lt;p>当系统负荷持续大于 1.0，你必须动手寻找解决办法，把这个值降下来。&lt;/p>
+&lt;p>当系统负荷达到 5.0，就表明你的系统有很严重的问题，长时间没有响应，或者接近死机了。你不应该让系统达到这个值。&lt;/p>
+&lt;p>四、多处理器&lt;/p>
+&lt;p>上面，我们假设你的电脑只有 1 个 CPU。如果你的电脑装了 2 个 CPU，会发生什么情况呢？&lt;/p>
+&lt;p>2 个 CPU，意味着电脑的处理能力翻了一倍，能够同时处理的进程数量也翻了一倍。&lt;/p>
+&lt;p>还是用大桥来类比，两个 CPU 就意味着大桥有两根车道了，通车能力翻倍了。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091818-7b6aaceb-456c-4625-a2b4-cba8501b8858.jpeg" alt="">&lt;/p>
+&lt;p>所以，2 个 CPU 表明系统负荷可以达到 2.0，此时每个 CPU 都达到 100%的工作量。推广开来，n 个 CPU 的电脑，可接受的系统负荷最大为 n.0。&lt;/p>
+&lt;p>五、多核处理器&lt;/p>
+&lt;p>芯片厂商往往在一个 CPU 内部，包含多个 CPU 核心，这被称为多核 CPU。&lt;/p>
+&lt;p>在系统负荷方面，多核 CPU 与多 CPU 效果类似，所以考虑系统负荷的时候，必须考虑这台电脑有几个 CPU、每个 CPU 有几个核心。然后，把系统负荷除以总的核心数，只要每个核心的负荷不超过 1.0，就表明电脑正常运行。&lt;/p>
+&lt;p>怎么知道电脑有多少个 CPU 核心呢？&lt;/p>
+&lt;p>&amp;ldquo;cat /proc/cpuinfo&amp;quot;命令，可以查看 CPU 信息。&amp;ldquo;grep -c &amp;lsquo;model name&amp;rsquo; /proc/cpuinfo&amp;quot;命令，直接返回 CPU 的总核心数。&lt;/p>
+&lt;p>六、最佳观察时长&lt;/p>
+&lt;p>最后一个问题，&amp;ldquo;load average&amp;quot;一共返回三个平均值&amp;mdash;-1 分钟系统负荷、5 分钟系统负荷，15 分钟系统负荷，&amp;mdash;-应该参考哪个值？&lt;/p>
+&lt;p>如果只有 1 分钟的系统负荷大于 1.0，其他两个时间段都小于 1.0，这表明只是暂时现象，问题不大。&lt;/p>
+&lt;p>如果 15 分钟内，平均系统负荷大于 1.0（调整 CPU 核心数之后），表明问题持续存在，不是暂时现象。所以，你应该主要观察&amp;quot;15 分钟系统负荷&amp;rdquo;，将它作为电脑正常运行的指标。&lt;/p>
+&lt;p>==========================================&lt;/p>
+&lt;p>[参考文献]&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>Understanding Linux CPU Load&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Wikipedia - Load (computing)&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>（完）&lt;/p>
+&lt;h1 id="简单说下-cpu-负载和-cpu-利用率的区别">简单说下 CPU 负载和 CPU 利用率的区别&lt;a class="td-heading-self-link" href="#%e7%ae%80%e5%8d%95%e8%af%b4%e4%b8%8b-cpu-%e8%b4%9f%e8%bd%bd%e5%92%8c-cpu-%e5%88%a9%e7%94%a8%e7%8e%87%e7%9a%84%e5%8c%ba%e5%88%ab" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>1）CPU 利用率：显示的是程序在运行期间实时占用的 CPU 百分比&lt;/p>
+&lt;p>2）CPU 负载：显示的是一段时间内正在使用和等待使用 CPU 的平均任务数。&lt;/p>
+&lt;p>CPU 利用率高，并不意味着负载就一定大。&lt;/p>
+&lt;p>举例来说：&lt;/p>
+&lt;p>如果有一个程序它需要一直使用 CPU 的运算功能，那么此时 CPU 的使用率可能达到 100%，但是 CPU 的工作负载则是趋近于&amp;quot;1&amp;rdquo;，因为 CPU 仅负责一个工作！&lt;/p>
+&lt;p>如果同时执行这样的程序两个呢？CPU 的使用率还是 100%，但是工作负载则变成 2 了。所以也就是说，当 CPU 的工作负载越大，代表 CPU 必须要在不同的工作之间&lt;/p>
+&lt;p>进行频繁的工作切换。&lt;/p>
+&lt;p>&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;下面通过一个电话亭打电话的比喻来说明这两者之间的区别&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&lt;/p>
+&lt;p>某公用电话亭，有一个人在打电话，四个人在等待，每人限定使用电话一分钟，若有人一分钟之内没有打完电话，只能挂掉电话去排队，等待下一轮。&lt;/p>
+&lt;p>电话在这里就相当于 CPU，而正在或等待打电话的人就相当于任务数。&lt;/p>
+&lt;p>在电话亭使用过程中，肯定会有人打完电话走掉，有人没有打完电话而选择重新排队，更会有新增的人在这儿排队，这个人数的变化就相当于任务数的增减。&lt;/p>
+&lt;p>为了统计平均负载情况，我们 5 分钟统计一次人数，并在第 1、5、15 分钟的时候对统计情况取平均值，从而形成第 1、5、15 分钟的平均负载。&lt;/p>
+&lt;p>有的人拿起电话就打，一直打完 1 分钟，而有的人可能前三十秒在找电话号码，或者在犹豫要不要打，后三十秒才真正在打电话。如果把电话看作 CPU，人数看&lt;/p>
+&lt;p>作任务，我们就说前一个人（任务）的 CPU 利用率高，后一个人（任务）的 CPU 利用率低。当然， CPU 并不会在前三十秒工作，后三十秒歇着，只是说，有的程&lt;/p>
+&lt;p>序涉及到大量的计算，所以 CPU 利用率就高，而有的程序牵涉到计算的部分很少，CPU 利用率自然就低。但无论 CPU 的利用率是高是低，跟后面有多少任务在排队&lt;/p>
+&lt;p>没有必然关系。&lt;/p>
+&lt;h1 id="理解-linux-load-average-的误区">理解 LINUX LOAD AVERAGE 的误区&lt;a class="td-heading-self-link" href="#%e7%90%86%e8%a7%a3-linux-load-average-%e7%9a%84%e8%af%af%e5%8c%ba" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>Load average 的概念源自 UNIX 系统，虽然各家的公式不尽相同，但都是用于衡量正在使用 CPU 的进程数量和正在等待 CPU 的进程数量，一句话就是 runnable processes 的数量。所以 load average 可以作为 CPU 瓶颈的参考指标，如果大于 CPU 的数量，说明 CPU 可能不够用了。&lt;/p>
+&lt;p>但是，Linux 上不是这样的！&lt;/p>
+&lt;p>Linux 上的 load average 除了包括正在使用 CPU 的进程数量和正在等待 CPU 的进程数量之外，还包括 uninterruptible sleep 的进程数量。通常等待 IO 设备、等待网络的时候，进程会处于 uninterruptible sleep 状态。Linux 设计者的逻辑是，uninterruptible sleep 应该都是很短暂的，很快就会恢复运行，所以被等同于 runnable。然而 uninterruptible sleep 即使再短暂也是 sleep，何况现实世界中 uninterruptible sleep 未必很短暂，大量的、或长时间的 uninterruptible sleep 通常意味着 IO 设备遇到了瓶颈。众所周知，sleep 状态的进程是不需要 CPU 的，即使所有的 CPU 都空闲，正在 sleep 的进程也是运行不了的，所以 sleep 进程的数量绝对不适合用作衡量 CPU 负载的指标，Linux 把 uninterruptible sleep 进程算进 load average 的做法直接颠覆了 load average 的本来意义。所以在 Linux 系统上，load average 这个指标基本失去了作用，因为你不知道它代表什么意思，当看到 load average 很高的时候，你不知道是 runnable 进程太多还是 uninterruptible sleep 进程太多，也就无法判断是 CPU 不够用还是 IO 设备有瓶颈。&lt;/p>
+&lt;p>参考资料：&lt;a href="https://en.wikipedia.org/wiki/Load_(computing)">https://en.wikipedia.org/wiki/Load_(computing)&lt;/a>&lt;/p>
+&lt;p>“Most UNIX systems count only processes in the running (on CPU) or runnable (waiting for CPU) states. However, Linux also includes processes in uninterruptible sleep states (usually waiting for disk activity), which can lead to markedly different results if many processes remain blocked in I/O due to a busy or stalled I/O system.“&lt;/p></description></item><item><title>Docs: 调度算法</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="调度类型">调度类型&lt;a class="td-heading-self-link" href="#%e8%b0%83%e5%ba%a6%e7%b1%bb%e5%9e%8b" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>由于任务有优先级之分，Linux 系统为了保障高优先级的任务能够尽可能早的被执行，于是分为了这几种调度类型，如下图：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/coth1i/1616168010725-2970b496-047e-4890-808b-84b4aa539c5f.jpeg" alt="">&lt;/p>
+&lt;p>&lt;strong>Deadline 和 Realtime 调度类型&lt;/strong>，应用于**实时任务。**这两个调度类型的调度策略合起来共有这三种，它们的作用如下：&lt;/p>
+&lt;ul>
+&lt;li>SCHED_DEADLINE：是按照 deadline 进行调度的，距离当前时间点最近的 deadline 的任务会被优先调度；&lt;/li>
+&lt;li>SCHED_FIFO：对于相同优先级的任务，按先来先服务的原则，但是优先级更高的任务，可以抢占低优先级的任务，也就是优先级高的可以「插队」；&lt;/li>
+&lt;li>SCHED_RR：对于相同优先级的任务，轮流着运行，每个任务都有一定的时间片，当用完时间片的任务会被放到队列尾部，以保证相同优先级任务的公平性，但是高优先级的任务依然可以抢占低优先级的任务；&lt;/li>
+&lt;/ul>
+&lt;p>**Fair 调度类型，&lt;strong>应用于&lt;/strong>普通任务。**都是由 CFS 调度器管理的，分为两种调度策略：&lt;/p>
+&lt;ul>
+&lt;li>SCHED_NORMAL：普通任务使用的调度策略；&lt;/li>
+&lt;li>SCHED_BATCH：后台任务的调度策略，不和终端进行交互，因此在不影响其他需要交互的任务，可以适当降低它的优先级。&lt;/li>
+&lt;/ul>
+&lt;h1 id="deadline-调度器">Deadline 调度器&lt;a class="td-heading-self-link" href="#deadline-%e8%b0%83%e5%ba%a6%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h1 id="rt-调度器">RT 调度器&lt;a class="td-heading-self-link" href="#rt-%e8%b0%83%e5%ba%a6%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h1 id="cfs-调度器">CFS 调度器&lt;a class="td-heading-self-link" href="#cfs-%e8%b0%83%e5%ba%a6%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考： 官方文档：&lt;a href="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt&lt;/a> &amp;gt; &lt;a href="https://blog.csdn.net/dog250/article/details/95729830">https://blog.csdn.net/dog250/article/details/95729830&lt;/a> &amp;gt; &lt;a href="https://blog.csdn.net/armlinuxww/article/details/97242063">https://blog.csdn.net/armlinuxww/article/details/97242063&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>&lt;a href="https://www.jianshu.com/p/673c9e4817a8">https://www.jianshu.com/p/673c9e4817a8&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>&lt;a href="https://zhuanlan.zhihu.com/p/83795639">https://zhuanlan.zhihu.com/p/83795639&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;blockquote>
+&lt;p>&lt;a href="https://blog.csdn.net/cloudvtech/article/details/107634785">https://blog.csdn.net/cloudvtech/article/details/107634785&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>CFS 调度器的前身是 O(1) 调度器
+CFS 彻底&lt;strong>抛弃了 时间片轮转&lt;/strong> 的策略，而是改之为 &lt;strong>在任意的调度周期内公平分享 CPU 时间&lt;/strong> 的问题。
+我们平日里遇到的基本都是普通任务，对于普通任务来说，公平性最重要，在 Linux 里面，实现了一个基于 CFS 的调度算法，也就是完全公平调度（Completely Fair Scheduling）。&lt;/p>
+&lt;p>&lt;strong>Completely Fair Scheduler(完全公平的调度器，简称 CFS)&lt;/strong>。由 Ingo Molnar 实现并在 Linux Kernel 2.6.23 之后开始引入，并逐步替代老式的 (O)1 调度器。&lt;/p>
+&lt;p>CFS 使用 **vruntime(虚拟运行时间) **的概念，来指定任务的下一个时间片何时开始在 CPU 上执行。&lt;/p>
+&lt;p>CFS 的做法就是在一个特定的调度周期内，保证所有待调度的进程都能被执行一遍，主要通过 vruntime 的值来决定本轮调度周期内所能占用的 CPU 时间，vruntime 越少，本轮能占用的 CPU 时间越多；总体而言，CFS 就是通过保证各个进程 vruntime 的大小尽量一致来达到公平调度的效果&lt;/p>
+&lt;p>CFS 的算法理念是想让分配给每个任务的 CPU 时间是一样，于是它为每个任务安排一个 vruntime(虚拟运行时间)，如果一个任务在运行，其运行的越久，该任务的 vruntime 自然就会越大，而没有被运行的任务，vruntime 是不会变化的。&lt;/p>
+&lt;p>那么，在 CFS 算法调度的时候，会优先选择 vruntime 少的任务，以保证每个任务的公平性。&lt;/p>
+&lt;p>这就好比，让你把一桶的奶茶平均分到 10 杯奶茶杯里，你看着哪杯奶茶少，就多倒一些；哪个多了，就先不倒，这样经过多轮操作，虽然不能保证每杯奶茶完全一样多，但至少是公平的。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>进程的运行时间计算公式为&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>NICE_0_LOAD 默认为 1024&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>：
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">进程运行时间&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> 调度周期 * 进程权重 / 所有进程权重之和
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">vruntime&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> 进程运行时间 * NICE_0_LOAD / &lt;span style="color:#000">进程权重&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>调度周期 * 进程权重 / 所有进程总权重&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> * NICE_0_LOAD / &lt;span style="color:#000">进程权重&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> 调度周期 * NICE_0_LOAD / 所有进程总权重
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过上面两个公式，可以看到 vruntime 不是进程实际占用 CPU 的时间，而是剔除权重影响之后的 CPU 时间，这样所有进程在被调度决策的时候的依据是一致的，而实际占用 CPU 时间是经进程优先级权重放大的。这种方式使得系统的调度粒度更小来，更加适合高负载和多交互的场景。&lt;/p>
+&lt;p>实际上 vruntime 就是根据权重将实际运行时间标准化，标准化之后，各个进程对资源的消耗情况就可以直接通过比较 vruntime 来知道，比如某个进程的 vruntime 比较小，我们就可以知道这个进程消耗 CPU 资源比较少，反之消耗 CPU 资源就比较多。&lt;/p>
+&lt;h2 id="cpu-运行队列">CPU 运行队列&lt;a class="td-heading-self-link" href="#cpu-%e8%bf%90%e8%a1%8c%e9%98%9f%e5%88%97" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>一个系统通常都会运行着很多任务，多任务的数量基本都是远超 CPU 核心数量，因此这时候就需要排队。&lt;/p>
+&lt;p>事实上，每个 CPU 都有自己的运行队列（Run Queue, rq），用于描述在此 CPU 上所运行的所有进程，其队列包含三个运行队列，Deadline 运行队列 dl_rq、实时任务运行队列 rt_rq 和 CFS 运行队列 csf_rq，其中 csf_rq 是用红黑树来描述的，按 vruntime 大小来排序的，最左侧的叶子节点，就是下次会被调度的任务。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/coth1i/1616168010765-da056270-afe5-4509-98a6-f67466e7925c.jpeg" alt="">&lt;/p>
+&lt;p>这几种调度类是有优先级的，优先级如下：Deadline &amp;gt; Realtime &amp;gt; Fair，这意味着 Linux 选择下一个任务执行的时候，会按照此优先级顺序进行选择，也就是说先从 dl_rq 里选择任务，然后从 rt_rq 里选择任务，最后从 csf_rq 里选择任务。因此，实时任务总是会比普通任务优先被执行。&lt;/p>
+&lt;h3 id="调整优先级">调整优先级&lt;a class="td-heading-self-link" href="#%e8%b0%83%e6%95%b4%e4%bc%98%e5%85%88%e7%ba%a7" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>如果我们启动任务的时候，没有特意去指定优先级的话，默认情况下都是普通任务，普通任务的调度类是 Fail，由 CFS 调度器来进行管理。CFS 调度器的目的是实现任务运行的公平性，也就是保障每个任务的运行的时间是差不多的。&lt;/p>
+&lt;p>如果你想让某个普通任务有更多的执行时间，可以调整任务的 nice 值，从而让优先级高一些的任务执行更多时间。nice 的值能设置的范围是 -20 ～ 19， 值越低，表明优先级越高，因此 -20 是最高优先级，19 则是最低优先级，默认优先级是 0。&lt;/p>
+&lt;p>是不是觉得 nice 值的范围很诡异？事实上，nice 值并不是表示优先级，而是表示优先级的修正数值，它与优先级（priority）的关系是这样的：priority(new) = priority(old) + nice。内核中，priority 的范围是 0~139，值越低，优先级越高，其中前面的 0~99 范围是提供给实时任务使用的，而 nice 值是映射到 100~139，这个范围是提供给普通任务用的，因此 nice 值调整的是普通任务的优先级。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/coth1i/1616168010713-4cb848a3-7b8e-4d18-b8ac-c3af2229f370.jpeg" alt="">&lt;/p>
+&lt;p>在前面我们提到了，权重值与 nice 值的关系的，nice 值越低，权重值就越大，计算出来的 vruntime 就会越少，由于 CFS 算法调度的时候，就会优先选择 vruntime 少的任务进行执行，所以 nice 值越低，任务的优先级就越高。&lt;/p>
+&lt;p>我们可以在启动任务的时候，可以指定 nice 的值，比如将 mysqld 以 -3 优先级：&lt;/p>
+&lt;pre>&lt;code>[root@lichenhao ~]# nice -n -3 /usr/sbin/mysqld
+&lt;/code>&lt;/pre>
+&lt;p>如果想修改已经运行中的任务的优先级，则可以使用 renice 来调整 nice 值：&lt;/p>
+&lt;pre>&lt;code>[root@lichenhao ~]# renice -10 -p 进程
+PID
+&lt;/code>&lt;/pre>
+&lt;p>nice 调整的是普通任务的优先级，所以不管怎么缩小 nice 值，任务永远都是普通任务，如果某些任务要求实时性比较高，那么你可以考虑改变任务的优先级以及调度策略，使得它变成实时任务，比如：&lt;/p>
+&lt;pre>&lt;code># 修改调度策略为 SCHED_FIFO，并且优先级为 1
+chrf -f 1 -p 1996
+&lt;/code>&lt;/pre>
+&lt;h2 id="cfs-调度配置">CFS 调度配置&lt;a class="td-heading-self-link" href="#cfs-%e8%b0%83%e5%ba%a6%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://access.redhat.com/solutions/177953">https://access.redhat.com/solutions/177953&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>在虚拟文件系统中，可以通过调整如下几个内核参数来改变 CFS 的行为:
+/proc/sys/kernel/sched_min_granularity_ns # 调度程序的最小粒度(单位：纳秒)。i.e.一个任务最少运行时间&lt;/p>
+&lt;blockquote>
+&lt;p>增大该数值可以防止频繁的切换，最大值为 1000000000 纳秒，即 1 秒；
+而对于交互系统（如桌面），该值可以设置得较小，这样可以保证交互得到更快的响应（见周期调度器的 check_preempt_tick 过程），最小值为 100000，即 0.1 毫秒&lt;/p>
+&lt;/blockquote>
+&lt;p>/proc/sys/kernel/sched_latency_ns # 调度延迟(单位：纳秒)。i.e.调度程序的&lt;strong>调度 Period(周期&lt;/strong>，简写为 P)的初始值。也就是一个 CPU 的运行队列中，所有任务运行一次的时间长度&lt;/p>
+&lt;blockquote>
+&lt;p>最大值为 1000000000 纳秒，即 1 秒；最小值为 100000，即 0.1 毫秒&lt;/p>
+&lt;/blockquote>
+&lt;ul>
+&lt;li>尽管 CFS 没有时间片的概念，但是可以将时间段视为初始时间块，然后将其平均划分为时间片，每个可运行的过程均使用一个时间片。&lt;/li>
+&lt;li>请注意，此参数仅指定初始值。 当太多任务可运行时，调度程序将改为使用 kernel.sched_min_granularity_ns。&lt;/li>
+&lt;li>&lt;strong>sched_nr_latency&lt;/strong> # 一个调度周期内的任务数。该值等于(sched_latency_ns/sched_min_granularity_ns)&lt;/li>
+&lt;li>注意：这个参数是内核内部参数，无法直接设置，只能通过计算获得&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>在实际运行中，如果队列进程数 nr_running &amp;gt; sched_nr_latency，则调度周期就不是 sched_latency_ns，而是 P = sched_min_granularity_ns * nr_running，如果 nr_running &amp;lt;= sched_nr_latency，则 P = sched_latency_ns&lt;/p>
+&lt;/blockquote>
+&lt;p>/proc/sys/kernel/sched_nr_migrate # 在多 CPU 情况下进行负载均衡时，一次最多移动多少个进程到另一个 CPU 上&lt;/p>
+&lt;p>/proc/sys/kernel/sched_wakeup_granularity_ns # 表示进程被唤醒后至少应该运行的时间，这个数值越小，那么发生抢占的概率也就越高&lt;/p>
+&lt;h3 id="sched_latency_ns-与-sched_min_granularity_ns-参数的白话示例">sched_latency_ns 与 sched_min_granularity_ns 参数的白话示例&lt;a class="td-heading-self-link" href="#sched_latency_ns-%e4%b8%8e-sched_min_granularity_ns-%e5%8f%82%e6%95%b0%e7%9a%84%e7%99%bd%e8%af%9d%e7%a4%ba%e4%be%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>假如现在系统参数如下&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@lichenhao ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /proc/sys/kernel/sched_min_granularity_ns&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">10000000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@lichenhao ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /proc/sys/kernel/sched_latency_ns&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">24000000&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>那么就表明系统默认情况下，一个任务最少运行 1000 万纳秒(10 毫秒)，而一个调度周期是 2400 万纳秒(24 毫秒)，那么就说明，在一个调度周期内，可以运行 2.4(24 除以 10) 个任务。&lt;/p>
+&lt;p>这时候，如果同时有 5 个任务正在运行，那么一共需要 50 毫秒，这已经超出了 24 毫秒的调度周期。&lt;/p>
+&lt;blockquote>
+&lt;p>你想啊，一个任务默认情况下，可以在 24 毫秒后再次执行，但是如果任务过多，而每个任务最少又要运行 10 毫秒，那么就要等待 50 毫秒，才能再次执行。&lt;/p>
+&lt;/blockquote>
+&lt;p>所以这时候，系统的调度周期，就会变为 5000 万纳秒(50 毫秒)。虽然 sched_latency_ns 的值并没有变~因为每个任务最少运行 10 毫秒。&lt;/p></description></item><item><title>Docs: 读写数据的方式</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%AF%BB%E5%86%99%E6%95%B0%E6%8D%AE%E7%9A%84%E6%96%B9%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%AF%BB%E5%86%99%E6%95%B0%E6%8D%AE%E7%9A%84%E6%96%B9%E5%BC%8F/</guid><description>
+&lt;blockquote>
+&lt;p>原文：小林的《你不好奇 CPU 是如何执行任务的？》&lt;/p>
+&lt;/blockquote>
+&lt;p>前言&lt;/p>
+&lt;p>你清楚下面这几个问题吗？&lt;/p>
+&lt;ul>
+&lt;li>有了内存，为什么还需要 CPU Cache？&lt;/li>
+&lt;li>CPU 是怎么读写数据的？&lt;/li>
+&lt;li>如何让 CPU 能读取数据更快一些？&lt;/li>
+&lt;li>CPU 伪共享是如何发生的？又该如何避免？&lt;/li>
+&lt;li>CPU 是如何调度任务的？如果你的任务对响应要求很高，你希望它总是能被先调度，这该怎么办？&lt;/li>
+&lt;li>…&lt;/li>
+&lt;/ul>
+&lt;h1 id="cpu-如何读写数据的">CPU 如何读写数据的？&lt;a class="td-heading-self-link" href="#cpu-%e5%a6%82%e4%bd%95%e8%af%bb%e5%86%99%e6%95%b0%e6%8d%ae%e7%9a%84" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>先来认识 CPU 的架构，只有理解了 CPU 的 架构，才能更好地理解 CPU 是如何读写数据的，对于现代 CPU 的架构图如下：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000499-c31e4a9e-99eb-4226-9708-27c4c17f4c02.jpeg" alt="">&lt;/p>
+&lt;p>可以看到，一个 CPU 里通常会有多个 CPU 核心，比如上图中的 1 号和 2 号 CPU 核心，并且每个 CPU 核心都有自己的 L1 Cache 和 L2 Cache，而 L1 Cache 通常分为 dCache（数据缓存） 和 iCache（指令缓存），L3 Cache 则是多个核心共享的，这就是 CPU 典型的缓存层次。&lt;/p>
+&lt;p>上面提到的都是 CPU 内部的 Cache，放眼外部的话，还会有内存和硬盘，这些存储设备共同构成了金字塔存储层次。如下图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000513-03e89c02-e296-46cd-9359-f48cad53e9c8.jpeg" alt="">&lt;/p>
+&lt;p>从上图也可以看到，从上往下，存储设备的容量会越大，而访问速度会越慢。至于每个存储设备的访问延时，你可以看下图的表格：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000495-78f2f527-9309-4fed-bfed-50554ebabd85.jpeg" alt="">&lt;/p>
+&lt;p>你可以看到， CPU 访问 L1 Cache 速度比访问内存快 100 倍，这就是为什么 CPU 里会有 L1~L3 Cache 的原因，目的就是把 Cache 作为 CPU 与内存之间的缓存层，以减少对内存的访问频率。&lt;/p>
+&lt;p>CPU 从内存中读取数据到 Cache 的时候，并不是一个字节一个字节读取，而是一块一块的方式来读取数据的，这一块一块的数据被称为 CPU Line（缓存行），所以 CPU Line 是 CPU 从内存读取数据到 Cache 的单位。&lt;/p>
+&lt;p>至于 CPU Line 大小，在 Linux 系统可以用下面的方式查看到，你可以看我服务器的 L1 Cache Line 大小是 64 字节，也就意味着 L1 Cache 一次载入数据的大小是 64 字节。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000469-8a684c6a-f0e8-4c7e-a16a-5297506d59cf.jpeg" alt="">&lt;/p>
+&lt;p>那么对数组的加载， CPU 就会加载数组里面连续的多个数据到 Cache 里，因此我们应该按照物理内存地址分布的顺序去访问元素，这样访问数组元素的时候，Cache 命中率就会很高，于是就能减少从内存读取数据的频率， 从而可提高程序的性能。&lt;/p>
+&lt;p>但是，在我们不使用数组，而是使用单独的变量的时候，则会有 Cache 伪共享的问题，Cache 伪共享问题上是一个性能杀手，我们应该要规避它。&lt;/p>
+&lt;p>接下来，就来看看 Cache 伪共享是什么？又如何避免这个问题？&lt;/p>
+&lt;p>现在假设有一个双核心的 CPU，这两个 CPU 核心并行运行着两个不同的线程，它们同时从内存中读取两个不同的数据，分别是类型为 long 的变量 A 和 B，这个两个数据的地址在物理内存上是连续的，如果 Cahce Line 的大小是 64 字节，并且变量 A 在 Cahce Line 的开头位置，那么这两个数据是位于同一个 Cache Line 中，又因为 CPU Line 是 CPU 从内存读取数据到 Cache 的单位，所以这两个数据会被同时读入到了两个 CPU 核心中各自 Cache 中。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000475-55ec5aa4-e0ef-4911-83ac-d1e156589ddb.jpeg" alt="">
+我们来思考一个问题，如果这两个不同核心的线程分别修改不同的数据，比如 1 号 CPU 核心的线程只修改了 变量 A，或 2 号 CPU 核心的线程的线程只修改了变量 B，会发生什么呢？&lt;/p>
+&lt;h2 id="分析伪共享的问题">分析伪共享的问题&lt;a class="td-heading-self-link" href="#%e5%88%86%e6%9e%90%e4%bc%aa%e5%85%b1%e4%ba%ab%e7%9a%84%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>现在我们结合保证多核缓存一致的 MESI 协议，来说明这一整个的过程，如果你还不知道 MESI 协议，你可以看我这篇文章「10 张图打开 CPU 缓存一致性的大门」。&lt;/p>
+&lt;p>①. 最开始变量 A 和 B 都还不在 Cache 里面，假设 1 号核心绑定了线程 A，2 号核心绑定了线程 B，线程 A 只会读写变量 A，线程 B 只会读写变量 B。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000520-4dd60e53-3fe9-4860-957f-d9f222c23d07.jpeg" alt="">&lt;/p>
+&lt;p>②. 1 号核心读取变量 A，由于 CPU 从内存读取数据到 Cache 的单位是 Cache Line，也正好变量 A 和 变量 B 的数据归属于同一个 Cache Line，所以 A 和 B 的数据都会被加载到 Cache，并将此 Cache Line 标记为「独占」状态。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000515-1f08c8f3-7b0b-40b8-a1e2-983c39fe1c24.jpeg" alt="">&lt;/p>
+&lt;p>③. 接着，2 号核心开始从内存里读取变量 B，同样的也是读取 Cache Line 大小的数据到 Cache 中，此 Cache Line 中的数据也包含了变量 A 和 变量 B，此时 1 号和 2 号核心的 Cache Line 状态变为「共享」状态。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000507-72d91ddb-bc67-431c-8703-1431cdeca774.jpeg" alt="">&lt;/p>
+&lt;p>④. 1 号核心需要修改变量 A，发现此 Cache Line 的状态是「共享」状态，所以先需要通过总线发送消息给 2 号核心，通知 2 号核心把 Cache 中对应的 Cache Line 标记为「已失效」状态，然后 1 号核心对应的 Cache Line 状态变成「已修改」状态，并且修改变量 A。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000523-78ae7825-b72b-402a-a17b-fe6fcce37b80.jpeg" alt="">&lt;/p>
+&lt;p>⑤. 之后，2 号核心需要修改变量 B，此时 2 号核心的 Cache 中对应的 Cache Line 是已失效状态，另外由于 1 号核心的 Cache 也有此相同的数据，且状态为「已修改」状态，所以要先把 1 号核心的 Cache 对应的 Cache Line 写回到内存，然后 2 号核心再从内存读取 Cache Line 大小的数据到 Cache 中，最后把变量 B 修改到 2 号核心的 Cache 中，并将状态标记为「已修改」状态。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000492-c91a33f1-6991-4f25-9b25-662d8e096c86.jpeg" alt="">&lt;/p>
+&lt;p>所以，可以发现如果 1 号和 2 号 CPU 核心这样持续交替的分别修改变量 A 和 B，就会重复 ④ 和 ⑤ 这两个步骤，Cache 并没有起到缓存的效果，虽然变量 A 和 B 之间其实并没有任何的关系，但是因为同时归属于一个 Cache Line ，这个 Cache Line 中的任意数据被修改后，都会相互影响，从而出现 ④ 和 ⑤ 这两个步骤。&lt;/p>
+&lt;p>因此，这种因为多个线程同时读写同一个 Cache Line 的不同变量时，而导致 CPU Cache 失效的现象称为伪共享（False Sharing）。&lt;/p>
+&lt;h2 id="避免伪共享的方法">避免伪共享的方法&lt;a class="td-heading-self-link" href="#%e9%81%bf%e5%85%8d%e4%bc%aa%e5%85%b1%e4%ba%ab%e7%9a%84%e6%96%b9%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>因此，对于多个线程共享的热点数据，即经常会修改的数据，应该避免这些数据刚好在同一个 Cache Line 中，否则就会出现为伪共享的问题。&lt;/p>
+&lt;p>接下来，看看在实际项目中是用什么方式来避免伪共享的问题的。&lt;/p>
+&lt;p>在 Linux 内核中存在 __cacheline_aligned_in_smp 宏定义，是用于解决伪共享的问题。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000542-b188cb7a-7f59-4d31-92ee-71942c39472e.jpeg" alt="">&lt;/p>
+&lt;p>从上面的宏定义，我们可以看到：&lt;/p>
+&lt;ul>
+&lt;li>如果在多核（MP）系统里，该宏定义是 __cacheline_aligned，也就是 Cache Line 的大小；&lt;/li>
+&lt;li>而如果在单核系统里，该宏定义是空的；&lt;/li>
+&lt;/ul>
+&lt;p>因此，针对在同一个 Cache Line 中的共享的数据，如果在多核之间竞争比较严重，为了防止伪共享现象的发生，可以采用上面的宏定义使得变量在 Cache Line 里是对齐的。&lt;/p>
+&lt;p>举个例子，有下面这个结构体：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000491-c5a44808-d6bd-4473-bf63-27f647d9424c.jpeg" alt="">&lt;/p>
+&lt;p>结构体里的两个成员变量 a 和 b 在物理内存地址上是连续的，于是它们可能会位于同一个 Cache Line 中，如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000557-4f27667e-a691-4520-9a1a-1a94daf90b58.jpeg" alt="">&lt;/p>
+&lt;p>所以，为了防止前面提到的 Cache 伪共享问题，我们可以使用上面介绍的宏定义，将 b 的地址设置为 Cache Line 对齐地址，如下：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000550-2c4bc0b1-f0ad-4175-9d52-96a0a681f2d0.jpeg" alt="">&lt;/p>
+&lt;p>这样 a 和 b 变量就不会在同一个 Cache Line 中了，如下图：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000521-5ab50104-bf7c-4060-a548-55acccc87d7a.jpeg" alt="">&lt;/p>
+&lt;p>所以，避免 Cache 伪共享实际上是用空间换时间的思想，浪费一部分 Cache 空间，从而换来性能的提升。&lt;/p>
+&lt;p>我们再来看一个应用层面的规避方案，有一个 Java 并发框架 Disruptor 使用「字节填充 + 继承」的方式，来避免伪共享的问题。&lt;/p>
+&lt;p>Disruptor 中有一个 RingBuffer 类会经常被多个线程使用，代码如下：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000521-5bae0de8-d1ae-4158-b32b-6bd77238a78a.jpeg" alt="">&lt;/p>
+&lt;p>你可能会觉得 RingBufferPad 类里 7 个 long 类型的名字很奇怪，但事实上，它们虽然看起来毫无作用，但却对性能的提升起到了至关重要的作用。&lt;/p>
+&lt;p>我们都知道，CPU Cache 从内存读取数据的单位是 CPU Line，一般 64 位 CPU 的 CPU Line 的大小是 64 个字节，一个 long 类型的数据是 8 个字节，所以 CPU 一下会加载 8 个 long 类型的数据。&lt;/p>
+&lt;p>根据 JVM 对象继承关系中父类成员和子类成员，内存地址是连续排列布局的，因此 RingBufferPad 中的 7 个 long 类型数据作为 Cache Line 前置填充，而 RingBuffer 中的 7 个 long 类型数据则作为 Cache Line 后置填充，这 14 个 long 变量没有任何实际用途，更不会对它们进行读写操作。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000549-6724dc6d-ecd9-48b9-a025-b71e4a45eb86.jpeg" alt="">&lt;/p>
+&lt;p>另外，RingBufferFelds 里面定义的这些变量都是 final 修饰的，意味着第一次加载之后不会再修改， 又由于「前后」各填充了 7 个不会被读写的 long 类型变量，所以无论怎么加载 Cache Line，这整个 Cache Line 里都没有会发生更新操作的数据，于是只要数据被频繁地读取访问，就自然没有数据被换出 Cache 的可能，也因此不会产生伪共享的问题。&lt;/p>
+&lt;hr>
+&lt;h1 id="cpu-如何选择线程的">CPU 如何选择线程的？&lt;a class="td-heading-self-link" href="#cpu-%e5%a6%82%e4%bd%95%e9%80%89%e6%8b%a9%e7%ba%bf%e7%a8%8b%e7%9a%84" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>详见：&lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95.md">CPU 调度算法&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;h1 id="总结">总结&lt;a class="td-heading-self-link" href="#%e6%80%bb%e7%bb%93" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>理解 CPU 是如何读写数据的前提，是要理解 CPU 的架构，CPU 内部的多个 Cache + 外部的内存和磁盘都就构成了金字塔的存储器结构，在这个金字塔中，越往下，存储器的容量就越大，但访问速度就会小。&lt;/p>
+&lt;p>CPU 读写数据的时候，并不是按一个一个字节为单位来进行读写，而是以 CPU Line 大小为单位，CPU Line 大小一般是 64 个字节，也就意味着 CPU 读写数据的时候，每一次都是以 64 字节大小为一块进行操作。&lt;/p>
+&lt;p>因此，如果我们操作的数据是数组，那么访问数组元素的时候，按内存分布的地址顺序进行访问，这样能充分利用到 Cache，程序的性能得到提升。但如果操作的数据不是数组，而是普通的变量，并在多核 CPU 的情况下，我们还需要避免 Cache Line 伪共享的问题。&lt;/p>
+&lt;p>所谓的 Cache Line 伪共享问题就是，多个线程同时读写同一个 Cache Line 的不同变量时，而导致 CPU Cache 失效的现象。那么对于多个线程共享的热点数据，即经常会修改的数据，应该避免这些数据刚好在同一个 Cache Line 中，避免的方式一般有 Cache Line 大小字节对齐，以及字节填充等方法。&lt;/p>
+&lt;p>系统中需要运行的多线程数一般都会大于 CPU 核心，这样就会导致线程排队等待 CPU，这可能会产生一定的延时，如果我们的任务对延时容忍度很低，则可以通过一些人为手段干预 Linux 的默认调度策略和优先级。&lt;/p></description></item></channel></rss>
