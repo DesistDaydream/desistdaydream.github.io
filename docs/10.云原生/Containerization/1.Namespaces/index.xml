@@ -20,7 +20,7 @@
 &lt;p>这里的资源包括 进程 ID、主机名、用户 ID、网络 等等。&lt;/p>
 &lt;/blockquote>
 &lt;p>如果把 Linux 操作系统比作一个大房子，那名称空间指的就是这个房子中的一个个房间，住在每个房间里的人都自以为独享了整个房子的资源，但其实大家仅仅只是在共享的基础之上互相隔离，共享指的是共享全局的资源，而隔离指的是局部上彼此保持隔离，因而名称空间的本质就是指：一种在空间上隔离的概念，当下盛行的许多容器虚拟化技术（典型代表如 LXC、Docker）就是基于 Linux 名称空间的概念而来的。&lt;/p>
-&lt;p>很早以前的 Unix 有一个叫 chroot 的系统调用(通过修改根目录把用户 &lt;strong>jail(监狱)&lt;/strong> 到一个特定目录下)，chroot 提供了一种简单的隔离模式(隔离目录)：chroot 内部的文件系统无法访问外部的内容，详见 ftp 实现工具，chroot 说明。Linux Namespace 就是基于 chroot 的概念扩展而来，提供了对系统下更多资源的隔离机制。&lt;/p>
+&lt;p>很早以前的 Unix 有一个叫 &lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux%20%E7%AE%A1%E7%90%86/Linux%20%E7%B3%BB%E7%BB%9F%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/Chroot.md">Chroot&lt;/a> 的系统调用（通过修改根目录把用户 &lt;strong>jail(监狱)&lt;/strong> 到一个特定目录下），Chroot 提供了一种简单的隔离模式(隔离目录)：Chroot 内部的文件系统无法访问外部的内容。Linux Namespace 就是基于 Chroot 的概念扩展而来，提供了对系统下更多资源的隔离机制。&lt;/p>
 &lt;p>操作系统通过虚拟内存技术，使得每个用户进程都认为自己拥有所有的物理内存，这是操作系统对内存的虚拟化。操作系统通过分时调度系统，每个进程都能被【公平地】调度执行，即每个进程都能获取到 CPU，使得每个进程都认为自己在进程活动期间拥有所有的 CPU 时间，这是操作系统对 CPU 的虚拟化。&lt;/p>
 &lt;p>从这两种虚拟化方式可推知，当使用某种虚拟化技术去管理进程时，进程会认为自己拥有某种物理资源的全部。&lt;/p>
 &lt;p>虚拟内存和分时系统均是对物理资源进行虚拟化，其实操作系统中还有很多非物理资源，比如用户权限系统资源、网络协议栈资源、文件系统挂载路径资源等。通过 Linux 的 namespace 功能，可以对这些非物理全局资源进行虚拟化。&lt;/p>
@@ -126,22 +126,23 @@ Linux Namespaces 的灵感来自 &lt;a href="https://en.wikipedia.org/wiki/Plan_
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx uts -&amp;gt; uts:&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>4026531838&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这些文件表示当前进程打开的 namespace 资源，每一个文件都是一个软链接，所指向的文件是一串格式特殊的名称。冒号后面中括号内的数值表示该 namespace 的 inode。如果不同进程的 namespace inode 相同，说明这些进程属于同一个 namespace。&lt;/p>
 &lt;p>从结果上来看，每个进程都运行在多个 namespace 中，且 pid=1 和 &lt;code>pid=$$(当前 Shell 进程)两个进程的 namespace 完全一样，说明它们运行在相同的环境下(root namespace)&lt;/code>。&lt;/p>
-&lt;pre tabindex="0">&lt;code># namespace概念和细节相关man文档。这些 man 手册在 3.10 内核及之前版本是没有的
-man namespaces
-man uts_namespaces
-man network_namespaces
-man ipc_namespaces
-man pid_namespaces
-man mount_namespaces
-man user_namespaces
-man time_namespaces
-man cgroup_namespaces
-# namespace管理工具
-man unshare # 创建namespace
-man nscreate # 创建namespace，老版本的内核没有该工具
-man nsenter # 切换namespace
-man lsns # 查看当前已创建的namespace
-&lt;/code>&lt;/pre>&lt;h1 id="namespace-的具体实现">Namespace 的具体实现&lt;a class="td-heading-self-link" href="#namespace-%e7%9a%84%e5%85%b7%e4%bd%93%e5%ae%9e%e7%8e%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># namespace 概念和细节相关 man 文档。这些 man 手册在 3.10 内核及之前版本是没有的&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man namespaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man uts_namespaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man network_namespaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man ipc_namespaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man pid_namespaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man mount_namespaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man user_namespaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man time_namespaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man cgroup_namespaces
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># namespace 管理工具&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man unshare &lt;span style="color:#8f5902;font-style:italic"># 创建namespace&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man nscreate &lt;span style="color:#8f5902;font-style:italic"># 创建namespace，老版本的内核没有该工具&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man nsenter &lt;span style="color:#8f5902;font-style:italic"># 切换namespace&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>man lsns &lt;span style="color:#8f5902;font-style:italic"># 查看当前已创建的namespace&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="namespace-的具体实现">Namespace 的具体实现&lt;a class="td-heading-self-link" href="#namespace-%e7%9a%84%e5%85%b7%e4%bd%93%e5%ae%9e%e7%8e%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>对于 Linux 系统来说，自己本身就是一个 Namespace。系统启动的第一个进程 systemd 自己就有对应的 6 个名称空间，可以通过 lsns 命令看到 pid 为 1 的进程所使用的 Namespace，我们平时操作的地方就是 systemd 所在的 jail，所以能看到的 &lt;code>/&lt;/code> 就是 systemd 所在 jail 规定出来的 &lt;code>/&lt;/code>&lt;/p>
 &lt;p>Linux Namespace 主要使用三个系统调用来实现&lt;/p>
 &lt;ul>
@@ -165,14 +166,14 @@ man lsns # 查看当前已创建的namespace
 &lt;h1 id="namespace-关联文件">Namespace 关联文件&lt;a class="td-heading-self-link" href="#namespace-%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>主信息：&lt;/p>
 &lt;ul>
-&lt;li>&lt;strong>/proc/PID/ns/*&lt;/strong> # 由于 namespace 都是与进程相关联，那么可以通过从每个进程的 ns 目录查看相关进程的 namespace 使用情况&lt;/li>
+&lt;li>&lt;strong>/proc/PID/ns/&lt;/strong> # 由于 namespace 都是与进程相关联，那么可以通过从每个进程的 ns 目录查看相关进程的 namespace 使用情况&lt;/li>
 &lt;/ul>
 &lt;p>Network Namespace：&lt;/p>
 &lt;ul>
 &lt;li>&lt;strong>/var/run/netns/NAME&lt;/strong> # 该目录为 &lt;code>ip netns&lt;/code> 命令所能调取查看的目录
-&lt;ol>
+&lt;ul>
 &lt;li>如果想让 &lt;code>ip netns&lt;/code> 命令查看到网络名称空间的信息，则需要把 /proc/PID/ns/net 文件链接到该目录即可&lt;/li>
-&lt;/ol>
+&lt;/ul>
 &lt;/li>
 &lt;/ul></description></item><item><title>Docs: Network Namespace</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/Network-Namespace/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/Network-Namespace/</guid><description/></item><item><title>Docs: PID Namespace</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/PID-Namespace/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/PID-Namespace/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
@@ -186,7 +187,7 @@ man lsns # 查看当前已创建的namespace
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886405-a8e61f79-d690-4eb0-a0ff-818a704e6d35.png" alt="">&lt;/p>
 &lt;p>上图中的结果似乎不是我们想要的，因为显示的 PID namespace 并没有变化。让我们接着做实验：&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886383-f38feb75-27c3-4dcb-87ab-03d41a12597c.png" alt="">&lt;/p>
-&lt;p>看样子 ps 命令显示的 PID 还是旧 namespace 中的编号，而 $$ 为 1 说明当前进程已经被认为是该 PID namespace 中的 1 号进程了。再看看 1 号进程的详细信息：/sbin/init，这是系统的 init 进程，这一切看起来实在是太乱了。&lt;/p>
+&lt;p>看样子 ps 命令显示的 PID 还是旧 namespace 中的编号，而 &lt;code>$$&lt;/code> 为 1 说明当前进程已经被认为是该 PID namespace 中的 1 号进程了。再看看 1 号进程的详细信息：/sbin/init，这是系统的 init 进程，这一切看起来实在是太乱了。&lt;/p>
 &lt;p>造成混乱的原因是当前进程没有正确的挂载 /proc 文件系统，由于我们新的 mount namespace 的挂载信息是从老的 namespace 拷贝过来的，所以这里看到的还是老 namespace 里面的进程号为 1 的信息。执行下面的命令挂载 /proc 文件系统：&lt;/p>
 &lt;p>$ mount -t proc proc /proc&lt;/p>
 &lt;p>然后再来检查相关的信息：&lt;/p>
@@ -197,19 +198,12 @@ man lsns # 查看当前已创建的namespace
 &lt;p>这样在创建了 PID 和 Mount namespace 后，会自动挂载 /proc 文件系统，就不需要我们手动执行 mount -t proc proc /proc 命令了。&lt;/p>
 &lt;h1 id="不能修改的进程-pid-namespace">不能修改的进程 PID namespace&lt;a class="td-heading-self-link" href="#%e4%b8%8d%e8%83%bd%e4%bf%ae%e6%94%b9%e7%9a%84%e8%bf%9b%e7%a8%8b-pid-namespace" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>在前面的演示中我们为 unshare 命令添加了 &amp;ndash;fork /bin/bash 参数：&lt;/p>
-&lt;pre>&lt;code>sudo unshare --pid --mount-proc --fork /bin/bash
-&lt;/code>&lt;/pre>
-&lt;p>1
-Plain Text&lt;/p>
-&lt;p>&amp;ndash;fork 是为了让 unshare 进程 fork 一个新的进程出来，然后再用 /bin/bash 替换掉新的进程中执行的命令。需要这么做是由于 PID namespace 本身的特点导致的。进程所属的 PID namespace 在它创建的时候就确定了，不能更改，所以调用 unshare 和 nsenter 等命令后，原进程还是属于老的 PID namespace，新 fork 出来的进程才属于新的 PID namespace。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>sudo unshare --pid --mount-proc --fork /bin/bash
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&amp;ndash;fork 是为了让 unshare 进程 fork 一个新的进程出来，然后再用 /bin/bash 替换掉新的进程中执行的命令。需要这么做是由于 PID namespace 本身的特点导致的。进程所属的 PID namespace 在它创建的时候就确定了，不能更改，所以调用 unshare 和 nsenter 等命令后，原进程还是属于老的 PID namespace，新 fork 出来的进程才属于新的 PID namespace。&lt;/p>
 &lt;p>我们在一个 shell 中执行下面的命令：&lt;/p>
-&lt;pre>&lt;code>echo $$
-sudo unshare --pid --mount-proc --fork /bin/bash
-&lt;/code>&lt;/pre>
-&lt;p>1
-2
-Shell&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886376-06b3b42c-1259-4ee9-987b-4aa84f6902c9.png" alt="">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">echo&lt;/span> &lt;span style="color:#000">$$&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo unshare --pid --mount-proc --fork /bin/bash
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886376-06b3b42c-1259-4ee9-987b-4aa84f6902c9.png" alt="">&lt;/p>
 &lt;p>然后新打开一个 shell 检查进程所属的 PID namespace：&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886440-1017aa5f-bde5-4274-974a-c05c6cce2900.png" alt="">&lt;/p>
 &lt;p>查看进程树中进程所属的 PID namespace，只有被 unshare fork 出来的 bash 进程加入了新的 PID namespace。&lt;/p>
@@ -265,54 +259,32 @@ Shell&lt;/p>
 &lt;p>继续以上面三个 PID namespace 为例，第一步，先回到第一个 shell 窗口， 新启动两个 bash 进程：&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886449-14d989ed-8a56-45c7-abc5-6c60c637fbd1.png" alt="">&lt;/p>
 &lt;p>首先，利用 unshare、nohup 和 sleep 命令组合，创建出父子进程。下面的命令 fork 出一个子进程并在后台 sleep 一小时：&lt;/p>
-&lt;pre>&lt;code>unshare --fork nohup sleep 3600&amp;amp;
-pstree -p
-&lt;/code>&lt;/pre>
-&lt;p>1
-2
-Shell&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886445-7ba2a5b3-2ddd-4bb3-8e05-1f8681fafc75.png" alt="">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>unshare --fork nohup sleep 3600&lt;span style="color:#000;font-weight:bold">&amp;amp;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pstree -p
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886445-7ba2a5b3-2ddd-4bb3-8e05-1f8681fafc75.png" alt="">&lt;/p>
 &lt;p>然后我们 kill 掉进程 unshare(34)：&lt;/p>
-&lt;pre>&lt;code>kill 34
-pstree -p
-&lt;/code>&lt;/pre>
-&lt;p>1
-2
-Shell&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886453-307dde0f-fbca-4fea-ac99-9bd9c9c58a38.png" alt="">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">kill&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">34&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pstree -p
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886453-307dde0f-fbca-4fea-ac99-9bd9c9c58a38.png" alt="">&lt;/p>
 &lt;p>如同我们期望的一样，进程 sleep(35) 被当前 PID namespace 中的 init 进程 bash(1) 收养了！&lt;/p>
 &lt;p>现在 kill 掉进程 sleep(35)并重新执行 unshare &amp;ndash;fork nohup sleep 3600&amp;amp; 命令：&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886426-d531a43e-5154-4ac7-93e8-3207e9350c9e.png" alt="">&lt;/p>
 &lt;p>我们得到了和刚才相同的进程关系，只是进程的 PID 发生了一些变化。&lt;/p>
 &lt;p>第二步，回到第三个 shell 窗口&lt;/p>
 &lt;p>先检查当前的进程树：&lt;/p>
-&lt;pre>&lt;code>$ pstree -p
-bash(1)───
-sudo(12)───unshare(13)───bash(14)───
-sudo(25)───unshare(26)───bash(27)───bash(79)───bash(89)───unshare(105)───sleep(106)
-&lt;/code>&lt;/pre>
-&lt;p>1
-2
-3
-4
-Shell&lt;/p>
-&lt;p>我们先 kill 掉 sleep 进程的父进程 unshare(105)：&lt;/p>
-&lt;pre>&lt;code>kill 105
-pstree -p
-&lt;/code>&lt;/pre>
-&lt;p>1
-2
-Shell&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886466-1722c940-d36c-4d31-8fb8-6152fb71f100.png" alt="">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ pstree -p
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>bash&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>1&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>───
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>12&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>───unshare&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>13&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>───bash&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>14&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>───
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>25&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>───unshare&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>26&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>───bash&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>27&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>───bash&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>79&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>───bash&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>89&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>───unshare&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>105&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>───sleep&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>106&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们先 kill 掉 sleep 进程的父进程 unshare(105)：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">kill&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">105&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pstree -p
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886466-1722c940-d36c-4d31-8fb8-6152fb71f100.png" alt="">&lt;/p>
 &lt;p>进程 sleep(106)被 bash(27) 收养了而不是 baus(1)，这说明孤儿进程只会被自己 PID namespace 中的 init 进程收养。&lt;/p>
 &lt;p>接下来 kill 掉第二个 PID namespace 中的 init 进程，即这里的 bash(14)：&lt;/p>
-&lt;pre>&lt;code>kill -SIGKILL 14
-pstree -p
-&lt;/code>&lt;/pre>
-&lt;p>1
-2
-Shell&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886430-1bc975f7-e52c-4e9d-b045-ff2ab5584bf0.png" alt="">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">kill&lt;/span> -SIGKILL &lt;span style="color:#0000cf;font-weight:bold">14&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pstree -p
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kvsekb/1616122886430-1bc975f7-e52c-4e9d-b045-ff2ab5584bf0.png" alt="">&lt;/p>
 &lt;p>此时第一个和第三个 shell 窗口都回到了我们创建的第一个 PID namespace 中。我们创建的第二个和第三个 PID namespace 中的进程都被系统清除掉了。&lt;/p>
 &lt;h1 id="总结">总结&lt;a class="td-heading-self-link" href="#%e6%80%bb%e7%bb%93" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>PID namespace 具有比较显著的点，比如可以嵌套，对 init 进程的特殊照顾，孤儿进程的收养等等。尤其是一旦进程的 PID namespace 确定后就不能改变的特点，与其它的 namespace 是完全不一样的。&lt;/p>
@@ -324,27 +296,25 @@ Shell&lt;/p>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>&lt;strong>UTS(UNIX Time-Sharing System)&lt;/strong> Namespace 可隔离 hostname 和 NIS Domain name 资源，使得一个宿主机可拥有多个主机名或 Domain Name。换句话说，可让不同 namespace 中的进程看到不同的主机名。&lt;/p>
 &lt;p>例如，使用 unshare 命令(较新版本 Linux 内核还支持 nscreate 命令)创建一个新的 uts namespace：&lt;/p>
-&lt;pre>&lt;code># -u或--uts表示创建一个uts namespace
-# 这个namespace中运行/bin/bash程序
-$ hostname
-longshuai-vm # 当前root namespace的主机名为longshuai-vm
-$ sudo unshare -u /bin/bash
-root@longshuai-vm:/home/longshuai# # 进入了新的namespace中的shell
-# 其主机名初始时也是longshuai-vm，
-# 其拷贝自上级namespace资源
-&lt;/code>&lt;/pre>
-&lt;p>上面指定运行的是/bin/bash 程序，这会进入交互式模式，当执行 exit 时，bash 退出，回到当前的 namespace 中。也可以指定在 namespace 中运行其他程序，例如 unshare -u sleep 3 表示在 uts namespace 中睡眠 3 秒后退出并回到当前 namespace。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># -u或--uts表示创建一个uts namespace&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 这个namespace中运行/bin/bash程序&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ hostname
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>longshuai-vm &lt;span style="color:#8f5902;font-style:italic"># 当前root namespace的主机名为longshuai-vm&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ sudo unshare -u /bin/bash
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@longshuai-vm:/home/longshuai# &lt;span style="color:#8f5902;font-style:italic"># 进入了新的namespace中的shell&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 其主机名初始时也是longshuai-vm，&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 其拷贝自上级namespace资源&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面指定运行的是/bin/bash 程序，这会进入交互式模式，当执行 exit 时，bash 退出，回到当前的 namespace 中。也可以指定在 namespace 中运行其他程序，例如 unshare -u sleep 3 表示在 uts namespace 中睡眠 3 秒后退出并回到当前 namespace。&lt;/p>
 &lt;p>因为是 uts namespace，所以可在此 namespace 中修改主机名：&lt;/p>
-&lt;pre>&lt;code># 修改该namespace的主机名为ns1
-# 修改后会立即生效，但不会显示在当前Shell提示符下
-# 需重新加载Shell环境
-root@longshuai-vm:/home/longshuai# hostname ns1
-root@longshuai-vm:/home/longshuai# hostname
-ns1
-root@longshuai-vm:/home/longshuai# exec $SHELL
-root@ns1:/home/longshuai#
-&lt;/code>&lt;/pre>
-&lt;p>namespace 中修改的主机名不会直接修改主机名配置文件(如/etc/hostname)，而是修改内核属性/proc/sys/kernel/hostname：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 修改该namespace的主机名为ns1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 修改后会立即生效，但不会显示在当前Shell提示符下&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 需重新加载Shell环境&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@longshuai-vm:/home/longshuai# hostname ns1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@longshuai-vm:/home/longshuai# hostname
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ns1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@longshuai-vm:/home/longshuai# &lt;span style="color:#204a87">exec&lt;/span> &lt;span style="color:#000">$SHELL&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@ns1:/home/longshuai#
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>namespace 中修改的主机名不会直接修改主机名配置文件(如/etc/hostname)，而是修改内核属性/proc/sys/kernel/hostname：&lt;/p>
 &lt;pre>&lt;code>root@ns1:/home/longshuai# cat /proc/sys/kernel/hostname
 ns1
 root@ns1:/home/longshuai# cat /etc/hostname

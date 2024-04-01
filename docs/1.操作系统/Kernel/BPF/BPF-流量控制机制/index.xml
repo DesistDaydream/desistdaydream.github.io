@@ -900,30 +900,25 @@
 &lt;p>eBPF 能够让你**在内核中****创建新的 DataPath**。eBPF 就是内核本身的代码，想象空间无限，并且热加载到内核；换句话说，一旦加载到内核，内核的行为就变了。在 eBPF 之前，改变内核行为这件事情，只能通过修改内核再重新编译，或者开发内 核模块才能实现。&lt;/p>
 &lt;p>由于上述原因，真正的 eBPF，应该是基于 eBPF 实现的数据路径，由于 eBPF 可以修改内核，所以可以在内核创建新的类似 Netfilter 的 Hook 点，以便跳过复杂的 Netfilter。甚至可以直接在网卡驱动中运行 eBPF 代码，而无需将数据包送到复杂的协议栈进行处理。&lt;/p></description></item><item><title>Docs: XDP eBPF 与 TC eBPF</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/BPF/BPF-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6%E6%9C%BA%E5%88%B6/XDP-eBPF-%E4%B8%8E-TC-eBPF/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/BPF/BPF-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6%E6%9C%BA%E5%88%B6/XDP-eBPF-%E4%B8%8E-TC-eBPF/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>参考：&lt;a href="https://en.wikipedia.org/wiki/Express_Data_Path">Wiki&lt;/a>&lt;/p>
-&lt;p>&lt;strong>eXpress Data Path(特快数据路径，简称 XDP)&lt;/strong> 是从 4.8 版开始在 Linux 内核中合并的基于 eBPF 的高性能数据路径。[1]&lt;/p>
-&lt;p>XDP 背后的想法是在内核的 RX 路径中添加一个早期钩子，然后让用户提供的 eBPF 程序来决定数据包的命运。该挂钩刚好在中断处理之后，在网络堆栈本身需要的任何内存分配之前放置在 NIC 驱动程序中，因为内存分配可能是一项昂贵的操作。由于这种设计，使用商用硬件，XDP 可以每秒每核心丢弃 2 千 6 百万个数据包。[2]&lt;/p>
-&lt;p>eBPF 程序在加载之前必须通过预验证器测试[3]，以避免在内核空间中执行恶意代码。预验证器检查程序是否不包含越界访问，循环或全局变量。&lt;/p>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Express_Data_Path">Wiki，Express_Data_Path&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>eXpress Data Path(特快数据路径，简称 XDP)&lt;/strong> 是从 4.8 版开始在 Linux 内核中合并的基于 eBPF 的高性能数据路径。&lt;/p>
+&lt;p>XDP 背后的想法是在内核的 RX 路径中添加一个早期钩子，然后让用户提供的 eBPF 程序来决定数据包的命运。该挂钩刚好在中断处理之后，在网络堆栈本身需要的任何内存分配之前放置在 NIC 驱动程序中，因为内存分配可能是一项昂贵的操作。由于这种设计，使用商用硬件，XDP 可以每秒每核心丢弃 2 千 6 百万个数据包。&lt;/p>
+&lt;p>eBPF 程序在加载之前必须通过预验证器测试，以避免在内核空间中执行恶意代码。预验证器检查程序是否不包含越界访问，循环或全局变量。&lt;/p>
 &lt;p>Linux 内核中的数据包流路径。XDP 绕过了网络堆栈和数据包元数据的内存分配。&lt;/p>
 &lt;p>允许程序编辑数据包数据，并且在 eBPF 程序返回后，操作代码确定如何处理数据包：&lt;/p>
 &lt;ul>
-&lt;li>
-&lt;p>&lt;code>XDP_PASS&lt;/code>：让数据包继续通过网络堆栈&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;code>XDP_DROP&lt;/code>：静默丢弃数据包&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;code>XDP_ABORTED&lt;/code>：丢弃具有跟踪点异常的数据包&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;code>XDP_TX&lt;/code>：将数据包弹回到达的同一网卡&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>&lt;code>XDP_REDIRECT&lt;/code>：通过 AF_XDP 地址族将数据包重定向到另一个 NIC 或用户空间套接字&lt;/p>
-&lt;/li>
+&lt;li>&lt;code>XDP_PASS&lt;/code>：让数据包继续通过网络堆栈&lt;/li>
+&lt;li>&lt;code>XDP_DROP&lt;/code>：静默丢弃数据包&lt;/li>
+&lt;li>&lt;code>XDP_ABORTED&lt;/code>：丢弃具有跟踪点异常的数据包&lt;/li>
+&lt;li>&lt;code>XDP_TX&lt;/code>：将数据包弹回到达的同一网卡&lt;/li>
+&lt;li>&lt;code>XDP_REDIRECT&lt;/code>：通过 AF_XDP 地址族将数据包重定向到另一个 NIC 或用户空间套接字&lt;/li>
 &lt;/ul>
-&lt;p>XDP 需要 NIC 驱动程序的支持，但由于并非所有驱动程序都支持 XDP，因此它可以回退到通用实现，该通用实现在网络堆栈中执行 eBPF 处理，但性能较慢。[4]&lt;/p>
-&lt;p>XDP 具有将 eBPF 程序卸载到支持它的 NIC 卡的基础结构，从而减少了 CPU 负载。当时只有 Netronome 卡支持它，[5]由 Intel 和 Mellanox 共同开发。[6]&lt;/p>
-&lt;p>AF_XDP [编辑]&lt;/p>
-&lt;p>与 XDP 一起，从 4.18 开始在 Linux 内核中输入了一个新的地址族。[7] AF_XDP，以前称为 AF_PACKETv4（从未包含在主线内核中），[8]是针对高性能数据包处理进行了优化的原始套接字，并允许内核与应用程序之间的零复制。由于套接字可用于接收和发送，因此它仅在用户空间中支持高性能网络应用程序。[9]&lt;/p></description></item></channel></rss>
+&lt;p>XDP 需要 NIC 驱动程序的支持，但由于并非所有驱动程序都支持 XDP，因此它可以回退到通用实现，该通用实现在网络堆栈中执行 eBPF 处理，但性能较慢。&lt;/p>
+&lt;p>XDP 具有将 eBPF 程序卸载到支持它的 NIC 卡的基础结构，从而减少了 CPU 负载。当时只有 Netronome 卡支持它，[5]由 Intel 和 Mellanox 共同开发。&lt;/p>
+&lt;p>AF_XDP&lt;/p>
+&lt;p>与 XDP 一起，从 4.18 开始在 Linux 内核中输入了一个新的地址族。AF_XDP，以前称为 AF_PACKETv4（从未包含在主线内核中），是针对高性能数据包处理进行了优化的原始套接字，并允许内核与应用程序之间的零复制。由于套接字可用于接收和发送，因此它仅在用户空间中支持高性能网络应用程序。&lt;/p></description></item></channel></rss>
