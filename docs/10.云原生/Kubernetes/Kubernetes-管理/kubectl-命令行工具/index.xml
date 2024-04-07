@@ -1,0 +1,875 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – kubectl 命令行工具</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><description>Recent content in kubectl 命令行工具 on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: kubectl 命令行工具</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/kubectl/">官方文档，参考-kubectl&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/tools/#kubectl">官方文档，任务-安装工具-kubectl&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/kubectl/cheatsheet/">官方推荐常用命令备忘录&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>kubectl 所用的 kubeconfig 文件，默认在 &lt;code>~/.kube/confg&lt;/code>，该文件用于定位 Kubernetes 集群以及与 API Server 交互时进行认证，如果没有认证文件则 API Server 无法处理 kubectl 发出的任何指令并返回错误信息。&lt;/p>
+&lt;p>如果该文件不存在或配置不全(比如没有指定 current-context 字段)，kubectl 则会向 localhost:8080 发起请求(该端口是 API Server 默认监听的不安全端口，该端口不需要认证即可对集群执行所有操作)。&lt;/p>
+&lt;p>由于 API Server 默认不开启不安全端口，所以在没有配置文件时，就会报如下错误：&lt;code>The connection to the server localhost:8080 was refused - did you specify the right host or port?&lt;/code>&lt;/p>
+&lt;p>如果 kubectl 使用的 KubeConfig 文件中，没有集群的 ca 信息，则会报如下错误：&lt;code>Error from server (BadRequest): the server rejected our request for an unknown reason&lt;/code>&lt;/p>
+&lt;h1 id="kubeclt-安装">kubeclt 安装&lt;a class="td-heading-self-link" href="#kubeclt-%e5%ae%89%e8%a3%85" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="在-linux-上安装-kubectl">在 Linux 上安装 kubectl&lt;a class="td-heading-self-link" href="#%e5%9c%a8-linux-%e4%b8%8a%e5%ae%89%e8%a3%85-kubectl" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>Ubuntu&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>sudo apt-get update &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span> sudo apt-get install -y apt-transport-https gnupg2 curl
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>curl https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg &lt;span style="color:#000;font-weight:bold">|&lt;/span> sudo apt-key add -
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">echo&lt;/span> &lt;span style="color:#4e9a06">&amp;#39;deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main&amp;#39;&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> sudo tee /etc/apt/sources.list.d/kubernetes.list
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo apt-get update
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>sudo apt-get install -y kubectl
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>CentOS&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>cat &lt;span style="color:#4e9a06">&amp;lt;&amp;lt;EOF &amp;gt; /etc/yum.repos.d/kubernetes.repo
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">[kubernetes]
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">name=Kubernetes
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">enabled=1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">gpgcheck=1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">repo_gpgcheck=1
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">EOF&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>yum install -y kubectl
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="直接下载二进制文件">直接下载二进制文件&lt;a class="td-heading-self-link" href="#%e7%9b%b4%e6%8e%a5%e4%b8%8b%e8%bd%bd%e4%ba%8c%e8%bf%9b%e5%88%b6%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">RELEASE&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;v1.26.1&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">ARCH&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;amd64&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>curl -LO https://dl.k8s.io/release/&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">RELEASE&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>/bin/linux/&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">ARCH&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>/kubectl
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="下载后处理">下载后处理&lt;a class="td-heading-self-link" href="#%e4%b8%8b%e8%bd%bd%e5%90%8e%e5%a4%84%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>安装完成后，使用 &lt;code>kubectl completion bash &amp;gt; /etc/bash_completion.d/kubectl&lt;/code> 生成自动补全功能。&lt;/p>
+&lt;h1 id="kubectl-管理文件与配置">kubectl 管理文件与配置&lt;a class="td-heading-self-link" href="#kubectl-%e7%ae%a1%e7%90%86%e6%96%87%e4%bb%b6%e4%b8%8e%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>~/.kube/config&lt;/strong> # kubeclt 使用的 kubeconfig 文件的默认路径。kubectl 工具运行时将会使用该文件作为连接 kubernetes 集群的信息&lt;/p>
+&lt;p>kubeamd 部署的集群一般直接使用 /etc/kubernetes/admin.conf 文件拷贝到 ~/.kube/ 目录下并改名为 config&lt;/p>
+&lt;p>环境变量&lt;/p>
+&lt;ul>
+&lt;li>KUBECONFIG # kubectl 命令加载 kubeconfig 文件的路径&lt;/li>
+&lt;/ul>
+&lt;h1 id="syntax语法">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands">官方文档，参考-kubectl 命令&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>kubectl COMMAND [TYPE] [NAME] [FLAGS]&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>COMMAND&lt;/strong> # 指定要在一个或多个资源进行操作，例如 create，get，describe，delete。&lt;/li>
+&lt;li>&lt;strong>TYPE&lt;/strong> # 指定资源类型。资源类型不区分大小写，您可以指定单数，复数或缩写形式。&lt;/li>
+&lt;li>&lt;strong>NAME&lt;/strong> # 指定资源的名称。名称区分大小写。如果省略名称，则显示所有资源的详细信息$ kubectl get pods。&lt;/li>
+&lt;li>&lt;strong>FLAGS&lt;/strong> # 指定全局命令行标志。例如，可以使用&amp;ndash;kubeconfig 指定 kubectl 命令执行所使用的配置文件。&lt;/li>
+&lt;/ul>
+&lt;h2 id="global-flags全局标志">Global FLAGS(全局标志)&lt;a class="td-heading-self-link" href="#global-flags%e5%85%a8%e5%b1%80%e6%a0%87%e5%bf%97" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;a href="https://kubernetes.io/docs/reference/kubectl/kubectl/#options">https://kubernetes.io/docs/reference/kubectl/kubectl/#options&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;kubeconfig=/PATH/TO/FILE&lt;/strong> # 指定 kubectl 所要使用的配置文件(需要使用绝对路径)&lt;/li>
+&lt;li>&lt;strong>-v, &amp;ndash;v NUM&lt;/strong> # 指定 kubectl 命令执行的 debug 级别，&lt;code>默认值: 0&lt;/code>。如果使用高级别，可以看到 RESTful 风格请求 APIServer 时的请求头以及响应头信息。打开调试日志也可以看到每个 API 调用的格式。&lt;/li>
+&lt;/ul>
+&lt;h1 id="basic-commands-beginner基本命令初学者">Basic Commands (Beginner)(基本命令(初学者))&lt;a class="td-heading-self-link" href="#basic-commands-beginner%e5%9f%ba%e6%9c%ac%e5%91%bd%e4%bb%a4%e5%88%9d%e5%ad%a6%e8%80%85" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>create # 从文件或者 stdin 上创建一个资源&lt;/p>
+&lt;p>expose # 创建一个新的 service 资源&lt;/p>
+&lt;ul>
+&lt;li>kubectl expose deployment nginx &amp;ndash;name nginx-svc &amp;ndash;port 80 &amp;ndash;type=NodePort&lt;/li>
+&lt;/ul>
+&lt;p>run # 在集群上创建并运行一个特定的镜像
+基于 deployment 或 job 来管理和创建容器&lt;/p>
+&lt;p>set # 配置应用程序资源，用法详见单独章节&lt;/p>
+&lt;h1 id="basic-commands-intermediate基本命令中级">Basic Commands (Intermediate)(基本命令(中级))&lt;a class="td-heading-self-link" href="#basic-commands-intermediate%e5%9f%ba%e6%9c%ac%e5%91%bd%e4%bb%a4%e4%b8%ad%e7%ba%a7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="explain---解释列出资源所支持的字段">explain - 解释。列出资源所支持的字段&lt;a class="td-heading-self-link" href="#explain---%e8%a7%a3%e9%87%8a%e5%88%97%e5%87%ba%e8%b5%84%e6%ba%90%e6%89%80%e6%94%af%e6%8c%81%e7%9a%84%e5%ad%97%e6%ae%b5" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>kubectl explain RESOURCE[.FIELD1.FELD2&amp;hellip;FIELDn] [options] # 每个 FIELD(字段)都可以用.后面跟字段名来查询这个字段下的描述信息，以及该字段下还可以声明什么字段&lt;/p>
+&lt;ul>
+&lt;li>EXAMPLE
+&lt;ul>
+&lt;li>kubectl explain pods.spec.containers&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>字段说明：&lt;/p>
+&lt;ul>
+&lt;li>-required- # 表示该字段为其父字段的必备字段&lt;/li>
+&lt;li>&amp;lt;[]Object&amp;gt; # 表示该字段下的子字段可以以列表形式定义，使用-符号定义多个该字段&lt;/li>
+&lt;li>#表示该字段需要加字符串来定义该字段，不再包含子字段&lt;/li>
+&lt;li>&amp;lt;[]string&amp;gt; # 表示该字段的字符串以列表形式，前面每个参数都要加-符号，依然要使用子字段来写这些字符串&lt;/li>
+&lt;/ul>
+&lt;h2 id="get---显示一个或多个资源">get - 显示一个或多个资源&lt;a class="td-heading-self-link" href="#get---%e6%98%be%e7%a4%ba%e4%b8%80%e4%b8%aa%e6%88%96%e5%a4%9a%e4%b8%aa%e8%b5%84%e6%ba%90" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>详见：get 和 describe 显示资源信息命令&lt;/p>
+&lt;h2 id="edit---编辑服务器上的资源">edit - 编辑服务器上的资源&lt;a class="td-heading-self-link" href="#edit---%e7%bc%96%e8%be%91%e6%9c%8d%e5%8a%a1%e5%99%a8%e4%b8%8a%e7%9a%84%e8%b5%84%e6%ba%90" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>详见《&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes%20%E7%AE%A1%E7%90%86/kubectl%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9B%E5%BB%BA%E4%B8%8E%E4%BF%AE%E6%94%B9%E5%91%BD%E4%BB%A4.md">对象的创建与修改命令&lt;/a>》&lt;/p>
+&lt;h2 id="delete---通过文件名标准输入资源名或者资源表删除资源">delete - 通过文件名、标准输入、资源名或者资源表删除资源&lt;a class="td-heading-self-link" href="#delete---%e9%80%9a%e8%bf%87%e6%96%87%e4%bb%b6%e5%90%8d%e6%a0%87%e5%87%86%e8%be%93%e5%85%a5%e8%b5%84%e6%ba%90%e5%90%8d%e6%88%96%e8%80%85%e8%b5%84%e6%ba%90%e8%a1%a8%e5%88%a0%e9%99%a4%e8%b5%84%e6%ba%90" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl delete deployment nginx-deployment&lt;/li>
+&lt;li>kubectl delete -f nginx.yaml&lt;/li>
+&lt;li>kubectl delete pods nginx &amp;ndash;grace-period=0 &amp;ndash;force # 强制删除 nginx 这个 pod&lt;/li>
+&lt;/ul>
+&lt;h1 id="deploy-commands部署命令">Deploy Commands(部署命令)&lt;a class="td-heading-self-link" href="#deploy-commands%e9%83%a8%e7%bd%b2%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="rollout---管理资源的滚动更新用法详见-setrollout-更新资源命令note">rollout - 管理资源的滚动更新，用法详见 set,rollout 更新资源命令.note&lt;a class="td-heading-self-link" href="#rollout---%e7%ae%a1%e7%90%86%e8%b5%84%e6%ba%90%e7%9a%84%e6%bb%9a%e5%8a%a8%e6%9b%b4%e6%96%b0%e7%94%a8%e6%b3%95%e8%af%a6%e8%a7%81-setrollout-%e6%9b%b4%e6%96%b0%e8%b5%84%e6%ba%90%e5%91%bd%e4%bb%a4note" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>scale # 为 Deployment, ReplicaSet, Replication Controller, or Job 设置新的容量大小&lt;/p>
+&lt;p>autoscale      Auto-scale a Deployment, ReplicaSet, or ReplicationController&lt;/p>
+&lt;h1 id="cluster-management-commands集群管理命令">Cluster Management Commands(集群管理命令)&lt;a class="td-heading-self-link" href="#cluster-management-commands%e9%9b%86%e7%be%a4%e7%ae%a1%e7%90%86%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>certificate # 修改证书资源。Modify certificate resources.&lt;/p>
+&lt;p>approve # 批准一个证书请求 Approve a certificate signing request&lt;/p>
+&lt;p>deny # 拒绝一个证书请求。Deny a certificate signing request&lt;/p>
+&lt;h2 id="cluster-info---展示-kubernetes-集群的信息默认展示-master-运行的位置和-dns-运行的位置">cluster-info - 展示 kubernetes 集群的信息，默认展示 master 运行的位置和 DNS 运行的位置&lt;a class="td-heading-self-link" href="#cluster-info---%e5%b1%95%e7%a4%ba-kubernetes-%e9%9b%86%e7%be%a4%e7%9a%84%e4%bf%a1%e6%81%af%e9%bb%98%e8%ae%a4%e5%b1%95%e7%a4%ba-master-%e8%bf%90%e8%a1%8c%e7%9a%84%e4%bd%8d%e7%bd%ae%e5%92%8c-dns-%e8%bf%90%e8%a1%8c%e7%9a%84%e4%bd%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl cluster-info SubCommand [flags] [OPTIONS]&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@lichenhao:~# kubectl cluster-info
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Kubernetes control plane is running at https://k8s-api.bj-net.ehualu.local:6443
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>KubeDNS is running at https://k8s-api.bj-net.ehualu.local:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>To further debug and diagnose cluster problems, use &lt;span style="color:#4e9a06">&amp;#39;kubectl cluster-info dump&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>SubCommand&lt;/p>
+&lt;ul>
+&lt;li>dump # 为调试和诊断倾倒大量相关信息&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl cluster-info # 显示集群信息，效果如图&lt;/li>
+&lt;li>kubectl cluster-info dump # 显示集群的 dbug 信息&lt;/li>
+&lt;/ul>
+&lt;h2 id="top---显示硬件资源cpu内存存储的用量">top - 显示硬件资源(CPU/内存/存储)的用量&lt;a class="td-heading-self-link" href="#top---%e6%98%be%e7%a4%ba%e7%a1%ac%e4%bb%b6%e8%b5%84%e6%ba%90cpu%e5%86%85%e5%ad%98%e5%ad%98%e5%82%a8%e7%9a%84%e7%94%a8%e9%87%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>该命令只有在集群部署玩 metrics-server 或者 kube-state-metrics 等资源后，才可以获得数据。显示每个 Node 或者每个 Pod 使用的硬件资源情况，效果如图
+&lt;strong>kubectl top [flags] [options]&lt;/strong>
+EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl top node # 显示所有 Node 的硬件资源使用量&lt;/li>
+&lt;li>kubectl top pod &amp;ndash;all-namespaces # 显示所有名称空间下的 Pod 对硬件资源的使用量&lt;/li>
+&lt;/ul>
+&lt;h2 id="cordon---将指定节点标记为不可调度">cordon - 将指定节点标记为不可调度&lt;a class="td-heading-self-link" href="#cordon---%e5%b0%86%e6%8c%87%e5%ae%9a%e8%8a%82%e7%82%b9%e6%a0%87%e8%ae%b0%e4%b8%ba%e4%b8%8d%e5%8f%af%e8%b0%83%e5%ba%a6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h2 id="uncordon---将指定节点标记为可调度">uncordon - 将指定节点标记为可调度&lt;a class="td-heading-self-link" href="#uncordon---%e5%b0%86%e6%8c%87%e5%ae%9a%e8%8a%82%e7%82%b9%e6%a0%87%e8%ae%b0%e4%b8%ba%e5%8f%af%e8%b0%83%e5%ba%a6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h2 id="drain---排空指定的节点为维护做准备">drain - 排空指定的节点，为维护做准备&lt;a class="td-heading-self-link" href="#drain---%e6%8e%92%e7%a9%ba%e6%8c%87%e5%ae%9a%e7%9a%84%e8%8a%82%e7%82%b9%e4%b8%ba%e7%bb%b4%e6%8a%a4%e5%81%9a%e5%87%86%e5%a4%87" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>给定节点将被标记为不可调度(就是 &lt;code>cordon&lt;/code> 子命令)，以防止新 Pod 被调度到该节点。如果 APIServer 支持 &lt;a href="http://kubernetes.io/docs/admin/disruptions/">http://kubernetes.io/docs/admin/disruptions/&lt;/a>，则 &lt;code>drain&lt;/code> 会 evicts(驱逐) Pod。否则，它将使用普通的 DELETE 请求删除 Pod。&lt;code>drain&lt;/code> 会驱逐或删除除 mirror pods (不能通过 API 服务器删除) 之外的所有 pod。如果存在 DaemonSet 管理的 Pod，则不会在没有 &amp;ndash;ignore-daemonsets 标志的情况下进行，并且无论如何也不会删除任何 DaemonSet 管理的 Pod，因为这些 Pod 将立即被 DaemonSet 控制器替换，该控制器忽略不可调度的标记。如果有任何 Pod 既不是 mirror pods，也不是由 replicationcontrol,replicaset，DaemonSet，statprit set 或 Job 管理的，则除非使用 &amp;ndash;force，否则不会删除任何 Pod。&amp;ndash; force 还将允许在一个或多个 pod 的管理资源丢失时继续删除。&lt;/p>
+&lt;p>&lt;code>drain&lt;/code> 命令等待优雅的终止。在命令完成之前，不应在计算机上进行操作。&lt;/p>
+&lt;p>当您准备好将节点重新投入服务时，请使用 &lt;code>kubectl uncordon&lt;/code>，这将使节点再次可调度。&lt;/p>
+&lt;h2 id="taint---在一个或多个-node-上更新污点">taint - 在一个或多个 node 上更新污点&lt;a class="td-heading-self-link" href="#taint---%e5%9c%a8%e4%b8%80%e4%b8%aa%e6%88%96%e5%a4%9a%e4%b8%aa-node-%e4%b8%8a%e6%9b%b4%e6%96%b0%e6%b1%a1%e7%82%b9" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl taint NODE NAME KEY_1=VAL_1:TAINT_EFFECT_1 &amp;hellip; KEY_N=VAL_N:TAINT_EFFECT_N [OPTIONS]&lt;/strong>
+定义的时候要指明 key，val 以及 effect，注意格式&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>删除 master 节点上 dedicated:NoSchedule 这个污点
+&lt;ul>
+&lt;li>k&lt;strong>ubectl taint nodes master dedicated:NoSchedule-&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>给 master 节点加一个污点，key 为 node-type，val 为 qa，effect 为 NoExecut
+&lt;ul>
+&lt;li>&lt;strong>kubectl taint nodes master node-type=qa:NoExecute&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="troubleshooting-and-debugging-commands故障排除和调试命令">Troubleshooting and Debugging Commands(故障排除和调试命令)&lt;a class="td-heading-self-link" href="#troubleshooting-and-debugging-commands%e6%95%85%e9%9a%9c%e6%8e%92%e9%99%a4%e5%92%8c%e8%b0%83%e8%af%95%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="debug---创建调试-pod-以便对工作负载或节点进行故障排除">debug - 创建调试 Pod 以便对工作负载或节点进行故障排除&lt;a class="td-heading-self-link" href="#debug---%e5%88%9b%e5%bb%ba%e8%b0%83%e8%af%95-pod-%e4%bb%a5%e4%be%bf%e5%af%b9%e5%b7%a5%e4%bd%9c%e8%b4%9f%e8%bd%bd%e6%88%96%e8%8a%82%e7%82%b9%e8%bf%9b%e8%a1%8c%e6%95%85%e9%9a%9c%e6%8e%92%e9%99%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>详见：&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes%20%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7.md">故障处理技巧章节&lt;/a>&lt;/p>
+&lt;h2 id="describe---显示特定资源或资源组的详细信息">describe - 显示特定资源或资源组的详细信息&lt;a class="td-heading-self-link" href="#describe---%e6%98%be%e7%a4%ba%e7%89%b9%e5%ae%9a%e8%b5%84%e6%ba%90%e6%88%96%e8%b5%84%e6%ba%90%e7%bb%84%e7%9a%84%e8%af%a6%e7%bb%86%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl describe (-f FILENAME | TYPE [NAME_PREFIX | -l label] | TYPE/NAME) [OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl describe node&lt;/li>
+&lt;li>kubectl describe pod kubernetes-dashboard-87f58dc9-j244f &amp;ndash;namespace=kube-system&lt;/li>
+&lt;/ul>
+&lt;h2 id="logs---打印出在一个-pod-中的一个-container-的日志">logs - 打印出在一个 pod 中的一个 container 的日志&lt;a class="td-heading-self-link" href="#logs---%e6%89%93%e5%8d%b0%e5%87%ba%e5%9c%a8%e4%b8%80%e4%b8%aa-pod-%e4%b8%ad%e7%9a%84%e4%b8%80%e4%b8%aa-container-%e7%9a%84%e6%97%a5%e5%bf%97" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>kubectl logs [-f] [-p] (POD | TYPE/NAME) [OPTIONS]&lt;/p>
+&lt;p>详解见：logs.note&lt;/p>
+&lt;p>attach # 连接到一个正在运行的容器上(进入容器)&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl attach client-7c9999bd74-76s4t -it # 进入该 pod 中&lt;/li>
+&lt;/ul>
+&lt;h2 id="exec---在一个容器中执行一条命令">exec - 在一个容器中执行一条命令&lt;a class="td-heading-self-link" href="#exec---%e5%9c%a8%e4%b8%80%e4%b8%aa%e5%ae%b9%e5%99%a8%e4%b8%ad%e6%89%a7%e8%a1%8c%e4%b8%80%e6%9d%a1%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>可执行/bin/sh 命令来进入容器当中&lt;/p>
+&lt;p>&lt;strong>kubectl exec POD [-c CONTAINER] &amp;ndash; COMMAND [args&amp;hellip;] [options]&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>-i, &amp;ndash;stdin=false # 传递 STDIN(标准输入)到这个容器&lt;/li>
+&lt;li>-t, &amp;ndash;tty=false # STDIN(标准输入)是一个 TTY 终端&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl exec -it httpd-79c4f99955-2s8rw &amp;ndash; /bin/sh # 以 TTY 终端的形式传递/bin/sh 命令到容器中&lt;/li>
+&lt;/ul>
+&lt;h2 id="port-forward---转发一个或多个本地端口到一个-pod-上">port-forward - 转发一个或多个本地端口到一个 pod 上&lt;a class="td-heading-self-link" href="#port-forward---%e8%bd%ac%e5%8f%91%e4%b8%80%e4%b8%aa%e6%88%96%e5%a4%9a%e4%b8%aa%e6%9c%ac%e5%9c%b0%e7%ab%af%e5%8f%a3%e5%88%b0%e4%b8%80%e4%b8%aa-pod-%e4%b8%8a" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;address IP&lt;/strong> # 要监听的地址（逗号分隔），默认为 localhost。 仅接受 IP 或 localhost 为值。 提供 localhost 时，kubectl 将尝试同时绑定 127.0.0.1 和:: 1。&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl port-forward -n monitoring prometheus-k8s-0 9090&lt;/li>
+&lt;li>将名为 traefik 的 service 的 8080 和 443 端口，进行端口转发暴露出来，监听的地址是本地 0.0.0.0
+&lt;ul>
+&lt;li>kubectl port-forward &amp;ndash;address 0.0.0.0 service/traefik 8080:8080 443:4443&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="proxy---运行一个到-kubernetes-的-api-服务器的代理程序">proxy - 运行一个到 kubernetes 的 API 服务器的代理程序&lt;a class="td-heading-self-link" href="#proxy---%e8%bf%90%e8%a1%8c%e4%b8%80%e4%b8%aa%e5%88%b0-kubernetes-%e7%9a%84-api-%e6%9c%8d%e5%8a%a1%e5%99%a8%e7%9a%84%e4%bb%a3%e7%90%86%e7%a8%8b%e5%ba%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>在服务器和 Kubernetes API Server 之间创建代理服务器或应用程序级网关。 它还允许在指定的 HTTP 路径上保留静态内容。 所有传入数据都通过一个端口进入，并转发到远程 kubernetes API 服务器端口，但与静态内容路径匹配的路径除外&lt;/p>
+&lt;p>&lt;strong>kubectl proxy [&amp;ndash;port=PORT] [&amp;ndash;www=static-dir] [&amp;ndash;www-prefix=prefix] [&amp;ndash;api-prefix=prefix] [options]&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&amp;ndash;accept-hosts=&amp;lsquo;EXPRESSION&amp;rsquo; # 代理应接受的主机的正则表达式，每个匹配项以逗号分隔。默认为’localhost$,^127.0.0.1$,[::1]$&amp;rsquo;&lt;/li>
+&lt;li>&amp;ndash;accept-paths=&amp;rsquo;^.*&amp;rsquo;: Regular expression for paths that the proxy should accept.&lt;/li>
+&lt;li>&amp;ndash;address=&amp;lsquo;IP&amp;rsquo; # 代理监听的 IP，默认 127.0.0.1&lt;/li>
+&lt;li>&amp;ndash;api-prefix=&amp;rsquo;/&amp;rsquo;: Prefix to serve the proxied API under.&lt;/li>
+&lt;li>&amp;ndash;disable-filter=false: If true, disable request filtering in the proxy. This is dangerous, and can leave you vulnerable to XSRF attacks, when used with an accessible port.&lt;/li>
+&lt;li>&amp;ndash;keepalive=0s: keepalive specifies the keep-alive period for an active network connection. Set to 0 to disable keepalive.&lt;/li>
+&lt;li>-p, &amp;ndash;port=8001 # 代理监听的端口， 设置为 0 则选择一个随机端口。默认 8001&lt;/li>
+&lt;li>&amp;ndash;reject-methods=&amp;rsquo;^$&amp;rsquo;: Regular expression for HTTP methods that the proxy should reject (example&lt;/li>
+&lt;li>&amp;ndash;reject-methods=&amp;lsquo;POST,PUT,PATCH&amp;rsquo;).&lt;/li>
+&lt;li>&amp;ndash;reject-paths=&amp;rsquo;/api/.&lt;em>/pods/.&lt;/em>/exec,/api/.&lt;em>/pods/.&lt;/em>/attach&amp;rsquo;: Regular expression for paths that the proxy should reject. Paths specified here will be rejected even accepted by &amp;ndash;accept-paths.&lt;/li>
+&lt;li>-u, &amp;ndash;unix-socket=&amp;rsquo;&amp;rsquo;: Unix socket on which to run the proxy.&lt;/li>
+&lt;li>-w, &amp;ndash;www=&amp;rsquo;&amp;rsquo;: Also serve static files from the given directory under the specified prefix.&lt;/li>
+&lt;li>-P, &amp;ndash;www-prefix=&amp;rsquo;/static/&amp;rsquo;: Prefix to serve static files under, if static file directory is specified.&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>在本地 8080 端口上启动 API Server 的一个代理网关，以便使用 curl 直接访问 api server 并获取数据
+&lt;ul>
+&lt;li>kubectl proxy &amp;ndash;port=8080&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>kubectl proxy &amp;ndash;port=8080 &amp;ndash;address=0.0.0.0 &amp;ndash;accept-hosts=&amp;lsquo;localhost$,^127.0.0.1$,[::1]$,172.38.40.212&amp;rsquo; #&lt;/li>
+&lt;/ul>
+&lt;p>cp             Copy files and directories to and from containers.&lt;/p>
+&lt;p>auth           Inspect authorization&lt;/p>
+&lt;h1 id="advanced-commands---高级命令">Advanced Commands - 高级命令&lt;a class="td-heading-self-link" href="#advanced-commands---%e9%ab%98%e7%ba%a7%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="diff---diff-live-version-against-would-be-applied-version">diff - Diff live version against would-be applied version&lt;a class="td-heading-self-link" href="#diff---diff-live-version-against-would-be-applied-version" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h2 id="apply---通过文件或标准输入将配置应用到资源">apply - 通过文件或标准输入将配置应用到资源&lt;a class="td-heading-self-link" href="#apply---%e9%80%9a%e8%bf%87%e6%96%87%e4%bb%b6%e6%88%96%e6%a0%87%e5%87%86%e8%be%93%e5%85%a5%e5%b0%86%e9%85%8d%e7%bd%ae%e5%ba%94%e7%94%a8%e5%88%b0%e8%b5%84%e6%ba%90" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>详见《&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes%20%E7%AE%A1%E7%90%86/kubectl%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9B%E5%BB%BA%E4%B8%8E%E4%BF%AE%E6%94%B9%E5%91%BD%E4%BB%A4.md">对象的创建与修改命令&lt;/a>》&lt;/p>
+&lt;h2 id="patch---用-strategic-mergejson-mergejson更新一个资源的字段">patch - 用 strategic merge、JSON merge、JSON，更新一个资源的字段&lt;a class="td-heading-self-link" href="#patch---%e7%94%a8-strategic-mergejson-mergejson%e6%9b%b4%e6%96%b0%e4%b8%80%e4%b8%aa%e8%b5%84%e6%ba%90%e7%9a%84%e5%ad%97%e6%ae%b5" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl patch (-f FILENAME | TYPE NAME) -p PATCH [options]&lt;/strong>&lt;/p>
+&lt;h2 id="replace---替换使用文件或标准输入替换一个资源">replace - 替换。使用文件或标准输入替换一个资源&lt;a class="td-heading-self-link" href="#replace---%e6%9b%bf%e6%8d%a2%e4%bd%bf%e7%94%a8%e6%96%87%e4%bb%b6%e6%88%96%e6%a0%87%e5%87%86%e8%be%93%e5%85%a5%e6%9b%bf%e6%8d%a2%e4%b8%80%e4%b8%aa%e8%b5%84%e6%ba%90" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>详见《&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes%20%E7%AE%A1%E7%90%86/kubectl%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9B%E5%BB%BA%E4%B8%8E%E4%BF%AE%E6%94%B9%E5%91%BD%E4%BB%A4.md">对象的创建与修改命令&lt;/a>》&lt;/p>
+&lt;h2 id="wait---在一个或多个资源上等待指定的条件达成">wait - 在一个或多个资源上等待指定的条件达成&lt;a class="td-heading-self-link" href="#wait---%e5%9c%a8%e4%b8%80%e4%b8%aa%e6%88%96%e5%a4%9a%e4%b8%aa%e8%b5%84%e6%ba%90%e4%b8%8a%e7%ad%89%e5%be%85%e6%8c%87%e5%ae%9a%e7%9a%84%e6%9d%a1%e4%bb%b6%e8%be%be%e6%88%90" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h3 id="example">EXAMPLE&lt;a class="td-heading-self-link" href="#example" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>Wait for the pod &amp;ldquo;busybox1&amp;rdquo; to contain the status condition of type &amp;ldquo;Ready&amp;rdquo;&lt;/p>
+&lt;pre tabindex="0">&lt;code>kubectl wait --for=condition=Ready pod/busybox1
+&lt;/code>&lt;/pre>&lt;p>The default value of status condition is true; you can wait for other targets after an equal delimiter (compared after Unicode simple case folding, which is a more general form of case-insensitivity):&lt;/p>
+&lt;pre tabindex="0">&lt;code>kubectl wait --for=condition=Ready=false pod/busybox1
+&lt;/code>&lt;/pre>&lt;p>Wait for the pod &amp;ldquo;busybox1&amp;rdquo; to contain the status phase to be &amp;ldquo;Running&amp;rdquo;.&lt;/p>
+&lt;pre tabindex="0">&lt;code>kubectl wait --for=jsonpath=&amp;#39;{.status.phase}&amp;#39;=Running pod/busybox1
+&lt;/code>&lt;/pre>&lt;p>Wait for the pod &amp;ldquo;busybox1&amp;rdquo; to be deleted, with a timeout of 60s, after having issued the &amp;ldquo;delete&amp;rdquo; command&lt;/p>
+&lt;pre tabindex="0">&lt;code>kubectl delete pod/busybox1
+kubectl wait --for=delete pod/busybox1 --timeout=60s
+&lt;/code>&lt;/pre>&lt;h2 id="convert---convert-config-files-between-different-api-versions">convert - Convert config files between different API versions&lt;a class="td-heading-self-link" href="#convert---convert-config-files-between-different-api-versions" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h1 id="settings-commands---设置命令">Settings Commands - 设置命令&lt;a class="td-heading-self-link" href="#settings-commands---%e8%ae%be%e7%bd%ae%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="label---更新对象上的标签">label - 更新对象上的标签&lt;a class="td-heading-self-link" href="#label---%e6%9b%b4%e6%96%b0%e5%af%b9%e8%b1%a1%e4%b8%8a%e7%9a%84%e6%a0%87%e7%ad%be" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>详见 [标签与选择器 文章中的 通过 kubectl 命令设置标签](Label%20and%20Selector(标签和选择器).md and Selector(标签和选择器).md) 章节&lt;/p>
+&lt;p>annotate       Update the annotations on a resource&lt;/p>
+&lt;p>completion     Output shell completion code for the specified shell (bash or zsh)&lt;/p>
+&lt;h1 id="other-commands---其他命令">Other Commands - 其他命令&lt;a class="td-heading-self-link" href="#other-commands---%e5%85%b6%e4%bb%96%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="api-resources---显示所支持的所有-api-资源即对象">api-resources - 显示所支持的所有 API 资源(即对象)&lt;a class="td-heading-self-link" href="#api-resources---%e6%98%be%e7%a4%ba%e6%89%80%e6%94%af%e6%8c%81%e7%9a%84%e6%89%80%e6%9c%89-api-%e8%b5%84%e6%ba%90%e5%8d%b3%e5%af%b9%e8%b1%a1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>显示的信息包括：NAME(对象名),SHORTNAMES(短名称)，APIGROUP(API 组)，NAMESPACED，KIND(所属种类)，VERBS(动作，即该对象可以执行的命令)&lt;/p>
+&lt;p>&lt;strong>kubectl api-resources [OPTIONS]&lt;/strong>
+OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&amp;ndash;namespaced=true|false # 显示所有&amp;lt;是 namesapce 的对象|不是 namespace 的对象&amp;gt;&lt;/li>
+&lt;li>-o wide|name # 显示更多信息|只显示对象的名称&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;h2 id="api-versions---以组版本的方式在服务器上显示所支持的所有-api-版本">api-versions - 以“组/版本”的方式在服务器上显示所支持的所有 API 版本&lt;a class="td-heading-self-link" href="#api-versions---%e4%bb%a5%e7%bb%84%e7%89%88%e6%9c%ac%e7%9a%84%e6%96%b9%e5%bc%8f%e5%9c%a8%e6%9c%8d%e5%8a%a1%e5%99%a8%e4%b8%8a%e6%98%be%e7%a4%ba%e6%89%80%e6%94%af%e6%8c%81%e7%9a%84%e6%89%80%e6%9c%89-api-%e7%89%88%e6%9c%ac" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>在编写 yaml 文件中的“apiVersion”字段时，可以使用该命令显示出的组/版本&lt;/p>
+&lt;h2 id="config---使用子命令修改-kubeconfig-文件">config - 使用子命令修改 kubeconfig 文件&lt;a class="td-heading-self-link" href="#config---%e4%bd%bf%e7%94%a8%e5%ad%90%e5%91%bd%e4%bb%a4%e4%bf%ae%e6%94%b9-kubeconfig-%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>用法详见 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes%20%E7%AE%A1%E7%90%86/kubectl%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/config%20%E5%AD%90%E5%91%BD%E4%BB%A4.md">config 子命令&lt;/a>&lt;/p>
+&lt;p>plugin         Runs a command-line plugin&lt;/p>
+&lt;p>version        Print the client and server version information&lt;/p></description></item><item><title>Docs: logs</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/logs/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/logs/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;/blockquote>
+&lt;p>logs 命令可以打印 pod 中的 container 的日志&lt;/p>
+&lt;h2 id="kubectl-logs--f--p-pod--typename--c-container-options">kubectl logs [-f] [-p] (POD | TYPE/NAME) [-c CONTAINER] [options]&lt;a class="td-heading-self-link" href="#kubectl-logs--f--p-pod--typename--c-container-options" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>语法结构&lt;/p>
+&lt;ul>
+&lt;li>kubectl logs &amp;lt;PodName&amp;gt; # 查看指定 pod 的日志&lt;/li>
+&lt;li>kubectl logs -f &amp;lt;PodName&amp;gt; # 类似 tail -f 的方式查看(tail -f 实时查看日志文件 tail -f 日志文件 log)&lt;/li>
+&lt;li>kubectl logs &amp;lt;PodName&amp;gt; -c &amp;lt;container_name&amp;gt; # 查看指定 pod 中指定容器的日志&lt;/li>
+&lt;/ul>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-f&lt;/strong> # 实时查看日志文件，类似于 tailf&lt;/li>
+&lt;li>&lt;strong>-p,&amp;ndash;previous&lt;/strong> # 输出 pod 中曾经运行过，但目前已终止的容器的日志。(i.e 查看一个 container 重启之前的日志，用于排障)&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl logs &amp;ndash;namespace=kube-system calico-node-krgz6 calico-node # 查看 calico-node-krgz6 这个 pod 的日志&lt;/li>
+&lt;/ul></description></item><item><title>Docs: config 子命令</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/config-%E5%AD%90%E5%91%BD%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/config-%E5%AD%90%E5%91%BD%E4%BB%A4/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>config 子命令用于控制 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API%20%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/1.Authenticating(%E8%AE%A4%E8%AF%81)/User%20Account%20%E8%AF%A6%E8%A7%A3.md">User Account&lt;/a> 的 KubeConfig 文件&lt;/p>
+&lt;h1 id="syntax语法">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>**kubectl config SUBCOMMAND [options]&lt;/p>
+&lt;p>SUBCOMMAND 包括：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>current-context&lt;/strong> # 显示当前上下文 Displays the current-context&lt;/li>
+&lt;li>&lt;strong>delete-cluster&lt;/strong> # Delete the specified cluster from the kubeconfig&lt;/li>
+&lt;li>&lt;strong>delete-context&lt;/strong> # 从 kubeconfig 文件中删除指定的上下文&lt;/li>
+&lt;li>&lt;strong>get-clusters&lt;/strong> # 显示在 kubeconfig 中已经定义的 cluster 信息。Display clusters defined in the kubeconfig&lt;/li>
+&lt;li>&lt;strong>get-contexts&lt;/strong> # 显示在 kubeconfig 中的上下文列表。每行的信息表示包括以*表示当前使用的 context，context 名称，cluster 与 authinfo(认证信息即用户名)，名称空间&lt;/li>
+&lt;li>&lt;strong>rename-context&lt;/strong># Renames a context from the kubeconfig file.&lt;/li>
+&lt;li>&lt;strong>set&lt;/strong> # 在 KubeConfig 文件中设置一个单独的值。Sets an individual value in a kubeconfig file&lt;/li>
+&lt;li>&lt;strong>set-cluster&lt;/strong> # 在 kubeconfig 中设定集群条目。&lt;/li>
+&lt;li>&lt;strong>set-context&lt;/strong># 在 kubeconfig 中设定上下文条目。Sets a context entry in kubeconfig&lt;/li>
+&lt;li>&lt;strong>set-credentials&lt;/strong> # 在 kubeconfig 中设定用户凭证。&lt;/li>
+&lt;li>&lt;strong>unset&lt;/strong># 取消在 KubeConfig 文件中设置的一个单独的值。Unsets an individual value in a kubeconfig file&lt;/li>
+&lt;li>&lt;strong>use-context&lt;/strong># 在 kubeconfig 中设定当前上下文(即使用哪个用户操作客户端)。&lt;/li>
+&lt;li>&lt;strong>view&lt;/strong># 显示已经合并的 KubeConfig 文件或一个指定的 KubeConfig 文件。Display merged kubeconfig settings or a specified kubeconfig file。&lt;/li>
+&lt;/ul>
+&lt;h2 id="options">OPTIONS&lt;a class="td-heading-self-link" href="#options" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;ul>
+&lt;li>&amp;ndash;kubeconfig=/PATH/FILE # 指明要操作的 KubeConfig 文件&lt;/li>
+&lt;/ul>
+&lt;h1 id="subcommand子命令">SubCommand(子命令)&lt;a class="td-heading-self-link" href="#subcommand%e5%ad%90%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="set-cluster--在-kubeconfig-文件中设置一个集群条目sets-a-cluster-entry-in-kubeconfig">set-cluster # 在 kubeconfig 文件中设置一个集群条目。Sets a cluster entry in kubeconfig&lt;a class="td-heading-self-link" href="#set-cluster--%e5%9c%a8-kubeconfig-%e6%96%87%e4%bb%b6%e4%b8%ad%e8%ae%be%e7%bd%ae%e4%b8%80%e4%b8%aa%e9%9b%86%e7%be%a4%e6%9d%a1%e7%9b%aesets-a-cluster-entry-in-kubeconfig" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl config set-cluster NAME [&amp;ndash;server=server] [&amp;ndash;certificate-authority=PATH/TO/CERTIFICATE/AUTHORITY] [&amp;ndash;insecure-skip-tls-verify=true] [OPTIONS]&lt;/strong> #&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;embed-certs={false|true}&lt;/strong> # 将&amp;ndash;certificate-authority 中指定的证书嵌入 kubeconfig 文件中。i.e.将证书内容使用 base64 编码后存入，默认为 false，即不读取内容进行编码，而是直接将路径写到 kubeconfig 文件中&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl config set-cluster kubernetes &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--certificate-authority&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/etc/kubernetes/pki/ca.crt &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--embed-certs&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87">true&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--server&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>192.168.10.10:6443 &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--kubeconfig&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>./lch-config &lt;span style="color:#8f5902;font-style:italic"># 为 lch-config 的 kubeconfig 文件设定集群信息，指定证书为/etc/kubernetes/pki/ca.crt，开启嵌入式认证，指定集群 api-server 的 ip 和 port。&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="set-context--设定上下文确立-user-与-cluster-的绑定关系与上下文的-name">set-context # 设定上下文，确立 user 与 cluster 的绑定关系与上下文的 name&lt;a class="td-heading-self-link" href="#set-context--%e8%ae%be%e5%ae%9a%e4%b8%8a%e4%b8%8b%e6%96%87%e7%a1%ae%e7%ab%8b-user-%e4%b8%8e-cluster-%e7%9a%84%e7%bb%91%e5%ae%9a%e5%85%b3%e7%b3%bb%e4%b8%8e%e4%b8%8a%e4%b8%8b%e6%96%87%e7%9a%84-name" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl config set-context [NAME | &amp;ndash;current] [&amp;ndash;cluster=cluster_nickname] [&amp;ndash;user=user_nickname] [&amp;ndash;namespace=namespace] [options]&lt;/strong>&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl config set-context lch@kubernetes &amp;ndash;cluster=kubernetes &amp;ndash;user=lch&lt;/li>
+&lt;li>kubectl config set-context dashboard-admin@kubernetes &amp;ndash;cluster=kubernetes &amp;ndash;user=dashboard-admin &amp;ndash;kubeconfig=/root/dashbord-admin.conf #&lt;/li>
+&lt;/ul>
+&lt;h2 id="set-credentials--在-kubeconfig-中设置凭证即设置用户的认证以便让-kubernetes-集群认识到该用户ie创建-user-account">set-credentials # 在 kubeconfig 中设置凭证，即设置用户的认证，以便让 kubernetes 集群认识到该用户。i.e.创建 User Account&lt;a class="td-heading-self-link" href="#set-credentials--%e5%9c%a8-kubeconfig-%e4%b8%ad%e8%ae%be%e7%bd%ae%e5%87%ad%e8%af%81%e5%8d%b3%e8%ae%be%e7%bd%ae%e7%94%a8%e6%88%b7%e7%9a%84%e8%ae%a4%e8%af%81%e4%bb%a5%e4%be%bf%e8%ae%a9-kubernetes-%e9%9b%86%e7%be%a4%e8%ae%a4%e8%af%86%e5%88%b0%e8%af%a5%e7%94%a8%e6%88%b7ie%e5%88%9b%e5%bb%ba-user-account" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl config set-credentials NAME [&amp;ndash;client-certificate=Path/to/certfile] [&amp;ndash;client-key=Path/to/keyfile] [&amp;ndash;token=bearer_token] [&amp;ndash;username=BasicUser] [&amp;ndash;password=BasicPassword] [&amp;ndash;auth-provider=provider_name] [&amp;ndash;auth-provider-arg=key=value] [OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>通过证书、token、用户密码或者认证提供者键值对来设定一个用户凭证。credential 的意思就是“一个人的背景的资格，成就，个人品质或方面，通常用于表明他们适合某事”。在这里就是这个 user 的证书或者 token 等以便在与集群交互时进行验证&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;embed-certs=ture|false&lt;/strong> # 在 kubeconfig 中嵌入证书/私钥，即变成非明文的方式储存&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;p>通过使用证书与私钥的方式设定名为 lch 的用户&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>kubectl config set-credentials lch --client-certificate=./lch.crt --client-key=./lch.key --embed-certs&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>使用 ${DASH_TOKEN} 中的 token 来作为 user 的凭证&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>kubectl config set-credentials dashboard-admin --token=$DASH_TOKEN --kubeconfig=/root/dashbord-admin.conf&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;h2 id="use-context--设置当前-current-context-字段当前所用的使用的上下文">use-context # 设置当前 current-context 字段(当前所用的使用的上下文)&lt;a class="td-heading-self-link" href="#use-context--%e8%ae%be%e7%bd%ae%e5%bd%93%e5%89%8d-current-context-%e5%ad%97%e6%ae%b5%e5%bd%93%e5%89%8d%e6%89%80%e7%94%a8%e7%9a%84%e4%bd%bf%e7%94%a8%e7%9a%84%e4%b8%8a%e4%b8%8b%e6%96%87" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl config use-context CONTEXT_NAME [OPTIONS]&lt;/strong>
+EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl config use-context dashboard-admin@kubernetes &amp;ndash;kubeconfig=/root/dashbord-admin.conf #&lt;/li>
+&lt;/ul>
+&lt;h2 id="view--显示一个-kubeconfig-文件的信息">view # 显示一个 kubeconfig 文件的信息&lt;a class="td-heading-self-link" href="#view--%e6%98%be%e7%a4%ba%e4%b8%80%e4%b8%aa-kubeconfig-%e6%96%87%e4%bb%b6%e7%9a%84%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl config view [FLAGS] [OPTIONS]&lt;/strong>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">~]# kubectl config view&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">apiVersion&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">v1&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">clusters&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>- &lt;span style="color:#204a87;font-weight:bold">cluster&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">certificate-authority-data&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">DATA+OMITTED&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">server&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">https://k8s-api.bj-net.ehualu.local:6443&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">name&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">kubernetes&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">contexts&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>- &lt;span style="color:#204a87;font-weight:bold">context&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">cluster&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">kubernetes&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">user&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">kubernetes-admin&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">name&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">kubernetes-admin@kubernetes&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">current-context&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">kubernetes-admin@kubernetes&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">kind&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">Config&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">preferences&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>{}&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">users&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>- &lt;span style="color:#204a87;font-weight:bold">name&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">kubernetes-admin&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">user&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">client-certificate-data&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">REDACTED&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">client-key-data&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">REDACTED&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;raw&lt;/strong> # 显示原始字节数据&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;minify&lt;/strong> # 只显示当前 context 的信息。&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>显示用户名为 user-2c2f24ck5f 的证书数据
+&lt;ul>
+&lt;li>&lt;strong>kubectl config view -o jsonpath=&amp;rsquo;{.users[?(@.name == &amp;ldquo;user-2c2f24ck5f&amp;rdquo;)].user.client-certificate-data}&amp;rsquo; &amp;ndash;raw&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul></description></item><item><title>Docs: get 子命令</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/get-%E5%AD%90%E5%91%BD%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/get-%E5%AD%90%E5%91%BD%E4%BB%A4/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/DlYcJNNCc9C_YUZlvADuMQ">5 个冷门但非常实用的 Kubectl 使用技巧&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>展示对象的信息，get 获得的是该对象的个性信息，describe 获得的是该对象的集群信息&lt;/p>
+&lt;h1 id="syntax语法">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>kubectl get (TYPE[.VERSION][.GROUP] [NAME | -l label] | TYPE[.VERSION][.GROUP]/NAME &amp;hellip;) [FLAGS]&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>FLAGS&lt;/strong>
+Note：在 kubectl 命令中的 全局 flags 中还有很多有用的 flags 可以用于 get 子命令。比如 -v 指定 debug 等级，-n 指定要操作的 namespace，等等&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-A, &amp;ndash;all-namespaces&lt;/strong> # 列出在所有名称空间中的对象。&lt;/li>
+&lt;li>&amp;ndash;allow-missing-template-keys=true: If true, ignore any errors in templates when a field or map key is missing in the template. Only applies to golang and jsonpath output formats.&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;field-selector=STRING&lt;/strong> # 使用&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API%20Resource%20%E4%B8%8E%20Object/Object%20%E7%AE%A1%E7%90%86/%E5%AD%97%E6%AE%B5%E9%80%89%E6%8B%A9%E5%99%A8.md">字段选择器&lt;/a>根据一个或多个资源字段的值筛选 Kubernetes 对象。支持 &lt;code>=&lt;/code>, &lt;code>==&lt;/code>, and &lt;code>!=&lt;/code>(比如 &lt;code>--field-selector key1=value1,key2=value2&lt;/code>)。
+&lt;ul>
+&lt;li>&lt;strong>注意，仅支持部分字段筛选&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>-f, &amp;ndash;filename=[]: Filename, directory, or URL to files identifying the resource to get from a server.&lt;/li>
+&lt;li>&amp;ndash;ignore-not-found=false: If the requested object does not exist the command will return exit code 0.&lt;/li>
+&lt;li>&lt;strong>-k, &amp;ndash;kustomize=&amp;lt;DIR&amp;gt;&lt;/strong> # 处理指定的 Kustomize 目录。这个标志不能与 -f 或 -R 同时使用。&lt;/li>
+&lt;li>&lt;strong>-L, &amp;ndash;label-columns=[]&lt;/strong> # 显示所有展示出的对象具有 KEY 这个键所对应的值(KEY=VAL，显示那个 VAL)Accepts a comma separated list of labels that are going to be presented as columns. Names are case-sensitive. You can also use multiple flag options like -L label1 -L label2&amp;hellip;&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;no-headers&lt;/strong> # 当使用 默认的 或者 custom-column 格式输出信息时，不显示标题(标题就是 NAME 那一行)。&lt;/li>
+&lt;li>&lt;strong>-o, &amp;ndash;output=FORMAT&lt;/strong> # 指定输出信息的输出格式
+&lt;ul>
+&lt;li>FORMAT 包括 json|yaml|wide|name|custom-columns=&amp;hellip;|custom-columns-file=&amp;hellip;|go-template=&amp;hellip;|go-template-file=&amp;hellip;|jsonpath=&amp;hellip;|jsonpath-file=&amp;hellip;
+&lt;ul>
+&lt;li>官方说明：&lt;a href="https://kubernetes.io/docs/reference/kubectl/overview/#formatting-output">https://kubernetes.io/docs/reference/kubectl/overview/#formatting-output&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>yaml | json # 输出 yaml 或 json 格式的信息&lt;/li>
+&lt;li>wide # 多显示该对象的 IP 和所在 NODE 两个信息&lt;/li>
+&lt;li>name # 仅打印对象名称，而不打印其他任何内容。Note：资源名称格式为：资源类型/名字&lt;/li>
+&lt;li>custom-columns=&amp;lt;HEADER&amp;gt;:&amp;lt;JSON-PATH-EXPR&amp;gt; # 自定义以一列一列的形式显示列表。参考：[http://kubernetes.io/docs/user-guide/kubectl-overview/#custom-columns]&lt;/li>
+&lt;li>golang template[http://golang.org/pkg/text/template/#pkg-overview]&lt;/li>
+&lt;li>jsonpath template # 使用 json 格式里的路径来查看某个字段的状态，样例如下，&lt;code>.&lt;/code>符号是字符分隔符。用法详见&lt;a href="https://kubernetes.io/docs/reference/kubectl/jsonpath/">官方文档&lt;/a>
+&lt;ul>
+&lt;li>e.g.&lt;code>-o jsonpath=&amp;quot;{.status.phase}&amp;quot;&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&amp;ndash;output-watch-events=false: Output watch event objects when &amp;ndash;watch or &amp;ndash;watch-only is used. Existing objects are output as initial ADDED events.&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;raw &amp;lt;URL Path&amp;gt;&lt;/strong> # 从 API Server 请求原始 URI。显示指定 URL Path 路径下的原始 URI 信息，默认输出为 JSON 格式&lt;/li>
+&lt;li>-R, &amp;ndash;recursive=false: Process the directory used in -f, &amp;ndash;filename recursively. Useful when you want to manage related manifests organized within the same directory.&lt;/li>
+&lt;li>&lt;strong>-l, &amp;ndash;selector=KEY[=VAL,KEY2=VAL2,&amp;hellip;]&lt;/strong> # 根据标签对输出进行过滤。可以只指定标签中的 key，或者指定多个 key，或者指定 key 不匹配的 value&lt;/li>
+&lt;li>e.g. # -l key1=value1,key2=value2,Note:k/v 中的 = 还可以使用 == 和 !=&lt;/li>
+&lt;li>&amp;ndash;server-print=true: If true, have the server return the appropriate table output. Supports extension APIs and CRDs.&lt;/li>
+&lt;li>&amp;ndash;show-kind=false # 列出所请求对象的资源类型。&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;show-labels&lt;/strong> # 输出信息时，在最后一列显示该对象的 label。(默认不显示)&lt;/li>
+&lt;li>&amp;ndash;sort-by=&amp;rsquo;&amp;rsquo;: If non-empty, sort list types using this field specification. The field specification is expressed as a JSONPath expression (e.g. &amp;lsquo;{.metadata.name}&amp;rsquo;). The field in the API resource specified by this JSONPath expression must be an integer or a string.&lt;/li>
+&lt;li>&amp;ndash;template=&amp;rsquo;&amp;rsquo;: Template string or path to template file to use when -o=go-template, -o=go-template-file. The template format is golang templates [http://golang.org/pkg/text/template/#pkg-overview].&lt;/li>
+&lt;li>&lt;strong>-w, &amp;ndash;watch&lt;/strong> # 实时监控。类似于在命令前加 wathch。只有当资源状态变化时，才会显示&lt;/li>
+&lt;li>&amp;ndash;watch-only # Watch for changes to the requested object(s), without listing/getting first.&lt;/li>
+&lt;/ul>
+&lt;h1 id="example">EXAMPLE&lt;a class="td-heading-self-link" href="#example" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>获取原始 URL，显示 &lt;code>/&lt;/code> 下的资源&lt;/p>
+&lt;ul>
+&lt;li>kubectl get &amp;ndash;raw /&lt;/li>
+&lt;/ul>
+&lt;p>查看所有名称空间下的所有资源&lt;/p>
+&lt;ul>
+&lt;li>kubectl get all -A&lt;/li>
+&lt;/ul>
+&lt;p>显示 myapp-pod 这个 pod 的信息&lt;/p>
+&lt;ul>
+&lt;li>kubectl get pod/myapp-pod&lt;/li>
+&lt;/ul>
+&lt;p>自定义显示内容，仅显示 node 名字 和 标签&lt;/p>
+&lt;ul>
+&lt;li>kubectl get nodes -o custom-columns=NAME:.metadata.name,LABELS:.metadata.labels&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># kubectl get nodes -o custom-columns=NAME:.metadata.name,LABELS:.metadata.labels&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NAME LABELS
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>master-test-1 map&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>beta.kubernetes.io/arch:amd64 beta.kubernetes.io/os:linux kubernetes.io/arch:amd64 kubernetes.io/hostname:master-test-1 kubernetes.io/os:linux node-role.kubernetes.io/controlplane:true node-role.kubernetes.io/etcd:true&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>node-test-1 map&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>beta.kubernetes.io/arch:amd64 beta.kubernetes.io/os:linux kubernetes.io/arch:amd64 kubernetes.io/hostname:node-test-1 kubernetes.io/os:linux node-role.kubernetes.io/worker:true&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>node-test-2 map&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>beta.kubernetes.io/arch:amd64 beta.kubernetes.io/os:linux kubernetes.io/arch:amd64 kubernetes.io/hostname:node-test-2 kubernetes.io/os:linux node-role.kubernetes.io/worker:true&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>获取所有节点的污点&lt;/p>
+&lt;ul>
+&lt;li>kubectl get nodes &amp;ndash;template=&amp;rsquo;{{range .items}}{{.metadata.name}}{{&amp;quot;\t&amp;quot;}}{{.spec.taints}}{{&amp;quot;\n&amp;quot;}}{{end}}&amp;rsquo;&lt;/li>
+&lt;/ul>
+&lt;p>列出事件（Events），按时间戳排序&lt;/p>
+&lt;ul>
+&lt;li>kubectl get events -A &amp;ndash;sort-by=&amp;rsquo;{.metadata.creationTimestamp}'&lt;/li>
+&lt;/ul>
+&lt;p>删除所有名称空间中标签为 authz.cluster.cattle.io/rtb-owner-updated 的 rolebinding 对象&lt;/p>
+&lt;ul>
+&lt;li>for k in $(kubectl get ns -o name | awk -F/ &amp;lsquo;{print $2}&amp;rsquo;); do for i in $(kubectl get -n $k rolebindings.rbac.authorization.k8s.io -l &amp;ldquo;authz.cluster.cattle.io/rtb-owner-updated&amp;rdquo; -o name); do kubectl delete -n $k $i; done;done&lt;/li>
+&lt;/ul>
+&lt;p>从 kubernetes-dashboard 这个 deployment 中获取 SA，并从 SA 中提取 Token。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">APPNAME&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>kubectl get deployments.apps -n kubernetes-dashboard -o name&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">SA&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>kubectl get &lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">APPNAME&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span> -n kubernetes-dashboard -ojsonpath&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#39;{.spec.template.spec.serviceAccountName}&amp;#39;&lt;/span>&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl get secrets -n kubernetes-dashboard -o &lt;span style="color:#000">jsonpath&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;{.items\[?(@.metadata.annotations\[&amp;#39;kubernetes.io/service-account.name&amp;#39;]==&amp;#39;&lt;/span>&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">SA&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>&lt;span style="color:#4e9a06">&amp;#39;)].data.token}&amp;#34;&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> base64 -d
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>获取 admin TOKEN&lt;/p>
+&lt;p>查看 replicaset 的历史版本号&lt;/p>
+&lt;ul>
+&lt;li>kubectl get replicasets.apps -n bluestore-console -ojsonpath=&amp;rsquo;{range .items[*]}{.metadata.annotations.deployment.kubernetes.io/revision}{&amp;quot;\t&amp;quot;}{.metadata.name}{&amp;quot;\n&amp;quot;}{end}&amp;rsquo;&lt;/li>
+&lt;/ul>
+&lt;h2 id="列出集群中所有运行容器的镜像">列出集群中所有运行容器的镜像&lt;a class="td-heading-self-link" href="#%e5%88%97%e5%87%ba%e9%9b%86%e7%be%a4%e4%b8%ad%e6%89%80%e6%9c%89%e8%bf%90%e8%a1%8c%e5%ae%b9%e5%99%a8%e7%9a%84%e9%95%9c%e5%83%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;blockquote>
+&lt;p>参考：&lt;a href="https://kubernetes.io/zh-cn/docs/tasks/access-application-cluster/list-all-running-container-images/">https://kubernetes.io/zh-cn/docs/tasks/access-application-cluster/list-all-running-container-images/&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>列出所有名称空间下的所有容器镜像&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># kubectl get pods -A -o jsonpath=&amp;#34;{.items[*].spec.containers[*].image}&amp;#34; |\&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>tr -s &lt;span style="color:#4e9a06">&amp;#39;[[:space:]]&amp;#39;&lt;/span> &lt;span style="color:#4e9a06">&amp;#39;\n&amp;#39;&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>&lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>sort &lt;span style="color:#000;font-weight:bold">|&lt;/span>&lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>uniq -c
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#0000cf;font-weight:bold">3&lt;/span> ghcr.io/kube-vip/kube-vip:v0.5.10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> percona:8.0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#0000cf;font-weight:bold">3&lt;/span> percona/percona-xtradb-cluster:8.0.29-21.1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> percona/percona-xtradb-cluster-operator:1.12.0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#0000cf;font-weight:bold">6&lt;/span> percona/percona-xtradb-cluster-operator:1.12.0-haproxy
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#0000cf;font-weight:bold">6&lt;/span> percona/percona-xtradb-cluster-operator:1.12.0-logcollector
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> percona/percona-xtradb-cluster-operator:1.12.0-pxc8.0-backup
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> rancher/local-path-provisioner:v0.0.23
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> rancher/mirrored-coredns-coredns:1.9.4
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> rancher/mirrored-metrics-server:v0.6.2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> registry.ehualu.com/common/redis:4.0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="查询-pod-中的信息">查询 Pod 中的信息&lt;a class="td-heading-self-link" href="#%e6%9f%a5%e8%af%a2-pod-%e4%b8%ad%e7%9a%84%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>显示 pod 的名字及其启动时间。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># kubectl get pods -A -o=jsonpath=&amp;#39;{range .items[*]}{.metadata.name}{&amp;#34;\t&amp;#34;}{.status.startTime}{&amp;#34;\n&amp;#34;}{end}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>myapp-pod 2020-08-21T15:57:35Z
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>default-http-backend-598b7d7dbd-xrp6s 2020-08-17T05:04:41Z
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nginx-ingress-controller-7b9mp 2020-08-17T05:04:40Z
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>nginx-ingress-controller-lhbgl 2020-08-22T08:17:10Z
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>coredns-849545576b-7xt9p 2020-08-17T07:27:43Z
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>列出 Pod 中的所有容器名称&lt;/p>
+&lt;pre tabindex="0">&lt;code>export NAMESPACE=&amp;#34;mysql&amp;#34;
+export POD=&amp;#34;mysql&amp;#34;
+kubectl get pods -n ${NAMESPACE} ${POD} -o=jsonpath=&amp;#39;{.spec.containers[*].name}&amp;#39; | tr -s &amp;#39;[[:space:]]&amp;#39; &amp;#39;\n&amp;#39; | sort
+&lt;/code>&lt;/pre>&lt;h2 id="过滤-pod">过滤 Pod&lt;a class="td-heading-self-link" href="#%e8%bf%87%e6%bb%a4-pod" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>获取 kube-system 名称空间下，标签 k8s-app 的值为 kube-dns 的所有 pod。&lt;/p>
+&lt;ul>
+&lt;li>kubectl get pod -n kube-system &amp;ndash;selector=&amp;ldquo;k8s-app=kube-dns&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;p>获取 node-1 节点上的所有 Pods&lt;/p>
+&lt;ul>
+&lt;li>kubectl get pods &amp;ndash;all-namespaces -o wide &amp;ndash;field-selector spec.nodeName=node-1&lt;/li>
+&lt;/ul>
+&lt;p>获取指定状态的 pod。(Succeeded 就是 Completed)&lt;/p>
+&lt;ul>
+&lt;li>kubectl get pods -A &amp;ndash;field-selector status.phase=Running&lt;/li>
+&lt;li>kubectl get pod -A &amp;ndash;field-selector status.phase=Succeeded&lt;/li>
+&lt;/ul>
+&lt;p>获取 Evicted 状态的 Pod&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>kubectl get pods -A -o json | jq '.items[] | select(.status.reason == &amp;quot;Evicted&amp;quot;) | {name: .metadata.name, reason: .status.reason}'&lt;/code>&lt;/li>
+&lt;li>&lt;code>kubectl get pods | grep Evicted | awk '{print $1}' | xargs kubectl delete pod&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>获取 test 名称空间下所有资源&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>kubectl api-resources -o name --verbs=list --namespaced | xargs -n 1 kubectl get --show-kind --ignore-not-found -n test&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>获取正在使用 pvc 的 pod&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>kubectl get pods --all-namespaces -o=json | jq -c '.items\[] | {name: .metadata.name, namespace: .metadata.namespace, claimName:.spec.volumes\[] | select( has (&amp;quot;persistentVolumeClaim&amp;quot;) ).persistentVolumeClaim.claimName }'&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;h3 id="获取-pod-在-node-上的分布数量">获取 Pod 在 Node 上的分布数量&lt;a class="td-heading-self-link" href="#%e8%8e%b7%e5%8f%96-pod-%e5%9c%a8-node-%e4%b8%8a%e7%9a%84%e5%88%86%e5%b8%83%e6%95%b0%e9%87%8f" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl get pods -A -o wide -l &lt;span style="color:#000">app&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;flannel&amp;#34;&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> awk &lt;span style="color:#4e9a06">&amp;#39;{print $8}&amp;#39;&lt;/span>&lt;span style="color:#000;font-weight:bold">|&lt;/span>&lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> awk &lt;span style="color:#4e9a06">&amp;#39;{ count[$0]++ }
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06"> END {
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06"> printf(&amp;#34;%-35s: %s\n&amp;#34;,&amp;#34;Word&amp;#34;,&amp;#34;Count&amp;#34;);
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06"> for(ind in count){
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06"> printf(&amp;#34;%-35s: %d\n&amp;#34;,ind,count[ind]);
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06"> }
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06"> }&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>若是指定了名称空间，awk 则应筛选 $7 列。&lt;/p>
+&lt;h3 id="获取指定状态的-pod并删除">获取指定状态的 Pod，并删除&lt;a class="td-heading-self-link" href="#%e8%8e%b7%e5%8f%96%e6%8c%87%e5%ae%9a%e7%8a%b6%e6%80%81%e7%9a%84-pod%e5%b9%b6%e5%88%a0%e9%99%a4" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>获取 Pod 状态为 Pending 的所有 Pod 并生成删除指令&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">PodStatus&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;Pending&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>kubectl get pods --all-namespaces --field-selector status.phase&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">PodStatus&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span> -o json &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> jq &lt;span style="color:#4e9a06">&amp;#39;.items[] | &amp;#34;kubectl get pods \(.metadata.name) -o wide -n \(.metadata.namespace)&amp;#34;&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>！！！注意：执行 &lt;code>xargs -n 1 bash -c&lt;/code> 删除操作前，需要详细调试命令&lt;/p>
+&lt;p>最后加上 &lt;code>xargs -n 1 bash -c&lt;/code> 以执行生成的删除 Pod 指令&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl get pods --all-namespaces --field-selector status.phase&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>Pending -o json &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> jq &lt;span style="color:#4e9a06">&amp;#39;.items[] | &amp;#34;kubectl delete pods \(.metadata.name) -n \(.metadata.namespace)&amp;#34;&amp;#39;&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> xargs -n &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> bash -c
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果只是获取单一 Namespace 下的 Pods，直接只用 grep 命令筛选更快~&lt;/p>
+&lt;ul>
+&lt;li>kubectl -n default get pods | grep Completed | awk &amp;lsquo;{print $1}&amp;rsquo; | xargs kubectl -n default delete pods&lt;/li>
+&lt;/ul>
+&lt;h2 id="finalizers-字段处理">finalizers 字段处理&lt;a class="td-heading-self-link" href="#finalizers-%e5%ad%97%e6%ae%b5%e5%a4%84%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>快速清空对象中的 finalizers 字段&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>kubectl get namespace &lt;span style="color:#204a87">test&lt;/span> -o json &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> tr -d &lt;span style="color:#4e9a06">&amp;#34;\n&amp;#34;&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> sed &lt;span style="color:#4e9a06">&amp;#34;s/\&amp;#34;finalizers\&amp;#34;: \[[^]]\+\]/\&amp;#34;finalizers\&amp;#34;: []/&amp;#34;&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> kubectl replace --raw /api/v1/namespaces/test/finalize -f -
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: kubectl 扩展</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/kubectl-%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/kubectl-%E6%89%A9%E5%B1%95/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/">官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>kubectl 有一个称为 &lt;strong>Plugins(插件)&lt;/strong> 机制，可以扩展 kubectl 工具的能力。通过插件，就相当于为 kubectl 添加了子命令。&lt;/p>
+&lt;h1 id="安装-kubectl-插件">安装 kubectl 插件&lt;a class="td-heading-self-link" href="#%e5%ae%89%e8%a3%85-kubectl-%e6%8f%92%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>插件是一个独立的可执行文件，名称以 &lt;code>kubectl-&lt;/code> 开头。 要安装插件，只需将此可执行文件移动到 &lt;code>$PATH&lt;/code> 中的任何位置。&lt;/p>
+&lt;p>Kubernetes SIG 研发了一款名为 &lt;strong>Krew&lt;/strong> 的插件，这是一个可以管理插件的插件，Krew 之于 Kubectl，就好像 yum/apt 之于 CentOS/Ubuntu。可以使用 &lt;a href="https://krew.dev/">Krew&lt;/a> 来发现和安装开源的 kubectl 插件。&lt;/p>
+&lt;blockquote>
+&lt;p>&lt;strong>注意：&lt;/strong> Krew &lt;a href="https://krew.sigs.k8s.io/plugins/">插件索引&lt;/a> 所维护的 kubectl 插件并未经过安全性审查。 你要了解安装和运行第三方插件的安全风险，因为它们本质上时是一些在你的机器上 运行的程序。&lt;/p>
+&lt;/blockquote>
+&lt;h1 id="krew">Krew&lt;a class="td-heading-self-link" href="#krew" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/kubernetes-sigs/krew/">GitHub 项目&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="krew-配置">Krew 配置&lt;a class="td-heading-self-link" href="#krew-%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>~/.krew/&lt;/strong> # Krew 配置文件与存储路径。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>./bin/&lt;/strong> # Krew 安装的插件的软连接&lt;/li>
+&lt;li>&lt;strong>./index/default/plugins/&lt;/strong> # Krew 发现的插件元数据，想要安装插件，就会通过这里面的元数据信息进行。&lt;/li>
+&lt;li>&lt;strong>./receipts/&lt;/strong> # 已安装的插件的元数据。&lt;/li>
+&lt;li>&lt;strong>./store/&lt;/strong> # Krew 存储路径，所有安装的插件的二进制文件都会在该目录下。&lt;/li>
+&lt;/ul>
+&lt;h1 id="常见-kubectl-插件">常见 kubectl 插件&lt;a class="td-heading-self-link" href="#%e5%b8%b8%e8%a7%81-kubectl-%e6%8f%92%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>kubectl 插件管理工具，项目地址：&lt;a href="https://github.com/kubernetes-sigs/krew-index/blob/master/plugins.md">https://github.com/kubernetes-sigs/krew-index/blob/master/plugins.md&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>neat&lt;/strong> # 让 kubectl get -o yaml 的输出更简洁
+&lt;ul>
+&lt;li>项目地址：&lt;a href="https://github.com/itaysk/kubectl-neat">https://github.com/itaysk/kubectl-neat&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>node-shell&lt;/strong> # 通过 kubectl 命令直接进入 node 的 shell 中
+&lt;ul>
+&lt;li>项目地址：&lt;a href="https://github.com/kvaps/kubectl-node-shell">GitHub 项目&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="好用的-kubectl-扩展工具">好用的 kubectl 扩展工具&lt;a class="td-heading-self-link" href="#%e5%a5%bd%e7%94%a8%e7%9a%84-kubectl-%e6%89%a9%e5%b1%95%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="kubecm">kubecm&lt;a class="td-heading-self-link" href="#kubecm" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>项目地址：&lt;a href="https://github.com/sunny0826/kubecm">https://github.com/sunny0826/kubecm&lt;/a>&lt;/p>
+&lt;p>整合 kubectl 的 config 文件，并可以简单得切换 kubectl 所要操作的目标集群&lt;/p></description></item><item><title>Docs: set 与 rollout 更新资源命令</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/set-%E4%B8%8E-rollout-%E6%9B%B4%E6%96%B0%E8%B5%84%E6%BA%90%E5%91%BD%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/set-%E4%B8%8E-rollout-%E6%9B%B4%E6%96%B0%E8%B5%84%E6%BA%90%E5%91%BD%E4%BB%A4/</guid><description>
+&lt;h1 id="set--在对象上设定特定的特性">set # 在对象上设定特定的特性&lt;a class="td-heading-self-link" href="#set--%e5%9c%a8%e5%af%b9%e8%b1%a1%e4%b8%8a%e8%ae%be%e5%ae%9a%e7%89%b9%e5%ae%9a%e7%9a%84%e7%89%b9%e6%80%a7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>kubectl set COMMAND [OPTIONS]&lt;/strong>
+COMMAND&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>env&lt;/strong> # Update environment variables on a pod template&lt;/li>
+&lt;li>&lt;strong>image&lt;/strong> # 更新一个 Pod 模板的镜像&lt;/li>
+&lt;li>&lt;strong>resources&lt;/strong> # Update resource requests/limits on objects with pod templates&lt;/li>
+&lt;li>&lt;strong>selector&lt;/strong> # Set the selector on a resource&lt;/li>
+&lt;li>&lt;strong>serviceaccount&lt;/strong> # Update ServiceAccount of a resource&lt;/li>
+&lt;li>&lt;strong>subject&lt;/strong> # Update User, Group or ServiceAccount in a RoleBinding/ClusterRoleBinding&lt;/li>
+&lt;/ul>
+&lt;h2 id="kubectl-set-image--更新资源">kubectl set image # 更新资源&lt;a class="td-heading-self-link" href="#kubectl-set-image--%e6%9b%b4%e6%96%b0%e8%b5%84%e6%ba%90" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>更新资源的现有容器映像。可能的资源包括(不区分大小写)pod (po), replicationcontroller (rc), deployment (deploy), daemonset (ds), replicaset (rs)&lt;/p>
+&lt;h3 id="syntax语法">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>&lt;strong>kubectl set image (-f FILENAME | TYPE NAME) CONTAINER_NAME_1=CONTAINER_IMAGE_1 &amp;hellip; CONTAINER_NAME_N=CONTAINER_IMAGE_N&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>更新(myapp-deploy 这个控制器下的 pod 模板中的名为 myapp 这个容器中的镜像)到 ikubernetes/myapp:v3 这个版本,并且暂停 myapp-deploy 这个 deployment 的滚动更新，该命令的作用是只更新一个 pod，暂停后续更新，以便查看新版本在生产环境中的运行情况，正常之后，再开始暂停的更新即可
+&lt;ul>
+&lt;li>kubectl set image deployment myapp-deploy myapp=ikubernetes/myapp:v3 &amp;amp;&amp;amp; kubectl rollout pause deployment myapp-deploy&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="rollout--管理资源的滚动更新">rollout # 管理资源的滚动更新&lt;a class="td-heading-self-link" href="#rollout--%e7%ae%a1%e7%90%86%e8%b5%84%e6%ba%90%e7%9a%84%e6%bb%9a%e5%8a%a8%e6%9b%b4%e6%96%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>kubectl rollout COMMAND [OPTIONS]&lt;/strong>
+COMMAND&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>history&lt;/strong> # 滚动更新视图&lt;/li>
+&lt;li>&lt;strong>pause&lt;/strong> # 标记提供的资源以暂停这个资源&lt;/li>
+&lt;li>&lt;strong>restart&lt;/strong># 重启一个资源&lt;/li>
+&lt;li>&lt;strong>resume&lt;/strong> # 重新开始被暂停的资源&lt;/li>
+&lt;li>&lt;strong>status&lt;/strong> # 显示滚动更新的状态&lt;/li>
+&lt;li>&lt;strong>undo&lt;/strong> # 撤销以前的滚动更新&lt;/li>
+&lt;/ul>
+&lt;h2 id="history--查看滚动更新的历史情况">history # 查看滚动更新的历史情况&lt;a class="td-heading-self-link" href="#history--%e6%9f%a5%e7%9c%8b%e6%bb%9a%e5%8a%a8%e6%9b%b4%e6%96%b0%e7%9a%84%e5%8e%86%e5%8f%b2%e6%83%85%e5%86%b5" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>kubectl rollout history (TYPE NAME | TYPE/NAME) [flags] [options]&lt;/p>
+&lt;p>REVISION # 指明更新的版本序号&lt;/p>
+&lt;p>CHANGE-CAUSE # 指明该次更新执行的具体命令，只有在 apply 的时候使用&amp;ndash;record 参数，该项才有内容&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>kubectl rollout history deployment myapp-deploy&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;h2 id="pause--暂停滚动更新的资源">pause # 暂停滚动更新的资源&lt;a class="td-heading-self-link" href="#pause--%e6%9a%82%e5%81%9c%e6%bb%9a%e5%8a%a8%e6%9b%b4%e6%96%b0%e7%9a%84%e8%b5%84%e6%ba%90" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>kubectl rollout pause RESOURCE [options]&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>kubectl rollout pause deployment myapp-deploy&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;h2 id="restart--重启一个资源">restart # 重启一个资源&lt;a class="td-heading-self-link" href="#restart--%e9%87%8d%e5%90%af%e4%b8%80%e4%b8%aa%e8%b5%84%e6%ba%90" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>滚动重启指定的资源&lt;/p>
+&lt;h3 id="syntax语法-1">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95-1" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>&lt;strong>kubectl rollout restart RESOURCE [OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>EXAMPLE&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>滚动重启 monitoring 名称空间下，名为 node-exporter 的 daemonset 类型资源
+&lt;ul>
+&lt;li>&lt;strong>kubectl rollout restart -n monitoring daemonset node-exporter&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="resume--重新开始被暂停的资源">resume # 重新开始被暂停的资源&lt;a class="td-heading-self-link" href="#resume--%e9%87%8d%e6%96%b0%e5%bc%80%e5%a7%8b%e8%a2%ab%e6%9a%82%e5%81%9c%e7%9a%84%e8%b5%84%e6%ba%90" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>kubectl rollout resume RESOURCE [options]&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl rollout resume deployment myapp-deploy&lt;/li>
+&lt;/ul>
+&lt;h2 id="status--查看更新状态">status # 查看更新状态&lt;a class="td-heading-self-link" href="#status--%e6%9f%a5%e7%9c%8b%e6%9b%b4%e6%96%b0%e7%8a%b6%e6%80%81" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>语法结构
+kubectl rollout status (TYPE NAME | TYPE/NAME) [flags] [options]&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl rollout status deployment myapp # 查看 myapp 这个 deployment 的更新状态&lt;/li>
+&lt;/ul>
+&lt;h2 id="undo--回滚">undo # 回滚&lt;a class="td-heading-self-link" href="#undo--%e5%9b%9e%e6%bb%9a" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>语法结构
+kubectl rollout undo (TYPE NAME | TYPE/NAME) [flags] [OPTIONS]&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&amp;ndash;to-revision=NUM # 指定要回滚到哪个修订版，默认为 0，最后的修正版。查看修订版的 NUM 可以使用 kubectl rollout history 命令，该命令显示出的 REVISION 下面的数字就是 NUM，注意：如果我从 V1 更新到 V2 再更新到 V3，然后回滚到 V1，那么此时我再回滚到上一版的时候，指的是回滚到 V3 版&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl rollout undo deployment myapp # 回滚 myapp 这个 deployment 的更新状态&lt;/li>
+&lt;/ul></description></item><item><title>Docs: 对象的创建与修改命令</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9B%E5%BB%BA%E4%B8%8E%E4%BF%AE%E6%94%B9%E5%91%BD%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/kubectl-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9B%E5%BB%BA%E4%B8%8E%E4%BF%AE%E6%94%B9%E5%91%BD%E4%BB%A4/</guid><description>
+&lt;h1 id="kubectl-apply--声明对象">kubectl apply # 声明对象&lt;a class="td-heading-self-link" href="#kubectl-apply--%e5%a3%b0%e6%98%8e%e5%af%b9%e8%b1%a1" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>通过文件或 STDIN(标准输入)声明配置到一个资源中，如果该资源不存在，则会根据所声明的内容自动创建。&lt;/p>
+&lt;p>有时候我们在使用 apply 应用一个对象时，会遇上类似&lt;a href="https://github.com/prometheus-community/helm-charts/issues/1500">如下&lt;/a>的提示：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>The CustomResourceDefinition &lt;span style="color:#4e9a06">&amp;#34;XXXXX&amp;#34;&lt;/span> is invalid: metadata.annotations: Too long: must have at most &lt;span style="color:#0000cf;font-weight:bold">262144&lt;/span> bytes
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>一个 Manifests 文件太大导致无法 apply，才是就需要使用 &lt;a href="#G6Jwi">replace&lt;/a> 来修改对象。或者为 apply 子命令添加 &lt;code>--server-side&lt;/code> 标志。&lt;/p>
+&lt;h2 id="syntax语法">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl apply -f FILENAME [OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;record&lt;/strong> # 在资源注释中记录当前 kubectl 命令。 如果设置为 false，请不要记录该命令。 如果设置为 true，则记录该命令。 如果未设置，则默认仅在已存在的情况下更新现有注释值。&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;server-side&lt;/strong> #&lt;/li>
+&lt;/ul>
+&lt;h1 id="kubectl-edit--修改对象">kubectl edit # 修改对象&lt;a class="td-heading-self-link" href="#kubectl-edit--%e4%bf%ae%e6%94%b9%e5%af%b9%e8%b1%a1" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>kubectl edit (RESOURCE/NAME | -f FILENAME) [OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>OPTIONS：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;save-config=false|true&lt;/strong> #&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl edit -n service kube-system kubernetes-dashboard&lt;/li>
+&lt;/ul>
+&lt;h1 id="kubectl-replace--替换使用文件或标准输入替换一个资源">kubectl replace # 替换。使用文件或标准输入替换一个资源&lt;a class="td-heading-self-link" href="#kubectl-replace--%e6%9b%bf%e6%8d%a2%e4%bd%bf%e7%94%a8%e6%96%87%e4%bb%b6%e6%88%96%e6%a0%87%e5%87%86%e8%be%93%e5%85%a5%e6%9b%bf%e6%8d%a2%e4%b8%80%e4%b8%aa%e8%b5%84%e6%ba%90" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="syntax语法-1">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95-1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl replace -f FILENAME [options]&lt;/strong>&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>重启指定的容器
+&lt;ul>
+&lt;li>&lt;strong>kubectl get pod {podname} -n {namespace} -o yaml | kubectl replace &amp;ndash;force -f -&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="kubectl-create--从一个文件或者标准输入中创建一个对象">kubectl create # 从一个文件或者标准输入中创建一个对象&lt;a class="td-heading-self-link" href="#kubectl-create--%e4%bb%8e%e4%b8%80%e4%b8%aa%e6%96%87%e4%bb%b6%e6%88%96%e8%80%85%e6%a0%87%e5%87%86%e8%be%93%e5%85%a5%e4%b8%ad%e5%88%9b%e5%bb%ba%e4%b8%80%e4%b8%aa%e5%af%b9%e8%b1%a1" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/reference/kubectl/conventions">官方文档，参考-命令行工具(kubectl)-使用公约&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>注意：并不是所有资源都可以通过命令行在标准输入中创建，但是所有资源都可以通过文件来创建一个对象。&lt;/p>
+&lt;p>&lt;strong>kubectl create [COMMAND] [OPTIONS]&lt;/strong>
+Command：&lt;/p>
+&lt;ul>
+&lt;li>clusterrole&lt;/li>
+&lt;li>clusterrolebinding&lt;/li>
+&lt;li>configmap&lt;/li>
+&lt;li>cronjob&lt;/li>
+&lt;li>deployment&lt;/li>
+&lt;li>ingress&lt;/li>
+&lt;li>job&lt;/li>
+&lt;li>namespace&lt;/li>
+&lt;li>poddisruptionbudget&lt;/li>
+&lt;li>priorityclass&lt;/li>
+&lt;li>quota&lt;/li>
+&lt;li>role&lt;/li>
+&lt;li>rolebinding&lt;/li>
+&lt;li>secret&lt;/li>
+&lt;li>service&lt;/li>
+&lt;li>serviceaccount&lt;/li>
+&lt;/ul>
+&lt;h2 id="configmap">configmap&lt;a class="td-heading-self-link" href="#configmap" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>通过文件、目录或者指定的 literal 值创建一个 configmap(配置中心)
+&lt;strong>kubectl create configmap NAME [&amp;ndash;from-file=[key=]source] [&amp;ndash;from-literal=key1=value1] [&amp;ndash;dry-run] [OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;from-env-file=&amp;rsquo;&amp;rsquo;&lt;/strong> # Specify the path to a file to read lines of key=val pairs to create a configmap (i.e. a Docker .env file).&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;from-file=[KEY=]/PATH/FILE&lt;/strong> # 键(KEY)文件可以使用文件路径指定，在这种情况下，文件名将作为 configmap 中的键值；或者可以指定键值和文件路径，这时候 configmap 中的键值，是指定的 KEY 的值，效果如 EXAMPLE 图&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;from-literal=[]&lt;/strong> # Specify a key and literal value to insert in configmap (i.e. mykey=somevalue)&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>浅蓝色框为键/值对的键，红框文件中内容为键/值对的值，如果使用命令的时候不指定 KEY，则 yaml 格式的 configmap 的 data 下面字段的 KEY 为 www.conf
+&lt;ul>
+&lt;li>kubectl create configmap nginx-www &amp;ndash;from-file=www=./www.conf&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="rbac-相关资源--创建角色对象的相关命令">RBAC 相关资源 # 创建角色对象的相关命令&lt;a class="td-heading-self-link" href="#rbac-%e7%9b%b8%e5%85%b3%e8%b5%84%e6%ba%90--%e5%88%9b%e5%bb%ba%e8%a7%92%e8%89%b2%e5%af%b9%e8%b1%a1%e7%9a%84%e7%9b%b8%e5%85%b3%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>通用 OPTIONS：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;dry-run&lt;/strong># 干跑一遍，意思是仅把结果打印到屏幕上而不真的创建这个对象，默认为关。常与 -o 连用，用来测试命令执行结果&lt;/li>
+&lt;li>&lt;strong>-o &amp;lt;json|yaml|name|templatefile|template|go-template|go-template-file|jsonpath-file|jsonpath&amp;gt;&lt;/strong># 选择输出信息的输出格式&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;serviceaccount=[]&lt;/strong># 服务帐户绑定到角色, in the format &amp;lt;namespace&amp;gt;:&amp;lt;name&amp;gt;&lt;/li>
+&lt;/ul>
+&lt;h3 id="role">role&lt;a class="td-heading-self-link" href="#role" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>&lt;strong>kubectl create role NAME &amp;ndash;verb=VERB &amp;ndash;resource=RESOURCE[.GROUP/SubResource] [&amp;ndash;resource-name=RESOURCE] [OPTIONS]&lt;/strong>
+VERB 是指明该 role 可以执行的动作(命令)且多个动作以逗号间隔，GROUP 省略时，则默认核心组，apiGroups 字段值为 &amp;ldquo;&amp;quot;。&lt;/p>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&amp;ndash;allow-missing-template-keys=true: If true, ignore any errors in templates when a field or map key is missing in the template. Only applies to golang and jsonpath output formats.&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;resource=&amp;lt;RESOURCE&amp;gt;&lt;/strong> # 指定该 role 的规则，作用于哪些资源。RESOURCE 以 &lt;code>资源名.API组&lt;/code> 的方式命名，多个资源以逗号分隔。如果想要指定所有资源，则 RESOURCE 为 &lt;em>.&lt;/em>&lt;/li>
+&lt;li>&amp;ndash;resource-name=[] # Resource in the white list that the rule applies to, repeat this flag for multiple items&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;save-config=false&lt;/strong> # 如果为 true，则当前对象的配置将保存在其注释中。 否则，注释将保持不变。 当您将来希望对这个对象执行 kubectl 应用时，此标志很有用。&lt;/li>
+&lt;li>&amp;ndash;template=&amp;rsquo;&amp;rsquo;: Template string or path to template file to use when -o=go-template, -o=go-template-file. The template format is golang templates [http://golang.org/pkg/text/template/#pkg-overview].&lt;/li>
+&lt;li>&amp;ndash;validate=true: If true, use a schema to validate the input before sending it&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;verb=&amp;lt;VERB&amp;gt;&lt;/strong> # 指明该 role 可以执行的动作(命令)，多个动作以逗号间隔&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl create role lch -n lch &amp;ndash;verb=&lt;em>&amp;ndash;resource=&lt;/em>.* # 在 lch 名称空间中创建一个名为 lch 的角色，可以对所有 API 组下的所有资源，执行任何操作。&lt;/li>
+&lt;li>kubectl create role pods-reader &amp;ndash;verb=get,list,watch &amp;ndash;resource=pods &amp;ndash;dry-run -o yaml # 创建一个名为 pods-reader 的角色，只能对核心 API 组下的 pods 资源，执行 get、list、watch 操作。仅运行不真正创建，并输出 yaml 格式的信息。&lt;/li>
+&lt;/ul>
+&lt;h3 id="rolebinding">rolebinding&lt;a class="td-heading-self-link" href="#rolebinding" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>&lt;strong>kubectl create rolebinding NAME &amp;ndash;clusterrole=NAME|&amp;ndash;role=NAME [&amp;ndash;user=username] [&amp;ndash;group=groupname][&amp;ndash;serviceaccount=namespace:serviceaccountname] [OPTIONS]&lt;/strong> # 绑定 role 或者 clusterrole 其中之一并指明 rolebinding 资源的名称&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>在 lch 名称空间中创建一个名为 lch 的角色绑定，将 lch 角色与 lch 用户绑定。
+&lt;ul>
+&lt;li>kubectl create rolebinding lch -n lch &amp;ndash;role=lch &amp;ndash;user=lch&lt;/li>
+&lt;li>kubectl create rolebinding lch -n test &amp;ndash;role=lch &amp;ndash;serviceaccount=test:lch&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>创建一个 rolebinding 资源并把 pods-reader 这个 role 与 lch 这个用户绑定起来
+&lt;ul>
+&lt;li>kubectl create rolebinding bind-lch-read &amp;ndash;role=pods-reader &amp;ndash;user=lch&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="clusterrole">clusterrole&lt;a class="td-heading-self-link" href="#clusterrole" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>&lt;strong>kubectl create clusterrole NAME &amp;ndash;verb=VERB &amp;ndash;resource=RESOURCE.GROUP [&amp;ndash;resource-name=resourcename]&lt;/strong>&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl create clusterrole cluster-reader &amp;ndash;verb=get,list,watch &amp;ndash;resource=pods&lt;/li>
+&lt;/ul>
+&lt;h3 id="clusterrolebinding">clusterrolebinding&lt;a class="td-heading-self-link" href="#clusterrolebinding" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>&lt;strong>kubectl create clusterrolebinding NAME &amp;ndash;clusterrole=NAME [&amp;ndash;user=username] [&amp;ndash;group=groupname][&amp;ndash;serviceaccount=namespace:serviceaccountname] [OPTIONS]&lt;/strong> # 只能绑定 clusterrole 并指定 clusterrolebinding 资源的名称&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>kubectl create clusterrolebinding bind-lch-allreader &amp;ndash;clusterrole=cluster=reader &amp;ndash;user=lch&lt;/li>
+&lt;li>kubectl create clusterrolebinding dashboard-cluster-admin &amp;ndash;clusterrole=cluster-admin &amp;ndash;serviceaccount=kube-system:dashboard-admin&lt;/li>
+&lt;/ul>
+&lt;h2 id="secret--使用指定的子命令创建-secret-对象">secret # 使用指定的子命令创建 secret 对象&lt;a class="td-heading-self-link" href="#secret--%e4%bd%bf%e7%94%a8%e6%8c%87%e5%ae%9a%e7%9a%84%e5%ad%90%e5%91%bd%e4%bb%a4%e5%88%9b%e5%bb%ba-secret-%e5%af%b9%e8%b1%a1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>SubCommand：&lt;/p>
+&lt;ul>
+&lt;li>docker-registry # Create a secret for use with a Docker registry&lt;/li>
+&lt;li>generic # 从本地文件、目录或文字值创建一个秘密&lt;/li>
+&lt;li>tls # Create a TLS secret&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>kubectl create secret docker-registry NAME &amp;ndash;docker-username=user &amp;ndash;docker-password=password &amp;ndash;docker-email=email [&amp;ndash;docker-server=string] [&amp;ndash;from-literal=key1=value1] [&amp;ndash;dry-run] [options]&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>kubectl create secret generic NAME [&amp;ndash;type=string] [&amp;ndash;from-file=[key=]source] [&amp;ndash;from-literal=key1=value1] [&amp;ndash;dry-run] [options]&lt;/strong>&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>无用，创建 serviceaccount 时会自动创建，仅作语句格式参考
+&lt;ul>
+&lt;li>kubectl create secret generic dashboard-cert -n kube-system &amp;ndash;from-file=dashboard.crt=dashboard.crt &amp;ndash;from-file=dashboard.key=dashboard.key&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>kubectl create secret tls NAME &amp;ndash;cert=path/to/cert/file &amp;ndash;key=path/to/key/file [&amp;ndash;dry-run] [options]&lt;/strong>&lt;/p>
+&lt;h2 id="serviceaccount--使用指定的名字创建一个-serviceaccount服务账户对象">serviceaccount # 使用指定的名字创建一个 ServiceAccount(服务账户)对象&lt;a class="td-heading-self-link" href="#serviceaccount--%e4%bd%bf%e7%94%a8%e6%8c%87%e5%ae%9a%e7%9a%84%e5%90%8d%e5%ad%97%e5%88%9b%e5%bb%ba%e4%b8%80%e4%b8%aa-serviceaccount%e6%9c%8d%e5%8a%a1%e8%b4%a6%e6%88%b7%e5%af%b9%e8%b1%a1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>kubectl create serviceaccount NAME [&amp;ndash;dry-run] [OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>在 kube-system 名称空间中创建一个名为 dashboard-dashboard 的 serviceaccount
+&lt;ul>
+&lt;li>kubectl create serviceaccount dashboard-dashboard -n kube-system&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul></description></item></channel></rss>

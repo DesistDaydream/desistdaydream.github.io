@@ -1,0 +1,903 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – Neutron</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/</link><description>Recent content in Neutron on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Neutron 工作原理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>neutron 是 openstack 的一个重要模块，也是比较难以理解和 debug 的模块之一。&lt;/p>
+&lt;p>我这里安装如图安装了经典的三个节点的 Havana 的 Openstack&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dk3eew/1616123209479-a2bcb576-f320-42d7-a4df-0a7a050420f7.jpeg" alt="">&lt;/p>
+&lt;p>图 1&lt;/p>
+&lt;p>分三个网络：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>External Network/API Network，这个网络是连接外网的，无论是用户调用 Openstack 的 API，还是创建出来的虚拟机要访问外网，或者外网要 ssh 到虚拟机，都需要通过这个网络&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Data Network，数据网络，虚拟机之间的数据传输通过这个网络来进行，比如一个虚拟机要连接另一个虚拟机，虚拟机要连接虚拟的路由都是通过这个网络来进行&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Management Network，管理网络，Openstack 各个模块之间的交互，连接数据库，连接 Message Queue 都是通过这个网络来。&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>将这三个网络隔离，一方面是安全的原因，在虚拟机里面，无论采取什么手段，干扰的都紧紧是 Data Network，都不可能访问到我的数据库，一方面是流量分离，Management Network 的流量不是很大的，而且一般都会比较优雅的使用，而 Data network 和 External Network 就需要进行流量控制的策略。&lt;/p>
+&lt;p>我的这个网络结构有些奇怪，除了 Controller 节点是两张网卡之外，其他的都多了一张网卡连接到 external network，这个网卡是用来做 apt-get 的，因为 Compute Node 按说是没有网卡连接到外网的，为了 apt-get 添加了 eth0，Network Node 虽然有一个网卡 eth1 是连接外网的，然而在 neutron 配置好之前，这个网卡通常是没有 IP 的，为了 apt-get 也添加了 eth0，有人说可以通过添加 route 规则都通过 Controller 连接外网，但是对于初学的人，这个样比较容易操作。&lt;/p>
+&lt;p>neutron 是用来创建虚拟网络的，所谓虚拟网络，就是虚拟机启动的时候会有一个虚拟网卡，虚拟网卡会连接到虚拟的 switch 上，虚拟的 switch 连接到虚拟的 router 上，虚拟的 router 最终和物理网卡联通，从而虚拟网络和物理网络联通起来。&lt;/p>
+&lt;p>neutron 分成多个模块分布在三个节点上。&lt;/p>
+&lt;p>Controller 节点：&lt;/p>
+&lt;ul>
+&lt;li>neutron-server，用于接受 API 请求创建网络，子网，路由器等，然而创建的这些东西仅仅是一些数据结构在数据库里面&lt;/li>
+&lt;/ul>
+&lt;p>Network 节点：&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>neutron-l3-agent，用于创建和管理虚拟路由器，当 neutron-server 将路由器的数据结构创建好，它是做具体的事情的，真正的调用命令行将虚拟路由器，路由表，namespace，iptables 规则全部创建好&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>neutron-dhcp-agent，用于创建和管理虚拟 DHCP Server，每个虚拟网络都会有一个 DHCP Server，这个 DHCP Server 为这个虚拟网络里面的虚拟机提供 IP&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>neutron-openvswith-plugin-agent，这个是用于创建虚拟的 L2 的 switch 的，在 Network 节点上，Router 和 DHCP Server 都会连接到二层的 switch 上&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>Compute 节点：&lt;/p>
+&lt;ul>
+&lt;li>neutron-openvswith-plugin-agent，这个是用于创建虚拟的 L2 的 switch 的，在 Compute 节点上，虚拟机的网卡也是连接到二层的 switch 上&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dk3eew/1616123209494-7100becf-9bd4-4260-9859-6d78ebc03def.jpeg" alt="">&lt;/p>
+&lt;p>图 2&lt;/p>
+&lt;p>当我们搭建好了 Openstack，然后创建好了 tenant 后，我们会为这个 tenant 创建一个网络。&lt;/p>
+&lt;p>#!/bin/bash&lt;/p>
+&lt;p>TENANT_NAME=&amp;ldquo;openstack&amp;rdquo;&lt;/p>
+&lt;p>TENANT_NETWORK_NAME=&amp;ldquo;openstack-net&amp;rdquo;&lt;/p>
+&lt;p>TENANT_SUBNET_NAME=&amp;quot;${TENANT_NETWORK_NAME}-subnet&amp;quot;&lt;/p>
+&lt;p>TENANT_ROUTER_NAME=&amp;ldquo;openstack-router&amp;rdquo;&lt;/p>
+&lt;p>FIXED_RANGE=&amp;ldquo;192.168.0.0/24&amp;rdquo;&lt;/p>
+&lt;p>NETWORK_GATEWAY=&amp;ldquo;192.168.0.1&amp;rdquo;&lt;/p>
+&lt;p>PUBLIC_GATEWAY=&amp;ldquo;172.24.1.1&amp;rdquo;&lt;/p>
+&lt;p>PUBLIC_RANGE=&amp;ldquo;172.24.1.0/24&amp;rdquo;&lt;/p>
+&lt;p>PUBLIC_START=&amp;ldquo;172.24.1.100&amp;rdquo;&lt;/p>
+&lt;p>PUBLIC_END=&amp;ldquo;172.24.1.200&amp;rdquo;&lt;/p>
+&lt;p>TENANT_ID=$(keystone tenant-list | grep &amp;quot; $TENANT_NAME &amp;quot; | awk &amp;lsquo;{print $2}&amp;rsquo;)&lt;/p>
+&lt;p>(1) TENANT_NET_ID=$(neutron net-create &amp;ndash;tenant_id $TENANT_ID $TENANT_NETWORK_NAME &amp;ndash;provider:network_type gre &amp;ndash;provider:segmentation_id 1 | grep &amp;quot; id &amp;quot; | awk &amp;lsquo;{print $4}&amp;rsquo;)&lt;/p>
+&lt;p>(2) TENANT_SUBNET_ID=$(neutron subnet-create &amp;ndash;tenant_id $TENANT_ID &amp;ndash;ip_version 4 &amp;ndash;name $TENANT_SUBNET_NAME $TENANT_NET_ID $FIXED_RANGE &amp;ndash;gateway $NETWORK_GATEWAY &amp;ndash;dns_nameservers list=true 8.8.8.8 | grep &amp;quot; id &amp;quot; | awk &amp;lsquo;{print $4}&amp;rsquo;)&lt;/p>
+&lt;p>(3) ROUTER_ID=$(neutron router-create &amp;ndash;tenant_id $TENANT_ID $TENANT_ROUTER_NAME | grep &amp;quot; id &amp;quot; | awk &amp;lsquo;{print $4}&amp;rsquo;)&lt;/p>
+&lt;p>(4) neutron router-interface-add $ROUTER_ID $TENANT_SUBNET_ID&lt;/p>
+&lt;p>(5) neutron net-create public &amp;ndash;router:external=True&lt;/p>
+&lt;p>(6) neutron subnet-create &amp;ndash;ip_version 4 &amp;ndash;gateway $PUBLIC_GATEWAY public $PUBLIC_RANGE &amp;ndash;allocation-pool start=$PUBLIC_START,end=$PUBLIC_END &amp;ndash;disable-dhcp &amp;ndash;name public-subnet&lt;/p>
+&lt;p>(7) neutron router-gateway-set ${TENANT_ROUTER_NAME} public&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dk3eew/1616123209460-e8eb430a-0276-4596-b53b-7cb8faeeac66.jpeg" alt="">&lt;/p>
+&lt;p>图 3&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>为这个 Tenant 创建一个 private network，不同的 private network 是需要通过 VLAN tagging 进行隔离的，互相之间 broadcast 不能到达，这里我们用的是 GRE 模式，也需要一个类似 VLAN ID 的东西，称为 Segment ID&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>创建一个 private network 的 subnet，subnet 才是真正配置 IP 网段的地方，对于私网，我们常常用 192.168.0.0/24 这个网段&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>为这个 Tenant 创建一个 Router，才能够访问外网&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>将 private network 连接到 Router 上&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>创建一个 External Network&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>创建一个 Exernal Network 的 Subnet，这个外网逻辑上代表了我们数据中心的物理网络，通过这个物理网络，我们可以访问外网。因而 PUBLIC_GATEWAY 应该设为数据中心里面的 Gateway， PUBLIC_RANGE 也应该和数据中心的物理网络的 CIDR 一致，否则连不通，而之所以设置 PUBLIC_START 和 PUBLIC_END，是因为在数据中心中，不可能所有的 IP 地址都给 Openstack 使用，另外可能搭建了 VMware Vcenter，可能有物理机器，仅仅分配一个区间给 Openstack 来用。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>将 Router 连接到 External Network&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>经过这个流程，从虚拟网络，到物理网络就逻辑上联通了。&lt;/p>
+&lt;p>创建完毕网络，如果不创建虚拟机，我们还是发现 neutron 的 agent 还是做了很多工作的，创建了很多的虚拟网卡和 switch&lt;/p>
+&lt;p>在 Compute 节点上：&lt;/p>
+&lt;p>root@ComputeNode:~# ip addr&lt;/p>
+&lt;p>1: eth0: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether 08:00:27:49:5c:41 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>inet 172.24.1.124/22 brd 172.24.1.255 scope global eth0&lt;/p>
+&lt;p>2: eth2: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether 08:00:27:8e:42:2c brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>inet 192.168.56.124/24 brd 192.168.56.255 scope global eth2&lt;/p>
+&lt;p>3: eth3: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether 08:00:27:68:92:ce brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>inet 10.10.10.124/24 brd 10.10.10.255 scope global eth3&lt;/p>
+&lt;p>4: br-int: mtu 1500 qdisc noqueue state UNKNOWN&lt;/p>
+&lt;p>link/ether d6:2a:96:12:4a:49 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>5: br-tun: mtu 1500 qdisc noqueue state UNKNOWN&lt;/p>
+&lt;p>link/ether a2:ee:75:bd:af:4a brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>6: qvof5da998c-82: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether c2:7e:50:de:8c:c5 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>7: qvbf5da998c-82: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether c2:33:73:40:8f:e0 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>root@ComputeNode:~# ovs-vsctl show&lt;/p>
+&lt;p>39f69272-17d4-42bf-9020-eecc9fe8cde6&lt;/p>
+&lt;p>Bridge br-int&lt;/p>
+&lt;p>Port patch-tun&lt;/p>
+&lt;p>Interface patch-tun&lt;/p>
+&lt;p>type: patch&lt;/p>
+&lt;p>options: {peer=patch-int}&lt;/p>
+&lt;p>Port br-int&lt;/p>
+&lt;p>Interface br-int&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>Bridge br-tun&lt;/p>
+&lt;p>Port patch-int&lt;/p>
+&lt;p>Interface patch-int&lt;/p>
+&lt;p>type: patch&lt;/p>
+&lt;p>options: {peer=patch-tun}&lt;/p>
+&lt;p>Port &amp;ldquo;gre-1&amp;rdquo;&lt;/p>
+&lt;p>Interface &amp;ldquo;gre-1&amp;rdquo;&lt;/p>
+&lt;p>type: gre&lt;/p>
+&lt;p>options: {in_key=flow, local_ip=&amp;ldquo;10.10.10.124&amp;rdquo;, out_key=flow, remote_ip=&amp;ldquo;10.10.10.121&amp;rdquo;}&lt;/p>
+&lt;p>Port br-tun&lt;/p>
+&lt;p>Interface br-tun&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>ovs_version: &amp;ldquo;1.10.2&amp;rdquo;&lt;/p>
+&lt;p>在 Network Node 上：&lt;/p>
+&lt;p>root@NetworkNode:~# ip addr&lt;/p>
+&lt;p>1: eth0: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether 08:00:27:22:8a:7a brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>inet 172.24.1.121/22 brd 172.24.1.255 scope global eth0&lt;/p>
+&lt;p>2: eth1: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether 08:00:27:f1:31:81 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>3: eth2: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether 08:00:27:56:7b:8a brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>inet 192.168.56.121/24 brd 192.168.56.255 scope global eth2&lt;/p>
+&lt;p>4: eth3: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether 08:00:27:26:bc:84 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>inet 10.10.10.121/24 brd 10.10.10.255 scope global eth3&lt;/p>
+&lt;p>5: br-ex: mtu 1500 qdisc noqueue state UNKNOWN&lt;/p>
+&lt;p>link/ether 08:00:27:f1:31:81 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>inet 172.24.1.8/24 brd 172.24.1.255 scope global br-ex&lt;/p>
+&lt;p>6: br-int: mtu 1500 qdisc noqueue state UNKNOWN&lt;/p>
+&lt;p>link/ether 22:fe:f1:9b:29:4b brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>7: br-tun: mtu 1500 qdisc noqueue state UNKNOWN&lt;/p>
+&lt;p>link/ether c6:ea:94:ff:23:41 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>root@NetworkNode:~# ip netns&lt;/p>
+&lt;p>qrouter-b2510953-1ae4-4296-a628-1680735545ac&lt;/p>
+&lt;p>qdhcp-96abd26b-0a2f-448b-b92c-4c98b8df120b&lt;/p>
+&lt;p>root@NetworkNode:~# ip netns exec qrouter-b2510953-1ae4-4296-a628-1680735545ac ip addr&lt;/p>
+&lt;p>8: qg-97040ca3-2c: mtu 1500 qdisc noqueue state UNKNOWN&lt;/p>
+&lt;p>link/ether fa:16:3e:26:57:e3 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>inet 172.24.1.100/24 brd 172.24.1.255 scope global qg-97040ca3-2c&lt;/p>
+&lt;p>11: qr-e8b97930-ac: mtu 1500 qdisc noqueue state UNKNOWN&lt;/p>
+&lt;p>link/ether fa:16:3e:43:ef:16 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>inet 192.168.0.1/24 brd 192.168.0.255 scope global qr-e8b97930-ac&lt;/p>
+&lt;p>root@NetworkNode:~# ip netns exec qdhcp-96abd26b-0a2f-448b-b92c-4c98b8df120b ip addr&lt;/p>
+&lt;p>9: tapde5739e1-95: mtu 1500 qdisc noqueue state UNKNOWN&lt;/p>
+&lt;p>link/ether fa:16:3e:19:8c:67 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>inet 192.168.0.2/24 brd 192.168.0.255 scope global tapde5739e1-95&lt;/p>
+&lt;p>inet 169.254.169.254/16 brd 169.254.255.255 scope global tapde5739e1-95&lt;/p>
+&lt;p>root@NetworkNode:~# ovs-vsctl show&lt;/p>
+&lt;p>d5d5847e-1c9e-4770-a68c-7a695b7b95cd&lt;/p>
+&lt;p>Bridge br-ex&lt;/p>
+&lt;p>Port &amp;ldquo;qg-97040ca3-2c&amp;rdquo;&lt;/p>
+&lt;p>Interface &amp;ldquo;qg-97040ca3-2c&amp;rdquo;&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>Port &amp;ldquo;eth1&amp;rdquo;&lt;/p>
+&lt;p>Interface &amp;ldquo;eth1&amp;rdquo;&lt;/p>
+&lt;p>Port br-ex&lt;/p>
+&lt;p>Interface br-ex&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>Bridge br-int&lt;/p>
+&lt;p>Port patch-tun&lt;/p>
+&lt;p>Interface patch-tun&lt;/p>
+&lt;p>type: patch&lt;/p>
+&lt;p>options: {peer=patch-int}&lt;/p>
+&lt;p>Port &amp;ldquo;tapde5739e1-95&amp;rdquo;&lt;/p>
+&lt;p>tag: 1&lt;/p>
+&lt;p>Interface &amp;ldquo;tapde5739e1-95&amp;rdquo;&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>Port br-int&lt;/p>
+&lt;p>Interface br-int&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>Port &amp;ldquo;qr-e8b97930-ac&amp;rdquo;&lt;/p>
+&lt;p>tag: 1&lt;/p>
+&lt;p>Interface &amp;ldquo;qr-e8b97930-ac&amp;rdquo;&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>Bridge br-tun&lt;/p>
+&lt;p>Port patch-int&lt;/p>
+&lt;p>Interface patch-int&lt;/p>
+&lt;p>type: patch&lt;/p>
+&lt;p>options: {peer=patch-tun}&lt;/p>
+&lt;p>Port &amp;ldquo;gre-2&amp;rdquo;&lt;/p>
+&lt;p>Interface &amp;ldquo;gre-2&amp;rdquo;&lt;/p>
+&lt;p>type: gre&lt;/p>
+&lt;p>options: {in_key=flow, local_ip=&amp;ldquo;10.10.10.121&amp;rdquo;, out_key=flow, remote_ip=&amp;ldquo;10.10.10.124&amp;rdquo;}&lt;/p>
+&lt;p>Port br-tun&lt;/p>
+&lt;p>Interface br-tun&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>ovs_version: &amp;ldquo;1.10.2&amp;rdquo;&lt;/p>
+&lt;p>这时候如果我们创建一个虚拟机在这个网络里面，在 Compute Node 多了下面的网卡：&lt;/p>
+&lt;p>13: qvof5da998c-82: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether c2:7e:50:de:8c:c5 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>14: qvbf5da998c-82: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether c2:33:73:40:8f:e0 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>15: qbr591d8cc4-df: mtu 1500 qdisc noqueue state UP&lt;/p>
+&lt;p>link/ether f2:d9:f0:d5:48:c8 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>16: qvo591d8cc4-df: mtu 1500 qdisc pfifo_fast state UP qlen 1000&lt;/p>
+&lt;p>link/ether e2:58:d4:dc:b5:16 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>17: qvb591d8cc4-df: mtu 1500 qdisc pfifo_fast master qbr591d8cc4-df state UP qlen 1000&lt;/p>
+&lt;p>link/ether f2:d9:f0:d5:48:c8 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>18: tap591d8cc4-df: mtu 1500 qdisc pfifo_fast master qbr591d8cc4-df state UNKNOWN qlen 500&lt;/p>
+&lt;p>link/ether fe:16:3e:6e:ba:d0 brd ff:ff:ff:ff:ff:ff&lt;/p>
+&lt;p>如果我们按照 ovs-vsctl show 的网卡桥接关系，变可以画出下面的图&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dk3eew/1616123209536-dacb32ea-a9c6-4f21-bcfc-bfb8bfe2f36e.jpeg" alt="">&lt;/p>
+&lt;p>图 4&lt;/p>
+&lt;p>当然如果你配的不是 GRE 而是 VLAN 的话，便有下面这个著名的复杂的图。&lt;/p>
+&lt;p>在 network Node 上：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dk3eew/1616123209516-12e64548-54a7-479b-9098-39a2abdccf09.jpeg" alt="">&lt;/p>
+&lt;p>图 5&lt;/p>
+&lt;p>在 Compute Node 上：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dk3eew/1616123209481-28a3ced3-6a9f-47a4-bb44-24d4d1ceeb66.jpeg" alt="">&lt;/p>
+&lt;p>图 6&lt;/p>
+&lt;p>当看到这里，很多人脑袋就大了，openstack 为什么要创建这么多的虚拟网卡，他们之间什么关系，这些 dl_vlan, mod_vlan_vid 都是什么东东啊？&lt;/p>
+&lt;p>这些网卡看起来复杂，却是各有用处，这种虚拟网络拓扑，正是我们经常使用的物理网络的拓扑结构。&lt;/p>
+&lt;p>我们先来回到一个最最熟悉不过的场景，我们的大学寝室，当时我们还买不起路由器，所以一般采取的方法如下图所示：&lt;/p>
+&lt;p>寝室长的机器上弄两张网卡，寝室买一个 HUB，其他人的电脑都接到 HUB 上，寝室长的电脑的两张网卡一张对外连接网络，一张对内连接 HUB。寝室长的电脑其实充当的便是路由器的作用。&lt;/p>
+&lt;p>后来条件好了，路由器也便宜了，所以很多家庭也是类似的拓扑结构，只不过将 Computer1 和 switch 合起来，变成了一个路由器，路由器也是有多个口一个连接 WLAN，一个连接 LAN。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dk3eew/1616123209487-4740b1f4-55ca-4fef-893e-05869d01e536.jpeg" alt="">&lt;/p>
+&lt;p>图 7&lt;/p>
+&lt;p>现在我们想象一个寝室变成了一台物理机 Hypervisor，所有的电脑都变成了虚拟机，就成了下面的样子。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dk3eew/1616123209460-3d9b83f0-8ddc-4964-ab00-363e28034e44.jpeg" alt="">&lt;/p>
+&lt;p>图 8&lt;/p>
+&lt;p>我们先忽略 qbr 和 DHCP Server，以及 namespace。&lt;/p>
+&lt;p>br-int 就是寝室里面的 HUB，所有虚拟机都会连接到这个 switch 上，虚拟机之间的相互通信就是通过 br-int 来的。&lt;/p>
+&lt;p>Router 就是你们寝室长的电脑，一边接在 br-int 上，一边接在对外的网口上，br-ex/eth0 外面就是我们的物理网络。&lt;/p>
+&lt;p>为什么会有个 DHCP Server 呢，是同一个 private network 里的虚拟机得到 IP 都是通过这个 DHCP Server 来的，这个 DHCP Server 也是连接到 br-int 上和虚拟机进行通信。&lt;/p>
+&lt;p>为什么会有 qbr 呢，这是和 security group 的概念有关，openstack 中的 security group 开通哪些端口，屏蔽哪些端口是用 iptables 来实现的，然而 br-int 这些虚拟 bridge 都是 openvswitch 创建的，openvswitch 的 kernel mode 和 netfilter 的 kernel mode 不兼容，一个 IP 包进来要么走 iptables 的规则进行处理，要么走 openvswitch 的规则进行处理，通过上面的复杂的图我们可以看到，br-int 上面有很多 openvswitch 的规则，比如 vlan tag 等，所以 iptables 必须要另外建立一个 linux bridge 来做，因而有了 qbr，在了解拓扑结构的时候，可以将 qbr 忽略，看成 VM 直接连接到 br-int 上就可以了。&lt;/p>
+&lt;p>为什么会有 namespace 呢，java 的 namespace 是为了相同的类名，不同的 namespace，显然是不同的类。openstack 也想做到这一点，不同的 tenant 都想创建自己的 router 和 private network，彼此不知道别人指定了哪些网段，很有可能两个 tenant 都指定了 192.168.0.0/24，这样不同的 private network 的路由表，DHCP Server 就需要隔离，不然就乱了，因而有了 namespace。&lt;/p>
+&lt;p>上面的图其实就是单节点的 openstack 的网络结构，虽然复杂，但是就是把我们家里的，或者寝室里面的物理机搬到一个 Hypervisor 上了，其结构就不难理解了。&lt;/p>
+&lt;p>当然单节点的 openstack 不过是个测试环境，compute 节点和 network 节点也是要分开的，如图 4，每个机器上都有了自己的 br-int。&lt;/p>
+&lt;p>但是对于虚拟机和虚拟 Router 来讲，他们仍然觉得他们是连接到了一个大的 L2 的 br-int 上，通过这个 br-int 相互通信的，他们感受不到 br-int 下面的虚拟网卡 br-tun。所以对于多节点结构，我们可以想象 br-int 是一个大的，横跨所有的 compute 和 network 节点的二层 switch，虚拟机之间的通信以及虚拟机和 Router 的通信，就像在一个寝室一样的。&lt;/p>
+&lt;p>然而 br-int 毕竟被物理的割开了，需要有一种方式将他们串联起来，openstack 提供了多种方式，图 4 中是用 GRE tunnel 将不同机器的 br-int 连接起来，图 5 图 6 是通过 VLAN 将 br-int 连接起来，当然还可以使用 vxlan。&lt;/p>
+&lt;p>这就是为什么 openstack 有了 br-int 这个 bridge，但是不把所有的 openvswitch 的规则都在它上面实现。就是为了提供这种灵活性，对于虚拟机来讲，看到的是一大整个 br-int，不同机器的 br-int 可以有多种方式连接，这在 br-int 下面的网卡上面实现。&lt;/p>
+&lt;p>如果有不同的 Tenant，创建了不同的 private network，为了在 data network 上对包进行隔离，创建 private network 的时候，需要指定 vlanid 或者 segmentid。&lt;/p>
+&lt;p>从 ovs-vsctl show 我们可以看到，不同的 tenant 的 private network 上创建的虚拟机，连接到 br-int 上的时候是带 tag 的，所以不同 tenant 的虚拟机，即便连接到同一个 br-int 上，因为 tag 不同，也是不能相互通信的，然而同一个机器上的 tag 的计数是仅在本机有效的，并不使用我们创建 private network 的时候指定的全局唯一的 vlanid 或者 segmentid，一个 compute 节点上的 br-int 上的 tag 1 和另一台 compute 节点上的 br-int 的 tag1 很可能是两码事。全局的 vlanid 和 segmentid 仅仅在 br-int 以下的虚拟网卡和物理网络中使用，虚拟机所有能看到的东西，到 br-int 为止，看不到打通 br-int 所要使用的 vlanid 和 segmentid。&lt;/p>
+&lt;p>从局部有效的 taging 到全局有效的 vlanid 或者 segmentid 的转换，都是通过 openvswitch 的规则，在 br-tun 或者 br-eth1 上实现。&lt;/p>
+&lt;p>我们可以用下面的命令看一下这个规则:&lt;/p>
+&lt;p>在 Compute 节点上：&lt;/p>
+&lt;p>private network “openstack-net”的 tag 在这台机器上是 2，而我们创建的时候的 segmentid 设定的是 1&lt;/p>
+&lt;p>Bridge br-int&lt;/p>
+&lt;p>Port patch-tun&lt;/p>
+&lt;p>Interface patch-tun&lt;/p>
+&lt;p>type: patch&lt;/p>
+&lt;p>options: {peer=patch-int}&lt;/p>
+&lt;p>Port br-int&lt;/p>
+&lt;p>Interface br-int&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>Port &amp;ldquo;qvo591d8cc4-df&amp;rdquo;&lt;/p>
+&lt;p>tag: 2&lt;/p>
+&lt;p>Interface &amp;ldquo;qvo591d8cc4-df&amp;rdquo;&lt;/p>
+&lt;p>root@ComputeNodeCliu8:~# ovs-ofctl dump-flows br-tun&lt;/p>
+&lt;p>NXST_FLOW reply (xid=0x4):&lt;/p>
+&lt;p>//in_port=1 是指包是从 patch-int，也即是从虚拟机来的，所以是发送规则，跳转到 table1&lt;/p>
+&lt;p>cookie=0x0, duration=77419.191s, table=0, n_packets=22, n_bytes=2136, idle_age=6862, hard_age=65534, priority=1,in_port=1 actions=resubmit(,1)&lt;/p>
+&lt;p>//in_port=2 是指包是从 GRE 来的，也即是从物理网络来的，所以是接收规则，跳转到 table2&lt;/p>
+&lt;p>cookie=0x0, duration=77402.19s, table=0, n_packets=3, n_bytes=778, idle_age=6867, hard_age=65534, priority=1,in_port=2 actions=resubmit(,2)&lt;/p>
+&lt;p>cookie=0x0, duration=77418.403s, table=0, n_packets=0, n_bytes=0, idle_age=65534, hard_age=65534, priority=0 actions=drop&lt;/p>
+&lt;p>//multicast，跳转到 table21&lt;/p>
+&lt;p>cookie=0x0, duration=77416.63s, table=1, n_packets=21, n_bytes=2094, idle_age=6862, hard_age=65534, priority=0,dl_dst=01:00:00:00:00:00/01:00:00:00:00:00 actions=resubmit(,21)&lt;/p>
+&lt;p>//broadcast，跳转到 table 20&lt;/p>
+&lt;p>cookie=0x0, duration=77417.389s, table=1, n_packets=1, n_bytes=42, idle_age=6867, hard_age=65534, priority=0,dl_dst=00:00:00:00:00:00/01:00:00:00:00:00 actions=resubmit(,20)&lt;/p>
+&lt;p>//这是接收规则的延续，如果接收的 tun_id=0x1 则转换为本地的 tag，mod_vlan_vid:2，跳转到 table 10&lt;/p>
+&lt;p>cookie=0x0, duration=6882.254s, table=2, n_packets=3, n_bytes=778, idle_age=6867, priority=1,tun_id=0x1 actions=mod_vlan_vid:2,resubmit(,10)&lt;/p>
+&lt;p>cookie=0x0, duration=77415.638s, table=2, n_packets=0, n_bytes=0, idle_age=65534, hard_age=65534, priority=0 actions=drop&lt;/p>
+&lt;p>cookie=0x0, duration=77414.432s, table=3, n_packets=0, n_bytes=0, idle_age=65534, hard_age=65534, priority=0 actions=drop&lt;/p>
+&lt;p>cookie=0x0, duration=77412.825s, table=10, n_packets=3, n_bytes=778, idle_age=6867, hard_age=65534, priority=1 actions=learn(table=20,hard_timeout=300,priority=1,NXM_OF_VLAN_TCI[0..11],NXM_OF_ETH_DST[]=NXM_OF_ETH_SRC[],load:0-&amp;gt;NXM_OF_VLAN_TCI[],load:NXM_NX_TUN_ID[]-&amp;gt;NXM_NX_TUN_ID[],output:NXM_OF_IN_PORT[]),output:1&lt;/p>
+&lt;p>cookie=0x0, duration=77411.549s, table=20, n_packets=0, n_bytes=0, idle_age=65534, hard_age=65534, priority=0 actions=resubmit(,21)&lt;/p>
+&lt;p>//这是发送规则的延续，如果接收到的 dl_vlan=2，则转换为物理网络的 segmentid=1，set_tunnel:0x1&lt;/p>
+&lt;p>cookie=0x0, duration=6883.119s, table=21, n_packets=10, n_bytes=1264, idle_age=6862, priority=1,dl_vlan=2 actions=strip_vlan,set_tunnel:0x1,output:2&lt;/p>
+&lt;p>cookie=0x0, duration=77410.56s, table=21, n_packets=11, n_bytes=830, idle_age=6885, hard_age=65534, priority=0 actions=drop&lt;/p>
+&lt;p>在 Network 节点上：&lt;/p>
+&lt;p>Bridge br-int&lt;/p>
+&lt;p>Port patch-tun&lt;/p>
+&lt;p>Interface patch-tun&lt;/p>
+&lt;p>type: patch&lt;/p>
+&lt;p>options: {peer=patch-int}&lt;/p>
+&lt;p>Port &amp;ldquo;tapde5739e1-95&amp;rdquo;&lt;/p>
+&lt;p>tag: 1&lt;/p>
+&lt;p>Interface &amp;ldquo;tapde5739e1-95&amp;rdquo;&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>Port br-int&lt;/p>
+&lt;p>Interface br-int&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>Port &amp;ldquo;qr-e8b97930-ac&amp;rdquo;&lt;/p>
+&lt;p>tag: 1&lt;/p>
+&lt;p>Interface &amp;ldquo;qr-e8b97930-ac&amp;rdquo;&lt;/p>
+&lt;p>type: internal&lt;/p>
+&lt;p>非常相似的规则。&lt;/p>
+&lt;p>root@NetworkNodeCliu8:~# ovs-ofctl dump-flows br-tun&lt;/p>
+&lt;p>NXST_FLOW reply (xid=0x4):&lt;/p>
+&lt;p>//in_port=1 是指包是从 patch-int，也即是从虚拟机来的，所以是发送规则，跳转到 table1&lt;/p>
+&lt;p>cookie=0x0, duration=73932.142s, table=0, n_packets=12, n_bytes=1476, idle_age=3380, hard_age=65534, priority=1,in_port=1 actions=resubmit(,1)&lt;/p>
+&lt;p>//in_port=2 是指包是从 GRE 来的，也即是从物理网络来的，所以是接收规则，跳转到 table2&lt;/p>
+&lt;p>cookie=0x0, duration=73914.323s, table=0, n_packets=9, n_bytes=1166, idle_age=3376, hard_age=65534, priority=1,in_port=2 actions=resubmit(,2)&lt;/p>
+&lt;p>cookie=0x0, duration=73930.934s, table=0, n_packets=0, n_bytes=0, idle_age=65534, hard_age=65534, priority=0 actions=drop&lt;/p>
+&lt;p>//multicast，跳转到 table21&lt;/p>
+&lt;p>cookie=0x0, duration=73928.59s, table=1, n_packets=6, n_bytes=468, idle_age=65534, hard_age=65534, priority=0,dl_dst=01:00:00:00:00:00/01:00:00:00:00:00 actions=resubmit(,21)&lt;/p>
+&lt;p>//broadcast，跳转到 table20&lt;/p>
+&lt;p>cookie=0x0, duration=73929.695s, table=1, n_packets=3, n_bytes=778, idle_age=3380, hard_age=65534, priority=0,dl_dst=00:00:00:00:00:00/01:00:00:00:00:00 actions=resubmit(,20)&lt;/p>
+&lt;p>//这是接收规则的延续，如果接收的 tun_id=0x1 则转换为本地的 tag，mod_vlan_vid:1，跳转到 table 10&lt;/p>
+&lt;p>cookie=0x0, duration=73906.864s, table=2, n_packets=9, n_bytes=1166, idle_age=3376, hard_age=65534, priority=1,tun_id=0x1 actions=mod_vlan_vid:1,resubmit(,10)&lt;/p>
+&lt;p>cookie=0x0, duration=73927.542s, table=2, n_packets=0, n_bytes=0, idle_age=65534, hard_age=65534, priority=0 actions=drop&lt;/p>
+&lt;p>cookie=0x0, duration=73926.403s, table=3, n_packets=0, n_bytes=0, idle_age=65534, hard_age=65534, priority=0 actions=drop&lt;/p>
+&lt;p>cookie=0x0, duration=73925.611s, table=10, n_packets=9, n_bytes=1166, idle_age=3376, hard_age=65534, priority=1 actions=learn(table=20,hard_timeout=300,priority=1,NXM_OF_VLAN_TCI[0..11],NXM_OF_ETH_DST[]=NXM_OF_ETH_SRC[],load:0-&amp;gt;NXM_OF_VLAN_TCI[],load:NXM_NX_TUN_ID[]-&amp;gt;NXM_NX_TUN_ID[],output:NXM_OF_IN_PORT[]),output:1&lt;/p>
+&lt;p>cookie=0x0, duration=73924.858s, table=20, n_packets=0, n_bytes=0, idle_age=65534, hard_age=65534, priority=0 actions=resubmit(,21)&lt;/p>
+&lt;p>//这是发送规则的延续，如果接收到的 dl_vlan=1，则转换为物理网络的 segmentid=1，set_tunnel:0x1&lt;/p>
+&lt;p>cookie=0x0, duration=73907.657s, table=21, n_packets=0, n_bytes=0, idle_age=65534, hard_age=65534, priority=1,dl_vlan=1 actions=strip_vlan,set_tunnel:0x1,output:2&lt;/p>
+&lt;p>cookie=0x0, duration=73924.117s, table=21, n_packets=6, n_bytes=468, idle_age=65534, hard_age=65534, priority=0 actions=drop&lt;/p></description></item><item><title>Docs: Neutron 架构</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E6%9E%B6%E6%9E%84/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E6%9E%B6%E6%9E%84/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://docs.openstack.org/neutron/latest/admin/intro-os-networking.html">https://docs.openstack.org/neutron/latest/admin/intro-os-networking.html&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;ul>
+&lt;li>Neutron Server
+&lt;ul>
+&lt;li>接收请求。对外提供 OpenStack 网络 API，接收请求，并调用 Plugin 处理请求。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Plugins 插件/Agent 代理
+&lt;ul>
+&lt;li>实现请求。&lt;/li>
+&lt;li>实现 OpenStack 网络的主要组件。用来创建各种网络设备和配置规则&lt;/li>
+&lt;li>Plugins 用来处理 Neutron Server 发来的请求，维护 OpenStack 逻辑网络状态， 并调用 Agent 处理请求。&lt;/li>
+&lt;li>Agent 用来处理对应 Plugin 的请求，并在宿主机上创建相应的网络设备以及生成网络规则。&lt;/li>
+&lt;li>Plugins 与 Agent 一般都是配套使用。比如 OVS Plugin 需要 OVS Agent。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Queue 队列
+&lt;ul>
+&lt;li>组件间通信。Neutron Server，Plugin 和 Agent 之间通过 Messaging Queue 通信和调用。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Database 数据库
+&lt;ul>
+&lt;li>保存网络状态。接收 Plugins 的信息，保存 OpenStack 的网络状态信息，包括 Network, Subnet, Port, Router 等。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/isxvn1/1616123261056-8e665764-b4d5-4d71-9756-af5d1fde6121.jpeg" alt="">&lt;/p>
+&lt;p>额外说明：&lt;/p>
+&lt;ul>
+&lt;li>plugin 解决的是 What 的问题，即网络要配置成什么样子？而至于如何配置 How 的工作则交由 agent 完成。&lt;/li>
+&lt;li>plugin 的一个主要的职责是在数据库中维护 Neutron 网络的状态信息，这就造成一个问题：所有 network provider 的 plugin 都要编写一套非常类似的数据库访问代码。为了解决这个问题，Neutron 在 H 版本实现了一个 ML2（Modular Layer 2）plugin，对 plugin 的功能进行抽象和封装。有了 ML2 plugin，各种 network provider 无需开发自己的 plugin，只需要针对 ML2 开发相应的 driver 就可以了，工作量和难度都大大减少。&lt;/li>
+&lt;/ul>
+&lt;h1 id="neutron-server">Neutron Server&lt;a class="td-heading-self-link" href="#neutron-server" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>Neutron Server 提供了一个公开 Neutron API 的 Web 服务器，并将所有 Web 服务调用传递给 Neutron 插件进行处理。&lt;/p>
+&lt;h1 id="plugins-插件">Plugins 插件&lt;a class="td-heading-self-link" href="#plugins-%e6%8f%92%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>plugin 按照功能分为两类：core plugin 和 service plugin。core plugin 维护 Neutron 的 netowrk, subnet 和 port 相关资源的信息，与 core plugin 对应的 agent 包括 linux bridge, OVS 等；service plugin 提供 routing, firewall，load balance 等服务，也有相应的 agent。&lt;/p>
+&lt;h2 id="core-plugins-核心插件">Core Plugins 核心插件&lt;a class="td-heading-self-link" href="#core-plugins-%e6%a0%b8%e5%bf%83%e6%8f%92%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>官方文档：&lt;a href="https://docs.openstack.org/neutron/latest/admin/config-ml2.html">https://docs.openstack.org/neutron/latest/admin/config-ml2.html&lt;/a>&lt;/p>
+&lt;p>ML2(Modular Layer 2) 是 Neutron 的一个 Core Plugin(核心插件)，该插件提供了一个框架，可也可以称为 ML2 Framework(ML2 框架)。&lt;/p>
+&lt;p>ML2 框架允许在 OpenStack 网络中可以使用多种 Layer 2(二层) 网络技术(只需要更改配置文件即可)，不同的节点可以使用不同的网络实现机制。这就好像是一种规范，只要符合 ML2 规范，都可以作为插件，接入到 Openstack 中，提供网络服务。跟 K8S 的 CNI 有异曲同工之妙。&lt;/p>
+&lt;p>ML2 对 二层网络 进行抽象，引入了 type driver 和 mechansim driver 这两个概念。&lt;/p>
+&lt;ul>
+&lt;li>Type Drivers # OpenStack 网络类型驱动。定义底层如何实现 OpenStack 网络。比如 VXLAN、Flat 等
+&lt;ul>
+&lt;li>就是 OpenStack 的 Nework Type，详见：OpenStack Networking 介绍 中的基本概念。不同类型的驱动用来维护该类型的网络。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Mechanism Drivers # OpenStack 网络机制驱动。定义访问某种 OpenStack 网络类型的机制。比如 Open vSwitch、Linux Bridge 等。
+&lt;ul>
+&lt;li>就是 Plugins 本身，不同机制的插件，可以管理的 OpenStack Nework Type 不同。详情见下：
+&lt;ul>
+&lt;li>Open vSwitch 支持：Flat、VLAN、VXLAN、GRE&lt;/li>
+&lt;li>Linux Bridge 支持：Flat、VLAN、VXLAN&lt;/li>
+&lt;li>SRIOV 支持：Flat、VLAN&lt;/li>
+&lt;li>MacVTap 支持：Flat、VLAN&lt;/li>
+&lt;li>L2 Population 支持：VXLAN、GRE&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Mechanism Drivers 可以利用 L2 Agent(通过 RPC 调用)与设备或控制器进行交互，也可以直接与设备或控制器进行交互。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>只要实现了上述两个概念的插件，皆可接入 ML2，为 OpenStack 提供网络服务。&lt;/p>
+&lt;h3 id="network-type-drivers">Network Type Drivers&lt;a class="td-heading-self-link" href="#network-type-drivers" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>在 ML2 插件中启用指定的 Type Drivers。编辑 /etc/neutron/plugins/ml2/ml2_conf.ini 文件，示例：&lt;/p>
+&lt;p>&lt;code>[ml2]type_drivers = flat,vlan,vxlan&lt;/code>&lt;/p>
+&lt;p>更多配置信息参考 Networking configuration options&lt;/p>
+&lt;p>可以使用以下类型的网络驱动&lt;/p>
+&lt;ul>
+&lt;li>local # 本地网络。无法与宿主机外部胡同&lt;/li>
+&lt;li>Flat # 平面网络。无法为网络添加 vlan 标签&lt;/li>
+&lt;li>VLAN # VLAN 网络。可以为网络中任何一个端口添加 vlan 标签&lt;/li>
+&lt;li>GRE&lt;/li>
+&lt;li>VXLAN&lt;/li>
+&lt;li>geneve&lt;/li>
+&lt;/ul>
+&lt;p>注意：Provider Network 与 Project Network 可用的 Type Drivers 是不同的，在 Project Network 中是无法使用 flat 这个 Type Driver，因为 flat 类型的网络与物理网卡一一对应&lt;/p>
+&lt;h3 id="mechanism-drivers">Mechanism Drivers&lt;a class="td-heading-self-link" href="#mechanism-drivers" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>要在 ML2 插件中启用 Mechanism Drivers，在 neutron 服务器上编辑 /etc/neutron/plugins/ml2/ml2_conf.ini 文件，示例：&lt;/p>
+&lt;p>&lt;code>[ml2]mechanism_drivers = linuxbridge&lt;/code>&lt;/p>
+&lt;p>可以使用以下机制的网络驱动，更多配置参考： Configuration Reference.&lt;/p>
+&lt;ul>
+&lt;li>Linux Bridge
+&lt;ul>
+&lt;li>这个 Mechanism Driver 不需要其他配置。但是需要代理配置。有关详细信息，请参阅下面的 L2 Agent 相关部分。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Open vSwitch
+&lt;ul>
+&lt;li>这个 Mechanism Driver 不需要其他配置。但是需要代理配置。有关详细信息，请参阅下面的 L2 Agent 相关部分。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>SRIOV
+&lt;ul>
+&lt;li>SRIOV 驱动程序接受所有 PCI 供应商设备。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>MacVTap
+&lt;ul>
+&lt;li>这个 Mechanism Driver 不需要其他配置。但是需要代理配置。请参阅相关部分。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>L2 population
+&lt;ul>
+&lt;li>管理员可以配置一些可选的配置选项。有关更多详细信息，请参阅《配置参考》中的相关部分。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Specialized
+&lt;ul>
+&lt;li>开源的
+&lt;ul>
+&lt;li>存在外部开源机制驱动程序以及中子集成参考实现。这些驱动程序的配置不是本文档的一部分。例如：&lt;/li>
+&lt;li>OpenDaylight&lt;/li>
+&lt;li>OpenContrail&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>专有（供应商）&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>存在来自各种供应商的外部机制驱动程序以及中子集成参考实现。&lt;/li>
+&lt;/ul>
+&lt;h2 id="service-plugins-服务插件">Service Plugins 服务插件&lt;a class="td-heading-self-link" href="#service-plugins-%e6%9c%8d%e5%8a%a1%e6%8f%92%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>Core &lt;a href="http://mp.weixin.qq.com/s?__biz=MzIwMTM5MjUwMg==&amp;amp;mid=2653587219&amp;amp;idx=1&amp;amp;sn=e14476e223c7a2743ce9efacdf2f020c&amp;amp;scene=21#wechat_redirect">Plugin/Agent 负责管理核心实体&lt;/a>：net, subnet 和 port。而对于更高级的网络服务，则由 Service Plugin 管理。&lt;/p>
+&lt;p>Service Plugin 及其 Agent 提供更丰富的扩展功能，包括 Virtual Routers(虚拟路由)，load balance，firewall 等&lt;/p>
+&lt;h1 id="agent">Agent&lt;a class="td-heading-self-link" href="#agent" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>官方文档：&lt;a href="https://docs.openstack.org/neutron/latest/admin/config-ml2.html#agents">https://docs.openstack.org/neutron/latest/admin/config-ml2.html#agents&lt;/a>&lt;/p>
+&lt;p>Agent 用来处理对应 Plugin 的请求，并在宿主机上创建相应的网络设备以及生成网络规则。提供与 instances 的 2 层和 3 层 连接。处理物理网络—虚拟网络的过渡。处理元数据。等等。&lt;/p>
+&lt;p>每种 Plugins 都有其对应的 Agent 来处理请求。&lt;/p>
+&lt;p>在 /etc/neutron/plugins/ml2/ml2_conf.ini 配置文件中配置了指定的 mechanism driver 后。启动 Neutron 服务，则所有节点上都会运行配置中指定 driver 的对应 Agent&lt;/p>
+&lt;p>比如我指定 mechanism driver 为 linuxbridge&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/isxvn1/1616123261031-37e35b59-a381-4c74-87ad-705aafc88a0d.jpeg" alt="">&lt;/p>
+&lt;p>那么就会启动一个 linuxbridge 的 agent 进程。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/isxvn1/1616123261049-0a087308-40d4-40dc-8342-4c8887c15ba2.jpeg" alt="">&lt;/p>
+&lt;p>下面是各种类型的 Agent 的介绍&lt;/p>
+&lt;ul>
+&lt;li>L2 Agent
+&lt;ul>
+&lt;li>L2 Agent 提供 2 层网络。可用的 L2 Agent 有 Linux Bridge、OVS 等。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>L3 Agent
+&lt;ul>
+&lt;li>L3 Agent 提供高级的三层网络功能，比如 Virtual Routers(虚拟路由)、Floating IPs(弹性 IP)等等。L3 Agent 依赖并行运行的 L2 Agent。&lt;/li>
+&lt;li>L3 agent 需要正确配置才能工作，配置文件为 /etc/neutron/l3_agent.ini，位于控制节点或网络节点上。
+&lt;ul>
+&lt;li>interface_driver 是最重要的选项，
+&lt;ul>
+&lt;li>如果 mechanism driver 是 linux bridge，则：
+&lt;ul>
+&lt;li>interface_driver = neutron.agent.linux.interface.BridgeInterfaceDriver&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>如果选用 open vswitch，则：
+&lt;ul>
+&lt;li>interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>DHCP Agent
+&lt;ul>
+&lt;li>DHCP Agent 负责 DHCP 和 RADVD 服务。它需要在同一节点上运行的 L2 代理。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Metadata Agent
+&lt;ul>
+&lt;li>instance 在启动时需要访问 nova-metadata-api 服务获取 metadata 和 userdata，这些 data 是该 instance 的定制化信息，比如 hostname, ip， public key 等。&lt;/li>
+&lt;li>但 instance 启动时并没有 ip，那如何通过网络访问到 nova-metadata-api 服务呢？&lt;/li>
+&lt;li>答案就是 neutron-metadata-agent 该 agent 让 instance 能够通过 dhcp-agent 或者 l3-agent 与 nova-metadata-api 通信&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>L3 metering Agent
+&lt;ul>
+&lt;li>L3 metering Agent 启用第 3 层流量计量。它需要在同一节点上运行的 L3 代理。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Security
+&lt;ul>
+&lt;li>L3 agent 可以在 router 上配置防火墙策略，提供网络安全防护。另一个与安全相关的功能是 Security Group，也是通过 IPtables 实现。 Firewall 与 Security Group 的区别在于：
+&lt;ul>
+&lt;li>Firewall 安全策略位于 router，保护的是某个 project 的所有 network。&lt;/li>
+&lt;li>Security Group 安全策略位于 instance，保护的是单个 instance。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="database-数据库">Database 数据库&lt;a class="td-heading-self-link" href="#database-%e6%95%b0%e6%8d%ae%e5%ba%93" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h1 id="reference-implementations-参考实现">Reference Implementations 参考实现&lt;a class="td-heading-self-link" href="#reference-implementations-%e5%8f%82%e8%80%83%e5%ae%9e%e7%8e%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>mechanism driver 和 L2 agent 的组合称为“参考实现”。下表列出了这些实现：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Mechanism Driver&lt;/td>
+&lt;td>L2 agent&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Open vSwitch&lt;/td>
+&lt;td>Open vSwitch agent&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Linux bridge&lt;/td>
+&lt;td>Linux bridge agent&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>SRIOV&lt;/td>
+&lt;td>SRIOV nic switch agent&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>MacVTap&lt;/td>
+&lt;td>MacVTap agent&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>L2 population&lt;/td>
+&lt;td>Open vSwitch agent, Linux bridge agent&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>下表显示了哪些参考实现支持哪些非 L2 的 Agent&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;th>&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>参考实现&lt;/td>
+&lt;td>L3 agent&lt;/td>
+&lt;td>DHCP agent&lt;/td>
+&lt;td>Metadata agent&lt;/td>
+&lt;td>L3 Metering agent&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Open vSwitch &amp;amp; Open vSwitch agent&lt;/td>
+&lt;td>yes&lt;/td>
+&lt;td>yes&lt;/td>
+&lt;td>yes&lt;/td>
+&lt;td>yes&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Linux bridge &amp;amp; Linux bridge agent&lt;/td>
+&lt;td>yes&lt;/td>
+&lt;td>yes&lt;/td>
+&lt;td>yes&lt;/td>
+&lt;td>yes&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>SRIOV &amp;amp; SRIOV nic switch agent&lt;/td>
+&lt;td>no&lt;/td>
+&lt;td>no&lt;/td>
+&lt;td>no&lt;/td>
+&lt;td>no&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>MacVTap &amp;amp; MacVTap agent&lt;/td>
+&lt;td>no&lt;/td>
+&lt;td>no&lt;/td>
+&lt;td>no&lt;/td>
+&lt;td>no&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table></description></item><item><title>Docs: OpenStack Networking 介绍</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/OpenStack-Networking-%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/OpenStack-Networking-%E4%BB%8B%E7%BB%8D/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;/blockquote>
+&lt;p>传统的网络管理方式很大程度上依赖于管理员手工配置和维护各种网络硬件设备；而云环境下的网络已经变得非常复杂，特别是在多租户场景里，用户随时都可能需要创建、修改和删除网络，网络的连通性和隔离不已经太可能通过手工配置来保证了。&lt;/p>
+&lt;p>如何快速响应业务的需求对网络管理提出了更高的要求。传统的网络管理方式已经很难胜任这项工作，而“软件定义网络（software-defined networking, SDN）”所具有的灵活性和自动化优势使其成为云时代网络管理的主流。&lt;/p>
+&lt;p>Neutron 的设计目标是实现“网络即服务（Networking as a Service）”。为了达到这一目标，在设计上遵循了基于 SDN 实现网络虚拟化的原则，在实现上充分利用了 Linux 系统上的各种网络相关的技术。&lt;/p>
+&lt;p>所以！在学习和理解 OpenStack Network 的概念时，要与虚拟机的概念分开。Neutron 仅仅负责 SDN，也就是创建网络拓扑，拓扑中有多少交换机、路由器、都是怎么连接的。网络拓扑构建完毕后，再决定 VM 如何接入该 SDN 网络中，以及使用什么方式来接入。&lt;/p>
+&lt;h1 id="openstack-networking-介绍">OpenStack Networking 介绍&lt;a class="td-heading-self-link" href="#openstack-networking-%e4%bb%8b%e7%bb%8d" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>官方文档：&lt;a href="https://docs.openstack.org/neutron/latest/admin/index.html">https://docs.openstack.org/neutron/latest/admin/index.html&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>名为 Neutron 的服务套件实现了 OpenStack 的网络功能。可以通过 Neutron 创建和管理其他 OpenStack 组件可以使用的 Network Object(网路对象)。例如 networks、subnets、ports 等。&lt;/p>
+&lt;h2 id="neutron-管理的-network-对象">Neutron 管理的 Network 对象&lt;a class="td-heading-self-link" href="#neutron-%e7%ae%a1%e7%90%86%e7%9a%84-network-%e5%af%b9%e8%b1%a1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>openstack 网络管理着以下几个核心对象。这几个对象在 web 界面创建网络时也会用到。这些对象从上到下是包含的概念，Network 包含 subnet，subnet 里包含 port&lt;/p>
+&lt;ul>
+&lt;li>Network # 网络。是一个隔离的二层广播域，不同的 network 之间在二层上是隔离的。network 必须属于某个 Project(有时候也叫租户 tenant)。network 支持多种类型每种网络类型，由 ML2 中的 Type Drivers 管理。
+&lt;ul>
+&lt;li>local # local 网络中的实例智能与同一节点上同一网络中的实例通信&lt;/li>
+&lt;li>flat # flat 网络中的实例能与位于同一网络的实例通信，并且可以跨越多个节点&lt;/li>
+&lt;li>vlan # vlan 是一个二层的广播域，同一 vlan 中的实例可以通信，不同 vlan 种的实例需要通过 router 通信。vlan 中的实例可以跨节点通信、&lt;/li>
+&lt;li>vxlan # 比 vlan 更好的技术&lt;/li>
+&lt;li>gre # 与 vxlan 类似的一种 overlay 网络。主要区别在于使用 IP 包而非 UDP 进行封装。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>SubNet # 子网。是一个 IPv4 或者 IPv6 地址段，创建的 instance 就从 subnet 中获取 IP，每个 subnet 需要定义 IP 地址范围和掩码
+&lt;ul>
+&lt;li>注意：
+&lt;ul>
+&lt;li>在不同 network 中的 subnet 可以一样&lt;/li>
+&lt;li>在相同 network 中的 subnet 不可以一样&lt;/li>
+&lt;li>DHCP # 子网中可以创建 DHCP 服务，当启用 DHCP 服务时，会创建一个 tap 设备连接到某 bridge 上，来与子网所在的网络通信&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Port # 端口 可以当做虚拟交换机的一个端口，创建 port 时，会给 port 分配 MAC 和 IP，当 instance 绑定到 port 时，会自动在 instance 上创建一个网卡，并获取 port 的 MAC 和 IP。如果不启用 DHCP 服务，则仅能获取 MAC，而无法获取 IP，instace 中的网卡 ip 还需要手动添加
+&lt;ul>
+&lt;li>注意：openstack 创建的 instance 本身并没有网卡，instance 中的网卡是通过 neutron 来添加的，而添加方式就是绑定某个 network 中 subnet 里的 port。绑定成功后，在 instance 中即可看到网卡设备。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>Project，Network，Subnet，Port 和 VIF 之间关系。(VIF 指的是 instance 的网卡)&lt;/p>
+&lt;p>Project 1 : m Network 1 : m Subnet 1 : m Port 1 : 1 VIF m : 1 Instance&lt;/p>
+&lt;p>注意：&lt;/p>
+&lt;ul>
+&lt;li>上述核心对象是由 ML2 Plugin 负责管理。详见：Neutron 架构。所以，在这个文章中讲到的 ML2 规范，必须要求接入的插件至少可以满足对这些核心对象的管理。否则网络都无法使用。&lt;/li>
+&lt;li>在这里，network、subnet 都是非常抽象的概念。仅仅创建一个 network 的话，在某些时候(比如 OVS 模式)，不一定会创建出来网桥设备。所有的虚拟网络设备都是在需要的时候才会自动创建出来。&lt;/li>
+&lt;/ul>
+&lt;p>OpenStack 网络分为两种类型：&lt;/p>
+&lt;ul>
+&lt;li>Provider Network # 提供者网络
+&lt;ul>
+&lt;li>Provider Network 由管理员进行创建。用来隔离各租户网络&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Project Network # 项目网络
+&lt;ul>
+&lt;li>Project Network 由租户自己创建。用来隔离租户自己的网络&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>作为网络创建过程的一部分，可以在项目之间共享所有这些类型的网络。特别是，OpenStack Networking 支持具有多个专用网络的每个项目，并使项目能够选择自己的 IP 寻址方案，即使这些 IP 地址与其他项目使用的 IP 地址重叠也是如此。&lt;/p>
+&lt;p>比如我现在管理着云计算平台，并提供服务。租户 1，创建账号，并申请 192.168.0.0/24 网段。租户 1，创建账号，也申请 192.168.0.0/24 网段。这时候，就需要将租户之间的网络隔离，否则无法正常通信。&lt;/p>
+&lt;p>同理，租户自己也有可能会出现隔离网段的需求，比如 租户 1 想让自己公司的各研发组，使用相同的网段，但是又互不影响，这时候，也需要进行隔离。&lt;/p>
+&lt;p>这种隔离的特性，也正是 SDN 的特点之一。其实，SDN 中的隔离，主要是靠 VLAN 来实现的，由于云计算的迅猛发展，用户不断增多，VLAN 上限 4000 的数量已经无法满足各云计算提供商了，毕竟十万、百万的用户都需要隔离。所以这时候需要使用 VxLAN&lt;/p>
+&lt;h2 id="provider-network">Provider Network&lt;a class="td-heading-self-link" href="#provider-network" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>官方文档：&lt;a href="https://docs.openstack.org/neutron/latest/admin/intro-os-networking.html#provider-networks">https://docs.openstack.org/neutron/latest/admin/intro-os-networking.html#provider-networks&lt;/a>&lt;/p>
+&lt;h2 id="project-network">Project Network&lt;a class="td-heading-self-link" href="#project-network" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>官方文档：&lt;a href="https://docs.openstack.org/neutron/latest/admin/intro-os-networking.html#self-service-networks">https://docs.openstack.org/neutron/latest/admin/intro-os-networking.html#self-service-networks&lt;/a>&lt;/p>
+&lt;h1 id="neutron-的功能">Neutron 的功能&lt;a class="td-heading-self-link" href="#neutron-%e7%9a%84%e5%8a%9f%e8%83%bd" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>Neutron 为整个 OpenStack 环境提供网络支持，包括二层交换，三层路由，负载均衡，防火墙和 VPN 等。Neutron 提供了一个灵活的框架，通过配置，无论是开源还是商业软件都可以被用来实现这些功能。&lt;/p>
+&lt;p>二层交换 Switching&lt;/p>
+&lt;p>Nova 的 Instance 是通过虚拟交换机连接到虚拟二层网络的。Neutron 支持多种虚拟交换机，包括 Linux 原生的 Linux Bridge 和 Open vSwitch。 Open vSwitch（OVS）是一个开源的虚拟交换机，它支持标准的管理接口和协议。&lt;/p>
+&lt;p>利用 Linux Bridge 和 OVS，Neutron 除了可以创建传统的 VLAN 网络，还可以创建基于隧道技术的 Overlay 网络，比如 VxLAN 和 GRE（Linux Bridge 目前只支持 VxLAN）。在后面章节我们会学习如何使用和配置 Linux Bridge 和 Open vSwitch。&lt;/p>
+&lt;p>三层路由 Routing&lt;/p>
+&lt;p>Instance 可以配置不同网段的 IP，Neutron 的 router（虚拟路由器）实现 instance 跨网段通信。router 通过 IP forwarding，iptables 等技术来实现路由和 NAT。我们将在后面章节讨论如何在 Neutron 中配置 router 来实现 instance 之间，以及与外部网络的通信。&lt;/p>
+&lt;p>负载均衡 Load Balancing&lt;/p>
+&lt;p>Openstack 在 Grizzly 版本第一次引入了 Load-Balancing-as-a-Service（LBaaS），提供了将负载分发到多个 instance 的能力。LBaaS 支持多种负载均衡产品和方案，不同的实现以 Plugin 的形式集成到 Neutron，目前默认的 Plugin 是 HAProxy。我们会在后面章节学习 LBaaS 的使用和配置。&lt;/p>
+&lt;p>防火墙 Firewalling&lt;/p>
+&lt;p>Neutron 通过下面两种方式来保障 instance 和网络的安全性。&lt;/p>
+&lt;p>Security Group&lt;/p>
+&lt;p>通过 iptables 限制进出 instance 的网络包。&lt;/p>
+&lt;p>Firewall-as-a-Service&lt;/p>
+&lt;p>FWaaS，限制进出虚拟路由器的网络包，也是通过 iptables 实现。&lt;/p></description></item><item><title>Docs: 各种 Network Type 的实现方式</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/%E5%90%84%E7%A7%8D-Network-Type-%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/%E5%90%84%E7%A7%8D-Network-Type-%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F/</guid><description>
+&lt;h1 id="linux-bridge-可用的网络类型详解">Linux Bridge 可用的网络类型详解&lt;a class="td-heading-self-link" href="#linux-bridge-%e5%8f%af%e7%94%a8%e7%9a%84%e7%bd%91%e7%bb%9c%e7%b1%bb%e5%9e%8b%e8%af%a6%e8%a7%a3" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>Linux bridge 技术非常成熟，而且高效，所以业界很多 OpenStack 方案选择 linux bridge，比如 Rackspace 的 private cloud。&lt;/p>
+&lt;p>open vswitch 实现的 Neutron 虚拟网络较为复杂，不易理解；而 linux bridge 方案更直观。先理解 linux bridge 方案后再学习 open vswitch 方案会更容易。并且可以通过两种方案的对比更加深入地理解 Neutron 网络。&lt;/p>
+&lt;p>所谓的 Linux Bridge Provider 就是 Neutron 直接利用 Linux 中的 Bridge 来实现自身的网络功能，而没有任何额外的功能。就是类似直接在系统中使用 ip bridge、brctl 之类的命令。&lt;/p>
+&lt;p>Linux Bridge 环境中，一个数据包从 instance 发送到物理网卡会经过下面几个网络设备：&lt;/p>
+&lt;ol>
+&lt;li>tap interface 命名为 tapN (N 为 0, 1, 2, 3&amp;hellip;&amp;hellip;)&lt;/li>
+&lt;li>linux bridge 命名为 brqXXXX。&lt;/li>
+&lt;li>vlan interface 命名为 ethX.Y（X 为 interface 的序号，Y 为 vlan id）&lt;/li>
+&lt;li>vxlan interface 命名为 vxlan-Z（z 是 VNI）&lt;/li>
+&lt;li>物理 interface 命名为 ethX（X 为 interface 的序号）&lt;/li>
+&lt;/ol>
+&lt;h2 id="local-network-本地网络无法与宿主机之外通信">Local Network 本地网络，无法与宿主机之外通信&lt;a class="td-heading-self-link" href="#local-network-%e6%9c%ac%e5%9c%b0%e7%bd%91%e7%bb%9c%e6%97%a0%e6%b3%95%e4%b8%8e%e5%ae%bf%e4%b8%bb%e6%9c%ba%e4%b9%8b%e5%a4%96%e9%80%9a%e4%bf%a1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235077-f61119cd-ce2f-4f23-8343-9c6ba9696e26.jpeg" alt="">&lt;/p>
+&lt;h2 id="flat-network-平面网络通过桥接与宿主机之外通信">Flat Network 平面网络，通过桥接与宿主机之外通信&lt;a class="td-heading-self-link" href="#flat-network-%e5%b9%b3%e9%9d%a2%e7%bd%91%e7%bb%9c%e9%80%9a%e8%bf%87%e6%a1%a5%e6%8e%a5%e4%b8%8e%e5%ae%bf%e4%b8%bb%e6%9c%ba%e4%b9%8b%e5%a4%96%e9%80%9a%e4%bf%a1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>VM——Bridge——网卡(纯二层实现，适合私有云)&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235091-3b8a5417-47cd-437a-82f7-3a59c44dd7a9.jpeg" alt="">&lt;/p>
+&lt;p>该方法最为简单直接有效，通过纯二层来实现 VM 与外部设备的互通，通过 Linux Bridge，并手动管理一些虚拟网络设备即可&lt;/p>
+&lt;p>环境描述，host1，host2，&amp;hellip;，hostN 等设备有两个网卡，eth0 为管理 192.168.0.0/24，eth1 不配 IP，但是 eth1 连接的物理网络网段为 10.0.0.0/24。这时候如果想让 host 上所创建的虚拟机的 IP 在 10.0.0.0/24 网段中，且可以直接与该网段通信，那么就可以下面描述的方法。这种方法，不用 nat，直接通过桥接方式让虚拟机与外部网络 IP 保持一致，可以减少网络开销。&lt;/p>
+&lt;ol>
+&lt;li>在 host 上创建一个 bridge 设备 br1。
+&lt;ol>
+&lt;li>brctl addbr br1&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>在 network 中创建 (与所需连通的外部网络 IP 相同的)subnet 以及 port。&lt;/li>
+&lt;li>将创建完的 port 关联到虚拟机中，这时候会在后台生成一个对应的 tap 设备&lt;/li>
+&lt;li>通过后台，把 eth1 与 tap 设备关联到 br1 上。
+&lt;ol>
+&lt;li>brctl addif tap0 br1 &amp;amp;&amp;amp; brctl addif tap1 br1 &amp;amp;&amp;amp; brctl addif tap2 br1 &amp;amp;&amp;amp; brctl addif eth1 br1&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>这时候的情况就像上图一样，eth1 和 tap 都是一个虚拟交换机上的端口，通过二层进入外部物理网络中，只要虚拟机上配的 10.0.0.0/24 网段的 IP 网关在外部网络中可以找到，那么这时候虚拟机就可以直接以 10.0.0.0/24 网段的 IP 连接到外部网络中了。&lt;/li>
+&lt;/ol>
+&lt;h2 id="vlan-network-使用-vlan-隔离-vm并通过路由连通">VLAN Network 使用 VLAN 隔离 VM，并通过路由连通&lt;a class="td-heading-self-link" href="#vlan-network-%e4%bd%bf%e7%94%a8-vlan-%e9%9a%94%e7%a6%bb-vm%e5%b9%b6%e9%80%9a%e8%bf%87%e8%b7%af%e7%94%b1%e8%bf%9e%e9%80%9a" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235065-7ade4af6-857d-40d6-958d-debb0b4fc779.jpeg" alt="">&lt;/p>
+&lt;h2 id="租户网络与外部网络互相访问">租户网络与外部网络互相访问&lt;a class="td-heading-self-link" href="#%e7%a7%9f%e6%88%b7%e7%bd%91%e7%bb%9c%e4%b8%8e%e5%a4%96%e9%83%a8%e7%bd%91%e7%bb%9c%e4%ba%92%e7%9b%b8%e8%ae%bf%e9%97%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235150-1331b664-155f-4f8b-b75e-974da25b7bf3.jpeg" alt="">&lt;/p>
+&lt;h2 id="vxlan-network">VxLAN Network&lt;a class="td-heading-self-link" href="#vxlan-network" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235118-913da696-7a1c-4bb5-9d82-b5783b0e86d7.jpeg" alt="">&lt;/p>
+&lt;h1 id="open-vswitch-可用的网络类型详解">Open vSwitch 可用的网络类型详解&lt;a class="td-heading-self-link" href="#open-vswitch-%e5%8f%af%e7%94%a8%e7%9a%84%e7%bd%91%e7%bb%9c%e7%b1%bb%e5%9e%8b%e8%af%a6%e8%a7%a3" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>Neutron 会在 OVS 模式下会自动创建三种虚拟网络设备&lt;/p>
+&lt;ol>
+&lt;li>br-ex # 连接外部（external）网络的网桥。(计算节点无该网络设备)
+&lt;ol>
+&lt;li>br-ex 一般用网络设备名命名，比如写成 br-eth0、br-bond0 等等&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>br-int # 聚合 (integration) 多个实例网的网桥。所有 instance 在创建后都会自动创建一个 LinuxBridge，这个 LinuxBridge 通过 veth 对 连接到 br-int 上。
+&lt;ol>
+&lt;li>也可以称为 连接内部（internal）网络的网桥。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>br-tun # 隧道（tunnel）网桥，基于隧道技术的 VxLAN 和 GRE 网络将使用该网桥进行通信。&lt;/li>
+&lt;/ol>
+&lt;p>注意：上述设备仅仅是自动创建出来，在实际情况中，并不一定会真正使用到&lt;/p>
+&lt;p>Open vSwitch 环境中，数据包从 instance 到物理网卡的路径&lt;/p>
+&lt;ol>
+&lt;li>tap interface # 命名为 tapXXXX&lt;/li>
+&lt;li>linux bridge # 命名为 qbrXXXX。&lt;/li>
+&lt;li>veth pair # 命名为 qvbXXXX，qvoXXXX&lt;/li>
+&lt;li>OVS integration bridge # 命名为 br-int&lt;/li>
+&lt;li>OVS patch ports # 命名为 int-br-exX 和 phy-br-ethX(X 为 interface 序号)&lt;/li>
+&lt;li>OVS provider bridge # 命名为 br-exX(X 为 interface 序号)&lt;/li>
+&lt;li>vlan interface # 命名为 ethX.Y（X 为 interface 的序号，Y 为 vlan id）&lt;/li>
+&lt;li>vxlan interface # 命名为 vxlan-Z（z 是 VNI）&lt;/li>
+&lt;li>物理 interface # 命名为 ethX（X 为 interface 的序号）&lt;/li>
+&lt;li>OVS tunnel bridge # 命名为 br-tun&lt;/li>
+&lt;/ol>
+&lt;p>OVS provider bridge 会在 flat 和 vlan 网络中使用；OVS tunnel bridge 则会在 vxlan 和 gre 网络中使用&lt;/p>
+&lt;p>instance—TAP—Linux Bridge—Veth Pair—OVS Bridge—其它&lt;/p>
+&lt;p>这是是 OVS 在 openstack 的最基本数据流走向&lt;/p>
+&lt;h2 id="local-network-本地网络无法与宿主机之外通信-1">Local Network 本地网络，无法与宿主机之外通信&lt;a class="td-heading-self-link" href="#local-network-%e6%9c%ac%e5%9c%b0%e7%bd%91%e7%bb%9c%e6%97%a0%e6%b3%95%e4%b8%8e%e5%ae%bf%e4%b8%bb%e6%9c%ba%e4%b9%8b%e5%a4%96%e9%80%9a%e4%bf%a1-1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235087-35c044d8-beda-40c9-b946-6a4d04d81968.jpeg" alt="">&lt;/p>
+&lt;h2 id="flat-network-平面网络通过桥接与宿主机之外通信-1">Flat Network 平面网络，通过桥接与宿主机之外通信&lt;a class="td-heading-self-link" href="#flat-network-%e5%b9%b3%e9%9d%a2%e7%bd%91%e7%bb%9c%e9%80%9a%e8%bf%87%e6%a1%a5%e6%8e%a5%e4%b8%8e%e5%ae%bf%e4%b8%bb%e6%9c%ba%e4%b9%8b%e5%a4%96%e9%80%9a%e4%bf%a1-1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235109-8220d6a7-1e96-4a48-9612-7049716ce29b.jpeg" alt="">&lt;/p>
+&lt;p>如图所示，在 OVS 模式下，新的虚拟机实例创建出来后，需要先连接到 LInux Bridge 上，再连接到 OVS Bridge 上。Linux Bridge 与 OVS Bridge 上绑定了一对 veth 设备作为二者的连接。其中一共创建了 4 个虚拟网络设备。&lt;/p>
+&lt;ol>
+&lt;li>TAP # VM 启动后生成的网络设备，用于与虚拟机内部网卡连接&lt;/li>
+&lt;li>Linux Bridge # 作为 VM 与 br-int 的桥梁中转。每为 VM 添加一个网卡，就会生成一个 Linux Bridge。为什么要多做这么一层中转而不让 VM 直接连到 br-int 的理由详见下文。&lt;/li>
+&lt;li>Veth Pair # 用于连接 Linux Bridge 与 OVS Bridge。&lt;/li>
+&lt;li>OVS Bridge # 所有 VM 通过其自身的 Linux Bridge 连接到 OVS Bridge&lt;/li>
+&lt;/ol>
+&lt;p>可以发现，对于同一个 VM 所使用的相关虚拟网络设备的名称，有一部分是相同的。qvofc1c6ebb-71、qvbfc1c6ebb-71、tapfc1c6ebb-71。其中 fc1c6ebb-71 这部分是相同的，不同的的是 qvo、qvb、tap。其中 qvo 与 qvb 是 一对 veth 设备，用来连接两个桥设备，tap 则用来连接 VM 与 桥设备&lt;/p>
+&lt;p>注意：&lt;/p>
+&lt;ol>
+&lt;li>上述 4 个虚拟网络设备与 dhcp 无关，不要混淆。这其中 DHCP 则是在创建 network 中的 subnet 的时候，决定是否创建的。如果不创建 dhcp，则上图中的 dhcp 以及其对应的 tap 设备则都不存在&lt;/li>
+&lt;/ol>
+&lt;p>通过几个命令可以看到在实际环境中的虚拟网络设备之间的关系&lt;/p>
+&lt;ol>
+&lt;li>ovs-vsctl show # 在 OVS 中的网桥 br-int 上有一个 interface，名为 qvofc1c6ebb-71&lt;/li>
+&lt;/ol>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235082-6c539d65-6dc4-49d1-8a79-168795c33eb7.jpeg" alt="">&lt;/p>
+&lt;ol>
+&lt;li>brctl show # 在 LinuxBridge 这个网桥 qbrfc1c6ebb-71 上，有一个 interface，名为 qvbfc1c6ebb-71
+&lt;ol>
+&lt;li>在这里还能看到实例网卡所关联的名为 tapfc1c6ebb-71 这个 TAP 设备也在 Linux Bridge 上&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235113-3f709aac-0438-47ca-98f8-bd82eb31b287.jpeg" alt="">&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>ethtools -S qvofc1c6ebb-71 &amp;amp;&amp;amp; ethtools qvbfc1c6ebb-71 # 这是 一对 veth 设备 ，用来连接 Linux Bridge 与 OVS Bridge&lt;/p>
+&lt;pre>&lt;code> root@devstack-controller:~# ethtool -S qvbfc1c6ebb-71NIC statistics: peer_ifindex: 12root@devstack-controller:~# ethtool -S qvofc1c6ebb-71NIC statistics: peer_ifindex: 13
+&lt;/code>&lt;/pre>
+&lt;/li>
+&lt;/ol>
+&lt;p>那问题来了，为什么 tapfc1c6ebb-71 不能像左边的 DHCP 设备 tap7970bdcd-f2 那样直接连接到 br-int 呢？&lt;/p>
+&lt;ol>
+&lt;li>其原因是： Open vSwitch 目前还不支持将 iptables 规则放在与它直接相连的 tap 设备上。如果做不到这一点，就无法实现 Security Group 功能。为了支持 Security Group，不得不多引入一个 Linux Bridge 支持 iptables。这样的后果就是网络结构更复杂了，路径上多了一个 linux bridge 和 一对 veth pair 设备。&lt;/li>
+&lt;/ol>
+&lt;p>而且，就算在同一个 network 中的 instance，每一个 instance 都会有一个对应的 LinuxBridge，这些 LinuxBridge 再与 OVS Brigde 相连，甚至一个 instance 上如果关联了多个 port，那么这个 instance 上则会连接多个 LinuxBridge(一个 port 对应一个 LinuxBridge)。那么所有 instance 都会间接连接到 OVS Bridge 这同一个 bridge 设备上，如何进行二层隔离呢？这个问题可以在下一段《高级应用，创建多个实例，且不同 VLAN 通过路由连通》文章中得到答案，提前说一声，是给每个 port 打上 tag，通过 tag 来进行二层隔离，相同 tag 的 port 在同一个 network 中&lt;/p>
+&lt;h2 id="vlan-network-使用-vlan-隔离-vm并通过路由连通-1">VLAN Network 使用 VLAN 隔离 VM，并通过路由连通&lt;a class="td-heading-self-link" href="#vlan-network-%e4%bd%bf%e7%94%a8-vlan-%e9%9a%94%e7%a6%bb-vm%e5%b9%b6%e9%80%9a%e8%bf%87%e8%b7%af%e7%94%b1%e8%bf%9e%e9%80%9a-1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235119-d55a337b-ffbb-43e9-b9b4-f8e5b4301428.jpeg" alt="">&lt;/p>
+&lt;p>OVS 中的 VLAN tag&lt;/p>
+&lt;p>VM1，VM2，VM3 都在同一个网桥(br-int)上，为什么 VM1、VM2 与 VM3 无法互通呢，因为在创建 network 的时候，对他们进行了隔离，VM1 和 VM2 属于同一个 network。隔离的方式则是通过图中的 tag 标签，在使用 ovs-vsctl show 命令查看网络设备的时候，会看到 Port 下面有个一 tag 字段，这个 tag 字段表示了这个接口属于哪个 network，不同 tag 之间的接口上关联的 VM 是无法进行二层通信的，需要借助路由才可以。&lt;/p>
+&lt;p>br-int 上多了两个 port，如图所示：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235125-69e65c47-190b-4469-9b9d-99fb8dededcf.jpeg" alt="">&lt;/p>
+&lt;ol>
+&lt;li>qr-d295b258-45，从命名上可以推断该 interface 对应 router_100_101 的 interface (d295b258-4586)，是 subnet_172_16_100_0 的网关。&lt;/li>
+&lt;li>qr-2ffdb861-73，从命名上可以推断该 interface 对应 router_100_101 的 interface (2ffdb861-731c)，是 subnet_172_16_101_0 的网关。&lt;/li>
+&lt;/ol>
+&lt;p>同时 route_100_101 运行在自己的 namespace 中，并将 br-int 上的两个 port 也添加进该 namespace 中。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235112-f13b4a1d-dbf7-4813-82e9-503af0a75729.jpeg" alt="">&lt;/p>
+&lt;p>如上所示，qrouter-a81cc110-16f4-4d6c-89d2-8af91cec9714 是 router 的 namespace，两个 Gateway IP 分别配置在 qr-2ffdb861-73 和 qr-d295b258-45 上。&lt;/p>
+&lt;h2 id="租户网络与外部网络互相访问-1">租户网络与外部网络互相访问&lt;a class="td-heading-self-link" href="#%e7%a7%9f%e6%88%b7%e7%bd%91%e7%bb%9c%e4%b8%8e%e5%a4%96%e9%83%a8%e7%bd%91%e7%bb%9c%e4%ba%92%e7%9b%b8%e8%ae%bf%e9%97%ae-1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>VM——br-int——router——br-ex——网卡&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235113-884e5f64-9739-42ab-aa33-e017f6c8ed40.jpeg" alt="">&lt;/p>
+&lt;p>如图所示，如果 VM 想与宿主机相通，那么数据流应该如此走：VM——br-int——router——br-ex——eth2——外部物理网络。具体描述如下：&lt;/p>
+&lt;ol>
+&lt;li>VM 到 br-int 比较简单，正常的二层&lt;/li>
+&lt;li>当 VM 想要访问非本网段的网络时，br-int 无法处理三层网络请求，需要去网关找对方网段的路由。即 br-int——router 的过程。&lt;/li>
+&lt;li>路由器经过路由，让数据包跳转到自己的另一个端口 92.168.0.123 上。即 router——br-ex 的过程&lt;/li>
+&lt;li>eth2 网卡作为从设备，被附加到 br-ex 网桥上(eth2 上的 IP 也无作用)，仅作为 br-ex 上的一个端口使用(原理详见 Network Virtual)。所以从路由器过来的数据流经过 eth1 直接流向外部物理网络，经过物理网络的交换机和路由器，到达 eth0 上的 IP。即 br-ex——eth1——外部物理网络 的过程&lt;/li>
+&lt;/ol>
+&lt;h3 id="floating-ip">Floating IP&lt;a class="td-heading-self-link" href="#floating-ip" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>如果外部网络想要访问内部 VM，那么则需要给 VM 绑定一个 floatIP，这个 floatIP 会出现在 router 上的网卡中，在 router 这个 namespace 中，会有 iptables 规则对 10.0.0.10 与 92.168.0.10 进行 nat 转换，这样在访问 92.168.0.10 的时候，数据包进入 eth2 后，还昂目的地址是 92.168.0.10，则执行 dnat 操作，将目的地址修改为 10.0.0.10 后再将数据包交给 br-int，这样从外面访问 92.168.0.10 就相当于是访问 10.0.0.10 了&lt;/p>
+&lt;h2 id="vxlan-network-1">VxLAN Network&lt;a class="td-heading-self-link" href="#vxlan-network-1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235138-4cc1c71d-b4c9-48b5-83c2-4e2c81cf0048.jpeg" alt="">&lt;/p>
+&lt;h1 id="namespace-的作用以及浮动弹性ipfloating-ip">Namespace 的作用,以及浮动(弹性)IP(Floating IP)&lt;a class="td-heading-self-link" href="#namespace-%e7%9a%84%e4%bd%9c%e7%94%a8%e4%bb%a5%e5%8f%8a%e6%b5%ae%e5%8a%a8%e5%bc%b9%e6%80%a7ipfloating-ip" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>namespace 功能详见 Namespace &amp;amp;&amp;amp; CGroups 中关于网络 namespace 介绍。&lt;/p>
+&lt;p>&lt;a href="https://mp.weixin.qq.com/s?__biz=MzIwMTM5MjUwMg==&amp;amp;mid=2653587558&amp;amp;idx=1&amp;amp;sn=e4381acfef2030b74f870e4f7c3547c6&amp;amp;chksm=8d30807fba4709693926bc849dd4736b47e92e23c3b9d1af215466f524d21c7ec8865a859999&amp;amp;scene=21#wechat_redirect">那么，为什么要在 openstack 中使用 namesapce 呢？&lt;/a>&lt;/p>
+&lt;p>为了要实现多租户(tenant)，同样也是为了实现叠加网络(overlay network)。&lt;/p>
+&lt;p>有这么一种场景，如下图&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235138-6da55154-0ec2-4a5d-b64f-87af8be17357.jpeg" alt="">&lt;/p>
+&lt;p>左侧为租户 1，右侧为租户 2，都在同一 host 上开了虚拟机。其特征是网关 IP 配置在 TAP interface 上。因为没有 namespace 隔离，router_100_101 和 router_102_103 的路由条目都只能记录到控制节点操作系统（root namespace）的路由表中，内容如下：&lt;/p>
+&lt;pre>&lt;code>Destination Gateway Genmask Flags Metric Use Iface
+10.10.1.0 * 255.255.255.0 U 0 0 tap1
+10.10.2.0 * 255.255.255.0 U 0 0 tap2
+10.10.1.0 * 255.255.255.0 U 0 0 tap3
+10.10.2.0 * 255.255.255.0 U 0 0 tap4
+&lt;/code>&lt;/pre>
+&lt;p>这样的路由表是无法工作的。&lt;/p>
+&lt;p>按照路由表优先匹配原则，Tenant B 的数据包总是错误地被 Tenant A 的 router 路由。例如 vlan102 上有数据包要发到 vlan103。选择路由时，会匹配路由表的第二个条目，结果数据被错误地发到了 vlan101。&lt;/p>
+&lt;p>这时候，如果不使用 namespace 就会出现一个问题，两边的路由器中的路由表，是 host 上的路由表，出现相同的内容，这时候，租户 1 访问的网段有可能就会到租户 2 去，为了解决这个问题，则需要使用 namespace，让租户 1 与租户 2 拥有各自的网络栈，而不用共享 host 上的网络栈，这样，两边的路由器都维护自己的路由表，实现了租户隔离。&lt;/p>
+&lt;p>如果使用 namespace，网络结构如下：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235113-28148189-91f4-4ffa-9a8b-4a65cc919591.png" alt="">&lt;/p>
+&lt;p>其特征是网关 IP 配置在 namespace 中的 veth interface 上。每个 namespace 拥有自己的路由表。&lt;/p>
+&lt;p>router_100_101 的路由表内容如下：&lt;/p>
+&lt;pre>&lt;code>Destination Gateway Genmask Flags Metric Use Iface
+10.10.1.0 * 255.255.255.0 U 0 0 qr-1
+10.10.2.0 * 255.255.255.0 U 0 0 qr-2
+&lt;/code>&lt;/pre>
+&lt;p>router_102_103 的路由表内容如下：&lt;/p>
+&lt;pre>&lt;code>Destination Gateway Genmask Flags Metric Use Iface
+10.10.1.0 * 255.255.255.0 U 0 0 qr-3
+10.10.2.0 * 255.255.255.0 U 0 0 qr-4
+&lt;/code>&lt;/pre>
+&lt;p>这样的路由表是可以工作的。&lt;/p>
+&lt;p>例如 vlan102 上有数据包要发到 vlan103。选择路由时，会查看 router_102_103 的路由表, 匹配第二个条目，数据通过 qr-4&lt;/p>
+&lt;p>被正确地发送到 vlan103。&lt;/p>
+&lt;p>同样当 vlan100 上有数据包要发到 vlan101 时，会匹配 router_100_101 路由表的第二个条目，数据通过 qr-2 被正确地发送到 vlan101。&lt;/p>
+&lt;p>可见，namespace 使得每个 router 有自己的路由表，而且不会与其他 router 冲突，所以能很好地支持网络重叠。&lt;/p>
+&lt;h1 id="其他">其他&lt;a class="td-heading-self-link" href="#%e5%85%b6%e4%bb%96" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>在 neutron 中，网络虚拟化(NFV)是必须的存在，Namespace 使得 openstack 中的每个 route 都有自己的路由表，都是一个网络隔离域，在各自的区域中就算配置相同的 IP 也不会冲突，很好的支持网络重叠。&lt;/p>
+&lt;p>网络虚拟化原理&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>在 openstack 中创建一个 Namespace，该命名空间相当于把虚拟网络放在一个独立的虚拟化环境中，可以在 linux 中通过 ip netns exec NAME COMMAND 进行操作，一个 Namespace 就是一整套完整独立的网络，包括路由交换等(创建的 route 就是放在 namespace 中)可以为系统之上的虚拟机提供全套网络服务&lt;/p>
+&lt;ul>
+&lt;li>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235147-59333d41-b2a7-47d9-9fb2-298f751aff54.jpeg" alt="">&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;/li>
+&lt;li>
+&lt;p>如图所示中间的路由器就是由 neutron(linux 也具备此功能)模拟出来的虚拟路由器，该虚拟路由器就存在于 Namespace 为 XXXXXX 的虚拟环境中(可以通过 neutron router-list 命令查看 Namespace 的 ID)，可以通过 ip nets exec NAME bash 打开该虚拟化网络环境，之后所有的操作，都相当于是对这个环境启动了一个 bash，所有操作都是对这个环境下的虚拟设备进行的&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>不同 VLAN 之间的通信，就是依靠 namespace 这个路由器来进行三层通信的&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>当内网虚拟机需要访问外网的时候，还可以创建一个外部网络放到该 Namespace，如图所示，当访问 vlan100 与 101 以外的所有流量都转发给 10.10.10.1(该网络相当于公网 IP)&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>NAT，当数据到达 qg-b8b32a88-03 这个接口的时候，虚拟路由器会进行 NAT 转换，把 172 的地址段全部转换成 10 网段&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Floating IP，当外网想要访问内网机器的时候，就需要用到这功能，创建一个 Floating 后从外网地址池分配一个 IP 给他，然后可以把 Floating IP 与内网中的任意主机绑定，当 route 收到访问该 Floating IP 的数据包时，则进行 NAT 转换成改 FIP 对应的内网机器的 IP，然后把数据包转发给内网机器，实现外网访问内网，公有云中个人买的云主机想访问，就是这个原理&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>linux Namespace：在所有的 linux 系统都一个 init 进程（即初始化进程），其 PID=1,而由于在不同的 namespace 中的进程都是彼此透明的，因此在不同的 namespace 中都可以有自己的 PID=1 的 init 进程，相应 Namespace 内的孤儿进程都将以该进程为父进程，当该进程被结束时该 Namespace 内所有的进程都会被结束。换句话说，在同一个 linux 系统中由于 namespace 的存在，可以允许 n 个相同的进程存在并互不干扰的运行。&lt;/p>
+&lt;/li>
+&lt;/ul></description></item></channel></rss>

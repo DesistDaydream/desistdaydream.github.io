@@ -1,135 +1,4 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – 🌐4.数据通信</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/</link><description>Recent content in 🌐4.数据通信 on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: DPDK</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/DPDK/dpdk">GitHub 项目，DPDK/dpdk&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.dpdk.org/">官网&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Data_Plane_Development_Kit">Wiki，Data Plane Development Kit&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>&lt;strong>Data Plane Development Kit(数据平面开发套件，简称 DPDK)&lt;/strong> 是一个由 &lt;a href="docs/x_%E6%A0%87%E5%87%86%E5%8C%96/Foundation/Linux%20Foundation.md">Linux 基金会&lt;/a> 管理的开源软件项目。用于将 TCP 数据包的处理能力从内核空间移动到用户空间中的进程。主要是跳过了内核的 &lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts(%E4%B8%AD%E6%96%AD)/Interrupts(%E4%B8%AD%E6%96%AD).md">Interrupts(中断)&lt;/a> 逻辑。&lt;/p>
-&lt;p>处理数据包的传统方式是 CPU 中断方式，即网卡驱动接收到数据包后通过中断通知 CPU 处理，然后由 CPU 拷贝数据并交给协议栈。在数据量大时，这种方式会产生大量 CPU 中断，导致 CPU 无法运行其他程序。&lt;/p>
-&lt;p>而 DPDK 则采用轮询方式实现数据包处理过程：DPDK 程序加载了网卡驱动，该驱动在收到数据包后不中断通知 CPU，而是将数据包通过零拷贝技术存入内存，这时应用层程序就可以通过 DPDK 提供的接口，直接从内存读取数据包。&lt;/p>
-&lt;p>这种处理方式节省了 CPU 中断时间、内存拷贝时间，并向应用层提供了简单易行且高效的数据包处理方式，使得网络应用的开发更加方便。但同时，由于需要重载网卡驱动，因此该开发包目前只能用在部分采用 Intel 网络处理芯片的网卡中。&lt;/p>
-&lt;p>DPDK 主要包含如下几个部分（https://doc.dpdk.org/guides/prog_guide/source_org.html#libraries）&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>Environmental Abstraction Layer(环境抽象层，简称 EAL)&lt;/strong> # 负责为应用间接访问底层的资源，比如内存空间、线程、设备、定时器等。如果把我们使用了 DPDK 的应用比作一个豪宅的主人的话，&lt;code>EAL&lt;/code>就是这个豪宅的管家。&lt;/li>
-&lt;li>&lt;strong>DPDK API Library&lt;/strong> # DPDK 的 API 库
-&lt;ul>
-&lt;li>etc.&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>&lt;strong>&lt;a href="docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Networking%20device/NIC.md">NIC&lt;/a> Driver(网卡驱动程序)&lt;/strong> # 如名，只不过是轮询模式的驱动。
-&lt;ul>
-&lt;li>etc.&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>&lt;strong>DPDK APP&lt;/strong> # 一些实用的程序&lt;/li>
-&lt;/ul>
-&lt;h2 id="eal">EAL&lt;a class="td-heading-self-link" href="#eal" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;a href="https://doc.dpdk.org/guides/prog_guide/env_abstraction_layer.html">https://doc.dpdk.org/guides/prog_guide/env_abstraction_layer.html&lt;/a>&lt;/p>
-&lt;p>&lt;strong>Environment Abstraction Layer(环境抽象层，简称 EAL)&lt;/strong> 负责访问低级资源，例如硬件和内存空间。它提供了一个通用接口，对应用程序和库隐藏了环境细节。初始化例程负责决定如何分配这些资源（即内存空间、设备、定时器、控制台等）。&lt;/p>
-&lt;h2 id="dpdk-library">DPDK Library&lt;a class="td-heading-self-link" href="#dpdk-library" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>TODO: 好多好多的库，功能非常全。&lt;/p>
-&lt;h2 id="driver">Driver&lt;a class="td-heading-self-link" href="#driver" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>Linux 驱动&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules">https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules&lt;/a>&lt;/li>
-&lt;li>&lt;strong>vfio&lt;/strong> # 使用 &lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/VFIO.md">VFIO&lt;/a> 功能的驱动。依赖 &lt;code>vfio-pci&lt;/code> 模块。&lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules">官方文档&lt;/a>建议所有情况下都是用 vfio-pci 作为 DPDK 绑定端口的内核模块&lt;/li>
-&lt;/ul>
-&lt;p>TODO: 好多好多驱动。&lt;/p>
-&lt;h1 id="dpdk-部署">DPDK 部署&lt;a class="td-heading-self-link" href="#dpdk-%e9%83%a8%e7%bd%b2" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;a href="https://core.dpdk.org/doc/quick-start/">https://core.dpdk.org/doc/quick-start/&lt;/a>&lt;/p>
-&lt;p>&lt;a href="https://doc.dpdk.org/guides/linux_gsg/index.html">这里&lt;/a> 是要在 Linux 安装 DPDK 的一些要求&lt;/p>
-&lt;p>DPDK 的部署依赖 meson 和 ninja 两个构建工具、vfio-pci 内核模块。&lt;/p>
-&lt;h2 id="dpdk-使用注意">DPDK 使用注意&lt;a class="td-heading-self-link" href="#dpdk-%e4%bd%bf%e7%94%a8%e6%b3%a8%e6%84%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>当我们让 DPDK 程序接管网卡后，从系统中就无法通过常见的命令（e.g. ip, etc.）查看到系统中的网络设备，效果如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># lspci | grep Ethernet&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ip link show&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>1: lo: &amp;lt;LOOPBACK,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">65536&lt;/span> qdisc noqueue state UNKNOWN mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>2: eno3: &amp;lt;BROADCAST,MULTICAST,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">1500&lt;/span> qdisc mq state UP mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether 44:a8:42:38:4e:2c brd ff:ff:ff:ff:ff:ff
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>5: enp2s0f1: &amp;lt;NO-CARRIER,BROADCAST,MULTICAST,UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">1500&lt;/span> qdisc mq state DOWN mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether a0:36:9f:91:17:a7 brd ff:ff:ff:ff:ff:ff
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># dpdk-devbind.py -s&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Network devices using DPDK-compatible &lt;span style="color:#000">driver&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">============================================&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:01:00.1 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:02:00.0 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Network devices using kernel &lt;span style="color:#000">driver&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">===================================&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:01:00.0 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>eno3 &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci *Active*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:02:00.1 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>enp2s0f1 &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到机器上有 4 个 Ethernet，但是通过 ip 命令仅能看到 2 个（ip 这类命令只能看到内核管理的），另外 2 个被 DPDK 使用了，只有使用 DPDK 提供的程序才能获取到非内核管理的网卡信息。&lt;/p>
-&lt;p>当我们让 DPDK 接管了网卡后，想要查看网卡当前所使用的驱动，可以使用 &lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux%20%E7%AE%A1%E7%90%86/Linux%20%E7%A1%AC%E4%BB%B6%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/Linux%20%E7%A1%AC%E4%BB%B6%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7.md#lspci">lspci&lt;/a> 命令查看到当前网卡所使用的驱动程序。（虽然其中显示的是 Kernel driver in use，但是实际上，驱动是 vfio-pci 的网卡已经被 DPDK 接管了）&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># lspci -k | grep -i &amp;#34;Ethernet controller&amp;#34; -A 3&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DeviceName: NIC1
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Dell Gigabit 2P I350-t LOM
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: igb
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DeviceName: NIC2
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Dell Gigabit 2P I350-t LOM
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: vfio-pci
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Intel Corporation Ethernet Server Adapter I350-T2
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: vfio-pci
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel modules: igb
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Intel Corporation Ethernet Server Adapter I350-T2
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: igb
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel modules: igb
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="dpdk-的实现">DPDK 的实现&lt;a class="td-heading-self-link" href="#dpdk-%e7%9a%84%e5%ae%9e%e7%8e%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/486288121">知乎，DPDK的整体工作原理&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://doc.dpdk.org/guides/prog_guide/overview.html">https://doc.dpdk.org/guides/prog_guide/overview.html&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>在 &lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html?highlight=vfio%20pci#binding-and-unbinding-network-ports-to-from-the-kernel-modules">DPDK 官方文档 - 7.1&lt;/a> 章节中，建议在所有情况下都使用 &lt;strong>vfio-pci&lt;/strong> 作为 DPDK 绑定端口的内核模块。如果 IOMMU 不可用，则可以在 no-iommu 模式下使用 vfio-pci。如果由于某种原因 vfio 不可用，则可以使用基于 UIO 的模块 igb_uio 和 uio_pci_generic。详细信息请参见 UIO 部分。&lt;/p>
-&lt;h2 id="lcore--socket">lcore &amp;amp; socket&lt;a class="td-heading-self-link" href="#lcore--socket" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>Logical core(逻辑核心)&lt;/strong> DPDK 使用逻辑核心来管理并行处理，将任务分配给不同的逻辑核心以充分利用多核处理器的性能。通过使用逻辑核心，DPDK 应用程序可以更好地控制和利用系统中的处理器资源。狭义上 1 个 lcore 可以指 EAL 的 1 个线程。&lt;/p>
-&lt;p>这两个概念在 &lt;code>DPDK&lt;/code>的代码中随处可见，&lt;strong>注意&lt;/strong>这里的 &lt;strong>socket&lt;/strong> 不是网络编程里面的那一套东西，而是 &lt;strong>CPU&lt;/strong> 相关的东西。具体的概念可以参看&lt;a href="https://link.zhihu.com/?target=https%3A//link.segmentfault.com/%3Fenc%3DkeRHFE71AwA4LEWK3gy%252F%252Bg%253D%253D.zL548YXL%252F1rT%252BQN9hhP0BSuhSZUszAZly2ULaOcHzihSAMFb3k6C8kBfLxFL65VqtdDdc0MigZcmMKHcWpmSUSTYHTTZ%252BgYz9XlsRQPKOK%252BWch%252FsoT6h%252BzR46e7YgN19TmdjGuy%252BwWL%252FfT2wdU6Q7Q%253D%253D">Differences between physical CPU vs logical CPU vs Core vs Thread vs Socket&lt;/a> 或者其翻译版本&lt;a href="https://link.zhihu.com/?target=https%3A//link.segmentfault.com/%3Fenc%3DQvdG3%252BI75LlbmFlczo3WpQ%253D%253D.wu%252FAAZX7seAtEJjmuttDzYMu8zmGLKxX2fcFZ%252BZxKkIQvVQguoy2MSUnOVZPbaU6">physical CPU vs logical CPU vs Core vs Thread vs Socket（翻译）&lt;/a>。&lt;/p>
-&lt;p>对我们来说，只要知道可以&lt;code>DPDK&lt;/code>可以运行在多个&lt;code>lcore&lt;/code>上就足够了.&lt;/p>
-&lt;p>&lt;code>DPDK&lt;/code> 如何知道有多少个&lt;code>lcore&lt;/code>呢 ? 在启动时解析文件系统中的特定文件就可以了, 参考函数&lt;code>eal_cpu_detected&lt;/code>&lt;/p>
-&lt;h1 id="dpdk-工具">DPDK 工具&lt;a class="td-heading-self-link" href="#dpdk-%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;a href="https://doc.dpdk.org/guides/tools/index.html">https://doc.dpdk.org/guides/tools/index.html&lt;/a>&lt;/p>
-&lt;h2 id="dpdk-devbind---绑定和取消绑定设备与驱动程序检查他们的状态">dpdk-devbind - 绑定和取消绑定设备与驱动程序，检查他们的状态&lt;a class="td-heading-self-link" href="#dpdk-devbind---%e7%bb%91%e5%ae%9a%e5%92%8c%e5%8f%96%e6%b6%88%e7%bb%91%e5%ae%9a%e8%ae%be%e5%a4%87%e4%b8%8e%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f%e6%a3%80%e6%9f%a5%e4%bb%96%e4%bb%ac%e7%9a%84%e7%8a%b6%e6%80%81" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>dpdk-devbind [OPTIONS] DEVICE1 DEVICE2 &amp;hellip;.&lt;/strong>&lt;/p>
-&lt;p>&lt;strong>OPTIONS&lt;/strong>&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>-s, &amp;ndash;status&lt;/strong> # 打印所有已知网络接口的当前状态。对于每个设备，它显示 PCI 域、总线、插槽和功能，以及设备的文本描述。根据设备是否由内核驱动程序、vfio-pci 驱动程序或无驱动程序使用，将显示其他相关信息： - Linux 接口名称，例如if=eth0 - 正在使用的驱动程序，例如drv=vfio-pci - 当前未使用该设备的任何合适的驱动程序，例如used=vfio-pci 注意：如果此标志与绑定/取消绑定选项一起传递，则状态显示将始终在其他操作发生后发生。&lt;/li>
-&lt;li>&lt;strong>-b, &amp;ndash;bind DRIVER&lt;/strong> # 选择绑定网卡要使用的驱动程序。可以使用 none 以解除绑定&lt;/li>
-&lt;li>&lt;strong>-u, &amp;ndash;unbind&lt;/strong> # 接触网卡设备绑定。等价于 &lt;code>-b none&lt;/code>&lt;/li>
-&lt;li>&lt;strong>&amp;ndash;force&lt;/strong> # 强制绑定。默认情况下，若目标网卡已被内核启用（通常表现为已在路由表条目中），则无法被 DPDK 绑定。&lt;/li>
-&lt;/ul>
-&lt;p>EXAMPLE&lt;/p>
-&lt;p>从当前驱动程序绑定 eth1 并转而使用 vfio-pci：&lt;/p>
-&lt;ul>
-&lt;li>&lt;code>dpdk-devbind --bind=vfio-pci eth1&lt;/code>&lt;/li>
-&lt;/ul>
-&lt;h1 id="dpdk-与-bpf-与-netfilter">DPDK 与 BPF 与 Netfilter&lt;a class="td-heading-self-link" href="#dpdk-%e4%b8%8e-bpf-%e4%b8%8e-netfilter" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>TODO&lt;/p></description></item><item><title>Docs: Networking device</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Networking-device/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Networking-device/</guid><description/></item><item><title>Docs: 同源同宿</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E5%90%8C%E6%BA%90%E5%90%8C%E5%AE%BF/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E5%90%8C%E6%BA%90%E5%90%8C%E5%AE%BF/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>同源同宿，找不到对应的英文。与 &lt;a href="docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Load%20balancing.md">Load balancing&lt;/a> 中的 &lt;strong>Session persistence(会话保持)&lt;/strong> 的技术类似。&lt;/p></description></item><item><title>Docs: bit( 比特 ) 和 Byte(字节) 的关系 以及 网速怎么算</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/bit-%E4%B8%8E-Byte-%E7%9A%84%E5%85%B3%E7%B3%BB%E4%BB%A5%E5%8F%8A%E7%BD%91%E9%80%9F%E6%80%8E%E4%B9%88%E7%AE%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/bit-%E4%B8%8E-Byte-%E7%9A%84%E5%85%B3%E7%B3%BB%E4%BB%A5%E5%8F%8A%E7%BD%91%E9%80%9F%E6%80%8E%E4%B9%88%E7%AE%97/</guid><description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – 🌐4.数据通信</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/</link><description>Recent content in 🌐4.数据通信 on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: bit 与 Byte</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/bit-%E4%B8%8E-Byte/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/bit-%E4%B8%8E-Byte/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -301,7 +170,168 @@ Unicode 编码：一个英文等于两个字节，一个中文（含繁体）等
 &lt;p>100M 宽带里的 M 是 Mbps，而 100M/s 下载速度里的 M 是 MBps，摆在一起差友们就很容易发现它们的区别：&lt;/p>
 &lt;p>一个是小写 b，一个是大写 B。&lt;/p>
 &lt;p>前面 Mbps 是兆比特每秒，指的是每秒传输的位数量；MBps 则是兆字节每秒，指的是指每秒传输的字节数量。&lt;/p>
-&lt;p>别小看了这个 b，就因为存在着大小写的区别，两者之间就有了 8 倍的转换关系（ 8bit = 1B ），这样一来，100 Mbps 的宽带，满打满算下载速度也只有 100/8 Mbps= 12.5M/s。&lt;/p></description></item><item><title>Docs: DNS</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/</guid><description/></item><item><title>Docs: NAT</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/NAT/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/NAT/</guid><description/></item><item><title>Docs: SDN(软件定义网路)</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/SDN%E8%BD%AF%E4%BB%B6%E5%AE%9A%E4%B9%89%E7%BD%91%E8%B7%AF/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/SDN%E8%BD%AF%E4%BB%B6%E5%AE%9A%E4%B9%89%E7%BD%91%E8%B7%AF/</guid><description>
+&lt;p>别小看了这个 b，就因为存在着大小写的区别，两者之间就有了 8 倍的转换关系（ 8bit = 1B ），这样一来，100 Mbps 的宽带，满打满算下载速度也只有 100/8 Mbps= 12.5M/s。&lt;/p>
+&lt;h1 id="bps-与-pps">bps 与 pps&lt;a class="td-heading-self-link" href="#bps-%e4%b8%8e-pps" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Bit_rate">Wiki，Bit_rate&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Network_throughput">Wiki，Network_throughput&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>bps 和 pps 作为衡量网络吞吐量的单位，从功能上而言两者没有区别。但是，两者的使用环境截然不同。&lt;/p>
+&lt;p>&lt;strong>bit per second(简称 bps)&lt;/strong>，也可以表示成 b/s。常用的单位还有 &lt;strong>Bytes per second(简称 Bps)&lt;/strong>，速度向上扩展一下就是 KiB/s、MiB/s、etc. ，bps 是此类单位的最小单位 。&lt;/p>
+&lt;ul>
+&lt;li>bps 用来描述 &lt;strong>Bit rate(bit率)&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;p> &lt;strong>packet per second(简称 pps)&lt;/strong>，也可以表示成 p/s 。不同于bps，这个单位不是用于文件传输速度的衡量，而是用于衡量交换机（switch），路由器（router）等网络设备对于帧（frame）或数据包（packet）的处理能力的单位。&lt;/p>
+&lt;ul>
+&lt;li>pps 用来描述 &lt;strong>Network throughput(网络吞吐量)&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;p>假设有2台带有干兆以太网NIC的PC通过路由器进行文件传输。（不讨论设备的相关设假设文件传输速度可达到最高值，则此例中为1 Gbps，如果以bps类对交换机处理能力进行量，记：此路由器处理能力为1 Gbps.&lt;/p>
+&lt;p>同样是这台交换机，连接2台带有快速（百兆）以太网NIC的PC进行文件传输，此时传输速率100 Mbps，则记：此路由器处理能力为100 Mbps.&lt;/p>
+&lt;p>显然，得出的结论是错误的。处理能力作为网络设备本身的属性不会因为所连接的设备而发生化。而能对其产生相对影响的另有他因。&lt;/p>
+&lt;p>就好像用电脑打游戏，游戏的fps不会因为你的鼠标是USB2.0还是USB3.0还是Bluetooth而改而通常能影响到的一般只有温度，还有其他正在使用显卡（GPU）的进程的使用量。&lt;/p>
+&lt;ul>
+&lt;li>bps 用于表示传输速度&lt;/li>
+&lt;li>pps 用于表示数据包处理速度&lt;/li>
+&lt;/ul>
+&lt;p>那么，到底该如何才能相对准确地衡量网络设备对数据包进行处理的能力大小呢？ 这个时候就轮到单位pps登场了。&lt;/p>
+&lt;p>对于一般网络设备，制造商会同时标注设备的传输速度（bps）和数据包处理速度（pps）&lt;/p>
+&lt;p>这是经过专门测量后标注的设备标准属性。&lt;/p>
+&lt;p>例如思科交换机Cisco Catalyst3560G-48Ts，其标注为：传输速度：32Gbps数据包处理速度：38.7M pps此时，例如以每秒38.7M个，长为1500B的数据包进行传输时，一秒所需的bps为: &lt;code>1500Bytes/packet*38.7M packet/s*8 bit/Byte = 453.5G bps&lt;/code> 可见结果远大于32Gbps，因此使用次交换机进行上述数据包类型传输时会导致严重堵塞。&lt;/p>
+&lt;p>同样，如果以 32Gbps 的速度传输长为 64B 的数据包，一秒所需的 pps 为: &lt;code>（32bps）/（64B/packet）/（8bit/B）=64M pps&lt;/code>显然，由于结果远大于 38.7M pps，此类通信也会导致严重堵塞。&lt;/p></description></item><item><title>Docs: DPDK</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/DPDK/dpdk">GitHub 项目，DPDK/dpdk&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.dpdk.org/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Data_Plane_Development_Kit">Wiki，Data Plane Development Kit&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Data Plane Development Kit(数据平面开发套件，简称 DPDK)&lt;/strong> 是一个由 &lt;a href="https://desistdaydream.github.io/docs/x_%E6%A0%87%E5%87%86%E5%8C%96/Foundation/Linux%20Foundation.md">Linux 基金会&lt;/a> 管理的开源软件项目。用于将 TCP 数据包的处理能力从内核空间移动到用户空间中的进程。主要是跳过了内核的 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts(%E4%B8%AD%E6%96%AD)/Interrupts(%E4%B8%AD%E6%96%AD).md">Interrupts(中断)&lt;/a> 逻辑。&lt;/p>
+&lt;p>处理数据包的传统方式是 CPU 中断方式，即网卡驱动接收到数据包后通过中断通知 CPU 处理，然后由 CPU 拷贝数据并交给协议栈。在数据量大时，这种方式会产生大量 CPU 中断，导致 CPU 无法运行其他程序。&lt;/p>
+&lt;p>而 DPDK 则采用轮询方式实现数据包处理过程：DPDK 程序加载了网卡驱动，该驱动在收到数据包后不中断通知 CPU，而是将数据包通过零拷贝技术存入内存，这时应用层程序就可以通过 DPDK 提供的接口，直接从内存读取数据包。&lt;/p>
+&lt;p>这种处理方式节省了 CPU 中断时间、内存拷贝时间，并向应用层提供了简单易行且高效的数据包处理方式，使得网络应用的开发更加方便。但同时，由于需要重载网卡驱动，因此该开发包目前只能用在部分采用 Intel 网络处理芯片的网卡中。&lt;/p>
+&lt;p>DPDK 主要包含如下几个部分（https://doc.dpdk.org/guides/prog_guide/source_org.html#libraries）&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Environmental Abstraction Layer(环境抽象层，简称 EAL)&lt;/strong> # 负责为应用间接访问底层的资源，比如内存空间、线程、设备、定时器等。如果把我们使用了 DPDK 的应用比作一个豪宅的主人的话，&lt;code>EAL&lt;/code>就是这个豪宅的管家。&lt;/li>
+&lt;li>&lt;strong>DPDK API Library&lt;/strong> # DPDK 的 API 库
+&lt;ul>
+&lt;li>etc.&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>&lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Networking%20device/NIC.md">NIC&lt;/a> Driver(网卡驱动程序)&lt;/strong> # 如名，只不过是轮询模式的驱动。
+&lt;ul>
+&lt;li>etc.&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>DPDK APP&lt;/strong> # 一些实用的程序&lt;/li>
+&lt;/ul>
+&lt;h2 id="eal">EAL&lt;a class="td-heading-self-link" href="#eal" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;a href="https://doc.dpdk.org/guides/prog_guide/env_abstraction_layer.html">https://doc.dpdk.org/guides/prog_guide/env_abstraction_layer.html&lt;/a>&lt;/p>
+&lt;p>&lt;strong>Environment Abstraction Layer(环境抽象层，简称 EAL)&lt;/strong> 负责访问低级资源，例如硬件和内存空间。它提供了一个通用接口，对应用程序和库隐藏了环境细节。初始化例程负责决定如何分配这些资源（即内存空间、设备、定时器、控制台等）。&lt;/p>
+&lt;h2 id="dpdk-library">DPDK Library&lt;a class="td-heading-self-link" href="#dpdk-library" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>TODO: 好多好多的库，功能非常全。&lt;/p>
+&lt;h2 id="driver">Driver&lt;a class="td-heading-self-link" href="#driver" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>Linux 驱动&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules">https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules&lt;/a>&lt;/li>
+&lt;li>&lt;strong>vfio&lt;/strong> # 使用 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/VFIO.md">VFIO&lt;/a> 功能的驱动。依赖 &lt;code>vfio-pci&lt;/code> 模块。&lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules">官方文档&lt;/a>建议所有情况下都是用 vfio-pci 作为 DPDK 绑定端口的内核模块&lt;/li>
+&lt;/ul>
+&lt;p>TODO: 好多好多驱动。&lt;/p>
+&lt;h1 id="dpdk-部署">DPDK 部署&lt;a class="td-heading-self-link" href="#dpdk-%e9%83%a8%e7%bd%b2" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;a href="https://core.dpdk.org/doc/quick-start/">https://core.dpdk.org/doc/quick-start/&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://doc.dpdk.org/guides/linux_gsg/index.html">这里&lt;/a> 是要在 Linux 安装 DPDK 的一些要求&lt;/p>
+&lt;p>DPDK 的部署依赖 meson 和 ninja 两个构建工具、vfio-pci 内核模块。&lt;/p>
+&lt;h2 id="dpdk-使用注意">DPDK 使用注意&lt;a class="td-heading-self-link" href="#dpdk-%e4%bd%bf%e7%94%a8%e6%b3%a8%e6%84%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>当我们让 DPDK 程序接管网卡后，从系统中就无法通过常见的命令（e.g. ip, etc.）查看到系统中的网络设备，效果如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># lspci | grep Ethernet&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ip link show&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>1: lo: &amp;lt;LOOPBACK,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">65536&lt;/span> qdisc noqueue state UNKNOWN mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>2: eno3: &amp;lt;BROADCAST,MULTICAST,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">1500&lt;/span> qdisc mq state UP mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether 44:a8:42:38:4e:2c brd ff:ff:ff:ff:ff:ff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>5: enp2s0f1: &amp;lt;NO-CARRIER,BROADCAST,MULTICAST,UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">1500&lt;/span> qdisc mq state DOWN mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether a0:36:9f:91:17:a7 brd ff:ff:ff:ff:ff:ff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># dpdk-devbind.py -s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Network devices using DPDK-compatible &lt;span style="color:#000">driver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">============================================&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:01:00.1 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:02:00.0 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Network devices using kernel &lt;span style="color:#000">driver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">===================================&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:01:00.0 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>eno3 &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci *Active*
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:02:00.1 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>enp2s0f1 &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到机器上有 4 个 Ethernet，但是通过 ip 命令仅能看到 2 个（ip 这类命令只能看到内核管理的），另外 2 个被 DPDK 使用了，只有使用 DPDK 提供的程序才能获取到非内核管理的网卡信息。&lt;/p>
+&lt;p>当我们让 DPDK 接管了网卡后，想要查看网卡当前所使用的驱动，可以使用 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux%20%E7%AE%A1%E7%90%86/Linux%20%E7%A1%AC%E4%BB%B6%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/Linux%20%E7%A1%AC%E4%BB%B6%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7.md#lspci">lspci&lt;/a> 命令查看到当前网卡所使用的驱动程序。（虽然其中显示的是 Kernel driver in use，但是实际上，驱动是 vfio-pci 的网卡已经被 DPDK 接管了）&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># lspci -k | grep -i &amp;#34;Ethernet controller&amp;#34; -A 3&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DeviceName: NIC1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Dell Gigabit 2P I350-t LOM
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: igb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DeviceName: NIC2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Dell Gigabit 2P I350-t LOM
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: vfio-pci
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Intel Corporation Ethernet Server Adapter I350-T2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: vfio-pci
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel modules: igb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Intel Corporation Ethernet Server Adapter I350-T2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: igb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel modules: igb
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="dpdk-的实现">DPDK 的实现&lt;a class="td-heading-self-link" href="#dpdk-%e7%9a%84%e5%ae%9e%e7%8e%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/486288121">知乎，DPDK的整体工作原理&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://doc.dpdk.org/guides/prog_guide/overview.html">https://doc.dpdk.org/guides/prog_guide/overview.html&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在 &lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html?highlight=vfio%20pci#binding-and-unbinding-network-ports-to-from-the-kernel-modules">DPDK 官方文档 - 7.1&lt;/a> 章节中，建议在所有情况下都使用 &lt;strong>vfio-pci&lt;/strong> 作为 DPDK 绑定端口的内核模块。如果 IOMMU 不可用，则可以在 no-iommu 模式下使用 vfio-pci。如果由于某种原因 vfio 不可用，则可以使用基于 UIO 的模块 igb_uio 和 uio_pci_generic。详细信息请参见 UIO 部分。&lt;/p>
+&lt;h2 id="lcore--socket">lcore &amp;amp; socket&lt;a class="td-heading-self-link" href="#lcore--socket" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>Logical core(逻辑核心)&lt;/strong> DPDK 使用逻辑核心来管理并行处理，将任务分配给不同的逻辑核心以充分利用多核处理器的性能。通过使用逻辑核心，DPDK 应用程序可以更好地控制和利用系统中的处理器资源。狭义上 1 个 lcore 可以指 EAL 的 1 个线程。&lt;/p>
+&lt;p>这两个概念在 &lt;code>DPDK&lt;/code>的代码中随处可见，&lt;strong>注意&lt;/strong>这里的 &lt;strong>socket&lt;/strong> 不是网络编程里面的那一套东西，而是 &lt;strong>CPU&lt;/strong> 相关的东西。具体的概念可以参看&lt;a href="https://link.zhihu.com/?target=https%3A//link.segmentfault.com/%3Fenc%3DkeRHFE71AwA4LEWK3gy%252F%252Bg%253D%253D.zL548YXL%252F1rT%252BQN9hhP0BSuhSZUszAZly2ULaOcHzihSAMFb3k6C8kBfLxFL65VqtdDdc0MigZcmMKHcWpmSUSTYHTTZ%252BgYz9XlsRQPKOK%252BWch%252FsoT6h%252BzR46e7YgN19TmdjGuy%252BwWL%252FfT2wdU6Q7Q%253D%253D">Differences between physical CPU vs logical CPU vs Core vs Thread vs Socket&lt;/a> 或者其翻译版本&lt;a href="https://link.zhihu.com/?target=https%3A//link.segmentfault.com/%3Fenc%3DQvdG3%252BI75LlbmFlczo3WpQ%253D%253D.wu%252FAAZX7seAtEJjmuttDzYMu8zmGLKxX2fcFZ%252BZxKkIQvVQguoy2MSUnOVZPbaU6">physical CPU vs logical CPU vs Core vs Thread vs Socket（翻译）&lt;/a>。&lt;/p>
+&lt;p>对我们来说，只要知道可以&lt;code>DPDK&lt;/code>可以运行在多个&lt;code>lcore&lt;/code>上就足够了.&lt;/p>
+&lt;p>&lt;code>DPDK&lt;/code> 如何知道有多少个&lt;code>lcore&lt;/code>呢 ? 在启动时解析文件系统中的特定文件就可以了, 参考函数&lt;code>eal_cpu_detected&lt;/code>&lt;/p>
+&lt;h1 id="dpdk-工具">DPDK 工具&lt;a class="td-heading-self-link" href="#dpdk-%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;a href="https://doc.dpdk.org/guides/tools/index.html">https://doc.dpdk.org/guides/tools/index.html&lt;/a>&lt;/p>
+&lt;h2 id="dpdk-devbind---绑定和取消绑定设备与驱动程序检查他们的状态">dpdk-devbind - 绑定和取消绑定设备与驱动程序，检查他们的状态&lt;a class="td-heading-self-link" href="#dpdk-devbind---%e7%bb%91%e5%ae%9a%e5%92%8c%e5%8f%96%e6%b6%88%e7%bb%91%e5%ae%9a%e8%ae%be%e5%a4%87%e4%b8%8e%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f%e6%a3%80%e6%9f%a5%e4%bb%96%e4%bb%ac%e7%9a%84%e7%8a%b6%e6%80%81" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>dpdk-devbind [OPTIONS] DEVICE1 DEVICE2 &amp;hellip;.&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>OPTIONS&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-s, &amp;ndash;status&lt;/strong> # 打印所有已知网络接口的当前状态。对于每个设备，它显示 PCI 域、总线、插槽和功能，以及设备的文本描述。根据设备是否由内核驱动程序、vfio-pci 驱动程序或无驱动程序使用，将显示其他相关信息： - Linux 接口名称，例如if=eth0 - 正在使用的驱动程序，例如drv=vfio-pci - 当前未使用该设备的任何合适的驱动程序，例如used=vfio-pci 注意：如果此标志与绑定/取消绑定选项一起传递，则状态显示将始终在其他操作发生后发生。&lt;/li>
+&lt;li>&lt;strong>-b, &amp;ndash;bind DRIVER&lt;/strong> # 选择绑定网卡要使用的驱动程序。可以使用 none 以解除绑定&lt;/li>
+&lt;li>&lt;strong>-u, &amp;ndash;unbind&lt;/strong> # 接触网卡设备绑定。等价于 &lt;code>-b none&lt;/code>&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;force&lt;/strong> # 强制绑定。默认情况下，若目标网卡已被内核启用（通常表现为已在路由表条目中），则无法被 DPDK 绑定。&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;p>从当前驱动程序绑定 eth1 并转而使用 vfio-pci：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>dpdk-devbind --bind=vfio-pci eth1&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;h1 id="dpdk-与-bpf-与-netfilter">DPDK 与 BPF 与 Netfilter&lt;a class="td-heading-self-link" href="#dpdk-%e4%b8%8e-bpf-%e4%b8%8e-netfilter" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>TODO&lt;/p></description></item><item><title>Docs: Networking device</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Networking-device/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Networking-device/</guid><description/></item><item><title>Docs: 同源同宿</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E5%90%8C%E6%BA%90%E5%90%8C%E5%AE%BF/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E5%90%8C%E6%BA%90%E5%90%8C%E5%AE%BF/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>同源同宿，找不到对应的英文。与 &lt;a href="https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Load%20balancing.md">Load balancing&lt;/a> 中的 &lt;strong>Session persistence(会话保持)&lt;/strong> 的技术类似。&lt;/p></description></item><item><title>Docs: DNS</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DNS/</guid><description/></item><item><title>Docs: NAT</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/NAT/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/NAT/</guid><description/></item><item><title>Docs: SDN(软件定义网路)</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/SDN%E8%BD%AF%E4%BB%B6%E5%AE%9A%E4%B9%89%E7%BD%91%E8%B7%AF/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/SDN%E8%BD%AF%E4%BB%B6%E5%AE%9A%E4%B9%89%E7%BD%91%E8%B7%AF/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
