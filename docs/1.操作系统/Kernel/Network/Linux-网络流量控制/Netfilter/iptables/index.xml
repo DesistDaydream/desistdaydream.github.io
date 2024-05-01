@@ -1,0 +1,733 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – iptables</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/iptables/</link><description>Recent content in iptables on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/iptables/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: iptables</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/iptables/iptables/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/iptables/iptables/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/iptables.8.html">Manual(手册)，iptables(8)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.frozentux.net/iptables-tutorial/iptables-tutorial.html">Netfilter 官方文档，iptables 教程&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>iptables 是 Netfilter 团队开发的一组用于与 netfilter 模块进行交互的 CLI 工具，其中包括 iptables、ip6tables、arptables、ebtables 等。&lt;/p>
+&lt;p>iptables 和 ip6tables 用于建立、维护和检查 Linux 内核中的 IPv4 和 IPv6 包过滤规则表。可以定义几个不同的表中的各种规则，也可以定义用户定义的链。并把已经定义的规则发送给 netfilter 模块。&lt;/p>
+&lt;h2 id="四表table">四表(Table)&lt;a class="td-heading-self-link" href="#%e5%9b%9b%e8%a1%a8table" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>注意：四表是 iptables 框架中的概念，不是 Netfilter 中的&lt;/strong>&lt;/p>
+&lt;p>iptables 框架将流量抽象分为 4 类：过滤类、网络地址转换类、拆解报文类、原始类。每种类型的链作用在 Netfilter 系统中的 Hook 各不不相同，每种类型具有不同的功能。每一类都称为一张表。比如 fileter 表用来在指定链上检查流量是否可以通过，nat 表用来在指定链上检查流量是否可以进行地址转换，等等。Note：不是所有表都可以在所有链上具有规则，下表是 4 个表在 5 个 Hook 上的可用关系。&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>表名\链名&lt;/th>
+&lt;th>PREROUTING&lt;/th>
+&lt;th>INPUT&lt;/th>
+&lt;th>FORWARD&lt;/th>
+&lt;th>OUTPUT&lt;/th>
+&lt;th>POSTROUTING&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>filter&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>nat&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>mangle&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>raw&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>可用&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>iptables 中有默认的内置 4 个表，每个表的名称就是其 chain 类型的名称&lt;/p>
+&lt;h3 id="filter---过滤器">filter - 过滤器&lt;a class="td-heading-self-link" href="#filter---%e8%bf%87%e6%bb%a4%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;ul>
+&lt;li>该类型的链可作用在以下几个 Hook 点上：INPUT、FORWARD、OUTPUT&lt;/li>
+&lt;/ul>
+&lt;h3 id="nat---网络地址转换">nat - 网络地址转换&lt;a class="td-heading-self-link" href="#nat---%e7%bd%91%e7%bb%9c%e5%9c%b0%e5%9d%80%e8%bd%ac%e6%8d%a2" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;ul>
+&lt;li>该类型的链可作用在以下几个 Hook 点上：PREROUTING(DNAT)、INPUT、OUTPUT、POSTROUTING(SNAT)
+&lt;ul>
+&lt;li>其中 PREROUTING 与 POSTROUTING 是流量经过物理网卡设备时做 nat 的地方&lt;/li>
+&lt;li>其中 INPUT 与 OUTPUT 则是主机内部从网络栈直接下来的流量做 nat 的地方。e.g.从主机一个服务发送数据到同一个主机另一个服务的流量&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="mangle---拆解报文做出修改封装报文">mangle - 拆解报文，做出修改，封装报文&lt;a class="td-heading-self-link" href="#mangle---%e6%8b%86%e8%a7%a3%e6%8a%a5%e6%96%87%e5%81%9a%e5%87%ba%e4%bf%ae%e6%94%b9%e5%b0%81%e8%a3%85%e6%8a%a5%e6%96%87" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;ul>
+&lt;li>该类型的链可作用在以下几个 Hook 点上：PREROUTING、INPUT、FORWARD、OUTPUT、POSTROUTING&lt;/li>
+&lt;/ul>
+&lt;h3 id="raw--原始">raw- 原始&lt;a class="td-heading-self-link" href="#raw--%e5%8e%9f%e5%a7%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>用于跳过 nat 表以及连接追踪机制(ip_conntrack)的处理，详见 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux%20%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Connnection%20Tracking(%E8%BF%9E%E6%8E%A5%E8%B7%9F%E8%B8%AA).md">连接跟踪系统&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>该类型的链可作用在以下几个 Hook 点上：PREROUTING、OUTPUT&lt;/li>
+&lt;/ul>
+&lt;p>整个表只有这一个作用，且仅有一个 target 就是 NOTRACK。具有最高优先级，所有流量先在两个 Hook 的 raw 功能上进行检查。一旦在 raw 上配置了规则，则 raw 表处理完成后，跳过 nat 表和 ip_conntrack 处理，i.e.不再做地址转换和数据包的链接跟踪处理，不把匹配到的数据包保存在“链接跟踪表”中。常用于那些不需要做 nat 的情况下以提高性能。e.g.大量访问的 web 服务器，可以让 80 端口不再让 iptables 做数据包的链接跟踪处理 ，以提高用户的访问速度。不过该功能不影响其余表的连接追踪追踪功能的正常使用，依然会有记录写到连接追踪文件中去&lt;/p>
+&lt;ul>
+&lt;li>该功能的起源：iptables 表有大小的上限，如果每个数据包进来都要进行检查，会非常影响性能，可以对那些不用进行 nat 功能的数据进行放弃后面的检查，i.e.可以在 raw 配置然后直接让这些数据包跳过后面的表对该数据包的处理&lt;/li>
+&lt;/ul>
+&lt;p>Note：四表的优先级从高到低依次为：raw-mangle-nat-filter，i.e.数据到达某个 Hook 上，则会优先使用优先级最高类型的链来处理数据包。其实，iptables 表的作用更像是用来划分优先级的。&lt;/p>
+&lt;h2 id="iptables-处理链上规则的顺序以及规范">iptables 处理链上规则的顺序以及规范&lt;a class="td-heading-self-link" href="#iptables-%e5%a4%84%e7%90%86%e9%93%be%e4%b8%8a%e8%a7%84%e5%88%99%e7%9a%84%e9%a1%ba%e5%ba%8f%e4%bb%a5%e5%8f%8a%e8%a7%84%e8%8c%83" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>注意：每个数据包在 CHAIN 中匹配到适用于自己的规则之后，则直接进入下一个 CHAIN，而不会遍历 CHAIN 中每条规则去挨个匹配适用于自己的规则。比如下面两种情况&lt;/p>
+&lt;p>INPUT 链默认 DROP，匹配第一条：目的端口是 9090 的数据 DROP，然后不再检查下一项，那么 9090 无法访问&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>-P INPUT DROP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-A INPUT -p tcp -m tcp --dport &lt;span style="color:#0000cf;font-weight:bold">9090&lt;/span> -j DROP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-A INPUT -p tcp -m tcp --dport &lt;span style="color:#0000cf;font-weight:bold">9090&lt;/span> -j ACCEPT
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>INPUT 链默认 DROP，匹配第一条目的端口是 9090 的数据 ACCEPT，然后不再检查下一条规则，则 9090 可以访问&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>-P INPUT DROP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-A INPUT -p tcp -m tcp --dport &lt;span style="color:#0000cf;font-weight:bold">9090&lt;/span> -j ACCEPT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-A INPUT -p tcp -m tcp --dport &lt;span style="color:#0000cf;font-weight:bold">9090&lt;/span> -j DROP
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="安装-iptables">安装 iptables&lt;a class="td-heading-self-link" href="#%e5%ae%89%e8%a3%85-iptables" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>iptables 程序一般随系统安装自带（Minimal 也带），需要安装的通常是保证 iptables 规则可以在开机时启动的程序&lt;/p>
+&lt;h2 id="ubuntu-安装-iptables">Ubuntu 安装 iptables&lt;a class="td-heading-self-link" href="#ubuntu-%e5%ae%89%e8%a3%85-iptables" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>apt install netfilter-persistent iptables-persistent
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>netfilter-persistent 用来在保证在系统启动时加载 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux%20%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/Netfilter.md">Netfilter&lt;/a> 规则；或者通过期内的一些 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Systemd/Systemd.md">Systemd&lt;/a> 的 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Systemd/Unit%20File/Unit%20File.md">Unit File&lt;/a> 和脚本自动加载保存好的 Netfilter 规则。iptables-persistent 算作 netfilter-persistent 包的插件，可以实现加载 iptables 规则效果&lt;/p>
+&lt;blockquote>
+&lt;p>[!Notes]
+Ubuntu 20.04 版本后，默认使用使用 nftables，安装 iptables-persistent 本质是 netfilter-persistent 包。iptables-persistent 作为 netfilter-persistent 的插件以兼容老的 iptables 功能。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ll /lib/systemd/system/iptables.service&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>lrwxrwxrwx &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">34&lt;/span> Apr &lt;span style="color:#0000cf;font-weight:bold">20&lt;/span> 11:36 /lib/systemd/system/iptables.service -&amp;gt; /etc/alternatives/iptables.service
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ll /etc/alternatives/iptables.service&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>rwxrwxrwx &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">48&lt;/span> Apr &lt;span style="color:#0000cf;font-weight:bold">20&lt;/span> 11:36 /etc/alternatives/iptables.service -&amp;gt; /lib/systemd/system/netfilter-persistent.service
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;/blockquote>
+&lt;h1 id="iptables-关联文件与配置">iptables 关联文件与配置&lt;a class="td-heading-self-link" href="#iptables-%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6%e4%b8%8e%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>/run/xtables.lock&lt;/strong> # 该文件在 iptables 程序启动时被使用，以获取排他锁&lt;/p>
+&lt;ul>
+&lt;li>可以通过 &lt;code>XTABLES_LOCKFILE&lt;/code> 环境变量修改 iptables 需要使用 xtalbes.lock 文件的路径&lt;/li>
+&lt;/ul>
+&lt;hr>
+&lt;p>&lt;strong>RedHat 系特定的关联文件&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>/etc/sysconfig/iptables&lt;/strong> # 存放用户定义的规则信息，每次重启 iptabels.service 服务后，都会读取该配置文件信息并应用到系统中&lt;/p>
+&lt;p>&lt;strong>/etc/sysconfig/iptables-conf&lt;/strong> # 存放 iptables 工具的具体配置信息&lt;/p>
+&lt;hr>
+&lt;p>&lt;strong>Debian 系特定的关联文件&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>/etc/iptables/rules.v4&lt;/strong> # IPv4 版本的 iptables 规则保存文件，由 iptables-persistent.service 服务使用&lt;/p>
+&lt;p>&lt;strong>/etc/iptables/rules.v6&lt;/strong> # IPv6 版本的 iptables 规则保存文件，由 iptables-persistent.service 服务使用&lt;/p></description></item><item><title>Docs: iptables 命令行工具</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/iptables/iptables-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/iptables/iptables-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/iptables.8.html">Manual(手册)，iptables(8)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/iptables-extensions.8.html">Manual(手册)，iptables-extensions(8)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Man 手册中，将 iptables 分为两部分，基本的 iptables 和用于描述扩展规则的 iptables-extensions，当使用扩展规则时，需要通过 &lt;code>-m, --match ModuleName&lt;/code> 选项指定要使用的扩展模块的名称。&lt;/p>
+&lt;p>另外，所谓的扩展规则，其实是对原始 iptables 的扩展，并不仅仅扩展了匹配数据包的规则，还有很多其他的功能。&lt;/p>
+&lt;h1 id="syntax语法">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>iptables [OPTIONS] COMMAND [CHAIN] [RuleSpecifitcation]&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Command&lt;/strong> # 指定要执行的具体操作。比如 &lt;em>增删改查规则/链&lt;/em> 等等。&lt;/li>
+&lt;li>&lt;strong>CHAIN&lt;/strong> # 指定要执行操作的链。在不指定的时候，默认对所有链进行操作。
+&lt;ul>
+&lt;li>CHAIN 其实不应该放在这，一般都是 COMMAND 中的组成部分。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>RuleSpecifitcation = MATCHES TARGET&lt;/strong> # 通常用在增加规则时，指定规则的具体规范。由两部分组成：[MATCHES&amp;hellip;] 和 [TARGET]
+&lt;ul>
+&lt;li>&lt;strong>MATCHES = [基本匹配规则] [扩展匹配规则]&lt;/strong> # 匹配条件，可以指定多个。用以筛选出要执行 TARGET 的数据包的条件&lt;/li>
+&lt;li>&lt;strong>TARGET = -j TargetName [Per-Target-Options]&lt;/strong> # 指定匹配到规则的数据包的 Target(目标) 是什么。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="options">OPTIONS&lt;a class="td-heading-self-link" href="#options" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;ul>
+&lt;li>&lt;strong>-t, &amp;ndash;table TALBLE&lt;/strong> # 指定 iptables 命令要对 TABLE 这个表进行操作。&lt;code>默认值: filter&lt;/code>。省略该选项时，表示默认对 filter 表进行操作。&lt;/li>
+&lt;li>&lt;strong>-n, &amp;ndash;numeric&lt;/strong> # 所有输出以数字的形式展示。IP 地址、端口号等都以数字输出。默认情况下一般是显示主机名、网络名称、服务。&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;line-numbers&lt;/strong> # 显示每个 chain 中的行号&lt;/li>
+&lt;li>&lt;strong>-v&lt;/strong> # 显示更详细的信息，vv 更详细，vvv 再详细一些
+&lt;ul>
+&lt;li>pkts # 报文数&lt;/li>
+&lt;li>bytes # 字节数&lt;/li>
+&lt;li>target #&lt;/li>
+&lt;li>prot #&lt;/li>
+&lt;li>in/out # 显示要限制的具体网卡，&lt;code>*&lt;/code> 为所有&lt;/li>
+&lt;li>source/destination #&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="command">COMMAND&lt;a class="td-heading-self-link" href="#command" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;ul>
+&lt;li>增
+&lt;ul>
+&lt;li>&lt;strong>-A, &amp;ndash;append &amp;lt;CHAIN&amp;gt; &amp;lt;RuleSpecification&amp;gt;&lt;/strong> # 在规则连末尾添加规则&lt;/li>
+&lt;li>&lt;strong>-I, &amp;ndash;insert &amp;lt;CHAIN&amp;gt; [RuleNum] &amp;lt;RuleSpecification&amp;gt;&lt;/strong> # 在规则链开头添加规则，也可以指定添加到指定的规则号&lt;/li>
+&lt;li>&lt;strong>-N, &amp;ndash;new-chain CHAIN&lt;/strong> # 创建名为 CHAIN 的自定义规则链&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>删
+&lt;ul>
+&lt;li>&lt;strong>-F, &amp;ndash;flush [CHAIN [RuleNum]]&lt;/strong> # 删除所有 chain 下的所有规则，也可删除指定 chain 下的指定的规则&lt;/li>
+&lt;li>&lt;strong>-D, &amp;ndash;delete &amp;lt;CHAIN&amp;gt; &amp;lt;RULE&amp;gt;&lt;/strong> # 删除一个 chain 中规则，RULE 可以是该 chain 中的行号，也可以是规则具体配置&lt;/li>
+&lt;li>&lt;strong>-X, &amp;ndash;delete-chain [CHAIN]&lt;/strong> # 删除用户自定义的空的 chain&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>改
+&lt;ul>
+&lt;li>&lt;strong>-P, &amp;ndash;policy &amp;lt;CHAIN&amp;gt; &amp;lt;TARGET&amp;gt;&lt;/strong> # 设置指定的规则链(CHAIN)的默认策略为指定目标(Targe)&lt;/li>
+&lt;li>&lt;strong>-E, &amp;ndash;rename-chain &amp;lt;OldChainName&amp;gt; &amp;lt;NewChainName&amp;gt;&lt;/strong> # 重命名自定义 chain，引用计数不为 0 的自定义 chain，无法改名也无法删除&lt;/li>
+&lt;li>&lt;strong>-R, &amp;ndash;replace CHAIN [RuleNum] &amp;lt;RuleSpecification&amp;gt;&lt;/strong> # 替换指定链上的指定规则&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>查
+&lt;ul>
+&lt;li>&lt;strong>-L, &amp;ndash;list [CHAIN [RuleNum]]&lt;/strong> # 列出指定 CHAIN 的规则。&lt;code>默认值: 不指定。i.e.列出所有 CHAIN 的规则&lt;/code>&lt;/li>
+&lt;li>&lt;strong>-S, &amp;ndash;list-rules [CHAIN]&lt;/strong> # 以 iptables-save 命令的方式列出指定 CHAIN 的规则。&lt;code>默认值: 不指定。i.e.列出所有 CHAIN 的规则&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>其他
+&lt;ul>
+&lt;li>&lt;strong>-Z, &amp;ndash;zero [CHAIN [RULE_NUM]]&lt;/strong> # 将所有链中的数据包和字节计数器归零，或者仅将给定链归零，或者仅将给定规则归零。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="matches">MATCHES&lt;a class="td-heading-self-link" href="#matches" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>iptabes 语法中的 MATCHES 部分是整个语法中非常重要且复杂的。该部分用于指定要匹配的数据包条件，只有符合条件的数据包，才会被 Netfilter 框架处理。&lt;/p>
+&lt;p>MATCHES 规则可以分为两类：&lt;/p>
+&lt;ul>
+&lt;li>基本匹配规则&lt;/li>
+&lt;li>扩展匹配规则&lt;/li>
+&lt;/ul>
+&lt;p>我们可以指定一个或多个匹配规则，很多匹配规则前可以添加 &lt;code>!&lt;/code> 符号，即可将该匹配取反（比如：不加叹号是匹配某个 IP 地址，加了叹号表示除了这个地址外都匹配）&lt;/p>
+&lt;p>MATCHES 的语法是一种类似命令行参数的写法&lt;/p>
+&lt;h3 id="基本匹配规则">基本匹配规则&lt;a class="td-heading-self-link" href="#%e5%9f%ba%e6%9c%ac%e5%8c%b9%e9%85%8d%e8%a7%84%e5%88%99" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;blockquote>
+&lt;p>在 Man 手册中，这部分的介绍在 OPTIONS 下的 PARAMETERS 章节。&lt;/p>
+&lt;/blockquote>
+&lt;p>基本匹配规则语法&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-s, &amp;ndash;source IP/MASK&lt;/strong> # 指定规则中要匹配的来源地址的 IP/MASK&lt;/li>
+&lt;li>&lt;strong>-d, &amp;ndash;destination IP/MASK&lt;/strong> # 指定规则中要匹配的目标地址的 IP/MASK&lt;/li>
+&lt;li>&lt;strong>-i, &amp;ndash;in-interface 网卡名称&lt;/strong> # 指定数据流入规则中要匹配的网卡，仅用于 PREROUTING、INPUT、FORWARD 链&lt;/li>
+&lt;li>&lt;strong>-o, &amp;ndash;out-interface 网卡名称&lt;/strong> # 指定数据流出规则中要匹配的网卡，仅用于 FORWARD、OUTPUT、POSTROUTING 链&lt;/li>
+&lt;li>&lt;strong>-p, &amp;ndash;protocol PROTOCOL&lt;/strong> # 指定规则中要匹配的协议，即 ip 首部中的 protocols 所标识的协议
+&lt;ul>
+&lt;li>可用的协议有 tcp、udp、icmp、等等&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>-m, &amp;ndash;match MATCH&lt;/strong> # 使用&lt;a href="#%E6%89%A9%E5%B1%95%E5%8C%B9%E9%85%8D%E8%AF%AD%E6%B3%95">扩展匹配语法&lt;/a>指定扩展匹配规则&lt;/li>
+&lt;li>&lt;strong>-j, &amp;ndash;jump TARGET&lt;/strong> # 指定 &lt;a href="#target">TARGET&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h3 id="扩展匹配规则">扩展匹配规则&lt;a class="td-heading-self-link" href="#%e6%89%a9%e5%b1%95%e5%8c%b9%e9%85%8d%e8%a7%84%e5%88%99" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>扩展匹配语法：&lt;code>-m ModuleName Per-Match-Options&lt;/code>，即指定要使用的扩展模块以及该模块可用的选项。&lt;/p>
+&lt;p>详见下文 &lt;a href="#%E6%89%A9%E5%B1%95%E5%8C%B9%E9%85%8D%E8%AF%AD%E6%B3%95">扩展匹配语法&lt;/a>&lt;/p>
+&lt;h2 id="target">TARGET&lt;a class="td-heading-self-link" href="#target" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>TARGET = -j TargetName [Per-Target-Options]&lt;/strong>&lt;/p>
+&lt;p>指定规则中的 target(目标)是什么。即“如果数据包匹配上规则之后应该做什么”。如果目标是自定义链，则指明具体的自定义 Chain 的名称。TARGET 都有哪些详见 Netfilter 流量控制系统。下面是各种 TARGET 的类型：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>ACCEPT&lt;/strong> # 允许流量通过&lt;/li>
+&lt;li>&lt;strong>REJECT&lt;/strong> # 拒绝流量通过
+&lt;ul>
+&lt;li>&amp;ndash;reject-with icmp-host-prohibited # 通过 icmp 协议显示给客户机一条消息:主机拒绝(icmp-host-prohibited)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>DROP&lt;/strong> # 丢弃，不响应，发送方无法判断是被拒绝&lt;/li>
+&lt;li>&lt;strong>RETURN&lt;/strong> # 返回调用链&lt;/li>
+&lt;li>&lt;strong>MARK&lt;/strong> # 做防火墙标记
+&lt;ul>
+&lt;li>用于 nat 表的 target
+&lt;ul>
+&lt;li>DNAT|SNAT # {目的|源}地址转换&lt;/li>
+&lt;li>REDIRECT # 端口重定向&lt;/li>
+&lt;li>MASQUERADE # 地址伪装类似于 SNAT，但是不用指明要转换的地址，而是自动选择要转换的地址，用于外部地址不固定的情况&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>用于 raw 表的 target
+&lt;ul>
+&lt;li>NOTRACK # raw 表专用的 target，用于对匹配规则进行 notrack(不跟踪)处理&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>LOG&lt;/strong> # 记录日志信息&lt;/li>
+&lt;li>&lt;strong>引用自定义链&lt;/strong> # 直接使用“-j|-g 自定义链的名称”即可，让基本 5 个 Chain 上匹配成功的数据包继续执行自定义链上的规则。&lt;/li>
+&lt;/ul>
+&lt;h1 id="扩展匹配语法">扩展匹配语法&lt;a class="td-heading-self-link" href="#%e6%89%a9%e5%b1%95%e5%8c%b9%e9%85%8d%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man8/iptables-extensions.8.html">Manual(手册)，iptables-extensions(8)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>iptables [OPTIONS] COMMAND [CHAIN] [基本匹配规则] -m ExtendedModuleName &amp;ndash;ExtendedModuleArgs -j TARGET&lt;/strong>&lt;/p>
+&lt;p>官方文档的描述有点问题，-m 后面应该是指扩展模块名称&lt;/p>
+&lt;ul>
+&lt;li>ExtendedModuleName # 扩展模块名称&lt;/li>
+&lt;li>ExtendedModuleArgs # 扩展模块对应的参数&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>注意，所有的扩展匹配语法必须使用 &lt;code>-m&lt;/code> 选项指定要使用的扩展模块&lt;/strong>，下文的描述也是直接对扩展模块名称进行记录。&lt;/p>
+&lt;p>iptables 可以使用带有 -m 或 &amp;ndash;match 选项的扩展的数据包匹配模块，这些模块可以提供更加强大的匹配数据包的能力，而不仅仅只是源目IP。之后，根据特定模块的不同，可以使用各种额外的命令行选项。我们可以在一行中指定多个扩展匹配模块。扩展匹配模块按照规则中指定的顺序进行评估。&lt;/p>
+&lt;ul>
+&lt;li>比如使用 &lt;code>-p tcp&lt;/code>，即可在语句后面添加 &lt;code>-m tcp&lt;/code> 以调用 tcp 扩展模块。&lt;/li>
+&lt;li>然后还可以使用 tcp 模块的专属参数，比如 &amp;ndash;dport、&amp;ndash;sport 等等。&lt;/li>
+&lt;/ul>
+&lt;p>我们可以在指定模块后使用 -h 或 &amp;ndash;help 选项以获取特定模块的帮助信息，比如 &lt;code>iptables -m tcp --help&lt;/code> 将会列出 tcp 模块所支持的所有选项。&lt;/p>
+&lt;blockquote>
+&lt;p>备注：使用 -p, &amp;ndash;protocol 选项时， iptables 将尝试加载与协议同名的模块，以使用该模块的扩展匹配选项。比如 &lt;code>-p tcp -m tcp --dport 22&lt;/code> 可以简写为 &lt;code>-p --dport 22&lt;/code>，因为默认加载同名的扩展模块&lt;/p>
+&lt;/blockquote>
+&lt;p>扩展模块分为如下几类：&lt;/p>
+&lt;ul>
+&lt;li>通用扩展模块&lt;/li>
+&lt;li>协议相关的模块&lt;/li>
+&lt;li>其他模块&lt;/li>
+&lt;/ul>
+&lt;h2 id="通用扩展模块">通用扩展模块&lt;a class="td-heading-self-link" href="#%e9%80%9a%e7%94%a8%e6%89%a9%e5%b1%95%e6%a8%a1%e5%9d%97" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>指定具体的扩展匹配名以及该扩展匹配的匹配规则&lt;/p>
+&lt;p>&lt;strong>conntrack 模块&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;ctstate CTState1[,CTState2&amp;hellip;]&lt;/strong> # 匹配指定的名为 CTState(conntrack State) 的&lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux%20%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/Connection%20Tracking%20for%20netfilter.md">连接追踪&lt;/a>状态。可用的状态有{INVALID|ESTABLISHED|NEW|RELATED|UNTRACKED|SNAT|DNAT}&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>state 模块&lt;/strong>&lt;/p>
+&lt;p>state 模块是 conntrack 模块的子集，属于老式用法，慢慢会被淘汰。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;state STATE1[,STATE2,&amp;hellip;.]&lt;/strong> #&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>comment 模块&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;comment STRING&lt;/strong> # 向规则添加注释，最多 256 个字符。比如：&lt;code>iptables -A INPUT -i eth1 -m comment --comment &amp;quot;my local LAN&amp;quot;&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>set 模块&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>&amp;ndash;match-set SetName {src|dst}..&lt;/strong>. # 匹配指定的{源|目标}IP 是名为 SetName 的 ipset 集合&lt;/p>
+&lt;ul>
+&lt;li>其中 FLAG 是逗号分隔的 src 和 dst 规范列表，其中不能超过六个。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>iprange 模块&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>{&amp;ndash;src-range|&amp;ndash;dst-range} IP1-IP2&lt;/strong> # 匹配的指定的{源|目标}IP 范围&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>sting 模块&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;algo {bm|kmp}&lt;/strong> # 指明使用哪个搜索算法&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;string PATTERN&lt;/strong> # 指明要匹配的字符串，用于检查报文中出现的字符串(e.g.某个网页出现某个字符串则拒绝)&lt;/li>
+&lt;/ul>
+&lt;h2 id="协议相关的扩展模块">协议相关的扩展模块&lt;a class="td-heading-self-link" href="#%e5%8d%8f%e8%ae%ae%e7%9b%b8%e5%85%b3%e7%9a%84%e6%89%a9%e5%b1%95%e6%a8%a1%e5%9d%97" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>multiport 模块&lt;/strong> # 仅可使在 &lt;strong>tcp&lt;/strong>, &lt;strong>udp&lt;/strong>, &lt;strong>udplite&lt;/strong>, &lt;strong>dccp&lt;/strong>, &lt;strong>sctp&lt;/strong> 这几个协议中使用&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>{&amp;ndash;dports|&amp;ndash;sports} NUM&lt;/strong> # 让 tcp 匹配多个端口，可以是目标端口(dport)或者源端口(sport)&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>tcp 模块&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;sport, &amp;ndash;source-port NUM&lt;/strong> # 指定规则中要匹配的来源端口号&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;dport, &amp;ndash;destination-port NUM&lt;/strong> # 指定规则中要匹配的目标端口号&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;tcp-flags LIST1 LIST2&lt;/strong> # 检查 LIST1 所指明的所有标志位，且这其中 LIST2 所表示出的所有标志位必须为 1，而余下的必须为 0,；没有 LIST1 中指明的，不做检查(e.g.&amp;ndash;tcp-flags SYN,ACK,FIN,RST SYN)。LIST 包括“SYN ACK FIN RST URG PSH ALL NONE”&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>udp 模块&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>&amp;ndash;dport NUM&lt;/strong> # 指定规则中要匹配的目标端口号&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;sport NUM&lt;/strong> # 指定规则中要匹配的来源端口号&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>icmp 模块&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-m [icmp] &amp;ndash;icmp-type TYPE&lt;/strong> # 指定 icmp 的类型，具体类型可以搜 icmp type 获得，可以是数字&lt;/li>
+&lt;/ul>
+&lt;h1 id="example">EXAMPLE&lt;a class="td-heading-self-link" href="#example" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>注意：在使用 iptables 命令的时候，为了防止配置问题导致网络不通，可以先设置一个定时任务来修改 iptables 规则或者 iptables XX &amp;amp;&amp;amp; sleep 5 &amp;amp;&amp;amp; iptables -P INPUT ACCEPT &amp;amp;&amp;amp; iptables -P OUTPUT ACCEPT&lt;/p>
+&lt;h2 id="fileter-表的配置">Fileter 表的配置&lt;a class="td-heading-self-link" href="#fileter-%e8%a1%a8%e7%9a%84%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h3 id="input-默认为-drop-情况下">INPUT 默认为 DROP 情况下&lt;a class="td-heading-self-link" href="#input-%e9%bb%98%e8%ae%a4%e4%b8%ba-drop-%e6%83%85%e5%86%b5%e4%b8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;ul>
+&lt;li>iptables -P INPUT DROP&lt;/li>
+&lt;/ul>
+&lt;p>给 INPUT 链添加一条接受 192.168.19.64/27 这个网段数据包的规则&lt;/p>
+&lt;ul>
+&lt;li>iptables -I INPUT -s 192.168.19.64/27 -j ACCEPT&lt;/li>
+&lt;/ul>
+&lt;p>允许指定的网段访问本机的 22 号端口&lt;/p>
+&lt;ul>
+&lt;li>iptables -A INPUT -s 192.168.1.0/24 -p tcp -m tcp &amp;ndash;dport 22 -j ACCEPT&lt;/li>
+&lt;/ul>
+&lt;p>允许所有机器进入本机的 1000 到 1100 号端口&lt;/p>
+&lt;ul>
+&lt;li>iptables -A INPUT -p tcp -m tcp &amp;ndash;dport 1000:1100 -j ACCEPT&lt;/li>
+&lt;/ul>
+&lt;p>允许源地址是 10.10.100.4 到 10.10.100.10 这 7 个 ip 的流量进入本机&lt;/p>
+&lt;ul>
+&lt;li>iptables -A INPUT -m iprange &amp;ndash;src-range 10.10.100.4-10.10.100.10 -j ACCEPT&lt;/li>
+&lt;/ul>
+&lt;p>允许源地址是 10.10.100.4 和 10.10.100.8 且目的端口是 1935 和 4000 的流量进入本机&lt;/p>
+&lt;ul>
+&lt;li>iptables -A INPUT -m iprange &amp;ndash;src-range 10.10.100.4,10.10.100.8 -p tcp -m multiport &amp;ndash;dports 1935,4000 -j ACCEPT&lt;/li>
+&lt;/ul>
+&lt;p>允许源地址是 ipset(名为 cdn2) 中的所有 IP，且目标端口为 80 的所有数据包通过&lt;/p>
+&lt;ul>
+&lt;li>iptables -A INPUT -p tcp -m set &amp;ndash;match-set cdn2 src &amp;ndash;dports 80 -j ACCEPT&lt;/li>
+&lt;/ul>
+&lt;p>允许源地址是 ipset(名为 cdn1) 中的所有 IP 通过&lt;/p>
+&lt;ul>
+&lt;li>iptables -A INPUT -m set &amp;ndash;match-set cdn1 src -j ACCEPT&lt;/li>
+&lt;/ul>
+&lt;p>允许响应 ping 但不允许主动 ping 别人&lt;/p>
+&lt;ul>
+&lt;li>iptables -A INPUT -p icmp &amp;ndash;icmp-type echo-request -j ACCEPT&lt;/li>
+&lt;/ul>
+&lt;h3 id="input-默认为-accept-情况下">INPUT 默认为 ACCEPT 情况下&lt;a class="td-heading-self-link" href="#input-%e9%bb%98%e8%ae%a4%e4%b8%ba-accept-%e6%83%85%e5%86%b5%e4%b8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;ul>
+&lt;li>iptables -P INPUT DROP&lt;/li>
+&lt;/ul>
+&lt;p>只放开部分 IP 的 22 端口&lt;/p>
+&lt;blockquote>
+&lt;p>注意：下面的顺序不可变，由于是顺序执行，指定源地址的先允许之后就不会再拒绝了，凡是没有允许过的源 IP，都会被 DROP&lt;/p>
+&lt;/blockquote>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>-P INPUT ACCEPT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-P FORWARD ACCEPT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-P OUTPUT ACCEPT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-A INPUT -s 116.63.160.74/32 -p tcp -m tcp --dport &lt;span style="color:#0000cf;font-weight:bold">22&lt;/span> -j ACCEPT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-A INPUT -s 122.9.154.106/32 -p tcp -m tcp --dport &lt;span style="color:#0000cf;font-weight:bold">22&lt;/span> -j ACCEPT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-A INPUT -p tcp -m tcp --dport &lt;span style="color:#0000cf;font-weight:bold">22&lt;/span> -j DROP
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>所有 ping 本机的数据包全部丢弃，禁 ping。给 INPUT 链添加一条禁止 icmp 协议的规则&lt;/p>
+&lt;ul>
+&lt;li>iptables -I INPUT -p icmp -j DROP&lt;/li>
+&lt;/ul>
+&lt;h3 id="其他">其他&lt;a class="td-heading-self-link" href="#%e5%85%b6%e4%bb%96" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>显示 INPUT 链中的所有规则，并显示规则行号&lt;/p>
+&lt;ul>
+&lt;li>iptables -L INPUT &amp;ndash;line-numbers&lt;/li>
+&lt;/ul>
+&lt;p>删除 INPUT 链中的第 11 条规则&lt;/p>
+&lt;ul>
+&lt;li>iptables -D INPUT 11&lt;/li>
+&lt;/ul>
+&lt;h2 id="nat-表的配置">NAT 表的配置&lt;a class="td-heading-self-link" href="#nat-%e8%a1%a8%e7%9a%84%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>凡是基于 tcp 协议访问本机 80 端口，且目的地址是 110.119.120.1 的数据包。全部把目的地址转变为 192.168.20.2，且目的端口转换为 8080&lt;/p>
+&lt;ul>
+&lt;li>iptables -t nat -A PREROUTING -d 110.119.120.1 -p tcp &amp;ndash;dport 80 -j DNAT &amp;ndash;to-destination 192.168.20.2:8080&lt;/li>
+&lt;/ul>
+&lt;p>将源地址网段是 192.168.122.0/24 并且目的地址网段不是 192.168.122.0/24 的全部转换成 123.213.1.5 这个地址。常用于公司内使用私网 IP 的设备访问互联网使用&lt;/p>
+&lt;ul>
+&lt;li>iptables -t nat -A POSTROUTING -s 192.168.122.0/24 ! -d 192.168.122.0/24 -j SNAT &amp;ndash;to-source 123.213.1.5&lt;/li>
+&lt;/ul>
+&lt;p>将所有到达 eth0 网卡 25 端口的流量转发到 2525 端口。也叫端口转发&lt;/p>
+&lt;ul>
+&lt;li>iptables -t nat -A PREROUTING -i eth0 -p tcp &amp;ndash;dport 25 -j REDIRECT &amp;ndash;to-port 2525&lt;/li>
+&lt;/ul>
+&lt;h2 id="raw-表配置">RAW 表配置&lt;a class="td-heading-self-link" href="#raw-%e8%a1%a8%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>所有来自 10.0.9.0/24 网段的数据包，都不跟踪&lt;/p>
+&lt;ul>
+&lt;li>iptables -t raw -A PREROUTING -s 10.0.9.0/24 -j NOTRACK&lt;/li>
+&lt;/ul>
+&lt;h1 id="其他关联命令行工具">其他关联命令行工具&lt;a class="td-heading-self-link" href="#%e5%85%b6%e4%bb%96%e5%85%b3%e8%81%94%e5%91%bd%e4%bb%a4%e8%a1%8c%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="iptables-save---将-iptables-规则转储到标准输出">iptables-save - 将 iptables 规则转储到标准输出&lt;a class="td-heading-self-link" href="#iptables-save---%e5%b0%86-iptables-%e8%a7%84%e5%88%99%e8%bd%ac%e5%82%a8%e5%88%b0%e6%a0%87%e5%87%86%e8%be%93%e5%87%ba" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>该命令输出的内容更容易被人类阅读，可以用重定向把内容保存到文件中&lt;/p>
+&lt;p>该命令显示出的信息说明&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/fadrg5/1616165483878-a0be9032-9c98-4971-922e-592c61529d86.jpeg" alt="">&lt;/p>
+&lt;p>&lt;strong>Syntax(语法)&lt;/strong>&lt;/p>
+&lt;p>iptables-save [-M,&amp;ndash;modprobe modprobe] [-c] [-t table]&lt;/p>
+&lt;p>&lt;strong>EXAMPLE&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>iptables-save &amp;gt; /etc/sysconfig/iptables.rules&lt;/li>
+&lt;/ul>
+&lt;h2 id="iptables-restore---从标准输入恢复-iptables-规则可以视同重定向通过文件来读取到标准输入">iptables-restore - 从标准输入恢复 iptables 规则，可以视同重定向通过文件来读取到标准输入&lt;a class="td-heading-self-link" href="#iptables-restore---%e4%bb%8e%e6%a0%87%e5%87%86%e8%be%93%e5%85%a5%e6%81%a2%e5%a4%8d-iptables-%e8%a7%84%e5%88%99%e5%8f%af%e4%bb%a5%e8%a7%86%e5%90%8c%e9%87%8d%e5%ae%9a%e5%90%91%e9%80%9a%e8%bf%87%e6%96%87%e4%bb%b6%e6%9d%a5%e8%af%bb%e5%8f%96%e5%88%b0%e6%a0%87%e5%87%86%e8%be%93%e5%85%a5" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>EXAMPLE&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>iptables-restore &amp;lt; /etc/sysconfig/iptables.rules&lt;/li>
+&lt;/ul>
+&lt;h1 id="ipset---ip-集合的管理工具">ipset - IP 集合的管理工具&lt;a class="td-heading-self-link" href="#ipset---ip-%e9%9b%86%e5%90%88%e7%9a%84%e7%ae%a1%e7%90%86%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>ipset 是 iptables 的一个协助工具。可以通过 ipset 设置一组 IP 并对这一组 IP 统一命名，然后在 iptables 里的匹配规则里通过名字直接引用该组 IP，并对这组 IP 进行流量控制。注意：由于是 iptables 规则引用，所以我直接修改 ipset 集合里的 IP，并不用重启 iptables 服务，就可以直接生效。这类似于域名解析，我的机器指定访问 baidu.com，至于百度公司他们怎么更改 IP 与域名绑定的关系，作为用户都不用更更改 baidu.com 这个域名。&lt;/p>
+&lt;h2 id="syntax语法-1">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95-1" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>ipset [OPTIONS] COMMAND [COMMAND-OPTIONS]&lt;/strong>&lt;/p>
+&lt;p>COMMANDS：Note：ENTRY 指的就是 ip 地址&lt;/p>
+&lt;ul>
+&lt;li>create SETNAME TYPENAME [type-specific-options] # 创建一个新的集合。Create a new set&lt;/li>
+&lt;li>add SETNAME ENTRY # 向指定集合中添加条目。i.e.添加 ip。Add entry to the named set&lt;/li>
+&lt;li>del SETNAME ENTRY # 从指定集合中删除条目 Delete entry from the named set&lt;/li>
+&lt;li>test SETNAME ENTRY # 测试指定集合中是否包含该条目 Test entry in the named set&lt;/li>
+&lt;li>destroy [SETNAME] # 摧毁全部或者指定的集合 Destroy a named set or all sets&lt;/li>
+&lt;li>list [SETNAME] # 列出全部或者指定集合中的条目 List the entries of a named set or all sets&lt;/li>
+&lt;li>save [SETNAME] # 将指定的集合或者所有集合保存到标准输出&lt;/li>
+&lt;li>restore # 还原保存的 ipset 信息&lt;/li>
+&lt;li>flush [SETNAME] # 删除全部或者指定集合中的所有条目 Flush a named set or all sets&lt;/li>
+&lt;li>rename FROM-SETNAME TO-SETNAME # Rename two sets&lt;/li>
+&lt;li>swap FROM-SETNAME TO-SETNAME # 交换两个集合中的内容 Swap the contect of two existing sets&lt;/li>
+&lt;/ul>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-exist&lt;/strong> # 在 create 已经存在的 ipset、add 已经存在的 entry、del 不存在的 entry 时忽略错误。&lt;/li>
+&lt;li>&lt;strong>-f&lt;/strong> # 在使用 save 或者 restore 命令时，可以指定文件，而不是从标准输出来保存或者还原 ipset 信息&lt;/li>
+&lt;/ul>
+&lt;p>{ -exist | -output { plain | save | xml } | -quiet | -resolve | -sorted | -name | -terse | -file filename }&lt;/p>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>ipset list&lt;/strong> # 列出 ipset 所设置的所有 IP 集合&lt;/li>
+&lt;li>&lt;strong>ipset create lichenhao hash:net&lt;/strong> # 创建一个 hash:net 类型的名为 lichenhao 的 ipset&lt;/li>
+&lt;li>&lt;strong>ipset add lichenhao 1.1.1.0/24&lt;/strong> # 将 1.1.1.0/24 网段添加到名为 lichenhao 的 ipset 中&lt;/li>
+&lt;li>&lt;strong>ipset flush&lt;/strong> # 清空所有 ipset 下的 ip&lt;/li>
+&lt;li>&lt;strong>ipset restore -f /etc/sysconfig/ipset&lt;/strong> # 从/etc/sysconfig/ipset 还原 ipset 的集合和条目信息&lt;/li>
+&lt;/ul></description></item><item><title>Docs: 最佳实践</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/iptables/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/iptables/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;/blockquote>
+&lt;h1 id="让服务器成为路由器">让服务器成为路由器&lt;a class="td-heading-self-link" href="#%e8%ae%a9%e6%9c%8d%e5%8a%a1%e5%99%a8%e6%88%90%e4%b8%ba%e8%b7%af%e7%94%b1%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>这里假设想作为路由器的服务器的 IP 为 172.38.180.211&lt;/p>
+&lt;p>一、首先需要保证路由器具有 IP 转发能力，开启 IP 转发&lt;/p>
+&lt;pre tabindex="0">&lt;code>echo 1 &amp;gt; /proc/sys/net/ipv4/ip_forward
+&lt;/code>&lt;/pre>&lt;p>二、保证路由器在收到局域网内其他设备的数据包时，将收到的 IP SNAT 为本机 IP。这有两种方法&lt;/p>
+&lt;p>&lt;strong>方法一：手动 SNAT&lt;/strong>&lt;/p>
+&lt;pre tabindex="0">&lt;code>export LOCAL_IP=&amp;#34;172.38.180.211&amp;#34;
+export LAN_CIDR=&amp;#34;172.38.180.0/24&amp;#34;
+iptables -t nat -A POSTROUTING -s ${LAN_CIDR} ! -d ${LAN_CIDR} -j SNAT --to-source ${LOCAL_IP}
+&lt;/code>&lt;/pre>&lt;p>如果 LOCAL_IP 直接就是公网 IP 的话，也就是这台服务器本身就有公网 IP 的话，那就更完美了。&lt;/p>
+&lt;p>&lt;strong>方法二：自动 SNAT&lt;/strong>&lt;/p>
+&lt;pre tabindex="0">&lt;code>iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+&lt;/code>&lt;/pre>&lt;p>这条命令表示将 eth0 接口的出站流量进行伪装，i.e. 使用 eth0 接口的 IP 地址作为源地址。这样，内网的主机就可以通过本服务器访问外网了。&lt;/p>
+&lt;p>三、将内网服务器的网关设为这台服务器即可&lt;/p>
+&lt;h1 id="我可以-ping-别人别人不能-ping-我">我可以 ping 别人，别人不能 ping 我&lt;a class="td-heading-self-link" href="#%e6%88%91%e5%8f%af%e4%bb%a5-ping-%e5%88%ab%e4%ba%ba%e5%88%ab%e4%ba%ba%e4%b8%8d%e8%83%bd-ping-%e6%88%91" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;ul>
+&lt;li>iptables -A INPUT -p icmp &amp;ndash;icmp-type 8 -s 0/0 -j DROP # 默认 INPUT 链的策略为 ACCEPT 的时候用&lt;/li>
+&lt;li>iptables -A INPUT -p icmp &amp;ndash;icmp-type 0 -s 0/0 -j ACCEPT # 默认 INPUT 链的策略为 DROP 的时候用&lt;/li>
+&lt;li>iptables -A OUTPUT -p icmp &amp;ndash;icmp-type 0 -s LOCALIP -j DROP # 默认 OUTPUT 链的策略为 ACCEPT 的时候用，注意把 Localip 改为本机 IP&lt;/li>
+&lt;li>iptables -A OUTPUT -p icmp &amp;ndash;icmp-type 8 -s LOCALIP -j ACCEPT # 默认 OUTPUT 链的策略为 DROP 的时候用，注意把 Localip 改为本机 IP&lt;/li>
+&lt;/ul>
+&lt;h1 id="其他">其他&lt;a class="td-heading-self-link" href="#%e5%85%b6%e4%bb%96" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>屏蔽 HTTP 服务 Flood×××，有时会有用户在某个服务，例如 HTTP 80 上发起大量连接请求，此时我们可以启用如下规则：&lt;/p>
+&lt;ul>
+&lt;li>iptables -A INPUT -p tcp &amp;ndash;dport 80 -m limit &amp;ndash;limit 100/minute &amp;ndash;limit-burst 200 -j ACCEPT&lt;/li>
+&lt;li>上述命令会将连接限制到每分钟 100 个，上限设定为 200。&lt;/li>
+&lt;/ul>
+&lt;p>12、屏蔽指定 MAC 地址&lt;/p>
+&lt;p>使用如下规则可以屏蔽指定的 MAC 地址：&lt;/p>
+&lt;p>iptables -A INPUT -m mac &amp;ndash;mac-source 00:00:00:00:00:00 -j DROP&lt;/p>
+&lt;p>13、限制并发连接数&lt;/p>
+&lt;p>如果你不希望来自特定端口的过多并发连接，可以使用如下规则：&lt;/p>
+&lt;p>iptables -A INPUT -p tcp &amp;ndash;syn &amp;ndash;dport 22 -m connlimit &amp;ndash;connlimit-above 3 -j REJECT&lt;/p>
+&lt;p>以上规则限制每客户端不超过 3 个连接。&lt;/p>
+&lt;p>17、允许建立相关连接&lt;/p>
+&lt;p>随着网络流量的进出分离，要允许建立传入相关连接，可以使用如下规则：&lt;/p>
+&lt;p>iptables -A INPUT -m conntrack &amp;ndash;ctstate ESTABLISHED,RELATED -j ACCEPT&lt;/p>
+&lt;p>允许建立传出相关连接的规则：&lt;/p>
+&lt;p>iptables -A OUTPUT -m conntrack &amp;ndash;ctstate ESTABLISHED -j ACCEPT&lt;/p>
+&lt;p>18、丢弃无效数据包&lt;/p>
+&lt;p>很多网络 ××× 都会尝试用 ××× 自定义的非法数据包进行尝试，我们可以使用如下命令来丢弃无效数据包：&lt;/p>
+&lt;p>iptables -A INPUT -m conntrack &amp;ndash;ctstate INVALID -j DROP&lt;/p>
+&lt;p>屏蔽邮件发送规则，可以在规则中屏蔽 SMTP 传出端口：&lt;/p>
+&lt;ul>
+&lt;li>iptables -A OUTPUT -p tcp &amp;ndash;dports 25,465,587 -j REJECT&lt;/li>
+&lt;/ul>
+&lt;h2 id="使用-iptables-对多租户环境中的-tcp-限速">使用 iptables 对多租户环境中的 TCP 限速&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8-iptables-%e5%af%b9%e5%a4%9a%e7%a7%9f%e6%88%b7%e7%8e%af%e5%a2%83%e4%b8%ad%e7%9a%84-tcp-%e9%99%90%e9%80%9f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>原文链接：&lt;a href="https://mp.weixin.qq.com/s/n7bRJb-u5bzIj4TMb8JE-A">使用 iptables 对多租户环境中的 TCP 限速&lt;/a>&lt;/p>
+&lt;p>我们有个服务以类似 SideCar 的方式和应用一起运行，SideCar 和应用通过 Unix Domain Socket 进行通讯。为了方便用户，在开发的时候不必在自己的开发环境中跑一个 SideCar，我用 socat 在一台开发环境的机器上 map UDS 到一个端口。这样用户在开发的时候就可以直接通过这个 TCP 端口测试服务，而不用自己开一个 SideCar 使用 UDS 了。&lt;/p>
+&lt;p>因为所有人都要用这一个地址做开发，所以就有互相影响的问题。虽然性能还可以，几十万 QPS 不成问题，但是总有憨憨拿来搞压测，把资源跑满，影响别人。我在使用说明文档里用红色大字写了这是开发测试用的，不能压测，还是有一些视力不好的同事会强行压测。隔三差五我就得去解释一番，礼貌地请同事不要再这样做了。&lt;/p>
+&lt;p>最近实在累了。研究了一下直接给这个端口加上 per IP 的 rate limit，效果还不错。方法是在 Per-IP rate limiting with iptables[1] 学习到的，这个公司是提供一个多租户的 SaaS 服务，也有类似的问题：有一些非正常用户 abuse 他们的服务，由于 abuse 发生在连接建立阶段，还没有进入到业务代码，所以无法从应用的层面进行限速，解决发现就是通过 iptables 实现的。详细的实现方法可以参考这篇文章。&lt;/p>
+&lt;p>iptables 本身是无状态的，每一个进入的 packet 都单独判断规则。rate limit 显然是一个有状态的规则，所以要用到 module: &lt;code>hashlimit&lt;/code>。（原文中还用到了 &lt;code>conntrack&lt;/code>，他是想只针对新建连接做限制，已经建立的连接不限制速度了。因为这个应用内部就可以控制了，但是我这里是想对所有的 packet 进行限速，所以就不需要用到这个 module）&lt;/p>
+&lt;p>完整的命令如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ iptables --new-chain SOCAT-RATE-LIMIT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ iptables --append SOCAT-RATE-LIMIT &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> --match hashlimit &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> --hashlimit-mode srcip &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> --hashlimit-upto 50/sec &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> --hashlimit-burst &lt;span style="color:#0000cf;font-weight:bold">100&lt;/span> &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> --hashlimit-name conn_rate_limit &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> --jump ACCEPT
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ iptables --append SOCAT-RATE-LIMIT --jump DROP
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ iptables -I INPUT -p tcp --dport &lt;span style="color:#0000cf;font-weight:bold">1234&lt;/span> --jump SOCAT-RATE-LIMIT
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>第一行是新建一个 iptables Chain，做 rate limit；&lt;/p>
+&lt;p>第二行处理如果在 rate limit 限额内，就接受包；否则跳到第三行，直接将包 DROP；&lt;/p>
+&lt;p>最后将新的 Chain 加入到 INPUT 中，对此端口的流量进行限制。&lt;/p>
+&lt;p>有关 rate limit 的算法，主要是两个参数：&lt;/p>
+&lt;ol>
+&lt;li>&lt;code>--hashlimit-upto&lt;/code> 其实本质上是 1s 内可以进入多少 packet，&lt;code>50/sec&lt;/code> 就是 &lt;code>20ms&lt;/code> 一个 packet；&lt;/li>
+&lt;li>那如何在 &lt;code>10ms&lt;/code> 发来 10 个 packet，后面一直没发送，怎么办？这个在测试情景下也比较常见，不能要求用户一直匀速地发送。所以就要用到 &lt;code>--hashlimit-burst&lt;/code>。字面意思是瞬间可以发送多少 packet，但实际上，可以理解这个参数就是可用的 credit。&lt;/li>
+&lt;/ol>
+&lt;p>两个指标配合起来理解，就是每个 ip 刚开始都会有 &lt;code>burst&lt;/code> 个 credit，每个 ip 发送来的 packet 都会占用 &lt;code>burst&lt;/code> 里面的 credit，用完了之后再发来的包就会被直接 DROP。这个 credit 会以 &lt;code>upto&lt;/code> 的速度一直增加，但是最多增加到 &lt;code>burst&lt;/code>（初始值），之后就 &lt;em>use it or lost it&lt;/em>.&lt;/p>
+&lt;p>举个例子，假如 &lt;code>--hashlimit-upto 50/sec --hashlimit-burst 20&lt;/code> 的话，某个 IP 以匀速每 ms 一个 packet 的速度发送，最终会有多少 packets 被接受？答案是 70. 最初的 20ms，所有的 packet 都会被接受，因为 &lt;code>--hashlimit-burst&lt;/code> 是 20，所以最初的 credit 是 20. 这个用完之后就要依赖 &lt;code>--hashlimit--upto 50/sec&lt;/code> 来每 20ms 获得一个 packet credit 了。所以每 20ms 可以接受一个。&lt;/p>
+&lt;p>这是限速之后的效果，非常明显：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/iptables/640.jpg" alt="">&lt;/p>
+&lt;blockquote>
+&lt;p>原文链接：&lt;a href="https://www.kawabangga.com/posts/4594">https://www.kawabangga.com/posts/4594&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="参考资料">参考资料&lt;a class="td-heading-self-link" href="#%e5%8f%82%e8%80%83%e8%b5%84%e6%96%99" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>[1]Per-IP rate limiting with iptables: &lt;a href="https://making.pusher.com/per-ip-rate-limiting-with-iptables/index.html">&lt;em>https://making.pusher.com/per-ip-rate-limiting-with-iptables/index.html&lt;/em>&lt;/a>&lt;/p></description></item><item><title>Docs: iptables 源码解析</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/iptables/iptables-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/iptables/iptables-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/</guid><description>
+&lt;p>原文链接：&lt;a href="https://mp.weixin.qq.com/s/O084fYzUFk7jAzJ2DDeADg">https://mp.weixin.qq.com/s/O084fYzUFk7jAzJ2DDeADg&lt;/a>&lt;/p>
+&lt;p>大家好，我是飞哥！&lt;/p>
+&lt;p>现在 iptables 这个工具的应用似乎是越来越广了。不仅仅是在传统的防火墙、NAT 等功能出现，在今天流行的的 Docker、Kubernets、Istio 项目中也经常能见着对它的身影。正因为如此，所以深入理解 iptables 工作原理是非常有价值的事情。&lt;/p>
+&lt;p>Linux 内核网络栈是一个纯内核态的东西，和用户层功能是天然隔离。但为了迎合各种各样用户层不同的需求，内核开放了一些口子出来供用户干预。使得用户层可以通过一些配置，改变内核的工作方式，从而实现特殊的需求。&lt;/p>
+&lt;p>Linux 在内核网络组件中很多关键位置布置了 netfilter 过滤器。Iptables 就是基于 netfilter 来实现的。所以本文中 iptables 和 netfilter 这两个名词有时候就混着用了。&lt;/p>
+&lt;p>飞哥也在网上看过很多关于 netfilter 技术文章，但是我觉得都写的不够清晰。所以咱们撸起袖子，自己写一篇。Netfilter 的实现可以简单地归纳为四表五链。我们来详细看看四表、五链究竟是啥意思。&lt;/p>
+&lt;h2 id="一iptables-中的五链">一、Iptables 中的五链&lt;a class="td-heading-self-link" href="#%e4%b8%80iptables-%e4%b8%ad%e7%9a%84%e4%ba%94%e9%93%be" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>Linux 下的 netfilter 在内核协议栈的各个重要关卡埋下了五个钩子。每一个钩子都对应是一系列规则，以链表的形式存在，所以俗称&lt;strong>五链&lt;/strong>。当网络包在协议栈中流转到这些关卡的时候，就会依次执行在这些钩子上注册的各种规则，进而实现对网络包的各种处理。&lt;/p>
+&lt;p>要想把五链理解好，飞哥认为&lt;strong>最关键是要把内核接收、发送、转发三个过程分开来看&lt;/strong>。&lt;/p>
+&lt;h3 id="11-接收过程">1.1 接收过程&lt;a class="td-heading-self-link" href="#11-%e6%8e%a5%e6%94%b6%e8%bf%87%e7%a8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>Linux 在网络包接收在 IP 层的入口函数是 ip_rcv。网络在这里包碰到的第一个 HOOK 就是 PREROUTING。当该钩子上的规则都处理完后，会进行路由选择。如果发现是本设备的网络包，进入 ip_local_deliver 中，在这里又会遇到 INPUT 钩子。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwq7DnzQ3XJ3erYYW9x8CIwhd38nCibfEicHzHn2jQHOpKrPeHSsL0TZyWiaFWWPFdtUo0CQibUaRC7K2A/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>我们来看下详细的代码，先看 ip_rcv。&lt;/p>
+&lt;p>`//file: net/ipv4/ip_input.c&lt;br>
+int ip_rcv(struct sk_buff *skb, &amp;hellip;&amp;hellip;){&lt;br>
+    &amp;hellip;&amp;hellip;&lt;br>
+    return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING, skb, dev, NULL,&lt;br>
+               ip_rcv_finish);&lt;/p>
+&lt;p>}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>NF_HOOK 这个函数会执行到 iptables 中 pre_routing 里的各种表注册的各种规则。当处理完后，进入 ip_rcv_finish。在这里函数里将进行路由选择。这也就是 PREROUTING 这一链名字得来的原因，因为是在路由前执行的。&lt;/p>
+&lt;p>`//file: net/ipv4/ip_input.c&lt;br>
+static int ip_rcv_finish(struct sk_buff *skb){&lt;br>
+    &amp;hellip;&lt;br>
+    if (!skb_dst(skb)) {&lt;br>
+        int err = ip_route_input_noref(skb, iph-&amp;gt;daddr, iph-&amp;gt;saddr,&lt;br>
+                           iph-&amp;gt;tos, skb-&amp;gt;dev);&lt;br>
+        &amp;hellip;&lt;br>
+    }&lt;br>
+    &amp;hellip;&lt;br>
+    return dst_input(skb);&lt;/p>
+&lt;p>}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>如果发现是本地设备上的接收，会进入 ip_local_deliver 函数。接着是又会执行到 LOCAL_IN 钩子，这也就是我们说的 INPUT 链。&lt;/p>
+&lt;p>`//file: net/ipv4/ip_input.c&lt;br>
+int ip_local_deliver(struct sk_buff *skb){&lt;br>
+ &amp;hellip;&amp;hellip;&lt;br>
+    return NF_HOOK(NFPROTO_IPV4, NF_INET_LOCAL_IN, skb, skb-&amp;gt;dev, NULL,&lt;br>
+               ip_local_deliver_finish);&lt;/p>
+&lt;p>}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>简单总结接收数据的处理流程是：&lt;strong>PREROUTING链 -&amp;gt; 路由判断（是本机）-&amp;gt; INPUT链&lt;/strong> -&amp;gt; &amp;hellip;&lt;/p>
+&lt;h3 id="12-发送过程">1.2 发送过程&lt;a class="td-heading-self-link" href="#12-%e5%8f%91%e9%80%81%e8%bf%87%e7%a8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>Linux 在网络包发送的过程中，首先是发送的路由选择，然后碰到的第一个 HOOK 就是 OUTPUT，然后接着进入 POSTROUTING 链。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwrsosKiasMicuQciagibC970bVmuhshVZUlLfRiayXuDoAmKpB3JnQqoX21bGMNnUZAibOvkMVIAASnDR4g/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>来大致过一下源码，网络层发送的入口函数是 ip_queue_xmit。&lt;/p>
+&lt;p>&lt;code>//file: net/ipv4/ip_output.c int ip_queue_xmit(struct sk_buff *skb, struct flowi *fl) {  // 路由选择过程  // 选择完后记录路由信息到 skb 上  rt = (struct rtable *)__sk_dst_check(sk, 0);  if (rt == NULL) {   // 没有缓存则查找路由项   rt = ip_route_output_ports(...);   sk_setup_caps(sk, &amp;amp;rt-&amp;gt;dst);  }  skb_dst_set_noref(skb, &amp;amp;rt-&amp;gt;dst);  ...  //发送  ip_local_out(skb); } &lt;/code>&lt;/p>
+&lt;p>在这里先进行了发送时的路由选择，然后进入发送时的 IP 层函数 __ip_local_out。&lt;/p>
+&lt;p>`//file: net/ipv4/ip_output.c &lt;br>
+int __ip_local_out(struct sk_buff *skb)&lt;br>
+{&lt;br>
+ struct iphdr *iph = ip_hdr(skb);&lt;/p>
+&lt;p> iph-&amp;gt;tot_len = htons(skb-&amp;gt;len);&lt;br>
+ ip_send_check(iph);&lt;br>
+ return nf_hook(NFPROTO_IPV4, NF_INET_LOCAL_OUT, skb, NULL,&lt;br>
+         skb_dst(skb)-&amp;gt;dev, dst_output);&lt;br>
+}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>上面的 NF_HOOK 将发送数据包送入到 NF_INET_LOCAL_OUT (OUTPUT) 链。执行完后，进入 dst_output。&lt;/p>
+&lt;p>&lt;code>//file: include/net/dst.h static inline int dst_output(struct sk_buff *skb) {  return skb_dst(skb)-&amp;gt;output(skb); } &lt;/code>&lt;/p>
+&lt;p>在这里获取到之前的选路，并调用选到的 output 发送。将进入 ip_output。&lt;/p>
+&lt;p>`//file: net/ipv4/ip_output.c&lt;br>
+int ip_output(struct sk_buff *skb)&lt;br>
+{&lt;br>
+ &amp;hellip;&lt;/p>
+&lt;p> //再次交给 netfilter，完毕后回调 ip_finish_output&lt;br>
+ return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING, skb, NULL, dev,&lt;br>
+  ip_finish_output,&lt;br>
+  !(IPCB(skb)-&amp;gt;flags &amp;amp; IPSKB_REROUTED));&lt;br>
+}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>总结下发送数据包流程是：&lt;strong>路由选择&lt;/strong> -&amp;gt; &lt;strong>OUTPUT链&lt;/strong>-&amp;gt; &lt;strong>POSTROUTING链&lt;/strong> -&amp;gt; &amp;hellip;&lt;/p>
+&lt;h3 id="13-转发过程">1.3 转发过程&lt;a class="td-heading-self-link" href="#13-%e8%bd%ac%e5%8f%91%e8%bf%87%e7%a8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>其实除了接收和发送过程以外，Linux 内核还可以像路由器一样来工作。它将接收到网络包（不属于自己的），然后根据路由表选到合适的网卡设备将其转发出去。&lt;/p>
+&lt;p>这个过程中，先是经历接收数据的前半段。在 ip_rcv 中经过 PREROUTING 链，然后路由后发现不是本设备的包，那就进入 ip_forward 函数进行转发，在这里又会遇到 FORWARD 链。最后还会进入 ip_output 进行真正的发送，遇到 POSTROUTING 链。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwq7DnzQ3XJ3erYYW9x8CIwhv2ibzLheumHPic0gaJmdy2agYxANYU1wH9mfO9Gl0X1oMG6YBFAia9ehg/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>我们来过一下源码，先是进入 IP 层入口 ip_rcv，在这里遇到 PREROUTING 链。&lt;/p>
+&lt;p>`//file: net/ipv4/ip_input.c&lt;br>
+int ip_rcv(struct sk_buff *skb, &amp;hellip;&amp;hellip;){&lt;br>
+    &amp;hellip;&amp;hellip;&lt;br>
+    return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING, skb, dev, NULL,&lt;br>
+               ip_rcv_finish);&lt;/p>
+&lt;p>}&lt;/p>
+&lt;p>`&lt;/p>
+&lt;p>PREROUTING 链条上的规则都处理完后，进入 ip_rcv_finish，在这里路由选择，然后进入 dst_input。&lt;/p>
+&lt;p>&lt;code>//file: include/net/dst.h static inline int dst_input(struct sk_buff *skb) {  return skb_dst(skb)-&amp;gt;input(skb); } &lt;/code>&lt;/p>
+&lt;p>转发过程的这几步和接收过程一模一样的。不过内核路径就要从上面的 input 方法调用开始分道扬镳了。非本设备的不会进入 ip_local_deliver，而是会进入到 ip_forward。&lt;/p>
+&lt;p>&lt;code>//file: net/ipv4/ip_forward.c int ip_forward(struct sk_buff *skb) {  ......  return NF_HOOK(NFPROTO_IPV4, NF_INET_FORWARD, skb, skb-&amp;gt;dev,          rt-&amp;gt;dst.dev, ip_forward_finish); } &lt;/code>&lt;/p>
+&lt;p>在 ip_forward_finish 里会送到 IP 层的发送函数 ip_output。&lt;/p>
+&lt;p>&lt;code>//file: net/ipv4/ip_output.c int ip_output(struct sk_buff *skb) {  ...  //再次交给 netfilter，完毕后回调 ip_finish_output  return NF_HOOK_COND(NFPROTO_IPV4, NF_INET_POST_ROUTING, skb, NULL, dev,   ip_finish_output,   !(IPCB(skb)-&amp;gt;flags &amp;amp; IPSKB_REROUTED)); } &lt;/code>&lt;/p>
+&lt;p>在 ip_output 里会遇到 POSTROUTING 链。再后面的流程就和发送过程的下半段一样了。&lt;/p>
+&lt;p>总结下转发数据过程：&lt;strong>PREROUTING链&lt;/strong> -&amp;gt; 路由判断（不是本设备，找到下一跳） -&amp;gt; &lt;strong>FORWARD链&lt;/strong> -&amp;gt; &lt;strong>POSTROUTING链&lt;/strong> -&amp;gt; &amp;hellip;&lt;/p>
+&lt;h3 id="14-iptables-汇总">1.4 iptables 汇总&lt;a class="td-heading-self-link" href="#14-iptables-%e6%b1%87%e6%80%bb" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>理解了接收、发送和转发三个过程以后，让我们把上面三个流程汇总起来。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwq7DnzQ3XJ3erYYW9x8CIwhLsYXlx9wOhvvQ6lMVeE7e1LwRzWFdjwjicsaAkRLd5BqIsQLl8z1LxQ/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>数据&lt;strong>接收过程&lt;/strong>走的是 1 和 2，&lt;strong>发送过程&lt;/strong>走的是 4 、5，&lt;strong>转发过程&lt;/strong>是 1、3、5。有了这张图，我们能更清楚地理解 iptables 和内核的关系。&lt;/p>
+&lt;h2 id="二iptables-的四表">二、Iptables 的四表&lt;a class="td-heading-self-link" href="#%e4%ba%8ciptables-%e7%9a%84%e5%9b%9b%e8%a1%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>在上一节中，我们介绍了 iptables 中的五个链。在每一个链上都可能是由许多个规则组成的。在 NF_HOOK 执行到这个链的时候，就会把规则按照优先级挨个过一遍。如果有符合条件的规则，则执行规则对应的动作。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwq7DnzQ3XJ3erYYW9x8CIwhjE1CxceyDpD0ibj6kfNQPSc7e8sjCeLUkQFXIZ1hmdpvaKroibQBNpEw/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>而这些规则根据用途的不同，又可以raw、mangle、nat 和 filter。&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>raw 表的作用是将命中规则的包，跳过其它表的处理，它的优先级最高。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>mangle 表的作用是根据规则修改数据包的一些标志位，比如 TTL&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>nat 表的作用是实现网络地址转换&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>filter 表的作用是过滤某些包，这是防火墙工作的基础&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;p>例如在 PREROUTING 链中的规则中，分别可以执行 raw、mangle 和 nat 三种功能。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwq7DnzQ3XJ3erYYW9x8CIwhsPm0npWz7ibukrbDGwFzG0sCFFN7GqSOOhyNpiavCSNb3Y4YB7ULcvzg/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>我们再来聊聊，为什么不是全部四个表呢。这是由于功能的不同，不是所有功能都会完全使用到五个链。&lt;/p>
+&lt;p>Raw 表目的是跳过其它表，所以只需要在接收和发送两大过程的最开头处把关，所以只需要用到 PREROUTING 和 OUTPUT 两个钩子。&lt;/p>
+&lt;p>Mangle 表有可能会在任意位置都有可能会修改网络包，所以它是用到了全部的钩子位置。&lt;/p>
+&lt;p>NAT 分为 SNAT（Source NAT）和 DNAT（Destination NAT）两种，可能会工作在 PREROUTING、INPUT、OUTPUT、POSTROUTING 四个位置。&lt;/p>
+&lt;p>Filter 只在 INPUT、OUTPUT 和 FORWARD 这三步中工作就够了。&lt;/p>
+&lt;p>从整体上看，四链五表的关系如下图。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwq7DnzQ3XJ3erYYW9x8CIwh3MPDWb9nlYaBkAyY0wBYaaLAv6a9JkrZU9f89uVvLGODlqeKx9ic6jg/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>这里再多说一点，每个命名空间都是有自己独立的 iptables 规则的。我们拿 NAT 来举例，内核在遍历 NAT 规则的时候，是从 net（命名空间变量）的 ipv4.nat_table 上取下来的。NF_HOOK 最终会执行到 nf_nat_rule_find 函数。&lt;/p>
+&lt;pre tabindex="0">&lt;code>//file: net/ipv4/netfilter/iptable_nat.cstatic unsigned int nf_nat_rule_find(...){ struct net *net = nf_ct_net(ct); unsigned int ret; //重要!!!!!! nat_table 是在 namespace 中存储着的 ret = ipt_do_table(skb, hooknum, in, out, net-&amp;gt;ipv4.nat_table); if (ret == NF_ACCEPT) {  if (!nf_nat_initialized(ct, HOOK2MANIP(hooknum)))   ret = alloc_null_binding(ct, hooknum); } return ret;}
+&lt;/code>&lt;/pre>&lt;p>Docker 容器就是基于命名空间来工作的，所以每个 Docker 容器中都可以配置自己独立的 iptables 规则。&lt;/p>
+&lt;h2 id="三iptables-使用举例">三、Iptables 使用举例&lt;a class="td-heading-self-link" href="#%e4%b8%89iptables-%e4%bd%bf%e7%94%a8%e4%b8%be%e4%be%8b" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>看完前面两小节，大家已经理解了四表五链是如何实现的了。那我们接下来通过几个实际的功能来看下实践中是如何使用 iptables 的。&lt;/p>
+&lt;h3 id="31-nat">3.1 nat&lt;a class="td-heading-self-link" href="#31-nat" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>假如说我们有一台 Linux，它的 eth0 的 IP 是10.162.0.100，通过这个 IP 可以访问另外其它服务器。现在我们在这台机器上创建了个 Docker 虚拟网络环境 net1 出来，它的网卡 veth1 的 IP 是 192.168.0.2。&lt;/p>
+&lt;p>如果想让 192.168.0.2 能访问外部网络，则需要宿主网络命名空间下的设备工作帮其进行网络包转发。由于这是个私有的地址，只有这台 Linux 认识，所以它是无法访问外部的服务器的。这个时候如果想要让 net1 正常访问 10.162.0.101，就必须在转发时执行 SNAT - 源地址替换。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwq7DnzQ3XJ3erYYW9x8CIwhsukhQnBLKiaM2KYdyic6vibpPsUSia2jx0GIg1RAkGPqOicmTsBJd3nyaPw/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>SNAT 工作在路由之后，网络包发送之前，也就是 POSTROUTING 链。我们在宿主机的命名空间里增加如下这条 iptables 规则。这条规则判断如果源是 192.168.0 网段，且目的不是 br0 的，统统执行源 IP 替换判断。&lt;/p>
+&lt;p>&lt;code># iptables -t nat -A POSTROUTING -s 192.168.0.0/24 ! -o br0 -j MASQUERADE &lt;/code>&lt;/p>
+&lt;p>有了这条规则，我们来看下整个发包过程。&lt;/p>
+&lt;p>当数据包发出来的时候，先从 veth 发送到 br0。由于 br0 在宿主机的命名空间中，这样会执行到 POSTROUTING 链。在这个链有我们刚配置的 snat 规则。根据这条规则，内核将网络包中 192.168.0.2（外界不认识） 替换成母机的 IP 10.162.0.100（外界都认识）。同时还要跟踪记录链接状态。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwrsosKiasMicuQciagibC970bVmeVAI2DtmiaEDiaOMd45CvBNlbUGJ2bc4gaiaJFjEAsXvSu0t1bqWrb4rg/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>然后宿主机根据自己的路由表进行判断，选择默认发送设备将包从 eth0 网卡发送出去，直到送到 10.162.0.101。&lt;/p>
+&lt;p>接下来在 10.162.0.100 上会收到来自 10.162.0.101 的响应包。由于上一步记录过链接跟踪，所以宿主机能知道这个回包是给 192.168.0.2 的。再反替换并通过 br0 将返回送达正确的 veth 上。&lt;/p>
+&lt;p>这样 net1 环境中的 veth1 就可以访问外部网络服务了。&lt;/p>
+&lt;h3 id="32-dnat-目的地址替换">3.2 DNAT 目的地址替换&lt;a class="td-heading-self-link" href="#32-dnat-%e7%9b%ae%e7%9a%84%e5%9c%b0%e5%9d%80%e6%9b%bf%e6%8d%a2" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>接着上面小节里的例子，假设我们想在 192.168.0.2 上提供 80 端口的服务。同样，外面的服务器是无法访问这个地址的。这个时候要用到 DNAT 目的地址替换。需要在数据包进来的时候，将其目的地址替换成 192.168.0.2:80 才行。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwq7DnzQ3XJ3erYYW9x8CIwhDcnibJ8NHMUyTJ0ia3HZS2wkux56ntCoicMicCLgUogAsjK3n1RSCYcRGw/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>DNAT 工作在内核接收到网络包的第一个链中，也就是 PREROUTING。我们增加一条 DNAT 规则，具体的配置如下。&lt;/p>
+&lt;pre tabindex="0">&lt;code># iptables -t nat -A PREROUTING  ! -i br0 -p tcp -m tcp --dport 8088 -j DNAT --to-destination 192.168.0.2:80
+&lt;/code>&lt;/pre>&lt;p>当有外界来的网络包到达 eth0 的时候。由于 eth0 在母机的命名空间中，所以会执行到 PREROUTING 链。&lt;/p>
+&lt;p>该规则判断如果端口是 8088 的 TCP 请求，则将目的地址替换为 192.168.0.2:80。再通过 br0（192.168.0.1）转发数据包，数据包将到达真正提供服务的 192.168.0.2:80 上。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwrsosKiasMicuQciagibC970bVm0iaRKKPHIf4ZZLE31hncSYTKicQ4X7uWeZ9L6LViaBhEWXdZ8AkHV3bjQ/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>同样在 DNAT 中也会有链接跟踪记录，所以 192.168.0.2 给 10.162.0.101 的返回包中的源地址会被替换成 10.162.0.100:8088。之后 10.162.0.101 收到包，它一直都以为自己是真的和 10.162.0.100:8088 通信。&lt;/p>
+&lt;p>这样 net1 环境中的 veth1 也可以提供服务给外网使用了。事实上，单机的 Docker 就是通过这两小节介绍的 SNAT 和 DNAT 配置来进行网络通信的。&lt;/p>
+&lt;h3 id="33filter">3.3 filter&lt;a class="td-heading-self-link" href="#33filter" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>Filter 表主要实现网络包的过滤。假如我们发现了一个恶意 IP 疯狂请求我们的服务器，对服务造成了影响。那么我们就可以用 filter 把它禁掉。其工作原理就是在接收包的 INPUT 链位置处进行判断，发现是恶意请求就尽早干掉不处理。避免进入到更上层继续浪费 CPU 开销。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwrsosKiasMicuQciagibC970bVml6GV45jibtqRRqkzYy4fYBA15OI1tVwWr6OGFjjpWQqRWb8M6ueshPQ/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>具体的配置方法细节如下：&lt;/p>
+&lt;p>&lt;code># iptables -I INPUT -s 1.2.3.4 -j DROP //封禁 # iptables -D INPUT -s 1.2.3.4 -j DROP //解封 &lt;/code>&lt;/p>
+&lt;p>当然也可以封禁某个 IP 段。&lt;/p>
+&lt;p>&lt;code># iptables -I INPUT -s 121.0.0.0/8 -j DROP //封禁 # iptables -I INPUT -s 121.0.0.0/8 -j DROP //解封 &lt;/code>&lt;/p>
+&lt;p>再比如说假设你不想让别人任意 ssh 登录你的服务器，只允许你的 IP 访问。那就只放开你自己的 IP，其它的都禁用掉就好了。&lt;/p>
+&lt;p>&lt;code># iptables -t filter -I INPUT -s 1.2.3.4 -p tcp --dport 22 -j ACCEPT   # iptables -t filter -I INPUT -p tcp --dport 22 -j DROP   &lt;/code>&lt;/p>
+&lt;h3 id="34raw">3.4 raw&lt;a class="td-heading-self-link" href="#34raw" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>Raw 表中的规则可以绕开其它表的处理。在 nat 表中，为了保证双向的流量都能正常完成地址替换，会跟踪并且记录链接状态。每一条连接都会有对应的记录生成。使用以下两个命令可以查看。&lt;/p>
+&lt;p>&lt;code># conntrack -L  # cat /proc/net/ip_conntrack &lt;/code>&lt;/p>
+&lt;p>但在高流量的情况下，可能会有连接跟踪记录满的问题发生。我就遇到过一次在测试单机百万并发连接的时候，发生因连接数超过了 nf_conntrack_max 而导致新连接无法建立的问题。&lt;/p>
+&lt;p>&lt;code># ip_conntrack: table full, dropping packet &lt;/code>&lt;/p>
+&lt;p>但其实如果不使用 NAT 功能的话，链接跟踪功能是可以关闭的，例如。&lt;/p>
+&lt;p>&lt;code># iptables -t raw -A PREROUTING -d 1.2.3.4 -p tcp --dport 80 -j NOTRACK # iptables -A FORWARD -m state --state UNTRACKED -j ACCEPT &lt;/code>&lt;/p>
+&lt;h3 id="35mangle">3.5 mangle&lt;a class="td-heading-self-link" href="#35mangle" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>路由器在转发网络包的时候，ttl 值会减 1 ，该值为 0 时，最后一个路由就会停止再转发这个数据包。如若不想让本次路由影响 ttl，便可以在 mangel 表中加个 1，把它给补回来。&lt;/p>
+&lt;p>&lt;code># ptables -t mangle -A PREROUTING -i eth0 -j TTL --ttl-inc 1 &lt;/code>&lt;/p>
+&lt;p>所有从 eth0 接口进来的数据包的 ttl 值加 1，以抵消路由转发默认减的 1。&lt;/p>
+&lt;h2 id="总结">总结&lt;a class="td-heading-self-link" href="#%e6%80%bb%e7%bb%93" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>Iptables 是一个非常常用，也非常重要的工具。Linux 上的防火墙、nat 等基础功能都是基于它实现的。还有现如今流行的的 Docker、Kubernets、Istio 项目中也经常能见着对它的身影。正因为如此，所以深入理解 iptables 工作原理是非常有价值的事情。&lt;/p>
+&lt;p>今天我们先是在第一节里从内核接收、发送、转发三个不同的过程理解了五链的位置。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwq7DnzQ3XJ3erYYW9x8CIwhLsYXlx9wOhvvQ6lMVeE7e1LwRzWFdjwjicsaAkRLd5BqIsQLl8z1LxQ/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>接着又根据描述了 iptables 从功能上看的另外一个维度，表。每个表都是在多个钩子位置处注册自己的规则。当处理包的时候触发规则，并执行。从整体上看，四链五表的关系如下图。&lt;/p>
+&lt;p>&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/BBjAFF4hcwq7DnzQ3XJ3erYYW9x8CIwh3MPDWb9nlYaBkAyY0wBYaaLAv6a9JkrZU9f89uVvLGODlqeKx9ic6jg/640?wx_fmt=png" alt="">&lt;/p>
+&lt;p>最后我们又分别在 raw、mangle、nat、filter 几个表上举了简单的应用例子。希望通过今天的学习，你能将 iptables 彻底融会贯通。相信这一定会对你的工作有很大的帮助的！&lt;/p></description></item></channel></rss>

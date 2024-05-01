@@ -21,11 +21,11 @@
 &lt;h3 id="datapath数据路径">DataPath(数据路径)&lt;a class="td-heading-self-link" href="#datapath%e6%95%b0%e6%8d%ae%e8%b7%af%e5%be%84" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;p>网络数据在内核中进行网络传输时，所经过的所有点组合起来，称为数据路径。&lt;/p>
 &lt;h3 id="socket-buffer简称-sk_buff-或-skb">Socket Buffer(简称 sk_buff 或 skb)&lt;a class="td-heading-self-link" href="#socket-buffer%e7%ae%80%e7%a7%b0-sk_buff-%e6%88%96-skb" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>在内核代码中是一个名为 &lt;a href="https://www.kernel.org/doc/html/latest/networking/kapi.html#c.sk_buff">&lt;strong>sk_buff&lt;/strong>&lt;/a>** **的结构体。内核显然需要一个数据结构来储存报文的信息。这就是 skb 的作用。
-sk_buff 结构自身并不存储报文内容，它通过多个指针指向真正的报文内存空间:
-&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/efrsi8/1617849698535-471768e0-dcf8-4471-8dd2-605a1bc4e020.png" alt="image.png">
-sk_buff 是一个贯穿整个协议栈层次的结构，在各层间传递时，内核只需要调整 sk_buff 中的指针位置就行。
-&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/efrsi8/1617849692989-54095177-b85c-449e-8c66-3b026e4925da.png" alt="image.png">&lt;/p>
+&lt;p>在内核代码中是一个名为 &lt;a href="https://www.kernel.org/doc/html/latest/networking/kapi.html#c.sk_buff">&lt;strong>sk_buff&lt;/strong>&lt;/a> 的结构体。内核显然需要一个数据结构来储存报文的信息。这就是 skb 的作用。&lt;/p>
+&lt;p>sk_buff 结构自身并不存储报文内容，它通过多个指针指向真正的报文内存空间:&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/efrsi8/1617849698535-471768e0-dcf8-4471-8dd2-605a1bc4e020.png" alt="image.png">&lt;/p>
+&lt;p>sk_buff 是一个贯穿整个协议栈层次的结构，在各层间传递时，内核只需要调整 sk_buff 中的指针位置就行。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/efrsi8/1617849692989-54095177-b85c-449e-8c66-3b026e4925da.png" alt="image.png">&lt;/p>
 &lt;h3 id="device设备">DEVICE(设备)&lt;a class="td-heading-self-link" href="#device%e8%ae%be%e5%a4%87" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;p>在内核代码中，是一个名为 &lt;a href="https://www.kernel.org/doc/html/latest/networking/kapi.html#c.net_device">&lt;strong>net_device&lt;/strong>&lt;/a> 的结构体。一个巨大的数据结构，描述一个网络设备的所有 属性、数据 等信息。&lt;/p>
 &lt;h1 id="linux-网络功能的实现">Linux 网络功能的实现&lt;a class="td-heading-self-link" href="#linux-%e7%bd%91%e7%bb%9c%e5%8a%9f%e8%83%bd%e7%9a%84%e5%ae%9e%e7%8e%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
@@ -52,21 +52,21 @@ sk_buff 是一个贯穿整个协议栈层次的结构，在各层间传递时，
 &lt;p>本文将拿&lt;strong>Intel I350&lt;/strong>网卡的 &lt;code>igb&lt;/code> 驱动作为参考，网卡的 data sheet 这里可以下载 &lt;a href="http://www.intel.com/content/dam/www/public/us/en/documents/datasheets/ethernet-controller-i350-datasheet.pdf">PDF&lt;/a> （警告：文件很大）。
 从比较高的层次看，一个数据包从用户程序到达硬件网卡的整个过程如下：&lt;/p>
 &lt;ol>
-&lt;li>使用&lt;strong>系统调用&lt;/strong>（如 &lt;code>sendto&lt;/code>，&lt;code>sendmsg&lt;/code> 等）写数据&lt;/li>
-&lt;li>数据穿过&lt;strong>socket 子系统&lt;/strong>，进入&lt;strong>socket 协议族&lt;/strong>（protocol family）系统（在我们的例子中为 &lt;code>AF_INET&lt;/code>）&lt;/li>
-&lt;li>协议族处理：数据穿过&lt;strong>协议层&lt;/strong>，这一过程（在许多情况下）会将&lt;strong>数据&lt;/strong>（data）转换成&lt;strong>数据包&lt;/strong>（packet）&lt;/li>
-&lt;li>数据穿过&lt;strong>路由层&lt;/strong>，这会涉及路由缓存和 ARP 缓存的更新；如果目的 MAC 不在 ARP 缓存表中，将触发一次 ARP 广播来查找 MAC 地址&lt;/li>
-&lt;li>穿过协议层，packet 到达&lt;strong>设备无关层&lt;/strong>（device agnostic layer）&lt;/li>
-&lt;li>使用 XPS（如果启用）或散列函数&lt;strong>选择发送队列&lt;/strong>&lt;/li>
-&lt;li>调用网卡驱动的&lt;strong>发送函数&lt;/strong>&lt;/li>
+&lt;li>使用 &lt;strong>系统调用&lt;/strong>（如 &lt;code>sendto&lt;/code>，&lt;code>sendmsg&lt;/code> 等）写数据&lt;/li>
+&lt;li>数据穿过 &lt;strong>socket 子系统&lt;/strong>，进入&lt;strong>socket 协议族&lt;/strong>（protocol family）系统（在我们的例子中为 &lt;code>AF_INET&lt;/code>）&lt;/li>
+&lt;li>协议族处理：数据穿过 &lt;strong>协议层&lt;/strong>，这一过程（在许多情况下）会将 &lt;strong>数据&lt;/strong>（data）转换成 &lt;strong>数据包&lt;/strong>（packet）&lt;/li>
+&lt;li>数据穿过 &lt;strong>路由层&lt;/strong>，这会涉及路由缓存和 ARP 缓存的更新；如果目的 MAC 不在 ARP 缓存表中，将触发一次 ARP 广播来查找 MAC 地址&lt;/li>
+&lt;li>穿过协议层，packet 到达 &lt;strong>设备无关层&lt;/strong>（device agnostic layer）&lt;/li>
+&lt;li>使用 XPS（如果启用）或散列函数 &lt;strong>选择发送队列&lt;/strong>&lt;/li>
+&lt;li>调用网卡驱动的 &lt;strong>发送函数&lt;/strong>&lt;/li>
 &lt;li>数据传送到网卡的 &lt;code>qdisc&lt;/code>（queue discipline，排队规则）&lt;/li>
-&lt;li>qdisc 会直接&lt;strong>发送数据&lt;/strong>（如果可以），或者将其放到队列，下次触发&lt;code>**NET_TX**&lt;/code>** 类型软中断**（softirq）的时候再发送&lt;/li>
+&lt;li>qdisc 会直接 &lt;strong>发送数据&lt;/strong>（如果可以），或者将其放到队列，下次触发 &lt;code>**NET_TX**&lt;/code> &lt;strong>类型软中断&lt;/strong>（softirq）的时候再发送&lt;/li>
 &lt;li>数据从 qdisc 传送给驱动程序&lt;/li>
-&lt;li>驱动程序创建所需的&lt;strong>DMA 映射&lt;/strong>，以便网卡从 RAM 读取数据&lt;/li>
-&lt;li>驱动向网卡发送信号，通知&lt;strong>数据可以发送了&lt;/strong>&lt;/li>
+&lt;li>驱动程序创建所需的 &lt;strong>DMA 映射&lt;/strong>，以便网卡从 RAM 读取数据&lt;/li>
+&lt;li>驱动向网卡发送信号，通知 &lt;strong>数据可以发送了&lt;/strong>&lt;/li>
 &lt;li>&lt;strong>网卡从 RAM 中获取数据并发送&lt;/strong>&lt;/li>
-&lt;li>发送完成后，设备触发一个&lt;strong>硬中断&lt;/strong>（IRQ），表示发送完成&lt;/li>
-&lt;li>&lt;strong>硬中断处理函数&lt;/strong>被唤醒执行。对许多设备来说，这会&lt;strong>触发 &lt;strong>&lt;code>**NET_RX**&lt;/code>&lt;/strong> 类型的软中断&lt;/strong>，然后 NAPI poll 循环开始收包&lt;/li>
+&lt;li>发送完成后，设备触发一个 &lt;strong>硬中断&lt;/strong>（IRQ），表示发送完成&lt;/li>
+&lt;li>&lt;strong>硬中断处理函数&lt;/strong> 被唤醒执行。对许多设备来说，这会 &lt;strong>触发 &lt;code>NET_RX&lt;/code> 类型的软中断&lt;/strong>，然后 NAPI poll 循环开始收包&lt;/li>
 &lt;li>poll 函数会调用驱动程序的相应函数，&lt;strong>解除 DMA 映射&lt;/strong>，释放数据&lt;/li>
 &lt;/ol>
 &lt;h1 id="网络栈关联文件">网络栈关联文件&lt;a class="td-heading-self-link" href="#%e7%bd%91%e7%bb%9c%e6%a0%88%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
@@ -76,8 +76,8 @@ sk_buff 是一个贯穿整个协议栈层次的结构，在各层间传递时，
 &lt;li>对于 Debian 相关的发行版，网络配置在 /etc/network/ 目录中&lt;/li>
 &lt;/ul>
 &lt;p>在这些目录中，其实都是通过脚本来实现的&lt;/p>
-&lt;p>后来随着时代的发展，涌现出很多通用的网络管理程序，比如 Netplan、NetworkManager、systemd-networkd 等等，这样就可以让各个发行版使用相同的程序来管理网络了，减少切换发行版而需要学习对应配置的成本，并且也更利于发展。&lt;/p></description></item><item><title>Docs: Linux 网络包发送过程</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E5%8C%85%E5%8F%91%E9%80%81%E8%BF%87%E7%A8%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E5%8C%85%E5%8F%91%E9%80%81%E8%BF%87%E7%A8%8B/</guid><description>
-&lt;p>&lt;a href="https://mp.weixin.qq.com/s?__biz=MjM5Njg5NDgwNA==&amp;amp;mid=2247485146&amp;amp;idx=1&amp;amp;sn=e5bfc79ba915df1f6a8b32b87ef0ef78&amp;amp;scene=21#wechat_redirect">25 张图，一万字，拆解 Linux 网络包发送过程&lt;/a>&lt;/p>
+&lt;p>后来随着时代的发展，涌现出很多通用的网络管理程序，比如 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux%20%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/Netplan/Netplan.md">Netplan&lt;/a>、&lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux%20%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/NetworkManager/NetworkManager.md">NetworkManager&lt;/a>、&lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux%20%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/systemd-networkd.md">systemd-networkd&lt;/a>、etc.，这样就可以让各个发行版使用相同的程序来管理网络了，减少切换发行版而需要学习对应配置的成本，并且也更利于发展。&lt;/p></description></item><item><title>Docs: Linux 网络包发送过程</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E5%8C%85%E5%8F%91%E9%80%81%E8%BF%87%E7%A8%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/Linux-%E7%BD%91%E7%BB%9C%E5%8C%85%E5%8F%91%E9%80%81%E8%BF%87%E7%A8%8B/</guid><description>
+&lt;p>&lt;a href="https://mp.weixin.qq.com/s/wThfD9th9e_-YGHJJ3HXNQ">25 张图，一万字，拆解 Linux 网络包发送过程&lt;/a>&lt;/p>
 &lt;p>大家好，我是飞哥!&lt;/p>
 &lt;p>半年前我以源码的方式描述了网络包的接收过程。之后不断有粉丝提醒我还没聊发送过程呢。好，安排！&lt;/p>
 &lt;p>在开始今天的文章之前，我先来请大家思考几个小问题。&lt;/p>
@@ -106,7 +106,6 @@ sk_buff 是一个贯穿整个协议栈层次的结构，在各层间传递时，
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">}&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>今天我们来讨论上述代码中，调用 send 之后内核是怎么样把数据包发送出去的。本文基于 Linux 3.10，网卡驱动采用 Intel 的 igb 网卡举例。&lt;/p>
 &lt;p>&lt;strong>预警：本文共有一万多字，25 张图，长文慎入！&lt;/strong>&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/77c123f6-fc35-4ed5-8a1a-aa37c6f474d2/0" alt="">&lt;/p>
 &lt;p>&lt;strong>开发内功修炼&lt;/strong>&lt;/p>
 &lt;p>飞哥有鹅厂、搜狗 10 年多的开发工作经验。通过本号，我把多年中对于性能的一些深度思考分享给大家。&lt;/p>
 &lt;p>73 篇原创内容&lt;/p>
@@ -753,10 +752,10 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
 &lt;/blockquote>
 &lt;p>RedHad 相关发行版的网络配置通过一系列脚本实现，随着时代的发展，已经逐渐启用，并由 NetworkManager 取代，NetworkManager 还单独出了一个适用于 RedHad 发行版的插件，名为 nm-setting-ifcfg-rh。这样，NetworkManager 可以将原本的配置目录中文件的格式，转变为适应 RedHad 的格式，并将配置文件保存到 /etc/sysconfig/network-scripts/ 目录下。&lt;/p>
 &lt;h1 id="关联文件">关联文件&lt;a class="td-heading-self-link" href="#%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;strong>/etc/sysconfig/*&lt;/strong> # 全局&lt;/p>
+&lt;p>&lt;strong>/etc/sysconfig/&lt;/strong> # 全局&lt;/p>
 &lt;ul>
 &lt;li>&lt;strong>./network&lt;/strong> # 全局网络配置&lt;/li>
-&lt;li>&lt;strong>./network-scripts/*&lt;/strong> # 曾经是网络配置脚本文件所在目录。CentOS 8 以后，移除了所有脚本，只用来为网络配置程序提供网络设备的配置文件
+&lt;li>&lt;strong>./network-scripts/&lt;/strong> # 曾经是网络配置脚本文件所在目录。CentOS 8 以后，移除了所有脚本，只用来为网络配置程序提供网络设备的配置文件
 &lt;ul>
 &lt;li>&lt;strong>./ifcfg-INTERFACE&lt;/strong> # 名为 INTERFACE 网络设备配置文件。通常情况下，INTERFACE 的值通常与配置文件中 DEVICE 指令的值相同。&lt;/li>
 &lt;li>&lt;strong>./route-INTERFACE&lt;/strong> # IPv4 静态路由配置文件。INTERFACE 为网络设备名称，该路由条目仅对名为 INTERFACE 的网络设备起作用&lt;/li>
@@ -765,7 +764,7 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
 &lt;li>&lt;strong>./rule6-INTERFACE&lt;/strong> # 定义内核将流量路由到特定路由表的 IPv6 源网络规则。&lt;/li>
 &lt;/ul>
 &lt;/li>
-&lt;li>*&lt;em>./networking/*&lt;/em> * #
+&lt;li>&lt;strong>./networking/*&lt;/strong> #
 &lt;ul>
 &lt;li>注意：在 &lt;a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/ch-network_interfaces#s1-networkscripts-files">RedHat 6 文档&lt;/a>中表示，/etc/sysconfig/networking/ 目录由现在已经弃用的网络管理工具(system-config-network) 管理，这个内容不应该手动编辑。推荐使用 NetworkManager。并且在后续的版本中， NetworkManager 也接管了这些文件&lt;/li>
 &lt;/ul>
@@ -837,7 +836,7 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
 &lt;p>参考：&lt;/p>
 &lt;/blockquote>
 &lt;h1 id="配置">配置&lt;a class="td-heading-self-link" href="#%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;strong>/run/systemd/network/*&lt;/strong> # 读取网络设备配置的目录&lt;/p></description></item><item><title>Docs: 数据包发送过程详解</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/%E6%95%B0%E6%8D%AE%E5%8C%85%E5%8F%91%E9%80%81%E8%BF%87%E7%A8%8B%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/%E6%95%B0%E6%8D%AE%E5%8C%85%E5%8F%91%E9%80%81%E8%BF%87%E7%A8%8B%E8%AF%A6%E8%A7%A3/</guid><description>
+&lt;p>&lt;strong>/run/systemd/network/&lt;/strong> # 读取网络设备配置的目录&lt;/p></description></item><item><title>Docs: 数据包发送过程详解</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/%E6%95%B0%E6%8D%AE%E5%8C%85%E5%8F%91%E9%80%81%E8%BF%87%E7%A8%8B%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%A0%88%E7%AE%A1%E7%90%86/%E6%95%B0%E6%8D%AE%E5%8C%85%E5%8F%91%E9%80%81%E8%BF%87%E7%A8%8B%E8%AF%A6%E8%A7%A3/</guid><description>
 &lt;h1 id="译-linux-网络栈监控和调优发送数据2017">[译] Linux 网络栈监控和调优：发送数据（2017）&lt;a class="td-heading-self-link" href="#%e8%af%91-linux-%e7%bd%91%e7%bb%9c%e6%a0%88%e7%9b%91%e6%8e%a7%e5%92%8c%e8%b0%83%e4%bc%98%e5%8f%91%e9%80%81%e6%95%b0%e6%8d%ae2017" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>Published at 2018-12-17 | Last Update 2020-09-29&lt;/p>
 &lt;h2 id="译者序">译者序&lt;a class="td-heading-self-link" href="#%e8%af%91%e8%80%85%e5%ba%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>

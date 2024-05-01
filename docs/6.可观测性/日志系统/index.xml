@@ -106,19 +106,20 @@ Debugging ( 调试 ): 可提供调试时所用详细信息的消息。&lt;/p></d
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Log_rotation">Wiki，Log_rotation&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://mp.weixin.qq.com/s/b_CWt_ycvnbQG9TXPqRoCQ">公众号-马哥 Linux 运维，[译] 理解 logrotate 实用工具&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>为了防止日志文件持续被写入文件导致过于庞大，那么就需要对日志进行拆分，每隔一段时间就把日志文件保存(打包压缩)起来，然后再创建一个新的空文件继续接收日志，来回循环该过程直到通过配置规定的保留日期，来清除存在过久的日志。通过这种方式来进行日志的归档，分类，清理。这就是 LogRotate 所做的事情。是否进行轮替会有一系列的配置，比如文件的大小达到 N 会轮替一次，每隔多少天轮替一次等等。&lt;/p>
 &lt;p>logrotate 只是一个命令行工具，不以守护进程的方式运行在后台，默认情况下，logrotate 命令作为放在 /etc/cron.daily 中的 cron 任务，每天运行一次，该任务会根据设置的策略进行日志文件的检查，其中达到设置中满足轮替配置的日志文件将被轮替。&lt;/p>
 &lt;h1 id="关联文件与配置">关联文件与配置&lt;a class="td-heading-self-link" href="#%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6%e4%b8%8e%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>/etc/logrotate.conf # logrotate 基本配置文件
-/etc/logrotate.d/* # 对基本文件的扩展，该目录下的文件的配置会被包含在基本配置文件中。该目录下一般是一个程序一个文件，每个程序都有自己的日志轮替配置。
-/etc/cron.daily/logrotate # 该文件定义了 cron 定时任务执行日志轮替工作的时间
-/var/lib/logrotate.status # logrotate 的执行历史&lt;/p>
+&lt;p>&lt;strong>/etc/logrotate.conf&lt;/strong> # logrotate 基本配置文件&lt;/p>
+&lt;p>&lt;strong>/etc/logrotate.d/&lt;/strong> # 对基本文件的扩展，该目录下的文件的配置会被包含在基本配置文件中。该目录下一般是一个程序一个文件，每个程序都有自己的日志轮替配置。&lt;/p>
+&lt;p>&lt;strong>/etc/cron.daily/logrotate&lt;/strong> # 该文件定义了 cron 定时任务执行日志轮替工作的时间&lt;/p>
+&lt;p>&lt;strong>/var/lib/logrotate.status&lt;/strong> # logrotate 的执行历史&lt;/p>
 &lt;h2 id="logrotateconf-配置文件详解">logrotate.conf 配置文件详解&lt;a class="td-heading-self-link" href="#logrotateconf-%e9%85%8d%e7%bd%ae%e6%96%87%e4%bb%b6%e8%af%a6%e8%a7%a3" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;ul>
-&lt;li>/PATH/TO/FILES {&amp;hellip;} # 指定想要轮替的日志文件，可以通过＊通配指定多个文件名
+&lt;li>/PATH/TO/FILES {&amp;hellip;} # 指定想要轮替的日志文件，可以通过 &lt;code>*&lt;/code> 通配指定多个文件名
 &lt;ul>
 &lt;li>&lt;strong>copytruncate&lt;/strong> # 把正在输出的日志拷(copy)一份出来，再清空(trucate)原来的日志。&lt;/li>
 &lt;li>&lt;strong>compress&lt;/strong> # 压缩日志文件的所有非当前版本&lt;/li>
@@ -137,20 +138,19 @@ Debugging ( 调试 ): 可提供调试时所用详细信息的消息。&lt;/p></d
 &lt;/li>
 &lt;/ul>
 &lt;p>配置样例&lt;/p>
-&lt;pre>&lt;code>/var/log/nginx/*log {
-daily
-rotate 10
-missingok
-notifempty
-compress
-dateext
-sharedscripts
-postrotate
-/bin/kill -USR1 $(cat /var/run/ngnix/nginx.pid 2&amp;gt;/dev/null) 2&amp;gt;/dev/null
-endscript
-}
-&lt;/code>&lt;/pre>
-&lt;p>Note：关于 postrotate
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-text" data-lang="text">&lt;span style="display:flex;">&lt;span>/var/log/nginx/*log {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> daily
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> rotate 10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> missingok
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> notifempty
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> compress
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> dateext
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sharedscripts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> postrotate
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> /bin/kill -USR1 $(cat /var/run/ngnix/nginx.pid 2&amp;gt;/dev/null) 2&amp;gt;/dev/null
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> endscript
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Note：关于 postrotate
 postrotate 后面跟随的是一个命令行，一般是用来重新生成日志文件或者冲定义应用所指向的文件描述符（fd：file description），拿 nginx 和 uwsgi 为例：&lt;/p>
 &lt;p>完成日志切割后创建新的 nginx 日志文件，此时该文件的 fd 发生改变&lt;/p>
 &lt;p>nginx 中日志输出对应的文件 fd 未同步更新，nginx 会向原 fd 对应的日志文件写数据&lt;/p>
@@ -161,7 +161,7 @@ postrotate 后面跟随的是一个命令行，一般是用来重新生成日志
 &lt;p>/bin/kill -HUP &lt;code>cat /var/run/nginx.pid 2&amp;gt; /dev/null&lt;/code> 2&amp;gt; /dev/null || true&lt;/p>
 &lt;p>这两条命令的大概含义是重载 nginx 服务，目的是重新生成 nginx 的日志文件。&lt;/p>
 &lt;h1 id="命令行工具">命令行工具&lt;a class="td-heading-self-link" href="#%e5%91%bd%e4%bb%a4%e8%a1%8c%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>logrotate [OPTIONS&amp;hellip;]&lt;/p>
+&lt;p>&lt;strong>logrotate [OPTIONS&amp;hellip;]&lt;/strong>&lt;/p>
 &lt;p>OPTIONS&lt;/p>
 &lt;ul>
 &lt;li>&lt;strong>-f&lt;/strong> # 告诉 logrotate 强制执行轮替，即使这不是必要的(i.e.测试轮替的配置文件是否可以正常运行)。 有时，在向 logrotate 配置文件添加新条目之后，或者如果已经手动删除旧的日志文件，这将是有用的，因为将创建新文件，并且日志记录将正常继续。&lt;/li>
@@ -194,12 +194,12 @@ postrotate 后面跟随的是一个命令行，一般是用来重新生成日志
 &lt;p>&lt;strong>/var/log/journal/${MACHINE-ID}/&lt;/strong>&lt;/p>
 &lt;p>默认情况下，journald 的日志保存在 /run/log/journal 中，系统重启就会清除。通过新建 /var/log/journal 目录，日志会自动记录到这个目录中，并永久存储。&lt;/p>
 &lt;p>路径中的 MACHINE-ID 的值，可以通过 &lt;code>cat /etc/machine-id&lt;/code> 命令获取&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@lichenhao:/var/log/journal# ls
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ls /run/log/journal&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>c14766a3e9ae49a3872fb9b7e2583710
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@lichenhao:/var/log/journal# cat /etc/machine-id
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /etc/machine-id&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>c14766a3e9ae49a3872fb9b7e2583710
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>所有 journal 程序生成的日志，都会存在 MACHIN-ID 目录下&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@lichenhao:/var/log/journal/c14766a3e9ae49a3872fb9b7e2583710# ll -h
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ll -h /var/log/journal/c14766a3e9ae49a3872fb9b7e2583710&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total 153M
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-sr-x+ &lt;span style="color:#0000cf;font-weight:bold">2&lt;/span> root systemd-journal 4.0K Feb &lt;span style="color:#0000cf;font-weight:bold">21&lt;/span> 23:15 ./
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-sr-x+ &lt;span style="color:#0000cf;font-weight:bold">3&lt;/span> root systemd-journal &lt;span style="color:#0000cf;font-weight:bold">46&lt;/span> Dec &lt;span style="color:#0000cf;font-weight:bold">9&lt;/span> 17:19 ../
@@ -208,6 +208,7 @@ postrotate 后面跟随的是一个命令行，一般是用来重新生成日志
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r-----+ &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root systemd-journal 32M Feb &lt;span style="color:#0000cf;font-weight:bold">21&lt;/span> 23:10 &lt;span style="color:#4e9a06">&amp;#39;system@aa6b2b3f8f9d46fdb169f9d8aaab56c3-000000000000df93-0005b975c74c3caf.journal&amp;#39;&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r-----+ &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root systemd-journal 40M Mar &lt;span style="color:#0000cf;font-weight:bold">12&lt;/span> 15:25 system.journal
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r-----+ &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root systemd-journal 8.0M Dec &lt;span style="color:#0000cf;font-weight:bold">28&lt;/span> 16:23 &lt;span style="color:#4e9a06">&amp;#39;user-1000@571778ddc0db463990a85592631fa5e8-0000000000000496-0005b6049323448d.journal&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="journalctl-命令行工具">journalctl 命令行工具&lt;a class="td-heading-self-link" href="#journalctl-%e5%91%bd%e4%bb%a4%e8%a1%8c%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -215,7 +216,7 @@ postrotate 后面跟随的是一个命令行，一般是用来重新生成日志
 &lt;li>&lt;a href="https://man7.org/linux/man-pages/man1/journalctl.1.html">Manual(手册)，journalctl(1)&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;p>Systemd 统一管理所有 Unit 的启动日志。带来的好处就是，可以只用 journalctl 一个命令，查看所有日志（内核日志和应用日志）。日志的配置文件是/etc/systemd/journald.conf。journalctl 功能强大，用法非常多。&lt;/p>
+&lt;p>&lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Systemd/Systemd.md">Systemd&lt;/a> 统一管理所有 Unit 的启动日志。带来的好处就是，可以只用 journalctl 命令，查看所有日志（内核日志和应用日志）。日志的配置文件是 /etc/systemd/journald.conf。journalctl 功能强大，用法非常多。&lt;/p>
 &lt;h2 id="syntax语法">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>&lt;strong>journalctl [OPTIONS] [MATCHES]&lt;/strong>&lt;/p>
 &lt;h3 id="options">OPTIONS&lt;a class="td-heading-self-link" href="#options" aria-label="Heading self-link">&lt;/a>&lt;/h3>
@@ -296,14 +297,16 @@ postrotate 后面跟随的是一个命令行，一般是用来重新生成日志
 &lt;h1 id="合并显示多个-unit-的日志">合并显示多个 Unit 的日志&lt;a class="td-heading-self-link" href="#%e5%90%88%e5%b9%b6%e6%98%be%e7%a4%ba%e5%a4%9a%e4%b8%aa-unit-%e7%9a%84%e6%97%a5%e5%bf%97" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>$ journalctl -u nginx.service -u php-fpm.service &amp;ndash;since today&lt;/p>
 &lt;h1 id="查看指定优先级及其以上级别的日志共有-8-级">查看指定优先级（及其以上级别）的日志，共有 8 级&lt;a class="td-heading-self-link" href="#%e6%9f%a5%e7%9c%8b%e6%8c%87%e5%ae%9a%e4%bc%98%e5%85%88%e7%ba%a7%e5%8f%8a%e5%85%b6%e4%bb%a5%e4%b8%8a%e7%ba%a7%e5%88%ab%e7%9a%84%e6%97%a5%e5%bf%97%e5%85%b1%e6%9c%89-8-%e7%ba%a7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;h1 id="0-emerg">0: emerg&lt;a class="td-heading-self-link" href="#0-emerg" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;h1 id="1-alert">1: alert&lt;a class="td-heading-self-link" href="#1-alert" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;h1 id="2-crit">2: crit&lt;a class="td-heading-self-link" href="#2-crit" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;h1 id="3-err">3: err&lt;a class="td-heading-self-link" href="#3-err" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;h1 id="4-warning">4: warning&lt;a class="td-heading-self-link" href="#4-warning" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;h1 id="5-notice">5: notice&lt;a class="td-heading-self-link" href="#5-notice" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;h1 id="6-info">6: info&lt;a class="td-heading-self-link" href="#6-info" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;h1 id="7-debug">7: debug&lt;a class="td-heading-self-link" href="#7-debug" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;ul>
+&lt;li>0: emerg&lt;/li>
+&lt;li>1: alert&lt;/li>
+&lt;li>2: crit&lt;/li>
+&lt;li>3: err&lt;/li>
+&lt;li>4: warning&lt;/li>
+&lt;li>5: notice&lt;/li>
+&lt;li>6: info&lt;/li>
+&lt;li>7: debug&lt;/li>
+&lt;/ul>
 &lt;p>$ sudo journalctl -p err -b&lt;/p>
 &lt;h1 id="指定日志文件占据的最大空间">指定日志文件占据的最大空间&lt;a class="td-heading-self-link" href="#%e6%8c%87%e5%ae%9a%e6%97%a5%e5%bf%97%e6%96%87%e4%bb%b6%e5%8d%a0%e6%8d%ae%e7%9a%84%e6%9c%80%e5%a4%a7%e7%a9%ba%e9%97%b4" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>$ sudo journalctl &amp;ndash;vacuum-size=1G&lt;/p>
