@@ -30,21 +30,26 @@
 &lt;li>基于公网的控制服务器下发 ACL 和配置，实现节点动态更新&lt;/li>
 &lt;li>通过第三方（如 Google） SSO 服务生成用户和私钥，实现身份认证&lt;/li>
 &lt;/ul>
-&lt;p>简而言之，我们可以将 Tailscale 看成是更为易用、功能更完善的 WireGuard。&lt;/p>
+&lt;p>简而言之，我们可以将 Tailscale 看成是更为易用、功能更完善的 &lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling%20Protocol/WireGuard/WireGuard.md">WireGuard&lt;/a>。&lt;/p>
 &lt;p>Tailscale 是一款商业产品，但个人用户是可以白嫖的，个人用户在接入设备不超过 20 台的情况下是可以免费使用的（虽然有一些限制，比如子网网段无法自定义，且无法设置多个子网）。除 Windows 和 macOS 的图形应用程序外，其他 Tailscale 客户端的组件（包含 Android 客户端）是在 BSD 许可下以开源项目的形式开发的，你可以在他们的 GitHub 仓库找到各个操作系统的客户端源码。&lt;/p>
 &lt;p>对于大部份用户来说，白嫖 Tailscale 已经足够了，如果你有更高的需求，比如自定义网段，可以选择付费。&lt;/p>
 &lt;p>&lt;strong>我就不想付费行不行？行，不过得看 &lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling%20Protocol/Tailscale/Headscale.md">Headscale&lt;/a>。&lt;/strong>&lt;/p>
 &lt;h1 id="tailscale-架构概述">Tailscale 架构概述&lt;a class="td-heading-self-link" href="#tailscale-%e6%9e%b6%e6%9e%84%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;ul>
-&lt;li>&lt;strong>控制台&lt;/strong> # 管理 Tailscale 客户端，向 Tailscale 客户端下发规则。
+&lt;li>&lt;strong>Tailscale 控制台&lt;/strong> # 管理 Tailscale 客户端，向 Tailscale 客户端下发规则。
 &lt;ul>
 &lt;li>可以通过 &lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling%20Protocol/Tailscale/Headscale.md">Headscale&lt;/a> 开源实现&lt;/li>
 &lt;/ul>
 &lt;/li>
-&lt;li>&lt;strong>客户端&lt;/strong> # 主要是 &lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling%20Protocol/Tailscale/tailscale%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7.md">tailscale 命令行工具&lt;/a>。windows 也有调用 tailscale 命令行工具的守护进程以右下角小图标的形式存在&lt;/li>
-&lt;li>&lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling%20Protocol/Tailscale/Tailscale%20DERP.md">Tailscale DERP&lt;/a> # 当两个节点第一次连接以及两个节点直连失败时，会切换到通过 DERP 来连接。DERP 是 Tailscale 自研的协议，也是一个中继程序，用以代理两个节点的访问请求。
+&lt;li>&lt;strong>Tailscale 客户端&lt;/strong> # 主要是 &lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling%20Protocol/Tailscale/tailscale%20%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7.md">tailscale 命令行工具&lt;/a>。windows 也有调用 tailscale 命令行工具的守护进程以右下角小图标的形式存在
 &lt;ul>
-&lt;li>可以自行搭建 DERP&lt;/li>
+&lt;li>Tailscale 客户端通常分为两部分，一部分是处理数据包的主程序（平时说的 Tailscale 客户端就是指这个主程序）；一部分类似 CLI 用以控制主程序。&lt;/li>
+&lt;li>e.g. Linux 的 Tailscale 客户端由两个程序组成: tailscale 和 tailscaled，tailscale 是 CLI，tailscaled 是守护程序用以处理数据包的路由。有点类似 docker 与 dockerd 的感觉&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>Tailscale DERP&lt;/strong> # 当两个节点第一次连接以及两个节点直连失败时，会切换到通过 DERP 来连接。DERP 是 Tailscale 自研的协议，也是一个中继程序，用以代理两个节点的访问请求。
+&lt;ul>
+&lt;li>Notes: 可以自行搭建 &lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE/Tunneling%20Protocol/Tailscale/Tailscale%20DERP.md">DERP&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/li>
 &lt;/ul>
@@ -271,7 +276,7 @@
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Success.
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在浏览器中打开该链接，就会出现如下的界面：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/af37c7a5-9f8e-4905-a639-0a377cb44ee6/1648097896734-2252f545-7f43-46fb-ad3a-1e1c85ce3d08.png" alt="image.png">&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/headscale/1648097896734-2252f545-7f43-46fb-ad3a-1e1c85ce3d08.png" alt="image.png">&lt;/p>
 &lt;p>最后，根据 &lt;a href="#Headscale%20%E4%B8%AD%E6%B7%BB%E5%8A%A0%E8%8A%82%E7%82%B9">在 Headscale 中添加节点&lt;/a> 部分的文档，将节点接入到 Headscale 中。&lt;/p>
 &lt;h3 id="windows">Windows&lt;a class="td-heading-self-link" href="#windows" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;p>&lt;a href="https://headscale.net/windows-client/">https://headscale.net/windows-client/&lt;/a>&lt;/p>
@@ -292,7 +297,7 @@
 &lt;li>在&lt;a href="https://pkgs.tailscale.com/stable/#windows">这里&lt;/a>下载 Windows 版的 Tailscale 客户端并安装&lt;/li>
 &lt;li>在 Powershell 执行 &lt;code>tailscale login --login-server=http://${headscale_server} --accept-routes=true --accept-dns=false&lt;/code>&lt;/li>
 &lt;li>右键点击任务栏中的 Tailscale 图标，再点击 &lt;code>Log in&lt;/code> 获取接入 Headscale 的命令&lt;/li>
-&lt;li>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/af37c7a5-9f8e-4905-a639-0a377cb44ee6/1648104111282-99d562e1-d7d9-4ea5-9943-f16861efe87e.png" alt="image.png">&lt;/li>
+&lt;li>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/headscale/1648104111282-99d562e1-d7d9-4ea5-9943-f16861efe87e.png" alt="image.png">&lt;/li>
 &lt;li>此时会自动在浏览器中出现接入 Headscale 的页面，记录下注册命令，去 Headscale 所在设备上执行命令添加节点。&lt;/li>
 &lt;li>注册命令示例: &lt;code>headscale nodes register --user USERNAME --key nodekey:75b424a753067b906fee373411743bf34264a9c40a4f7798836bf28bb24d2467&lt;/code>&lt;/li>
 &lt;li>根据 &lt;a href="#Headscale%20%E4%B8%AD%E6%B7%BB%E5%8A%A0%E8%8A%82%E7%82%B9">在 Headscale 中添加节点&lt;/a> 部分的文档，使用注册命令将节点接入到 Headscale 中。&lt;/li>

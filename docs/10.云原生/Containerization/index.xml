@@ -158,14 +158,14 @@
 &lt;p>Image 与 Container 的关系，就好比是程序与进程之间的关系。Image 类似程序是静态的。Container 类似进程是动态的，是有生命周期的。&lt;/p>
 &lt;h2 id="联合文件系统">联合文件系统&lt;a class="td-heading-self-link" href="#%e8%81%94%e5%90%88%e6%96%87%e4%bb%b6%e7%b3%bb%e7%bb%9f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;ul>
-&lt;li>当我们在下载镜像的时候，会发现每一层都有一个 id，这是 &lt;strong>Layer(层)&lt;/strong> 的概念，是 **UnionFS(联合文件系统) **中的重要概念&lt;/li>
+&lt;li>当我们在下载镜像的时候，会发现每一层都有一个 id，这是 &lt;strong>Layer(层)&lt;/strong> 的概念，是 &lt;strong>UnionFS(联合文件系统)&lt;/strong> 中的重要概念&lt;/li>
 &lt;li>联合文件系统（UnionFS）是一种分层、轻量级并且高性能的文件系统，它支持对文件系统的修改作为一次提交来一层层的叠加，同时可以将不同目录挂载到同一个虚拟文件系统下&lt;/li>
 &lt;li>联合文件系统是 Docker 镜像的基础。镜像可以通过分层来进行继承，基于基础镜像（没有父镜像），可以制作各种具体的应用镜像。&lt;/li>
 &lt;li>不同容器就可以共享一些基础的文件系统层，同时再加上自己独有的改动层，大大提高了存储的效率。&lt;/li>
 &lt;/ul>
 &lt;h1 id="rootless-containers">Rootless Containers&lt;a class="td-heading-self-link" href="#rootless-containers" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
-&lt;p>参考：&lt;/p>
+&lt;p>参考:&lt;/p>
 &lt;ul>
 &lt;li>&lt;a href="https://github.com/rootless-containers">GitHub 项目,rootless-containers&lt;/a>&lt;/li>
 &lt;/ul>
@@ -179,6 +179,11 @@
 &lt;li>&lt;a href="https://github.com/google/go-containerregistry">GitHub 项目，google/go-containerregistry&lt;/a>
 &lt;ul>
 &lt;li>&lt;a href="https://pkg.go.dev/github.com/google/go-containerregistry">https://pkg.go.dev/github.com/google/go-containerregistry&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/BnYtkQO03MR8KnxRX7lWLg">公众号 - 云原生实验室，从 500 行 C 代码全面解析 Linux 容器底层工作机制&lt;/a>
+&lt;ul>
+&lt;li>原文: &lt;a href="https://arthurchiao.art/blog/linux-container-and-runtime-zh/">https://arthurchiao.art/blog/linux-container-and-runtime-zh/&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/li>
 &lt;/ul>
@@ -208,22 +213,20 @@
 &lt;/li>
 &lt;li>&amp;hellip;&amp;hellip; 等等。随着库的扩展，可以实现三个接口的 Medium 将会越来越多&lt;/li>
 &lt;/ul>
-&lt;p>用人话说：
-我们可以通过多个途径获取到容器镜像，比如容器镜像的注册中心，本地的压缩包(&lt;code>docker save&lt;/code> 命令生成的文件等)、容器管理程序(Docker、Containerd 等)。这些可以获取到镜像的地方，称为 &lt;strong>Medium(手段、介质)&lt;/strong>。&lt;/p>
+&lt;p>用人话说：&lt;/p>
+&lt;p>我们可以通过多个途径获取到容器镜像，比如容器镜像的注册中心，本地的压缩包(&lt;code>docker save&lt;/code> 命令生成的文件等)、容器管理程序(Docker、Containerd 等)。这些可以获取到镜像的地方，称为 &lt;strong>Medium(手段、介质)&lt;/strong>。&lt;/p>
 &lt;p>go-containerregisty 中编写了很多处理镜像的逻辑(也就是函数)，这些处理镜像的逻辑符合 OCI 标准，但是很多逻辑都需要将“镜像”作为参数传递以便处理它们，但是通过这些 Medium 获取到的镜像格式可能不太一样，那么就需要对这些“镜像”建模，以便进行统一管理，所以就将“镜像”抽象为 &lt;code>Image{}&lt;/code>、&lt;code>Layer{}&lt;/code>、&lt;code>ImageIndex{}&lt;/code> 这三个接口。&lt;/p>
 &lt;p>此时，每个 Medium 就可以自己实现想要的镜像管理逻辑了，只要其定义的结构体可以实现上述三个接口，那么就可以通过 go-containerregistry 中的函数处理 OCI 标准的镜像了。&lt;/p>
 &lt;p>说白了，go-containerregsitry 本质就是处理容器镜像的&lt;strong>通用逻辑&lt;/strong>，那些 Medium 相关的代码其实并不真正属于该库的一部分，而是对该库的一种调用。&lt;/p>
 &lt;h2 id="简单示例">简单示例&lt;a class="td-heading-self-link" href="#%e7%ae%80%e5%8d%95%e7%a4%ba%e4%be%8b" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>比如我们用 remote 这个 Medium 作为示例。
-首先我们需要实例化一个 &lt;code>Image{}&lt;/code>&lt;/p>
+&lt;p>比如我们用 remote 这个 Medium 作为示例。&lt;/p>
+&lt;p>首先我们需要实例化一个 &lt;code>Image{}&lt;/code>&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">img&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">_&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">:=&lt;/span> &lt;span style="color:#000">remote&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">Image&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">ref&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">remote&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">WithAuthFromKeychain&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">authn&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">DefaultKeychain&lt;/span>&lt;span style="color:#000;font-weight:bold">))&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>想要实例化一个 &lt;code>Image{}&lt;/code> 需要知道镜像的 tag、digest 中任意一个&lt;/p>
-&lt;pre>&lt;code>ref, _ := name.ParseReference(&amp;quot;nginx&amp;quot;)
-&lt;/code>&lt;/pre>
-&lt;p>然后就可以通过实例化的 &lt;code>Image{}&lt;/code> 处理镜像了，比如这里是获取镜像占用空间的大小&lt;/p>
-&lt;pre>&lt;code>imageSize, _ := img.Size()
-&lt;/code>&lt;/pre>
-&lt;p>这几步合在一起&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">ref&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">_&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">:=&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">ParseReference&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;nginx&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>然后就可以通过实例化的 &lt;code>Image{}&lt;/code> 处理镜像了，比如这里是获取镜像占用空间的大小&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">imageSize&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">_&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">:=&lt;/span> &lt;span style="color:#000">img&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">Size&lt;/span>&lt;span style="color:#000;font-weight:bold">()&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这几步合在一起&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">package&lt;/span> &lt;span style="color:#000">main&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000;font-weight:bold">(&lt;/span>
