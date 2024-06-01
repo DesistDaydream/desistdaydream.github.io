@@ -1,0 +1,214 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – DPDK</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/</link><description>Recent content in DPDK on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: DPDK</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/DPDK/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/DPDK/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/DPDK/dpdk">GitHub 项目，DPDK/dpdk&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.dpdk.org/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Data_Plane_Development_Kit">Wiki，Data Plane Development Kit&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://sdn.0voice.com/">DPDK 开发中文网&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Data Plane Development Kit(数据平面开发套件，简称 DPDK)&lt;/strong> 是一个由 &lt;a href="https://desistdaydream.github.io/docs/Standard/Foundation/Linux%20Foundation.md">Linux 基金会&lt;/a> 管理的开源软件项目。用于将 TCP 数据包的处理能力从内核空间移动到用户空间中的进程。主要是跳过了内核的 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts(%E4%B8%AD%E6%96%AD)/Interrupts(%E4%B8%AD%E6%96%AD).md">Interrupts(中断)&lt;/a> 逻辑。&lt;/p>
+&lt;p>处理数据包的传统方式是 CPU 中断方式，即网卡驱动接收到数据包后通过中断通知 CPU 处理，然后由 CPU 拷贝数据并交给协议栈。在数据量大时，这种方式会产生大量 CPU 中断，导致 CPU 无法运行其他程序。&lt;/p>
+&lt;p>而 DPDK 则采用轮询方式实现数据包处理过程：DPDK 程序加载了网卡驱动，该驱动在收到数据包后不中断通知 CPU，而是将数据包通过零拷贝技术存入内存，这时应用层程序就可以通过 DPDK 提供的接口，直接从内存读取数据包。&lt;/p>
+&lt;p>这种处理方式节省了 CPU 中断时间、内存拷贝时间，并向应用层提供了简单易行且高效的数据包处理方式，使得网络应用的开发更加方便。但同时，由于需要重载网卡驱动，因此该开发包目前只能用在部分采用 Intel 网络处理芯片的网卡中。&lt;/p>
+&lt;p>DPDK 主要包含如下几个部分（https://doc.dpdk.org/guides/prog_guide/source_org.html#libraries）&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Environmental Abstraction Layer(环境抽象层，简称 EAL)&lt;/strong> # 负责为应用间接访问底层的资源，比如内存空间、线程、设备、定时器等。如果把我们使用了 DPDK 的应用比作一个豪宅的主人的话，&lt;code>EAL&lt;/code>就是这个豪宅的管家。&lt;/li>
+&lt;li>&lt;strong>DPDK API Library&lt;/strong> # DPDK 的 API 库
+&lt;ul>
+&lt;li>etc.&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>&lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Networking%20device/NIC.md">NIC&lt;/a> Driver(网卡驱动程序)&lt;/strong> # 如名，只不过是轮询模式的驱动。
+&lt;ul>
+&lt;li>etc.&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>DPDK APP&lt;/strong> # 一些实用的程序&lt;/li>
+&lt;/ul>
+&lt;h2 id="eal">EAL&lt;a class="td-heading-self-link" href="#eal" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;a href="https://doc.dpdk.org/guides/prog_guide/env_abstraction_layer.html">https://doc.dpdk.org/guides/prog_guide/env_abstraction_layer.html&lt;/a>&lt;/p>
+&lt;p>&lt;strong>Environment Abstraction Layer(环境抽象层，简称 EAL)&lt;/strong> 负责访问低级资源，例如硬件和内存空间。它提供了一个通用接口，对应用程序和库隐藏了环境细节。初始化例程负责决定如何分配这些资源（即内存空间、设备、定时器、控制台等）。&lt;/p>
+&lt;h2 id="dpdk-library">DPDK Library&lt;a class="td-heading-self-link" href="#dpdk-library" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>TODO: 好多好多的库，功能非常全。&lt;/p>
+&lt;p>&lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/Graph%20Library.md">Graph Library&lt;/a>&lt;/p>
+&lt;h2 id="driver">Driver&lt;a class="td-heading-self-link" href="#driver" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>Linux 驱动&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules">https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules&lt;/a>&lt;/li>
+&lt;li>&lt;strong>vfio&lt;/strong> # 使用 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/VFIO.md">VFIO&lt;/a> 功能的驱动。依赖 &lt;code>vfio-pci&lt;/code> 模块。&lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules">官方文档&lt;/a>建议所有情况下都是用 vfio-pci 作为 DPDK 绑定端口的内核模块&lt;/li>
+&lt;/ul>
+&lt;p>TODO: 好多好多驱动。&lt;/p>
+&lt;h2 id="dpdk-app">DPDK APP&lt;a class="td-heading-self-link" href="#dpdk-app" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;a href="https://doc.dpdk.org/guides/tools/index.html">https://doc.dpdk.org/guides/tools/index.html&lt;/a>&lt;/p>
+&lt;h1 id="dpdk-部署">DPDK 部署&lt;a class="td-heading-self-link" href="#dpdk-%e9%83%a8%e7%bd%b2" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考:&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://core.dpdk.org/doc/quick-start/">官方文档，快速开始&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/613149235">知乎，KVM虚拟机安装DPDK(vfio+igb_uio)&lt;/a> TODO: 待验证&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;a href="https://doc.dpdk.org/guides/linux_gsg/index.html">这里&lt;/a> 是要在 Linux 安装 DPDK 的一些要求&lt;/p>
+&lt;p>DPDK 的部署依赖 meson 和 ninja 两个构建工具、vfio-pci 内核模块。&lt;/p>
+&lt;h2 id="dpdk-使用注意">DPDK 使用注意&lt;a class="td-heading-self-link" href="#dpdk-%e4%bd%bf%e7%94%a8%e6%b3%a8%e6%84%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>当我们让 DPDK 程序接管网卡后，从系统中就无法通过常见的命令（e.g. ip, etc.）查看到系统中的网络设备，效果如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># lspci | grep Ethernet&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ip link show&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>1: lo: &amp;lt;LOOPBACK,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">65536&lt;/span> qdisc noqueue state UNKNOWN mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>2: eno3: &amp;lt;BROADCAST,MULTICAST,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">1500&lt;/span> qdisc mq state UP mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether 44:a8:42:38:4e:2c brd ff:ff:ff:ff:ff:ff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>5: enp2s0f1: &amp;lt;NO-CARRIER,BROADCAST,MULTICAST,UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">1500&lt;/span> qdisc mq state DOWN mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether a0:36:9f:91:17:a7 brd ff:ff:ff:ff:ff:ff
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># dpdk-devbind.py -s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Network devices using DPDK-compatible &lt;span style="color:#000">driver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">============================================&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:01:00.1 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:02:00.0 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Network devices using kernel &lt;span style="color:#000">driver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">===================================&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:01:00.0 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>eno3 &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci *Active*
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:02:00.1 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>enp2s0f1 &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到机器上有 4 个 Ethernet，但是通过 ip 命令仅能看到 2 个（ip 这类命令只能看到内核管理的），另外 2 个被 DPDK 使用了，只有使用 DPDK 提供的程序才能获取到非内核管理的网卡信息。&lt;/p>
+&lt;p>此时想要查看网卡当前所使用的驱动，可以使用 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux%20%E7%AE%A1%E7%90%86/Linux%20%E7%A1%AC%E4%BB%B6%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/Linux%20%E7%A1%AC%E4%BB%B6%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7.md">Linux 硬件管理工具&lt;/a> 查看到当前网卡所使用的驱动程序（lspci、lshw、etc.）。（虽然其中显示的是 Kernel driver in use，但是实际上，驱动是 vfio-pci 的网卡已经被 DPDK 接管了）&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># lspci -k | grep -i &amp;#34;Ethernet controller&amp;#34; -A 3&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DeviceName: NIC1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Dell Gigabit 2P I350-t LOM
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: igb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DeviceName: NIC2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Dell Gigabit 2P I350-t LOM
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: vfio-pci
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Intel Corporation Ethernet Server Adapter I350-T2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: vfio-pci
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel modules: igb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Intel Corporation Ethernet Server Adapter I350-T2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: igb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel modules: igb
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="dpdk-的实现">DPDK 的实现&lt;a class="td-heading-self-link" href="#dpdk-%e7%9a%84%e5%ae%9e%e7%8e%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/486288121">知乎，DPDK的整体工作原理&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://doc.dpdk.org/guides/prog_guide/overview.html">https://doc.dpdk.org/guides/prog_guide/overview.html&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在 &lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html?highlight=vfio%20pci#binding-and-unbinding-network-ports-to-from-the-kernel-modules">DPDK 官方文档 - 7.1&lt;/a> 章节中，建议在所有情况下都使用 &lt;strong>vfio-pci&lt;/strong> 作为 DPDK 绑定端口的内核模块。如果 IOMMU 不可用，则可以在 no-iommu 模式下使用 vfio-pci。如果由于某种原因 vfio 不可用，则可以使用基于 UIO 的模块 igb_uio 和 uio_pci_generic。详细信息请参见 UIO 部分。&lt;/p>
+&lt;h2 id="lcore--socket">lcore &amp;amp; socket&lt;a class="td-heading-self-link" href="#lcore--socket" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>Logical core(逻辑核心)&lt;/strong> DPDK 使用逻辑核心来管理并行处理，将任务分配给不同的逻辑核心以充分利用多核处理器的性能。通过使用逻辑核心，DPDK 应用程序可以更好地控制和利用系统中的处理器资源。狭义上 1 个 lcore 可以指 EAL 的 1 个线程。&lt;/p>
+&lt;p>这两个概念在 &lt;code>DPDK&lt;/code>的代码中随处可见，&lt;strong>注意&lt;/strong>这里的 &lt;strong>socket&lt;/strong> 不是网络编程里面的那一套东西，而是 &lt;strong>CPU&lt;/strong> 相关的东西。具体的概念可以参看&lt;a href="https://link.zhihu.com/?target=https%3A//link.segmentfault.com/%3Fenc%3DkeRHFE71AwA4LEWK3gy%252F%252Bg%253D%253D.zL548YXL%252F1rT%252BQN9hhP0BSuhSZUszAZly2ULaOcHzihSAMFb3k6C8kBfLxFL65VqtdDdc0MigZcmMKHcWpmSUSTYHTTZ%252BgYz9XlsRQPKOK%252BWch%252FsoT6h%252BzR46e7YgN19TmdjGuy%252BwWL%252FfT2wdU6Q7Q%253D%253D">Differences between physical CPU vs logical CPU vs Core vs Thread vs Socket&lt;/a> 或者其翻译版本&lt;a href="https://link.zhihu.com/?target=https%3A//link.segmentfault.com/%3Fenc%3DQvdG3%252BI75LlbmFlczo3WpQ%253D%253D.wu%252FAAZX7seAtEJjmuttDzYMu8zmGLKxX2fcFZ%252BZxKkIQvVQguoy2MSUnOVZPbaU6">physical CPU vs logical CPU vs Core vs Thread vs Socket（翻译）&lt;/a>。&lt;/p>
+&lt;p>对我们来说，只要知道可以&lt;code>DPDK&lt;/code>可以运行在多个&lt;code>lcore&lt;/code>上就足够了.&lt;/p>
+&lt;p>&lt;code>DPDK&lt;/code> 如何知道有多少个&lt;code>lcore&lt;/code>呢 ? 在启动时解析文件系统中的特定文件就可以了, 参考函数&lt;code>eal_cpu_detected&lt;/code>&lt;/p>
+&lt;h2 id="内存的使用">内存的使用&lt;a class="td-heading-self-link" href="#%e5%86%85%e5%ad%98%e7%9a%84%e4%bd%bf%e7%94%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>TODO: &lt;a href="https://xie.infoq.cn/article/a7c83189a19387018b8595e98">https://xie.infoq.cn/article/a7c83189a19387018b8595e98&lt;/a>&lt;/p>
+&lt;p>调用 DPDK 的程序自己管理如何使用内存，需要提前预留一块空间给 DPDK 程序自身，并保证不被其他程序使用，通常这块内存空间的的分页是 1GiB、512MiB 等大小的 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Memory/Huge%20Pages.md">Huge Pages&lt;/a>。&lt;/p>
+&lt;p>e.g. 一个 256 GiB 的系统，可以留出来 192 个 1GiB 页大小的内存空间，总计 192 GiB，这一部分内存空间就是大页空间，因为每个分页的大小高达 1GiB&lt;/p>
+&lt;h1 id="dpdk-工具">DPDK 工具&lt;a class="td-heading-self-link" href="#dpdk-%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;a href="https://doc.dpdk.org/guides/tools/index.html">https://doc.dpdk.org/guides/tools/index.html&lt;/a>&lt;/p>
+&lt;h2 id="dpdk-devbind---绑定和取消绑定设备与驱动程序检查他们的状态">dpdk-devbind - 绑定和取消绑定设备与驱动程序，检查他们的状态&lt;a class="td-heading-self-link" href="#dpdk-devbind---%e7%bb%91%e5%ae%9a%e5%92%8c%e5%8f%96%e6%b6%88%e7%bb%91%e5%ae%9a%e8%ae%be%e5%a4%87%e4%b8%8e%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f%e6%a3%80%e6%9f%a5%e4%bb%96%e4%bb%ac%e7%9a%84%e7%8a%b6%e6%80%81" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>dpdk-devbind [OPTIONS] DEVICE1 DEVICE2 &amp;hellip;.&lt;/strong>&lt;/p>
+&lt;p>&lt;strong>OPTIONS&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-s, &amp;ndash;status&lt;/strong> # 打印所有已知网络接口的当前状态。对于每个设备，它显示 PCI 域、总线、插槽和功能，以及设备的文本描述。根据设备是否由内核驱动程序、vfio-pci 驱动程序或无驱动程序使用，将显示其他相关信息： - Linux 接口名称，例如if=eth0 - 正在使用的驱动程序，例如drv=vfio-pci - 当前未使用该设备的任何合适的驱动程序，例如used=vfio-pci 注意：如果此标志与绑定/取消绑定选项一起传递，则状态显示将始终在其他操作发生后发生。&lt;/li>
+&lt;li>&lt;strong>-b, &amp;ndash;bind DRIVER&lt;/strong> # 选择绑定网卡要使用的驱动程序。可以使用 none 以解除绑定&lt;/li>
+&lt;li>&lt;strong>-u, &amp;ndash;unbind&lt;/strong> # 接触网卡设备绑定。等价于 &lt;code>-b none&lt;/code>&lt;/li>
+&lt;li>&lt;strong>&amp;ndash;force&lt;/strong> # 强制绑定。默认情况下，若目标网卡已被内核启用（通常表现为已在路由表条目中），则无法被 DPDK 绑定。&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;p>从当前驱动程序绑定 eth1 并转而使用 vfio-pci：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>dpdk-devbind --bind=vfio-pci eth1&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;h1 id="dpdk-与-bpf-与-netfilter">DPDK 与 BPF 与 Netfilter&lt;a class="td-heading-self-link" href="#dpdk-%e4%b8%8e-bpf-%e4%b8%8e-netfilter" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>TODO&lt;/p>
+&lt;h1 id="faq">FAQ&lt;a class="td-heading-self-link" href="#faq" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;a href="https://doc.dpdk.org/guides/faq/index.html">https://doc.dpdk.org/guides/faq/index.html&lt;/a>&lt;/p></description></item><item><title>Docs: Graph Library</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/Graph-Library/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/Graph-Library/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://doc.dpdk.org/guides/prog_guide/graph_lib.html">官方文档，Graph Library and Inbuilt Nodes&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/604202266">https://zhuanlan.zhihu.com/p/604202266&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/613233087">https://zhuanlan.zhihu.com/p/613233087&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>DPDK 的 &lt;strong>Graph(图)&lt;/strong> Library 将数据处理功能抽象为 &lt;strong>Node(节点)&lt;/strong>，并将这些 Node links(链接) 在一起以创建一张大型的数据处理流程图，以实现可重用的/模块化的数据处理能力。一个 Node 中可以有一个或多个流量处理 &lt;strong>Function(功能)&lt;/strong>，一个 Node 处理完成后，交给下一个或几个其他 Node 继续处理流量数据&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dpdk/graph_library_1.png" alt="image.png|800">&lt;/p>
+&lt;p>假如我们设计了如下一系列功能&lt;/p>
+&lt;ul>
+&lt;li>decode&lt;/li>
+&lt;li>flow&lt;/li>
+&lt;li>reassemble&lt;/li>
+&lt;li>resource&lt;/li>
+&lt;li>control&lt;/li>
+&lt;li>asset&lt;/li>
+&lt;li>security&lt;/li>
+&lt;li>record&lt;/li>
+&lt;li>drop&lt;/li>
+&lt;li>&amp;hellip;&amp;hellip;略&lt;/li>
+&lt;/ul>
+&lt;p>可以将这些功能分散到多个 Node 中，每个 Node 又可以规划如何如何调用这些功能&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;node_m&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;sink&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;next&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;flow&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a40000">......&lt;/span> &lt;span style="color:#a40000">略&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;node_n&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;rx&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;next&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;decode&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;decode&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;next&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;traffic_filter&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;traffic_filter&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;next&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;capture&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;drop&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a40000">......&lt;/span> &lt;span style="color:#a40000">略&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;node_o&amp;#34;&lt;/span>&lt;span style="color:#a40000">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;rx&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;next&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;decode&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;name&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;decode&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;next&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000;font-weight:bold">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;flow&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a40000">......&lt;/span> &lt;span style="color:#a40000">略&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#a40000">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a40000">......略&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="graph-架构">Graph 架构&lt;a class="td-heading-self-link" href="#graph-%e6%9e%b6%e6%9e%84" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>Graph Library 的设计思想源自于开源项目 &lt;a href="https://github.com/FDio/vpp">Vector Packet Processor(VPP)&lt;/a>&lt;/p></description></item></channel></rss>

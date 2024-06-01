@@ -73,16 +73,114 @@
 &lt;li>实时任务，对系统的响应时间要求很高，也就是要尽可能快的执行实时任务，优先级在 0~99 范围内的就算实时任务；&lt;/li>
 &lt;li>普通任务，响应时间没有很高的要求，优先级在 100~139 范围内都是普通任务级别；&lt;/li>
 &lt;/ul>
-&lt;p>也就是说，在 LInux 内核中，实时任务总是比普通任务的优先级要高。&lt;/p></description></item><item><title>Docs: 10.1.CPU 执行程序的秘密，藏在了这 15 张图里</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.1.CPU-%E6%89%A7%E8%A1%8C%E7%A8%8B%E5%BA%8F%E7%9A%84%E7%A7%98%E5%AF%86%E8%97%8F%E5%9C%A8%E4%BA%86%E8%BF%99-15-%E5%BC%A0%E5%9B%BE%E9%87%8C/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.1.CPU-%E6%89%A7%E8%A1%8C%E7%A8%8B%E5%BA%8F%E7%9A%84%E7%A7%98%E5%AF%86%E8%97%8F%E5%9C%A8%E4%BA%86%E8%BF%99-15-%E5%BC%A0%E5%9B%BE%E9%87%8C/</guid><description>
+&lt;p>也就是说，在 LInux 内核中，实时任务总是比普通任务的优先级要高。&lt;/p></description></item><item><title>Docs: Load Average 平均负载简述</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Load-Average-%E5%B9%B3%E5%9D%87%E8%B4%9F%E8%BD%BD%E7%AE%80%E8%BF%B0/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Load-Average-%E5%B9%B3%E5%9D%87%E8%B4%9F%E8%BD%BD%E7%AE%80%E8%BF%B0/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://blog.csdn.net/u011183653/article/details/19489603">https://blog.csdn.net/u011183653/article/details/19489603&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://blog.csdn.net/slvher/article/details/9199439">https://blog.csdn.net/slvher/article/details/9199439&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h1 id="load-与-load-average">Load 与 Load Average&lt;a class="td-heading-self-link" href="#load-%e4%b8%8e-load-average" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">LoadAverage&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> calc_load&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>TASK_RUNNING + TASK_UNINTERRUPTIBLE,n&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Load 是此时此刻 CPU 正在处理的进程数。进程可运行状态时，它处在一个运行队列 run queue 中，与其他可运行进程争夺 CPU 时间。 系统的 load 是指正在运行 running 和准备好运行 runnable 以及 不可中断睡眠 的进程的总数。比如现在系统有 2 个正在运行的进程，3 个可运行进程，那么系统的 load 就是 5&lt;/p>
+&lt;p>Load Average 为在特定时间间隔内运行队列中(在 CPU 上运行或者等待运行多少进程)的平均进程数。如果一个进程满足以下条件则其就会位于运行队列中：&lt;/p>
+&lt;ol>
+&lt;li>它没有在等待 I/O 操作的结果&lt;/li>
+&lt;li>它没有主动进入等待状态(也就是没有调用’wait’)&lt;/li>
+&lt;li>没有被停止(例如：等待终止)&lt;/li>
+&lt;/ol>
+&lt;p>在 Linux 中，进程分为三种状态，一种是阻塞的进程 blocked process，一种是可运行的进程 runnable process，另外就是正在运行的进程 running process。当进程阻塞时，进程会等待 I/O 设备的数据或者系统调用。&lt;/p>
+&lt;p>一、查看系统负荷&lt;/p>
+&lt;p>如果你的电脑很慢，你或许想查看一下，它的工作量是否太大了。&lt;/p>
+&lt;p>在 Linux 系统中，我们一般使用 uptime 命令查看（w 命令和 top 命令也行）。（另外，它们在苹果公司的 Mac 电脑上也适用。）&lt;/p>
+&lt;p>你在终端窗口键入 uptime，系统会返回一行信息。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># uptime&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>17:00:00 up &lt;span style="color:#0000cf;font-weight:bold">2&lt;/span> days, 2:53, &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> user, load average: 0.09, 0.05, 0.01
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这行信息的后半部分，显示&amp;quot;load average&amp;quot;，它的意思是&amp;quot;系统的平均负荷&amp;quot;，里面有三个数字，我们可以从中判断系统负荷是大还是小。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091810-b44dc550-47cf-44e2-94c4-de77c383db2c.jpeg" alt="">&lt;/p>
+&lt;p>为什么会有三个数字呢？你从手册中查到，它们的意思分别是 1 分钟、5 分钟、15 分钟内系统的平均负荷。&lt;/p>
+&lt;p>如果你继续看手册，它还会告诉你，当 CPU 完全空闲的时候，平均负荷为 0；当 CPU 工作量饱和的时候，平均负荷为 1。&lt;/p>
+&lt;p>那么很显然，&amp;ldquo;load average&amp;quot;的值越低，比如等于 0.2 或 0.3，就说明电脑的工作量越小，系统负荷比较轻。&lt;/p>
+&lt;p>但是，什么时候能看出系统负荷比较重呢？等于 1 的时候，还是等于 0.5 或等于 1.5 的时候？如果 1 分钟、5 分钟、15 分钟三个值不一样，怎么办？&lt;/p>
+&lt;p>二、一个类比&lt;/p>
+&lt;p>判断系统负荷是否过重，必须理解 load average 的真正含义。下面，我根据&amp;quot;Understanding Linux CPU Load&amp;quot;这篇文章，尝试用最通俗的语言，解释这个问题。&lt;/p>
+&lt;p>首先，假设最简单的情况，你的电脑只有一个 CPU，所有的运算都必须由这个 CPU 来完成。&lt;/p>
+&lt;p>那么，我们不妨把这个 CPU 想象成一座大桥，桥上只有一根车道，所有车辆都必须从这根车道上通过。（很显然，这座桥只能单向通行。）&lt;/p>
+&lt;p>系统负荷为 0，意味着大桥上一辆车也没有。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091810-e462799a-5a71-46cc-8f5a-560ab51b7f6b.jpeg" alt="">&lt;/p>
+&lt;p>系统负荷为 0.5，意味着大桥一半的路段有车。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091819-cf628c32-b0c1-4c81-a5fa-35c30d663944.jpeg" alt="">&lt;/p>
+&lt;p>系统负荷为 1.0，意味着大桥的所有路段都有车，也就是说大桥已经&amp;quot;满&amp;quot;了。但是必须注意的是，直到此时大桥还是能顺畅通行的。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091800-0fa2f777-ecc8-43c3-8c10-029b54de5eb4.jpeg" alt="">&lt;/p>
+&lt;p>系统负荷为 1.7，意味着车辆太多了，大桥已经被占满了（100%），后面等着上桥的车辆为桥面车辆的 70%。以此类推，系统负荷 2.0，意味着等待上桥的车辆与桥面的车辆一样多；系统负荷 3.0，意味着等待上桥的车辆是桥面车辆的 2 倍。总之，当系统负荷大于 1，后面的车辆就必须等待了；系统负荷越大，过桥就必须等得越久。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091822-b290f2e0-2edb-4775-a7a1-fecd0d32bb3c.jpeg" alt="">&lt;/p>
+&lt;p>CPU 的系统负荷，基本上等同于上面的类比。大桥的通行能力，就是 CPU 的最大工作量；桥梁上的车辆，就是一个个等待 CPU 处理的进程（process）。&lt;/p>
+&lt;p>如果 CPU 每分钟最多处理 100 个进程，那么系统负荷 0.2，意味着 CPU 在这 1 分钟里只处理 20 个进程；系统负荷 1.0，意味着 CPU 在这 1 分钟里正好处理 100 个进程；系统负荷 1.7，意味着除了 CPU 正在处理的 100 个进程以外，还有 70 个进程正排队等着 CPU 处理。&lt;/p>
+&lt;p>Note：如果 CPU 一分钟的时间一直处理 1 个进程，那么 1 分钟的负载也是 1。&lt;/p>
+&lt;p>为了电脑顺畅运行，系统负荷最好不要超过 1.0，这样就没有进程需要等待了，所有进程都能第一时间得到处理。很显然，1.0 是一个关键值，超过这个值，系统就不在最佳状态了，你要动手干预了。&lt;/p>
+&lt;p>三、系统负荷的经验法则&lt;/p>
+&lt;p>1.0 是系统负荷的理想值吗？&lt;/p>
+&lt;p>不一定，系统管理员往往会留一点余地，当这个值达到 0.7，就应当引起注意了。经验法则是这样的：&lt;/p>
+&lt;p>当系统负荷持续大于 0.7，你必须开始调查了，问题出在哪里，防止情况恶化。&lt;/p>
+&lt;p>当系统负荷持续大于 1.0，你必须动手寻找解决办法，把这个值降下来。&lt;/p>
+&lt;p>当系统负荷达到 5.0，就表明你的系统有很严重的问题，长时间没有响应，或者接近死机了。你不应该让系统达到这个值。&lt;/p>
+&lt;p>四、多处理器&lt;/p>
+&lt;p>上面，我们假设你的电脑只有 1 个 CPU。如果你的电脑装了 2 个 CPU，会发生什么情况呢？&lt;/p>
+&lt;p>2 个 CPU，意味着电脑的处理能力翻了一倍，能够同时处理的进程数量也翻了一倍。&lt;/p>
+&lt;p>还是用大桥来类比，两个 CPU 就意味着大桥有两根车道了，通车能力翻倍了。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091818-7b6aaceb-456c-4625-a2b4-cba8501b8858.jpeg" alt="">&lt;/p>
+&lt;p>所以，2 个 CPU 表明系统负荷可以达到 2.0，此时每个 CPU 都达到 100%的工作量。推广开来，n 个 CPU 的电脑，可接受的系统负荷最大为 n.0。&lt;/p>
+&lt;p>五、多核处理器&lt;/p>
+&lt;p>芯片厂商往往在一个 CPU 内部，包含多个 CPU 核心，这被称为多核 CPU。&lt;/p>
+&lt;p>在系统负荷方面，多核 CPU 与多 CPU 效果类似，所以考虑系统负荷的时候，必须考虑这台电脑有几个 CPU、每个 CPU 有几个核心。然后，把系统负荷除以总的核心数，只要每个核心的负荷不超过 1.0，就表明电脑正常运行。&lt;/p>
+&lt;p>怎么知道电脑有多少个 CPU 核心呢？&lt;/p>
+&lt;p>&amp;ldquo;cat /proc/cpuinfo&amp;quot;命令，可以查看 CPU 信息。&amp;ldquo;grep -c &amp;lsquo;model name&amp;rsquo; /proc/cpuinfo&amp;quot;命令，直接返回 CPU 的总核心数。&lt;/p>
+&lt;p>六、最佳观察时长&lt;/p>
+&lt;p>最后一个问题，&amp;ldquo;load average&amp;quot;一共返回三个平均值&amp;mdash;-1 分钟系统负荷、5 分钟系统负荷，15 分钟系统负荷，&amp;mdash;-应该参考哪个值？&lt;/p>
+&lt;p>如果只有 1 分钟的系统负荷大于 1.0，其他两个时间段都小于 1.0，这表明只是暂时现象，问题不大。&lt;/p>
+&lt;p>如果 15 分钟内，平均系统负荷大于 1.0（调整 CPU 核心数之后），表明问题持续存在，不是暂时现象。所以，你应该主要观察&amp;quot;15 分钟系统负荷&amp;rdquo;，将它作为电脑正常运行的指标。&lt;/p>
+&lt;p>==========================================&lt;/p>
+&lt;p>[参考文献]&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>Understanding Linux CPU Load&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Wikipedia - Load (computing)&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;p>（完）&lt;/p>
+&lt;h1 id="简单说下-cpu-负载和-cpu-利用率的区别">简单说下 CPU 负载和 CPU 利用率的区别&lt;a class="td-heading-self-link" href="#%e7%ae%80%e5%8d%95%e8%af%b4%e4%b8%8b-cpu-%e8%b4%9f%e8%bd%bd%e5%92%8c-cpu-%e5%88%a9%e7%94%a8%e7%8e%87%e7%9a%84%e5%8c%ba%e5%88%ab" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>1）CPU 利用率：显示的是程序在运行期间实时占用的 CPU 百分比&lt;/p>
+&lt;p>2）CPU 负载：显示的是一段时间内正在使用和等待使用 CPU 的平均任务数。&lt;/p>
+&lt;p>CPU 利用率高，并不意味着负载就一定大。&lt;/p>
+&lt;p>举例来说：&lt;/p>
+&lt;p>如果有一个程序它需要一直使用 CPU 的运算功能，那么此时 CPU 的使用率可能达到 100%，但是 CPU 的工作负载则是趋近于&amp;quot;1&amp;rdquo;，因为 CPU 仅负责一个工作！&lt;/p>
+&lt;p>如果同时执行这样的程序两个呢？CPU 的使用率还是 100%，但是工作负载则变成 2 了。所以也就是说，当 CPU 的工作负载越大，代表 CPU 必须要在不同的工作之间&lt;/p>
+&lt;p>进行频繁的工作切换。&lt;/p>
+&lt;p>&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;下面通过一个电话亭打电话的比喻来说明这两者之间的区别&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&lt;/p>
+&lt;p>某公用电话亭，有一个人在打电话，四个人在等待，每人限定使用电话一分钟，若有人一分钟之内没有打完电话，只能挂掉电话去排队，等待下一轮。&lt;/p>
+&lt;p>电话在这里就相当于 CPU，而正在或等待打电话的人就相当于任务数。&lt;/p>
+&lt;p>在电话亭使用过程中，肯定会有人打完电话走掉，有人没有打完电话而选择重新排队，更会有新增的人在这儿排队，这个人数的变化就相当于任务数的增减。&lt;/p>
+&lt;p>为了统计平均负载情况，我们 5 分钟统计一次人数，并在第 1、5、15 分钟的时候对统计情况取平均值，从而形成第 1、5、15 分钟的平均负载。&lt;/p>
+&lt;p>有的人拿起电话就打，一直打完 1 分钟，而有的人可能前三十秒在找电话号码，或者在犹豫要不要打，后三十秒才真正在打电话。如果把电话看作 CPU，人数看&lt;/p>
+&lt;p>作任务，我们就说前一个人（任务）的 CPU 利用率高，后一个人（任务）的 CPU 利用率低。当然， CPU 并不会在前三十秒工作，后三十秒歇着，只是说，有的程&lt;/p>
+&lt;p>序涉及到大量的计算，所以 CPU 利用率就高，而有的程序牵涉到计算的部分很少，CPU 利用率自然就低。但无论 CPU 的利用率是高是低，跟后面有多少任务在排队&lt;/p>
+&lt;p>没有必然关系。&lt;/p>
+&lt;h1 id="理解-linux-load-average-的误区">理解 LINUX LOAD AVERAGE 的误区&lt;a class="td-heading-self-link" href="#%e7%90%86%e8%a7%a3-linux-load-average-%e7%9a%84%e8%af%af%e5%8c%ba" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>Load average 的概念源自 UNIX 系统，虽然各家的公式不尽相同，但都是用于衡量正在使用 CPU 的进程数量和正在等待 CPU 的进程数量，一句话就是 runnable processes 的数量。所以 load average 可以作为 CPU 瓶颈的参考指标，如果大于 CPU 的数量，说明 CPU 可能不够用了。&lt;/p>
+&lt;p>但是，Linux 上不是这样的！&lt;/p>
+&lt;p>Linux 上的 load average 除了包括正在使用 CPU 的进程数量和正在等待 CPU 的进程数量之外，还包括 uninterruptible sleep 的进程数量。通常等待 IO 设备、等待网络的时候，进程会处于 uninterruptible sleep 状态。Linux 设计者的逻辑是，uninterruptible sleep 应该都是很短暂的，很快就会恢复运行，所以被等同于 runnable。然而 uninterruptible sleep 即使再短暂也是 sleep，何况现实世界中 uninterruptible sleep 未必很短暂，大量的、或长时间的 uninterruptible sleep 通常意味着 IO 设备遇到了瓶颈。众所周知，sleep 状态的进程是不需要 CPU 的，即使所有的 CPU 都空闲，正在 sleep 的进程也是运行不了的，所以 sleep 进程的数量绝对不适合用作衡量 CPU 负载的指标，Linux 把 uninterruptible sleep 进程算进 load average 的做法直接颠覆了 load average 的本来意义。所以在 Linux 系统上，load average 这个指标基本失去了作用，因为你不知道它代表什么意思，当看到 load average 很高的时候，你不知道是 runnable 进程太多还是 uninterruptible sleep 进程太多，也就无法判断是 CPU 不够用还是 IO 设备有瓶颈。&lt;/p>
+&lt;p>参考资料：&lt;a href="https://en.wikipedia.org/wiki/Load_(computing)">https://en.wikipedia.org/wiki/Load_(computing)&lt;/a>&lt;/p>
+&lt;p>“Most UNIX systems count only processes in the running (on CPU) or runnable (waiting for CPU) states. However, Linux also includes processes in uninterruptible sleep states (usually waiting for disk activity), which can lead to markedly different results if many processes remain blocked in I/O due to a busy or stalled I/O system.“&lt;/p></description></item><item><title>Docs: 10.1.CPU 执行程序的秘密，藏在了这 15 张图里</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.1.CPU-%E6%89%A7%E8%A1%8C%E7%A8%8B%E5%BA%8F%E7%9A%84%E7%A7%98%E5%AF%86%E8%97%8F%E5%9C%A8%E4%BA%86%E8%BF%99-15-%E5%BC%A0%E5%9B%BE%E9%87%8C/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.1.CPU-%E6%89%A7%E8%A1%8C%E7%A8%8B%E5%BA%8F%E7%9A%84%E7%A7%98%E5%AF%86%E8%97%8F%E5%9C%A8%E4%BA%86%E8%BF%99-15-%E5%BC%A0%E5%9B%BE%E9%87%8C/</guid><description>
 &lt;p>&lt;strong>CPU 执行程序的秘密，藏在了这 15 张图里&lt;/strong>&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986609-04faec22-1781-4936-b503-011b61590870.png" alt="">&lt;/p>
 &lt;p>&lt;strong>前言&lt;/strong>&lt;/p>
 &lt;p>代码写了那么多，你知道 a = 1 + 2 这条代码是怎么被 CPU 执行的吗？&lt;/p>
 &lt;p>软件用了那么多，你知道软件的 32 位和 64 位之间的区别吗？再来 32 位的操作系统可以运行在 64 位的电脑上吗？64 位的操作系统可以运行在 32 位的电脑上吗？如果不行，原因是什么？&lt;/p>
 &lt;p>CPU 看了那么多，我们都知道 CPU 通常分为 32 位和 64 位，你知道 64 位相比 32 位 CPU 的优势在哪吗？64 位 CPU 的计算性能一定比 32 位 CPU 高很多吗？&lt;/p>
 &lt;p>不知道也不用慌张，接下来就循序渐进的、一层一层的攻破这些问题。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986635-4f0dd824-1f30-45ba-b584-15ac570aca3a.png" alt="">&lt;/p>
-&lt;p>&lt;strong>正文&lt;/strong>&lt;/p>
 &lt;h1 id="图灵机的工作方式">图灵机的工作方式&lt;a class="td-heading-self-link" href="#%e5%9b%be%e7%81%b5%e6%9c%ba%e7%9a%84%e5%b7%a5%e4%bd%9c%e6%96%b9%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>要想知道程序执行的原理，我们可以先从「图灵机」说起，图灵的基本思想是用机器来模拟人们用纸笔进行数学运算的过程，而且还定义了计算机由哪些部分组成，程序又是如何执行的。&lt;/p>
 &lt;p>图灵机长什么样子呢？你从下图可以看到图灵机的实际样子：&lt;/p>
@@ -251,16 +349,13 @@
 &lt;p>总之，硬件的 64 位和 32 位指的是 CPU 的位宽，软件的 64 位和 32 位指的是指令的位宽。&lt;/p></description></item><item><title>Docs: 10.2.知道硬盘很慢，但没想到比 CPU Cache 慢 10000000 倍</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.2.%E7%9F%A5%E9%81%93%E7%A1%AC%E7%9B%98%E5%BE%88%E6%85%A2%E4%BD%86%E6%B2%A1%E6%83%B3%E5%88%B0%E6%AF%94-CPU-Cache-%E6%85%A2-10000000-%E5%80%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.2.%E7%9F%A5%E9%81%93%E7%A1%AC%E7%9B%98%E5%BE%88%E6%85%A2%E4%BD%86%E6%B2%A1%E6%83%B3%E5%88%B0%E6%AF%94-CPU-Cache-%E6%85%A2-10000000-%E5%80%8D/</guid><description>
 &lt;h1 id="heading">&lt;a class="td-heading-self-link" href="#heading" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>&lt;strong>天啦噜！知道硬盘很慢，但没想到比 CPU Cache 慢 10000000 倍&lt;/strong>&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976182-90f7bdd1-15f5-4e79-9992-a3d41847a5da.png" alt="">&lt;/p>
 &lt;p>&lt;strong>前言&lt;/strong>&lt;/p>
 &lt;p>大家如果想自己组装电脑的话，肯定需要购买一个 CPU，但是存储器方面的设备，分类比较多，那我们肯定不能只买一种存储器，比如你除了要买内存，还要买硬盘，而针对硬盘我们还可以选择是固态硬盘还是机械硬盘。&lt;/p>
 &lt;p>相信大家都知道内存和硬盘都属于计算机的存储设备，断电后内存的数据是会丢失的，而硬盘则不会，因为硬盘是持久化存储设备，同时也是一个 I/O 设备。&lt;/p>
 &lt;p>但其实 CPU 内部也有存储数据的组件，这个应该比较少人注意到，比如&lt;strong>寄存器、CPU L1/L2/L3 Cache&lt;/strong> 也都是属于存储设备，只不过它们能存储的数据非常小，但是它们因为靠近 CPU 核心，所以访问速度都非常快，快过硬盘好几个数量级别。&lt;/p>
 &lt;p>问题来了，&lt;strong>那机械硬盘、固态硬盘、内存这三个存储器，到底和 CPU L1 Cache 相比速度差多少倍呢？&lt;/strong>&lt;/p>
 &lt;p>在回答这个问题之前，我们先来看看「&lt;strong>存储器的层次结构&lt;/strong>」，好让我们对存储器设备有一个整体的认识。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976178-e4b64e37-9cd2-4db1-a4e7-5cb4fd1e498f.png" alt="">&lt;/p>
-&lt;p>&lt;strong>正文&lt;/strong>&lt;/p>
-&lt;p>存储器的层次结构&lt;/p>
+&lt;h1 id="存储器的层次结构">存储器的层次结构&lt;a class="td-heading-self-link" href="#%e5%ad%98%e5%82%a8%e5%99%a8%e7%9a%84%e5%b1%82%e6%ac%a1%e7%bb%93%e6%9e%84" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>我们想象中一个场景，大学期末准备考试了，你前去图书馆临时抱佛脚。那么，在看书的时候，我们的大脑会思考问题，也会记忆知识点，另外我们通常也会把常用的书放在自己的桌子上，当我们要找一本不常用的书，则会去图书馆的书架找。&lt;/p>
 &lt;p>就是这么一个小小的场景，已经把计算机的存储结构基本都涵盖了。&lt;/p>
 &lt;p>我们可以把 CPU 比喻成我们的大脑，大脑正在思考的东西，就好比 CPU 中的&lt;strong>寄存器&lt;/strong>，处理速度是最快的，但是能存储的数据也是最少的，毕竟我们也不能一下同时思考太多的事情，除非你练过。&lt;/p>
@@ -282,14 +377,14 @@
 &lt;p>L3-Cahce；&lt;/p>
 &lt;p>内存；&lt;/p>
 &lt;p>SSD/HDD 硬盘&lt;/p>
-&lt;p>&lt;strong>寄存器&lt;/strong>&lt;/p>
+&lt;h2 id="寄存器">寄存器&lt;a class="td-heading-self-link" href="#%e5%af%84%e5%ad%98%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>最靠近 CPU 的控制单元和逻辑计算单元的存储器，就是寄存器了，它使用的材料速度也是最快的，因此价格也是最贵的，那么数量不能很多。&lt;/p>
 &lt;p>存储器的数量通常在几十到几百之间，每个寄存器可以用来存储一定的字节（byte）的数据。比如：&lt;/p>
 &lt;p>32 位 CPU 中大多数寄存器可以存储 4 个字节；&lt;/p>
 &lt;p>64 位 CPU 中大多数寄存器可以存储 8 个字节。&lt;/p>
 &lt;p>寄存器的访问速度非常快，一般要求在半个 CPU 时钟周期内完成读写，CPU 时钟周期跟 CPU 主频息息相关，比如 2 GHz 主频的 CPU，那么它的时钟周期就是 1/2G，也就是 0.5ns（纳秒）。&lt;/p>
 &lt;p>CPU 处理一条指令的时候，除了读写寄存器，还需要解码指令、控制指令执行和计算。如果寄存器的速度太慢，则会拉长指令的处理周期，从而给用户的感觉，就是电脑「很慢」。&lt;/p>
-&lt;p>&lt;strong>CPU Cache&lt;/strong>&lt;/p>
+&lt;h2 id="cpu-cache">CPU Cache&lt;a class="td-heading-self-link" href="#cpu-cache" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>CPU Cache 用的是一种叫 &lt;strong>SRAM（***&lt;strong>Static Random-Access&lt;/strong>*&lt;/strong> Memory，静态随机存储器）** 的芯片。&lt;/p>
 &lt;p>SRAM 之所以叫「静态」存储器，是因为只要有电，数据就可以保持存在，而一旦断电，数据就会丢失了。&lt;/p>
 &lt;p>在 SRAM 里面，一个 bit 的数据，通常需要 6 个晶体管，所以 SRAM 的存储密度不高，同样的物理空间下，能存储的数据是有限的，不过也因为 SRAM 的电路简单，所以访问速度非常快。&lt;/p>
@@ -315,16 +410,16 @@
 &lt;p>在 Linux 系统，我们可以通过这条命令，查看 CPU 里的 L3 Cache 的容量大小：&lt;/p>
 &lt;p>$ cat /sys/devices/system/cpu/cpu0/cache/index3/size&lt;/p>
 &lt;p>3072K&lt;/p>
-&lt;p>&lt;strong>内存&lt;/strong>&lt;/p>
+&lt;h2 id="内存">内存&lt;a class="td-heading-self-link" href="#%e5%86%85%e5%ad%98" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>内存用的芯片和 CPU Cache 有所不同，它使用的是一种叫作 &lt;strong>DRAM （***&lt;strong>Dynamic Random Access Memory&lt;/strong>*&lt;/strong>，动态随机存取存储器）** 的芯片。&lt;/p>
 &lt;p>相比 SRAM，DRAM 的密度更高，功耗更低，有更大的容量，而且造价比 SRAM 芯片便宜很多。&lt;/p>
 &lt;p>DRAM 存储一个 bit 数据，只需要一个晶体管和一个电容就能存储，但是因为数据会被存储在电容里，电容会不断漏电，所以需要「定时刷新」电容，才能保证数据不会被丢失，这就是 DRAM 之所以被称为「动态」存储器的原因，只有不断刷新，数据才能被存储起来。&lt;/p>
 &lt;p>DRAM 的数据访问电路和刷新电路都比 SRAM 更复杂，所以访问的速度会更慢，内存速度大概在 200~300 个 时钟周期之间。&lt;/p>
-&lt;p>&lt;strong>SSD/HDD 硬盘&lt;/strong>&lt;/p>
+&lt;h2 id="ssdhdd-硬盘">SSD/HDD 硬盘&lt;a class="td-heading-self-link" href="#ssdhdd-%e7%a1%ac%e7%9b%98" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>SSD（&lt;em>Solid-state disk&lt;/em>） 就是我们常说的固体硬盘，结构和内存类似，但是它相比内存的优点是断电后数据还是存在的，而内存、寄存器、高速缓存断电后数据都会丢失。内存的读写速度比 SSD 大概快 10~1000 倍。&lt;/p>
 &lt;p>当然，还有一款传统的硬盘，也就是机械硬盘（&lt;em>Hard Disk Drive, HDD&lt;/em>），它是通过物理读写的方式来访问数据的，因此它访问速度是非常慢的，它的速度比内存慢 10W 倍左右。&lt;/p>
 &lt;p>由于 SSD 的价格快接近机械硬盘了，因此机械硬盘已经逐渐被 SSD 替代了。&lt;/p>
-&lt;p>存储器的层次关系&lt;/p>
+&lt;h1 id="存储器的层次关系">存储器的层次关系&lt;a class="td-heading-self-link" href="#%e5%ad%98%e5%82%a8%e5%99%a8%e7%9a%84%e5%b1%82%e6%ac%a1%e5%85%b3%e7%b3%bb" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>现代的一台计算机，都用上了 CPU Cahce、内存、到 SSD 或 HDD 硬盘这些存储器设备了。&lt;/p>
 &lt;p>其中，存储空间越大的存储器设备，其访问速度越慢，所需成本也相对越少。&lt;/p>
 &lt;p>CPU 并不会直接和每一种存储器设备直接打交道，而是每一种存储器设备只和它相邻的存储器设备打交道。&lt;/p>
@@ -334,7 +429,7 @@
 &lt;p>另外，当 CPU 需要访问内存中某个数据的时候，如果寄存器有这个数据，CPU 就直接从寄存器取数据即可，如果寄存器没有这个数据，CPU 就会查询 L1 高速缓存，如果 L1 没有，则查询 L2 高速缓存，L2 还是没有的话就查询 L3 高速缓存，L3 依然没有的话，才去内存中取数据。&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976227-007bd129-b81d-4e1f-906c-234362160317.png" alt="">&lt;/p>
 &lt;p>所以，存储层次结构也形成了&lt;strong>缓存&lt;/strong>的体系。&lt;/p>
-&lt;p>存储器之间的实际价格和性能差距&lt;/p>
+&lt;h1 id="存储器之间的实际价格和性能差距">存储器之间的实际价格和性能差距&lt;a class="td-heading-self-link" href="#%e5%ad%98%e5%82%a8%e5%99%a8%e4%b9%8b%e9%97%b4%e7%9a%84%e5%ae%9e%e9%99%85%e4%bb%b7%e6%a0%bc%e5%92%8c%e6%80%a7%e8%83%bd%e5%b7%ae%e8%b7%9d" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>前面我们知道了，速度越快的存储器，造价成本往往也越高，那我们就以实际的数据来看看，不同层级的存储器之间的性能和价格差异。&lt;/p>
 &lt;p>下面这张表格是不同层级的存储器之间的成本对比图：&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ggyell/1616167976218-0076c2a7-a83f-4f00-a6ac-29d76746d7ad.png" alt="">&lt;/p>
@@ -354,25 +449,14 @@
 &lt;p>&lt;strong>内存比机械硬盘快 100000 倍左右，即 10W 倍；&lt;/strong>&lt;/p>
 &lt;p>&lt;strong>CPU L1 Cache 比机械硬盘快 10000000 倍左右，即 1000W 倍；&lt;/strong>&lt;/p>
 &lt;p>我们把上述的时间比例差异放大后，就能非常直观感受到它们的性能差异了。如果 CPU 访问 L1 Cache 的缓存时间是 1 秒，那访问内存则需要大约 2 分钟，随机访问 SSD 里的数据则需要 1.7 天，访问机械硬盘那更久，长达近 4 个月。&lt;/p>
-&lt;p>可以发现，不同的存储器之间性能差距很大，构造存储器分级很有意义，分级的目的是要构造&lt;strong>缓存&lt;/strong>体系。&lt;/p>
-&lt;p>&lt;strong>絮叨&lt;/strong>&lt;/p>
-&lt;p>新的&lt;strong>技术交流群&lt;/strong>已经慢慢人多起来了，群里的大牛真的多，大家交流都很踊跃，也有很多热心分享和回答问题的小伙伴，是你交朋友好地方，更是你上班划水的好入口。&lt;/p>
-&lt;p>准备入冬了，一起来抱团取暖吧，加群方式很简单，只需要加我的微信二维码，备注「&lt;strong>加群&lt;/strong>」即可。&lt;/p>
-&lt;p>&lt;em>哈喽，我是小林，就爱图解计算机基础，如果觉得文章对你有帮助，欢迎分享给你的朋友，也给小林点个「在看」，这对小林非常重要，谢谢你们，给各位小姐姐小哥哥们抱拳了，我们下次见！&lt;/em>&lt;/p>
-&lt;p>&lt;strong>推荐阅读&lt;/strong>&lt;/p>
-&lt;p>&lt;strong>CPU 执行程序的秘密，藏在了这 15 张图里&lt;/strong>&lt;/p>
-&lt;p>&lt;strong>原来 8 张图，就可以搞懂「零拷贝」了&lt;/strong>&lt;/p>
-&lt;p>喜欢此内容的人还喜欢&lt;/p></description></item><item><title>Docs: 10.3.如何写出让 CPU 跑得更快的代码？</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.3.%E5%A6%82%E4%BD%95%E5%86%99%E5%87%BA%E8%AE%A9-CPU-%E8%B7%91%E5%BE%97%E6%9B%B4%E5%BF%AB%E7%9A%84%E4%BB%A3%E7%A0%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.3.%E5%A6%82%E4%BD%95%E5%86%99%E5%87%BA%E8%AE%A9-CPU-%E8%B7%91%E5%BE%97%E6%9B%B4%E5%BF%AB%E7%9A%84%E4%BB%A3%E7%A0%81/</guid><description>
+&lt;p>可以发现，不同的存储器之间性能差距很大，构造存储器分级很有意义，分级的目的是要构造&lt;strong>缓存&lt;/strong>体系。&lt;/p></description></item><item><title>Docs: 10.3.如何写出让 CPU 跑得更快的代码？</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.3.%E5%A6%82%E4%BD%95%E5%86%99%E5%87%BA%E8%AE%A9-CPU-%E8%B7%91%E5%BE%97%E6%9B%B4%E5%BF%AB%E7%9A%84%E4%BB%A3%E7%A0%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.3.%E5%A6%82%E4%BD%95%E5%86%99%E5%87%BA%E8%AE%A9-CPU-%E8%B7%91%E5%BE%97%E6%9B%B4%E5%BF%AB%E7%9A%84%E4%BB%A3%E7%A0%81/</guid><description>
 &lt;p>&lt;strong>面试官：如何写出让 CPU 跑得更快的代码？&lt;/strong>&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966333-fcc2cbcc-df13-4b74-904f-8fbdbc6aaa18.png" alt="">&lt;/p>
 &lt;p>&lt;strong>前言&lt;/strong>&lt;/p>
 &lt;p>代码都是由 CPU 跑起来的，我们代码写的好与坏就决定了 CPU 的执行效率，特别是在编写计算密集型的程序，更要注重 CPU 的执行效率，否则将会大大影响系统性能。&lt;/p>
 &lt;p>CPU 内部嵌入了 CPU Cache（高速缓存），它的存储容量很小，但是离 CPU 核心很近，所以缓存的读写速度是极快的，那么如果 CPU 运算时，直接从 CPU Cache 读取数据，而不是从内存的话，运算速度就会很快。&lt;/p>
 &lt;p>但是，大多数人不知道 CPU Cache 的运行机制，以至于不知道如何才能够写出能够配合 CPU Cache 工作机制的代码，一旦你掌握了它，你写代码的时候，就有新的优化思路了。&lt;/p>
 &lt;p>那么，接下来我们就来看看，CPU Cache 到底是什么样的，是如何工作的呢，又该写出让 CPU 执行更快的代码呢？&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966344-839ec392-0df1-430a-be2b-d275b1dedefe.png" alt="">&lt;/p>
-&lt;p>&lt;strong>正文&lt;/strong>&lt;/p>
-&lt;p>CPU Cache 有多快？&lt;/p>
+&lt;h1 id="cpu-cache-有多快">CPU Cache 有多快？&lt;a class="td-heading-self-link" href="#cpu-cache-%e6%9c%89%e5%a4%9a%e5%bf%ab" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>你可能会好奇为什么有了内存，还需要 CPU Cache？根据摩尔定律，CPU 的访问速度每 18 个月就会翻倍，相当于每年增长 60% 左右，内存的速度当然也会不断增长，但是增长的速度远小于 CPU，平均每年只增长 7% 左右。于是，CPU 与内存的访问性能的差距不断拉大。&lt;/p>
 &lt;p>到现在，一次内存访问所需时间是 200~300 多个时钟周期，这意味着 CPU 和内存的访问速度已经相差 200~300 多倍了。&lt;/p>
 &lt;p>为了弥补 CPU 与内存两者之间的性能差异，就在 CPU 内部引入了 CPU Cache，也称高速缓存。&lt;/p>
@@ -387,7 +471,7 @@
 &lt;p>越靠近 CPU 核心的缓存其访问速度越快，CPU 访问 L1 Cache 只需要 2~4 个时钟周期，访问 L2 Cache 大约 10~20 个时钟周期，访问 L3 Cache 大约 20~60 个时钟周期，而访问内存速度大概在 200~300 个 时钟周期之间。如下表格：&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966337-070a39a4-d3c6-4d56-8f34-79fee79119d6.png" alt="">&lt;/p>
 &lt;p>&lt;strong>所以，CPU 从 L1 Cache 读取数据的速度，相比从内存读取的速度，会快 100 多倍。&lt;/strong>&lt;/p>
-&lt;p>CPU Cache 的数据结构和读取过程是什么样的？&lt;/p>
+&lt;h1 id="cpu-cache-的数据结构和读取过程是什么样的">CPU Cache 的数据结构和读取过程是什么样的？&lt;a class="td-heading-self-link" href="#cpu-cache-%e7%9a%84%e6%95%b0%e6%8d%ae%e7%bb%93%e6%9e%84%e5%92%8c%e8%af%bb%e5%8f%96%e8%bf%87%e7%a8%8b%e6%98%af%e4%bb%80%e4%b9%88%e6%a0%b7%e7%9a%84" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>CPU Cache 的数据是从内存中读取过来的，它是以一小块一小块读取数据的，而不是按照单个数组元素来读取数据的，在 CPU Cache 中的，这样一小块一小块的数据，称为 &lt;strong>Cache Line（缓存块）&lt;/strong>。&lt;/p>
 &lt;p>你可以在你的 Linux 系统，用下面这种方式来查看 CPU 的 Cache Line，你可以看我服务器的 L1 Cache Line 大小是 64 字节，也就意味着 &lt;strong>L1 Cache 一次载入数据的大小是 64 字节&lt;/strong>。&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966325-a8749b7a-e2e9-4dff-aa68-5886817385a0.png" alt="">&lt;/p>
@@ -414,12 +498,12 @@
 &lt;p>对比内存地址中组标记和 CPU Line 中的组标记，确认 CPU Line 中的数据是我们要访问的内存数据，如果不是的话，CPU 就会直接访问内存，并重新加载数据，如果是的话，则往下执行；&lt;/p>
 &lt;p>根据内存地址中偏移量信息，从 CPU Line 的数据块中，读取对应的字。&lt;/p>
 &lt;p>到这里，相信你对直接映射 Cache 有了一定认识，但其实除了直接映射 Cache 之外，还有其他通过内存地址找到 CPU Cache 中的数据的策略，比如全相连 Cache （&lt;em>Fully Associative Cache&lt;/em>）、组相连 Cache （&lt;em>Set Associative Cache&lt;/em>）等，这几种策策略的数据结构都比较相似，我们理解流直接映射 Cache 的工作方式，其他的策略如果你有兴趣去看，相信很快就能理解的了。&lt;/p>
-&lt;p>如何写出让 CPU 跑得更快的代码？&lt;/p>
+&lt;h1 id="如何写出让-cpu-跑得更快的代码">如何写出让 CPU 跑得更快的代码？&lt;a class="td-heading-self-link" href="#%e5%a6%82%e4%bd%95%e5%86%99%e5%87%ba%e8%ae%a9-cpu-%e8%b7%91%e5%be%97%e6%9b%b4%e5%bf%ab%e7%9a%84%e4%bb%a3%e7%a0%81" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>我们知道 CPU 访问内存的速度，比访问 CPU Cache 的速度慢了 100 多倍，所以如果 CPU 所要操作的数据在 CPU Cache 中的话，这样将会带来很大的性能提升。访问的数据在 CPU Cache 中的话，意味着&lt;strong>缓存命中&lt;/strong>，缓存命中率越高的话，代码的性能就会越好，CPU 也就跑的越快。&lt;/p>
 &lt;p>于是，「如何写出让 CPU 跑得更快的代码？」这个问题，可以改成「如何写出 CPU 缓存命中率高的代码？」。&lt;/p>
 &lt;p>在前面我也提到， L1 Cache 通常分为「数据缓存」和「指令缓存」，这是因为 CPU 会别处理数据和指令，比如 1+1=2 这个运算，+ 就是指令，会被放在「指令缓存」中，而输入数字 1 则会被放在「数据缓存」里。&lt;/p>
 &lt;p>因此，&lt;strong>我们要分开来看「数据缓存」和「指令缓存」的缓存命中率&lt;/strong>。&lt;/p>
-&lt;p>&lt;strong>如何提升数据缓存的命中率？&lt;/strong>&lt;/p>
+&lt;h2 id="如何提升数据缓存的命中率">如何提升数据缓存的命中率？&lt;a class="td-heading-self-link" href="#%e5%a6%82%e4%bd%95%e6%8f%90%e5%8d%87%e6%95%b0%e6%8d%ae%e7%bc%93%e5%ad%98%e7%9a%84%e5%91%bd%e4%b8%ad%e7%8e%87" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>假设要遍历二维数组，有以下两种形式，虽然代码执行结果是一样，但你觉得哪种形式效率最高呢？为什么高呢？&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966322-4154dab1-01c4-4529-a35c-c2fc0b58d0c3.png" alt="">&lt;/p>
 &lt;p>经过测试，形式一 array[i][j] 执行时间比形式二 array[j][i] 快好几倍。&lt;/p>
@@ -433,7 +517,7 @@
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966332-54c661d9-1e92-4842-ad7a-bbb36d017c1b.png" alt="">&lt;/p>
 &lt;p>也就是说，当 CPU 访问内存数据时，如果数据不在 CPU Cache 中，则会一次性会连续加载 64 字节大小的数据到 CPU Cache，那么当访问 array[0][0] 时，由于该元素不足 64 字节，于是就会往后&lt;strong>顺序&lt;/strong>读取 array[0][0]~array[0][15] 到 CPU Cache 中。顺序访问的 array[i][j] 因为利用了这一特点，所以就会比跳跃式访问的 array[j][i] 要快。&lt;/p>
 &lt;p>&lt;strong>因此，遇到这种遍历数组的情况时，按照内存布局顺序访问，将可以有效的利用 CPU Cache 带来的好处，这样我们代码的性能就会得到很大的提升，&lt;/strong>&lt;/p>
-&lt;p>&lt;strong>如何提升指令缓存的命中率？&lt;/strong>&lt;/p>
+&lt;h2 id="如何提升指令缓存的命中率">如何提升指令缓存的命中率？&lt;a class="td-heading-self-link" href="#%e5%a6%82%e4%bd%95%e6%8f%90%e5%8d%87%e6%8c%87%e4%bb%a4%e7%bc%93%e5%ad%98%e7%9a%84%e5%91%bd%e4%b8%ad%e7%8e%87" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>提升数据的缓存命中率的方式，是按照内存布局顺序访问，那针对指令的缓存该如何提升呢？&lt;/p>
 &lt;p>我们以一个例子来看看，有一个元素为 0 到 100 之间随机数字组成的一维数组：&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966335-6aaaed0e-683e-430b-9353-77fd5e6c8faf.png" alt="">&lt;/p>
@@ -448,7 +532,7 @@
 &lt;p>如果你肯定代码中的 if 中的表达式判断为 true 的概率比较高，我们可以使用显示分支预测工具，比如在 C/C++ 语言中编译器提供了 likely 和 unlikely 这两种宏，如果 if 条件为 ture 的概率大，则可以用 likely 宏把 if 里的表达式包裹起来，反之用 unlikely 宏。&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/yrrbwa/1616167966345-b3b92b9e-0575-44ac-8224-7c1e4f638267.png" alt="">&lt;/p>
 &lt;p>实际上，CPU 自身的动态分支预测已经是比较准的了，所以只有当非常确信 CPU 预测的不准，且能够知道实际的概率情况时，才建议使用这两种宏。&lt;/p>
-&lt;p>&lt;strong>如果提升多核 CPU 的缓存命中率？&lt;/strong>&lt;/p>
+&lt;h2 id="如果提升多核-cpu-的缓存命中率">如果提升多核 CPU 的缓存命中率？&lt;a class="td-heading-self-link" href="#%e5%a6%82%e6%9e%9c%e6%8f%90%e5%8d%87%e5%a4%9a%e6%a0%b8-cpu-%e7%9a%84%e7%bc%93%e5%ad%98%e5%91%bd%e4%b8%ad%e7%8e%87" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>在单核 CPU，虽然只能执行一个进程，但是操作系统给每个进程分配了一个时间片，时间片用完了，就调度下一个进程，于是各个进程就按时间片交替地占用 CPU，从宏观上看起来各个进程同时在执行。&lt;/p>
 &lt;p>而现代 CPU 都是多核心的，进程可能在不同 CPU 核心来回切换执行，这对 CPU Cache 不是有利的，虽然 L3 Cache 是多核心之间共享的，但是 L1 和 L2 Cache 都是每个核心独有的，&lt;strong>如果一个进程在不同核心来回切换，各个核心的缓存命中率就会受到影响&lt;/strong>，相反如果进程都在同一个核心上执行，那么其数据的 L1 和 L2 Cache 的缓存命中率可以得到有效提高，缓存命中率高就意味着 CPU 可以减少访问 内存的频率。&lt;/p>
 &lt;p>当有多个同时执行「计算密集型」的线程，为了防止因为切换到不同的核心，而导致缓存命中率下降的问题，我们可以把&lt;strong>线程绑定在某一个 CPU 核心上&lt;/strong>，这样性能可以得到非常可观的提升。&lt;/p>
@@ -972,122 +1056,18 @@ lmbench 相对更准确一些，因为考虑了切换后 Cache miss 导致的额
 &lt;li>&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU2NTYyOTQ4OQ==&amp;amp;mid=2247483850&amp;amp;idx=1&amp;amp;sn=b90a78604fa174f0e7314227a3002bdc&amp;amp;chksm=fcb98694cbce0f82024467c835c6e3b4984773b1a2f6c1625d573066c36b14420d996819bed7&amp;amp;scene=21#wechat_redirect">&lt;strong>程序员应如何理解 CPU ？&lt;/strong>&lt;/a>&lt;/li>
 &lt;li>&lt;a href="http://mp.weixin.qq.com/s?__biz=MzU2NTYyOTQ4OQ==&amp;amp;mid=2247484768&amp;amp;idx=1&amp;amp;sn=049db350af9e5eea5cf3523ceb83f447&amp;amp;chksm=fcb9823ecbce0b28ca28d021e68c78138cde4a1b86ea7209c0c667d3d544d223d8b2aecbccec&amp;amp;scene=21#wechat_redirect">&lt;strong>看完这篇还不懂线程与线程池你来打我&lt;/strong>&lt;/a>&lt;/li>
 &lt;/ol>
-&lt;p>**&lt;/p></description></item><item><title>Docs: Interrupts(中断)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts%E4%B8%AD%E6%96%AD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts%E4%B8%AD%E6%96%AD/</guid><description/></item><item><title>Docs: Load Average 平均负载简述</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Load-Average-%E5%B9%B3%E5%9D%87%E8%B4%9F%E8%BD%BD%E7%AE%80%E8%BF%B0/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Load-Average-%E5%B9%B3%E5%9D%87%E8%B4%9F%E8%BD%BD%E7%AE%80%E8%BF%B0/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;a href="https://blog.csdn.net/u011183653/article/details/19489603">https://blog.csdn.net/u011183653/article/details/19489603&lt;/a>&lt;/p>
-&lt;p>&lt;a href="https://blog.csdn.net/slvher/article/details/9199439">https://blog.csdn.net/slvher/article/details/9199439&lt;/a>&lt;/p>
-&lt;h1 id="load-与-load-average">Load 与 Load Average&lt;a class="td-heading-self-link" href="#load-%e4%b8%8e-load-average" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;pre>&lt;code>LoadAverage = calc_load(TASK_RUNNING + TASK_UNINTERRUPTIBLE,n)
-&lt;/code>&lt;/pre>
-&lt;p>Load 是此时此刻 CPU 正在处理的进程数。进程可运行状态时，它处在一个运行队列 run queue 中，与其他可运行进程争夺 CPU 时间。 系统的 load 是指正在运行 running 和准备好运行 runnable 以及 不可中断睡眠 的进程的总数。比如现在系统有 2 个正在运行的进程，3 个可运行进程，那么系统的 load 就是 5&lt;/p>
-&lt;p>Load Average 为在特定时间间隔内运行队列中(在 CPU 上运行或者等待运行多少进程)的平均进程数。如果一个进程满足以下条件则其就会位于运行队列中：&lt;/p>
-&lt;ol>
-&lt;li>
-&lt;p>它没有在等待 I/O 操作的结果&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>它没有主动进入等待状态(也就是没有调用’wait’)&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>没有被停止(例如：等待终止)&lt;/p>
-&lt;/li>
-&lt;/ol>
-&lt;p>在 Linux 中，进程分为三种状态，一种是阻塞的进程 blocked process，一种是可运行的进程 runnable process，另外就是正在运行的进程 running process。当进程阻塞时，进程会等待 I/O 设备的数据或者系统调用。&lt;/p>
-&lt;p>一、查看系统负荷&lt;/p>
-&lt;p>如果你的电脑很慢，你或许想查看一下，它的工作量是否太大了。&lt;/p>
-&lt;p>在 Linux 系统中，我们一般使用 uptime 命令查看（w 命令和 top 命令也行）。（另外，它们在苹果公司的 Mac 电脑上也适用。）&lt;/p>
-&lt;p>你在终端窗口键入 uptime，系统会返回一行信息。&lt;/p>
-&lt;pre>&lt;code>[root@lichenhao ~]# uptime
-17:00:00 up 2 days, 2:53, 1 user, load average: 0.09, 0.05, 0.01
-&lt;/code>&lt;/pre>
-&lt;p>这行信息的后半部分，显示&amp;quot;load average&amp;quot;，它的意思是&amp;quot;系统的平均负荷&amp;quot;，里面有三个数字，我们可以从中判断系统负荷是大还是小。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091810-b44dc550-47cf-44e2-94c4-de77c383db2c.jpeg" alt="">&lt;/p>
-&lt;p>为什么会有三个数字呢？你从手册中查到，它们的意思分别是 1 分钟、5 分钟、15 分钟内系统的平均负荷。&lt;/p>
-&lt;p>如果你继续看手册，它还会告诉你，当 CPU 完全空闲的时候，平均负荷为 0；当 CPU 工作量饱和的时候，平均负荷为 1。&lt;/p>
-&lt;p>那么很显然，&amp;ldquo;load average&amp;quot;的值越低，比如等于 0.2 或 0.3，就说明电脑的工作量越小，系统负荷比较轻。&lt;/p>
-&lt;p>但是，什么时候能看出系统负荷比较重呢？等于 1 的时候，还是等于 0.5 或等于 1.5 的时候？如果 1 分钟、5 分钟、15 分钟三个值不一样，怎么办？&lt;/p>
-&lt;p>二、一个类比&lt;/p>
-&lt;p>判断系统负荷是否过重，必须理解 load average 的真正含义。下面，我根据&amp;quot;Understanding Linux CPU Load&amp;quot;这篇文章，尝试用最通俗的语言，解释这个问题。&lt;/p>
-&lt;p>首先，假设最简单的情况，你的电脑只有一个 CPU，所有的运算都必须由这个 CPU 来完成。&lt;/p>
-&lt;p>那么，我们不妨把这个 CPU 想象成一座大桥，桥上只有一根车道，所有车辆都必须从这根车道上通过。（很显然，这座桥只能单向通行。）&lt;/p>
-&lt;p>系统负荷为 0，意味着大桥上一辆车也没有。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091810-e462799a-5a71-46cc-8f5a-560ab51b7f6b.jpeg" alt="">&lt;/p>
-&lt;p>系统负荷为 0.5，意味着大桥一半的路段有车。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091819-cf628c32-b0c1-4c81-a5fa-35c30d663944.jpeg" alt="">&lt;/p>
-&lt;p>系统负荷为 1.0，意味着大桥的所有路段都有车，也就是说大桥已经&amp;quot;满&amp;quot;了。但是必须注意的是，直到此时大桥还是能顺畅通行的。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091800-0fa2f777-ecc8-43c3-8c10-029b54de5eb4.jpeg" alt="">&lt;/p>
-&lt;p>系统负荷为 1.7，意味着车辆太多了，大桥已经被占满了（100%），后面等着上桥的车辆为桥面车辆的 70%。以此类推，系统负荷 2.0，意味着等待上桥的车辆与桥面的车辆一样多；系统负荷 3.0，意味着等待上桥的车辆是桥面车辆的 2 倍。总之，当系统负荷大于 1，后面的车辆就必须等待了；系统负荷越大，过桥就必须等得越久。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091822-b290f2e0-2edb-4775-a7a1-fecd0d32bb3c.jpeg" alt="">&lt;/p>
-&lt;p>CPU 的系统负荷，基本上等同于上面的类比。大桥的通行能力，就是 CPU 的最大工作量；桥梁上的车辆，就是一个个等待 CPU 处理的进程（process）。&lt;/p>
-&lt;p>如果 CPU 每分钟最多处理 100 个进程，那么系统负荷 0.2，意味着 CPU 在这 1 分钟里只处理 20 个进程；系统负荷 1.0，意味着 CPU 在这 1 分钟里正好处理 100 个进程；系统负荷 1.7，意味着除了 CPU 正在处理的 100 个进程以外，还有 70 个进程正排队等着 CPU 处理。&lt;/p>
-&lt;p>Note：如果 CPU 一分钟的时间一直处理 1 个进程，那么 1 分钟的负载也是 1。&lt;/p>
-&lt;p>为了电脑顺畅运行，系统负荷最好不要超过 1.0，这样就没有进程需要等待了，所有进程都能第一时间得到处理。很显然，1.0 是一个关键值，超过这个值，系统就不在最佳状态了，你要动手干预了。&lt;/p>
-&lt;p>三、系统负荷的经验法则&lt;/p>
-&lt;p>1.0 是系统负荷的理想值吗？&lt;/p>
-&lt;p>不一定，系统管理员往往会留一点余地，当这个值达到 0.7，就应当引起注意了。经验法则是这样的：&lt;/p>
-&lt;p>当系统负荷持续大于 0.7，你必须开始调查了，问题出在哪里，防止情况恶化。&lt;/p>
-&lt;p>当系统负荷持续大于 1.0，你必须动手寻找解决办法，把这个值降下来。&lt;/p>
-&lt;p>当系统负荷达到 5.0，就表明你的系统有很严重的问题，长时间没有响应，或者接近死机了。你不应该让系统达到这个值。&lt;/p>
-&lt;p>四、多处理器&lt;/p>
-&lt;p>上面，我们假设你的电脑只有 1 个 CPU。如果你的电脑装了 2 个 CPU，会发生什么情况呢？&lt;/p>
-&lt;p>2 个 CPU，意味着电脑的处理能力翻了一倍，能够同时处理的进程数量也翻了一倍。&lt;/p>
-&lt;p>还是用大桥来类比，两个 CPU 就意味着大桥有两根车道了，通车能力翻倍了。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/pagncp/1616167091818-7b6aaceb-456c-4625-a2b4-cba8501b8858.jpeg" alt="">&lt;/p>
-&lt;p>所以，2 个 CPU 表明系统负荷可以达到 2.0，此时每个 CPU 都达到 100%的工作量。推广开来，n 个 CPU 的电脑，可接受的系统负荷最大为 n.0。&lt;/p>
-&lt;p>五、多核处理器&lt;/p>
-&lt;p>芯片厂商往往在一个 CPU 内部，包含多个 CPU 核心，这被称为多核 CPU。&lt;/p>
-&lt;p>在系统负荷方面，多核 CPU 与多 CPU 效果类似，所以考虑系统负荷的时候，必须考虑这台电脑有几个 CPU、每个 CPU 有几个核心。然后，把系统负荷除以总的核心数，只要每个核心的负荷不超过 1.0，就表明电脑正常运行。&lt;/p>
-&lt;p>怎么知道电脑有多少个 CPU 核心呢？&lt;/p>
-&lt;p>&amp;ldquo;cat /proc/cpuinfo&amp;quot;命令，可以查看 CPU 信息。&amp;ldquo;grep -c &amp;lsquo;model name&amp;rsquo; /proc/cpuinfo&amp;quot;命令，直接返回 CPU 的总核心数。&lt;/p>
-&lt;p>六、最佳观察时长&lt;/p>
-&lt;p>最后一个问题，&amp;ldquo;load average&amp;quot;一共返回三个平均值&amp;mdash;-1 分钟系统负荷、5 分钟系统负荷，15 分钟系统负荷，&amp;mdash;-应该参考哪个值？&lt;/p>
-&lt;p>如果只有 1 分钟的系统负荷大于 1.0，其他两个时间段都小于 1.0，这表明只是暂时现象，问题不大。&lt;/p>
-&lt;p>如果 15 分钟内，平均系统负荷大于 1.0（调整 CPU 核心数之后），表明问题持续存在，不是暂时现象。所以，你应该主要观察&amp;quot;15 分钟系统负荷&amp;rdquo;，将它作为电脑正常运行的指标。&lt;/p>
-&lt;p>==========================================&lt;/p>
-&lt;p>[参考文献]&lt;/p>
-&lt;ol>
-&lt;li>
-&lt;p>Understanding Linux CPU Load&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>Wikipedia - Load (computing)&lt;/p>
-&lt;/li>
-&lt;/ol>
-&lt;p>（完）&lt;/p>
-&lt;h1 id="简单说下-cpu-负载和-cpu-利用率的区别">简单说下 CPU 负载和 CPU 利用率的区别&lt;a class="td-heading-self-link" href="#%e7%ae%80%e5%8d%95%e8%af%b4%e4%b8%8b-cpu-%e8%b4%9f%e8%bd%bd%e5%92%8c-cpu-%e5%88%a9%e7%94%a8%e7%8e%87%e7%9a%84%e5%8c%ba%e5%88%ab" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>1）CPU 利用率：显示的是程序在运行期间实时占用的 CPU 百分比&lt;/p>
-&lt;p>2）CPU 负载：显示的是一段时间内正在使用和等待使用 CPU 的平均任务数。&lt;/p>
-&lt;p>CPU 利用率高，并不意味着负载就一定大。&lt;/p>
-&lt;p>举例来说：&lt;/p>
-&lt;p>如果有一个程序它需要一直使用 CPU 的运算功能，那么此时 CPU 的使用率可能达到 100%，但是 CPU 的工作负载则是趋近于&amp;quot;1&amp;rdquo;，因为 CPU 仅负责一个工作！&lt;/p>
-&lt;p>如果同时执行这样的程序两个呢？CPU 的使用率还是 100%，但是工作负载则变成 2 了。所以也就是说，当 CPU 的工作负载越大，代表 CPU 必须要在不同的工作之间&lt;/p>
-&lt;p>进行频繁的工作切换。&lt;/p>
-&lt;p>&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;下面通过一个电话亭打电话的比喻来说明这两者之间的区别&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&lt;/p>
-&lt;p>某公用电话亭，有一个人在打电话，四个人在等待，每人限定使用电话一分钟，若有人一分钟之内没有打完电话，只能挂掉电话去排队，等待下一轮。&lt;/p>
-&lt;p>电话在这里就相当于 CPU，而正在或等待打电话的人就相当于任务数。&lt;/p>
-&lt;p>在电话亭使用过程中，肯定会有人打完电话走掉，有人没有打完电话而选择重新排队，更会有新增的人在这儿排队，这个人数的变化就相当于任务数的增减。&lt;/p>
-&lt;p>为了统计平均负载情况，我们 5 分钟统计一次人数，并在第 1、5、15 分钟的时候对统计情况取平均值，从而形成第 1、5、15 分钟的平均负载。&lt;/p>
-&lt;p>有的人拿起电话就打，一直打完 1 分钟，而有的人可能前三十秒在找电话号码，或者在犹豫要不要打，后三十秒才真正在打电话。如果把电话看作 CPU，人数看&lt;/p>
-&lt;p>作任务，我们就说前一个人（任务）的 CPU 利用率高，后一个人（任务）的 CPU 利用率低。当然， CPU 并不会在前三十秒工作，后三十秒歇着，只是说，有的程&lt;/p>
-&lt;p>序涉及到大量的计算，所以 CPU 利用率就高，而有的程序牵涉到计算的部分很少，CPU 利用率自然就低。但无论 CPU 的利用率是高是低，跟后面有多少任务在排队&lt;/p>
-&lt;p>没有必然关系。&lt;/p>
-&lt;h1 id="理解-linux-load-average-的误区">理解 LINUX LOAD AVERAGE 的误区&lt;a class="td-heading-self-link" href="#%e7%90%86%e8%a7%a3-linux-load-average-%e7%9a%84%e8%af%af%e5%8c%ba" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>Load average 的概念源自 UNIX 系统，虽然各家的公式不尽相同，但都是用于衡量正在使用 CPU 的进程数量和正在等待 CPU 的进程数量，一句话就是 runnable processes 的数量。所以 load average 可以作为 CPU 瓶颈的参考指标，如果大于 CPU 的数量，说明 CPU 可能不够用了。&lt;/p>
-&lt;p>但是，Linux 上不是这样的！&lt;/p>
-&lt;p>Linux 上的 load average 除了包括正在使用 CPU 的进程数量和正在等待 CPU 的进程数量之外，还包括 uninterruptible sleep 的进程数量。通常等待 IO 设备、等待网络的时候，进程会处于 uninterruptible sleep 状态。Linux 设计者的逻辑是，uninterruptible sleep 应该都是很短暂的，很快就会恢复运行，所以被等同于 runnable。然而 uninterruptible sleep 即使再短暂也是 sleep，何况现实世界中 uninterruptible sleep 未必很短暂，大量的、或长时间的 uninterruptible sleep 通常意味着 IO 设备遇到了瓶颈。众所周知，sleep 状态的进程是不需要 CPU 的，即使所有的 CPU 都空闲，正在 sleep 的进程也是运行不了的，所以 sleep 进程的数量绝对不适合用作衡量 CPU 负载的指标，Linux 把 uninterruptible sleep 进程算进 load average 的做法直接颠覆了 load average 的本来意义。所以在 Linux 系统上，load average 这个指标基本失去了作用，因为你不知道它代表什么意思，当看到 load average 很高的时候，你不知道是 runnable 进程太多还是 uninterruptible sleep 进程太多，也就无法判断是 CPU 不够用还是 IO 设备有瓶颈。&lt;/p>
-&lt;p>参考资料：&lt;a href="https://en.wikipedia.org/wiki/Load_(computing)">https://en.wikipedia.org/wiki/Load_(computing)&lt;/a>&lt;/p>
-&lt;p>“Most UNIX systems count only processes in the running (on CPU) or runnable (waiting for CPU) states. However, Linux also includes processes in uninterruptible sleep states (usually waiting for disk activity), which can lead to markedly different results if many processes remain blocked in I/O due to a busy or stalled I/O system.“&lt;/p></description></item><item><title>Docs: 调度算法</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95/</guid><description>
+&lt;p>**&lt;/p></description></item><item><title>Docs: Interrupts(中断)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts%E4%B8%AD%E6%96%AD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts%E4%B8%AD%E6%96%AD/</guid><description/></item><item><title>Docs: 调度算法</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;h2 id="调度类型">调度类型&lt;a class="td-heading-self-link" href="#%e8%b0%83%e5%ba%a6%e7%b1%bb%e5%9e%8b" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>由于任务有优先级之分，Linux 系统为了保障高优先级的任务能够尽可能早的被执行，于是分为了这几种调度类型，如下图：
 &lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/coth1i/1616168010725-2970b496-047e-4890-808b-84b4aa539c5f.jpeg" alt="">&lt;/p>
-&lt;p>&lt;strong>Deadline 和 Realtime 调度类型&lt;/strong>，应用于**实时任务。**这两个调度类型的调度策略合起来共有这三种，它们的作用如下：&lt;/p>
+&lt;p>&lt;strong>Deadline 和 Realtime 调度类型&lt;/strong>，应用于&lt;strong>实时任务&lt;/strong>。这两个调度类型的调度策略合起来共有这三种，它们的作用如下：&lt;/p>
 &lt;ul>
 &lt;li>SCHED_DEADLINE：是按照 deadline 进行调度的，距离当前时间点最近的 deadline 的任务会被优先调度；&lt;/li>
 &lt;li>SCHED_FIFO：对于相同优先级的任务，按先来先服务的原则，但是优先级更高的任务，可以抢占低优先级的任务，也就是优先级高的可以「插队」；&lt;/li>
 &lt;li>SCHED_RR：对于相同优先级的任务，轮流着运行，每个任务都有一定的时间片，当用完时间片的任务会被放到队列尾部，以保证相同优先级任务的公平性，但是高优先级的任务依然可以抢占低优先级的任务；&lt;/li>
 &lt;/ul>
-&lt;p>**Fair 调度类型，&lt;strong>应用于&lt;/strong>普通任务。**都是由 CFS 调度器管理的，分为两种调度策略：&lt;/p>
+&lt;p>&lt;strong>Fair 调度类型&lt;/strong>，应用于&lt;strong>普通任务&lt;/strong>。都是由 CFS 调度器管理的，分为两种调度策略：&lt;/p>
 &lt;ul>
 &lt;li>SCHED_NORMAL：普通任务使用的调度策略；&lt;/li>
 &lt;li>SCHED_BATCH：后台任务的调度策略，不和终端进行交互，因此在不影响其他需要交互的任务，可以适当降低它的优先级。&lt;/li>
@@ -1111,7 +1091,7 @@ lmbench 相对更准确一些，因为考虑了切换后 Cache miss 导致的额
 CFS 彻底&lt;strong>抛弃了 时间片轮转&lt;/strong> 的策略，而是改之为 &lt;strong>在任意的调度周期内公平分享 CPU 时间&lt;/strong> 的问题。
 我们平日里遇到的基本都是普通任务，对于普通任务来说，公平性最重要，在 Linux 里面，实现了一个基于 CFS 的调度算法，也就是完全公平调度（Completely Fair Scheduling）。&lt;/p>
 &lt;p>&lt;strong>Completely Fair Scheduler(完全公平的调度器，简称 CFS)&lt;/strong>。由 Ingo Molnar 实现并在 Linux Kernel 2.6.23 之后开始引入，并逐步替代老式的 (O)1 调度器。&lt;/p>
-&lt;p>CFS 使用 **vruntime(虚拟运行时间) **的概念，来指定任务的下一个时间片何时开始在 CPU 上执行。&lt;/p>
+&lt;p>CFS 使用 &lt;strong>vruntime(虚拟运行时间)&lt;/strong> 的概念，来指定任务的下一个时间片何时开始在 CPU 上执行。&lt;/p>
 &lt;p>CFS 的做法就是在一个特定的调度周期内，保证所有待调度的进程都能被执行一遍，主要通过 vruntime 的值来决定本轮调度周期内所能占用的 CPU 时间，vruntime 越少，本轮能占用的 CPU 时间越多；总体而言，CFS 就是通过保证各个进程 vruntime 的大小尽量一致来达到公平调度的效果&lt;/p>
 &lt;p>CFS 的算法理念是想让分配给每个任务的 CPU 时间是一样，于是它为每个任务安排一个 vruntime(虚拟运行时间)，如果一个任务在运行，其运行的越久，该任务的 vruntime 自然就会越大，而没有被运行的任务，vruntime 是不会变化的。&lt;/p>
 &lt;p>那么，在 CFS 算法调度的时候，会优先选择 vruntime 少的任务，以保证每个任务的公平性。&lt;/p>
@@ -1135,10 +1115,10 @@ CFS 彻底&lt;strong>抛弃了 时间片轮转&lt;/strong> 的策略，而是改
 &lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/coth1i/1616168010713-4cb848a3-7b8e-4d18-b8ac-c3af2229f370.jpeg" alt="">&lt;/p>
 &lt;p>在前面我们提到了，权重值与 nice 值的关系的，nice 值越低，权重值就越大，计算出来的 vruntime 就会越少，由于 CFS 算法调度的时候，就会优先选择 vruntime 少的任务进行执行，所以 nice 值越低，任务的优先级就越高。&lt;/p>
 &lt;p>我们可以在启动任务的时候，可以指定 nice 的值，比如将 mysqld 以 -3 优先级：&lt;/p>
-&lt;pre>&lt;code>[root@lichenhao ~]# nice -n -3 /usr/sbin/mysqld
+&lt;pre>&lt;code>~]# nice -n -3 /usr/sbin/mysqld
 &lt;/code>&lt;/pre>
 &lt;p>如果想修改已经运行中的任务的优先级，则可以使用 renice 来调整 nice 值：&lt;/p>
-&lt;pre>&lt;code>[root@lichenhao ~]# renice -10 -p 进程
+&lt;pre>&lt;code>~]# renice -10 -p 进程
 PID
 &lt;/code>&lt;/pre>
 &lt;p>nice 调整的是普通任务的优先级，所以不管怎么缩小 nice 值，任务永远都是普通任务，如果某些任务要求实时性比较高，那么你可以考虑改变任务的优先级以及调度策略，使得它变成实时任务，比如：&lt;/p>
@@ -1172,9 +1152,9 @@ chrf -f 1 -p 1996
 &lt;p>/proc/sys/kernel/sched_wakeup_granularity_ns # 表示进程被唤醒后至少应该运行的时间，这个数值越小，那么发生抢占的概率也就越高&lt;/p>
 &lt;h3 id="sched_latency_ns-与-sched_min_granularity_ns-参数的白话示例">sched_latency_ns 与 sched_min_granularity_ns 参数的白话示例&lt;a class="td-heading-self-link" href="#sched_latency_ns-%e4%b8%8e-sched_min_granularity_ns-%e5%8f%82%e6%95%b0%e7%9a%84%e7%99%bd%e8%af%9d%e7%a4%ba%e4%be%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;p>假如现在系统参数如下&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@lichenhao ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /proc/sys/kernel/sched_min_granularity_ns&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /proc/sys/kernel/sched_min_granularity_ns&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">10000000&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@lichenhao ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /proc/sys/kernel/sched_latency_ns&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /proc/sys/kernel/sched_latency_ns&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">24000000&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>那么就表明系统默认情况下，一个任务最少运行 1000 万纳秒(10 毫秒)，而一个调度周期是 2400 万纳秒(24 毫秒)，那么就说明，在一个调度周期内，可以运行 2.4(24 除以 10) 个任务。&lt;/p>
 &lt;p>这时候，如果同时有 5 个任务正在运行，那么一共需要 50 毫秒，这已经超出了 24 毫秒的调度周期。&lt;/p>

@@ -169,63 +169,59 @@
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/dev/sda1 on /boot &lt;span style="color:#204a87">type&lt;/span> xfs &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rw,relatime,attr2,inode64,noquota&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>tmpfs on /run/user/0 &lt;span style="color:#204a87">type&lt;/span> tmpfs &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rw,nosuid,nodev,relatime,size&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>201784k,mode&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>700&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>其实是已经被 systemd 挂载了，我们可以查看 systemd 的挂载单元 tmp&lt;/p>
-&lt;pre>&lt;code>[root@CentOS76 ~]# systemctl cat tmp.mount
-# /usr/lib/systemd/system/tmp.mount
-# This file is part of systemd.
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-[Unit]
-Description=Temporary Directory
-Documentation=man:hier(7)
-Documentation=http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
-ConditionPathIsSymbolicLink=!/tmp
-DefaultDependencies=no
-Conflicts=umount.target
-Before=local-fs.target umount.target
-[Mount]
-What=tmpfs
-Where=/tmp
-Type=tmpfs
-Options=mode=1777,strictatime
-# Make 'systemctl enable tmp.mount' work:
-[Install]
-WantedBy=local-fs.target
-&lt;/code>&lt;/pre>
-&lt;p>内容也很好看懂。Requires、After 这和 systemd service 的写法基本一致，[Mount] 下就是挂载的说明了，What 后是要挂载的文件系统，Where 是挂载到的地方，Type 是文件系统类型，Options 是挂载参数。相当于：&lt;/p>
-&lt;pre>&lt;code>mount -t &amp;lt;Type&amp;gt; -o &amp;lt;Options&amp;gt; &amp;lt;What&amp;gt; &amp;lt;Where&amp;gt;
-&lt;/code>&lt;/pre>
-&lt;p>我们看看目录下的挂载单元&lt;/p>
-&lt;pre>&lt;code>$ ll /usr/lib/systemd/system/*.mount
--rw-r--r--. 1 root root 670 Oct 31 07:31 /usr/lib/systemd/system/dev-hugepages.mount
--rw-r--r--. 1 root root 590 Oct 31 07:31 /usr/lib/systemd/system/dev-mqueue.mount
--rw-r--r--. 1 root root 615 Oct 31 07:31 /usr/lib/systemd/system/proc-sys-fs-binfmt_misc.mount
--rw-r--r--. 1 root root 681 Oct 31 07:31 /usr/lib/systemd/system/sys-fs-fuse-connections.mount
--rw-r--r--. 1 root root 719 Oct 31 07:31 /usr/lib/systemd/system/sys-kernel-config.mount
--rw-r--r--. 1 root root 662 Oct 31 07:31 /usr/lib/systemd/system/sys-kernel-debug.mount
--rw-r--r--. 1 root root 703 Oct 31 07:31 /usr/lib/systemd/system/tmp.mount
-&lt;/code>&lt;/pre>
-&lt;p>我们看一个文件&lt;/p>
-&lt;pre>&lt;code>$ cat /usr/lib/systemd/system/proc-sys-fs-binfmt_misc.mount
-# This file is part of systemd.
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-[Unit]
-Description=Arbitrary Executable File Formats File System
-Documentation=https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst
-Documentation=http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
-DefaultDependencies=no
-[Mount]
-What=binfmt_misc
-Where=/proc/sys/fs/binfmt_misc
-Type=binfmt_misc
-&lt;/code>&lt;/pre>
-&lt;p>实际上挂载单元的文件名和挂载点是关联的，挂载点路径转换为去掉以一个斜线，所有斜线转成横线&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># systemctl cat tmp.mount&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># /usr/lib/systemd/system/tmp.mount&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># This file is part of systemd.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># systemd is free software; you can redistribute it and/or modify it&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># under the terms of the GNU Lesser General Public License as published by&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># the Free Software Foundation; either version 2.1 of the License, or&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># (at your option) any later version.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Unit&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Description&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>Temporary Directory
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Documentation&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>man:hier&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>7&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Documentation&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">ConditionPathIsSymbolicLink&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>!/tmp
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">DefaultDependencies&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>no
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Conflicts&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>umount.target
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Before&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>local-fs.target umount.target
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Mount&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">What&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>tmpfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Where&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/tmp
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Type&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>tmpfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Options&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">mode&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>1777,strictatime
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># Make &amp;#39;systemctl enable tmp.mount&amp;#39; work:&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Install&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">WantedBy&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>local-fs.target
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>内容也很好看懂。Requires、After 这和 systemd service 的写法基本一致，[Mount] 下就是挂载的说明了，What 后是要挂载的文件系统，Where 是挂载到的地方，Type 是文件系统类型，Options 是挂载参数。相当于：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>mount -t &amp;lt;Type&amp;gt; -o &amp;lt;Options&amp;gt; &amp;lt;What&amp;gt; &amp;lt;Where&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们看看目录下的挂载单元&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ ll /usr/lib/systemd/system/*.mount
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r--. &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">670&lt;/span> Oct &lt;span style="color:#0000cf;font-weight:bold">31&lt;/span> 07:31 /usr/lib/systemd/system/dev-hugepages.mount
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r--. &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">590&lt;/span> Oct &lt;span style="color:#0000cf;font-weight:bold">31&lt;/span> 07:31 /usr/lib/systemd/system/dev-mqueue.mount
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r--. &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">615&lt;/span> Oct &lt;span style="color:#0000cf;font-weight:bold">31&lt;/span> 07:31 /usr/lib/systemd/system/proc-sys-fs-binfmt_misc.mount
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r--. &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">681&lt;/span> Oct &lt;span style="color:#0000cf;font-weight:bold">31&lt;/span> 07:31 /usr/lib/systemd/system/sys-fs-fuse-connections.mount
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r--. &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">719&lt;/span> Oct &lt;span style="color:#0000cf;font-weight:bold">31&lt;/span> 07:31 /usr/lib/systemd/system/sys-kernel-config.mount
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r--. &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">662&lt;/span> Oct &lt;span style="color:#0000cf;font-weight:bold">31&lt;/span> 07:31 /usr/lib/systemd/system/sys-kernel-debug.mount
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r--. &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">703&lt;/span> Oct &lt;span style="color:#0000cf;font-weight:bold">31&lt;/span> 07:31 /usr/lib/systemd/system/tmp.mount
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们看一个文件&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># /usr/lib/systemd/system/proc-sys-fs-binfmt_misc.mount&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># This file is part of systemd.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># systemd is free software; you can redistribute it and/or modify it&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># under the terms of the GNU Lesser General Public License as published by&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># the Free Software Foundation; either version 2.1 of the License, or&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># (at your option) any later version.&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Unit&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Description&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>Arbitrary Executable File Formats File System
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Documentation&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Documentation&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">DefaultDependencies&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>no
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Mount&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">What&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>binfmt_misc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Where&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/proc/sys/fs/binfmt_misc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Type&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>binfmt_misc
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>实际上挂载单元的文件名和挂载点是关联的，挂载点路径转换为去掉以一个斜线，所有斜线转成横线&lt;/p>
 &lt;p>例如它这个&lt;code>/proc/sys/fs/binfmt_misc&lt;/code>转成&lt;code>proc-sys-fs-binfmt_misc.mount&lt;/code>，注意，mount 单元不能从模版实例化而来， 也不能通过创建软连接的方法给同一个 mount 单元赋予多个别名。&lt;/p>
 &lt;p>在系统运行时创建的挂载点(独立于单元文件与 /etc/fstab 之外)将同样被 systemd 监控， 并且看上去与其他常规的 mount 单元没啥差别。详见 proc(5) 手册中对 /proc/self/mountinfo 的解释。&lt;/p>
 &lt;p>注意，某些 虚拟文件系统 拥有特别的功能，例如： /sys, /proc, /dev, /tmp, sys/fs/cgroup, /dev/mqueue, /proc/sys/fs/binfmt_misc … 无法通过 mount 单元对其进行修改或禁用。&lt;/p>
@@ -271,59 +267,55 @@ Type=binfmt_misc
 &lt;/ul>
 &lt;p>参见 systemd.exec(5) 与 systemd.kill(5) 以了解更多设置。&lt;/p>
 &lt;p>按照我找的实际观察下,开机后&lt;/p>
-&lt;pre>&lt;code>$ grep mnt /etc/fstab
-//10.0.23.85/test /mnt cifs x-systemd.automount,noauto,username=zhangguanzhang@xxxx.com,password=xxxxx,iocharset=utf8,x-systemd.device-timeout=20s 0 0
-$ mount | grep mnt
-systemd-1 on /mnt type autofs (rw,relatime,fd=26,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=21338)
-$ ll /mnt
-total 51288
--rwxr-xr-x 1 root root 52517368 Jul 23 2018 XshellPlus-6.0.0006r.exe
-$ mount | grep mnt
-systemd-1 on /mnt type autofs (rw,relatime,fd=26,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=21338)
-//10.0.23.85/test on /mnt type cifs (rw,relatime,vers=default,cache=strict,username=zhangguanzhang@xxxx.com,domain=,uid=0,noforceuid,gid=0,noforcegid,addr=10.0.23.85,file_mode=0755,dir_mode=0755,soft,nounix,serverino,mapposix,rsize=1048576,wsize=1048576,echo_interval=60,actimeo=1)
-&lt;/code>&lt;/pre>
-&lt;p>从上面可以看出只有我们访问的时候 systemd 收到了访问的请求才会去挂载的，也就是下面选项生效了&lt;/p>
-&lt;pre>&lt;code>noauto,x-systemd.automount
-&lt;/code>&lt;/pre>
-&lt;p>我们看下生成的挂载单元&lt;/p>
-&lt;pre>&lt;code>systemctl cat mnt.mount
-# /run/systemd/generator/mnt.mount
-# Automatically generated by systemd-fstab-generator
-[Unit]
-SourcePath=/etc/fstab
-Documentation=man:fstab(5) man:systemd-fstab-generator(8)
-[Mount]
-What=//10.0.23.85/test
-Where=/mnt
-Type=cifs
-Options=x-systemd.automount,noauto,username=zhangguanzhang@xxxx.com,password=xxxxxx,iocharset=utf8
-&lt;/code>&lt;/pre>
-&lt;p>我们还可以通过&lt;code>systemctl status mnt.mount&lt;/code>查看啥时候挂载的，可以查看&lt;code>systemctl status mnt.automount&lt;/code>查看是被哪个进程 pid 触发的挂载&lt;/p>
-&lt;pre>&lt;code>[root@CentOS76 ~]# systemctl status mnt.mount
-● mnt.mount - /mnt
-Loaded: loaded (/etc/fstab; bad; vendor preset: disabled)
-Active: active (mounted) since Wed 2019-04-24 18:46:19 CST; 3min 7s ago
-Where: /mnt
-What: //10.0.23.85/test
-Docs: man:fstab(5)
-man:systemd-fstab-generator(8)
-Process: 6901 ExecMount=/bin/mount //10.0.23.85/test /mnt -t cifs -o x-systemd.automount,username=zhangguanzhang@outlook.com,password=hj945417,_netdev,iocharset=utf8 (code=exited, status=0/SUCCESS)
-Tasks: 0
-Memory: 580.0K
-Apr 24 18:46:19 CentOS76 systemd[1]: Mounting /mnt...
-Apr 24 18:46:19 CentOS76 systemd[1]: Mounted /mnt.
-[root@CentOS76 ~]# date
-Wed Apr 24 18:49:33 CST 2019
-[root@CentOS76 ~]# systemctl status mnt.automount
-● mnt.automount
-Loaded: loaded (/etc/fstab; bad; vendor preset: disabled)
-Active: active (running) since Wed 2019-04-24 18:44:43 CST; 5min ago
-Where: /mnt
-Docs: man:fstab(5)
-man:systemd-fstab-generator(8)
-Apr 24 18:46:19 CentOS76 systemd[1]: Got automount request for /mnt, triggered by 6900 (ls)
-&lt;/code>&lt;/pre>
-&lt;p>参考
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ grep mnt /etc/fstab
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>//10.0.23.85/test /mnt cifs x-systemd.automount,noauto,username&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>zhangguanzhang@xxxx.com,password&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>xxxxx,iocharset&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>utf8,x-systemd.device-timeout&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>20s &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ mount &lt;span style="color:#000;font-weight:bold">|&lt;/span> grep mnt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>systemd-1 on /mnt &lt;span style="color:#204a87">type&lt;/span> autofs &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rw,relatime,fd&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>26,pgrp&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>1,timeout&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>0,minproto&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>5,maxproto&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>5,direct,pipe_ino&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>21338&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ ll /mnt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#0000cf;font-weight:bold">51288&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rwxr-xr-x &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">52517368&lt;/span> Jul &lt;span style="color:#0000cf;font-weight:bold">23&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">2018&lt;/span> XshellPlus-6.0.0006r.exe
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ mount &lt;span style="color:#000;font-weight:bold">|&lt;/span> grep mnt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>systemd-1 on /mnt &lt;span style="color:#204a87">type&lt;/span> autofs &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rw,relatime,fd&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>26,pgrp&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>1,timeout&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>0,minproto&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>5,maxproto&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>5,direct,pipe_ino&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>21338&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>//10.0.23.85/test on /mnt &lt;span style="color:#204a87">type&lt;/span> cifs &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rw,relatime,vers&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>default,cache&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>strict,username&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>zhangguanzhang@xxxx.com,domain&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>,uid&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>0,noforceuid,gid&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>0,noforcegid,addr&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>10.0.23.85,file_mode&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>0755,dir_mode&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>0755,soft,nounix,serverino,mapposix,rsize&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>1048576,wsize&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>1048576,echo_interval&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>60,actimeo&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>1&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>从上面可以看出只有我们访问的时候 systemd 收到了访问的请求才会去挂载的，也就是下面选项生效了&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>noauto,x-systemd.automount
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们看下生成的挂载单元&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>systemctl cat mnt.mount
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># /run/systemd/generator/mnt.mount&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># Automatically generated by systemd-fstab-generator&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Unit&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">SourcePath&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/etc/fstab
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Documentation&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>man:fstab&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>5&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> man:systemd-fstab-generator&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>8&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Mount&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">What&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>//10.0.23.85/test
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Where&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/mnt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Type&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>cifs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Options&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>x-systemd.automount,noauto,username&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>zhangguanzhang@xxxx.com,password&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>xxxxxx,iocharset&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>utf8
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们还可以通过&lt;code>systemctl status mnt.mount&lt;/code>查看啥时候挂载的，可以查看&lt;code>systemctl status mnt.automount&lt;/code>查看是被哪个进程 pid 触发的挂载&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@CentOS76 ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># systemctl status mnt.mount&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>● mnt.mount - /mnt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Loaded: loaded &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>/etc/fstab&lt;span style="color:#000;font-weight:bold">;&lt;/span> bad&lt;span style="color:#000;font-weight:bold">;&lt;/span> vendor preset: disabled&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Active: active &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>mounted&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> since Wed 2019-04-24 18:46:19 CST&lt;span style="color:#000;font-weight:bold">;&lt;/span> 3min 7s ago
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Where: /mnt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> What: //10.0.23.85/test
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Docs: man:fstab&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>5&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> man:systemd-fstab-generator&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>8&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Process: &lt;span style="color:#0000cf;font-weight:bold">6901&lt;/span> &lt;span style="color:#000">ExecMount&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/bin/mount //10.0.23.85/test /mnt -t cifs -o x-systemd.automount,username&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>zhangguanzhang@outlook.com,password&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>hj945417,_netdev,iocharset&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>utf8 &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">code&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>exited, &lt;span style="color:#000">status&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>0/SUCCESS&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Tasks: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Memory: 580.0K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Apr &lt;span style="color:#0000cf;font-weight:bold">24&lt;/span> 18:46:19 CentOS76 systemd&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>1&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>: Mounting /mnt...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Apr &lt;span style="color:#0000cf;font-weight:bold">24&lt;/span> 18:46:19 CentOS76 systemd&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>1&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>: Mounted /mnt.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@CentOS76 ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># date&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Wed Apr &lt;span style="color:#0000cf;font-weight:bold">24&lt;/span> 18:49:33 CST &lt;span style="color:#0000cf;font-weight:bold">2019&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@CentOS76 ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># systemctl status mnt.automount&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>● mnt.automount
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Loaded: loaded &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>/etc/fstab&lt;span style="color:#000;font-weight:bold">;&lt;/span> bad&lt;span style="color:#000;font-weight:bold">;&lt;/span> vendor preset: disabled&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Active: active &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>running&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> since Wed 2019-04-24 18:44:43 CST&lt;span style="color:#000;font-weight:bold">;&lt;/span> 5min ago
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Where: /mnt
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Docs: man:fstab&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>5&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> man:systemd-fstab-generator&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>8&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Apr &lt;span style="color:#0000cf;font-weight:bold">24&lt;/span> 18:46:19 CentOS76 systemd&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>1&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>: Got automount request &lt;span style="color:#204a87;font-weight:bold">for&lt;/span> /mnt, triggered by &lt;span style="color:#0000cf;font-weight:bold">6900&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>ls&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>参考
 &lt;a href="http://www.jinbuguo.com/systemd/systemd.mount.html">http://www.jinbuguo.com/systemd/systemd.mount.html&lt;/a>
 &lt;a href="http://www.jinbuguo.com/systemd/systemd.automount.html#">http://www.jinbuguo.com/systemd/systemd.automount.html#&lt;/a>
 &lt;a href="https://blog.csdn.net/richerg85/article/details/17917129">https://blog.csdn.net/richerg85/article/details/17917129&lt;/a>
@@ -661,7 +653,7 @@ Apr 24 18:46:19 CentOS76 systemd[1]: Got automount request for /mnt, triggered b
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Install&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">WantedBy&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>multi-user.target
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面就是一个模板文件，我们需要实例化他，那么只需要在 &lt;code>@&lt;/code> 符号后面添加字符串即可，&lt;code>systemctl enable wg-quick@wg0.service&lt;/code>，此时，将会生成如下 Unit File&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>lichenhao@hw-cloud-xngy-jump-server-linux-2 ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>$ systemctl cat wg-quick@wg0.service
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>desistdaydream@hw-cloud-xngy-jump-server-linux-2 ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>$ systemctl cat wg-quick@wg0.service
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># /lib/systemd/system/wg-quick@.service&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Unit&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Description&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>WireGuard via wg-quick&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>8&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> &lt;span style="color:#204a87;font-weight:bold">for&lt;/span> %I
