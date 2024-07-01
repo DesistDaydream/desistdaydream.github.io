@@ -1,0 +1,264 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – Hardware</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/</link><description>Recent content in Hardware on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: PCI</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/PCI/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/PCI/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考:&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/PCI/sysfs-pci.rst">GitHub 项目，torvalds/linux - 通过 sysfs 访问 PCI 设备资源&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/PCI/pci.rst">GitHub 项目，torvalds/linux - 如何编写 PCI 驱动&lt;/a>
+&lt;ul>
+&lt;li>&lt;a href="https://www.cnblogs.com/wanglouxiaozi/p/15525726.html">博客园，如何编写Linux PCI驱动程序&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;a href="https://www.makelinux.net/ldd3/">https://www.makelinux.net/ldd3/&lt;/a> - &lt;a href="https://www.makelinux.net/ldd3/chp-12-sect-1.shtml">12.1. The PCI Interface&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>&lt;a href="https://desistdaydream.github.io/docs/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/Motherboard/PCI.md">PCI&lt;/a> device resources(PCI 设备资源)&lt;/strong> 由 Kernel 注册在 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/%E7%89%B9%E6%AE%8A%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/Sys%20File%20System.md">Sys File System&lt;/a> 的 &lt;code>/sys/devices/pci${DOMAIN:BUS}/&lt;/code> 目录。每个 PCI 设备资源在该目录下都有一个以 &lt;strong>唯一标识符(有的时候也称为 PCI Address)&lt;/strong> 命名的目录，格式为: &lt;strong>&lt;code>DOMAIN:BUS:SLOT.FUNC&lt;/code>&lt;/strong>（e.g. 0000:17:00.0）&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>DOMAIN(域)&lt;/strong> # 表示 PCI 域编号。用于识别主机系统中的不同 PCI 主机桥。在较早期的系统中，只有一个域编号为 0。随着系统规模扩大，可能存在多个 PCI 域。&lt;/li>
+&lt;li>&lt;strong>BUS(总线)&lt;/strong> # 表示 PCI 总线编号（16 进制）。一个 PCI 域中可能包含多条 PCI 总线，每条总线都有一个唯一编号。&lt;/li>
+&lt;li>&lt;strong>SLOT(插槽)&lt;/strong> # 表示 PCI 插槽编号。每条 PCI 总线上可以连接多个 PCI 设备，每个设备对应一个插槽编号。
+&lt;ul>
+&lt;li>有的源码中也描述为 DEVICE。比如&lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/PCI/pci-iov-howto.rst">这里&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>FUNC(功能)&lt;/strong> # 表示 PCI 功能编号。一些 PCI 设备可能包含多个独立的功能，每个功能都有一个编号,用于区分和访问。对于单功能设备,该编号通常为 0。
+&lt;ul>
+&lt;li>有的源码中也描述为 FUNCTION&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>通常来说，目录可能是像这样的:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>/sys/devices/pci0000:17
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span>-- 0000:17:00.0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- class
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- config
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- device
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- &lt;span style="color:#204a87">enable&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- irq
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- local_cpus
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- remove
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- resource
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- resource0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- resource1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- resource2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- revision
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- rom
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- subsystem_device
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span>-- subsystem_vendor
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">|&lt;/span> &lt;span style="color:#4e9a06">`&lt;/span>-- vendor
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">`&lt;/span>-- ...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面这个目录的例子描述的 PCI 设备在 Domain(域) 编号为 0000，Bus(总线) 编号为 17（HEX）。该 Bus 在 Slot(插槽) 0 中包含了 1 个单一功能的 device(设备)。&lt;/p>
+&lt;h2 id="pci-设备资源目录">PCI 设备资源目录&lt;a class="td-heading-self-link" href="#pci-%e8%ae%be%e5%a4%87%e8%b5%84%e6%ba%90%e7%9b%ae%e5%bd%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;blockquote>
+&lt;p>参考:&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/torvalds/linux/blob/master/include/linux/pci_ids.h">GitHub 项目，torvalds/linux - include/linux/pci_ids.h&lt;/a> 定义了所有 PCI 相关的 Class、Vendor、Device 的 ID。
+&lt;ul>
+&lt;li>比如该目录下的 class、device、vendor、etc. 文件中的值的含义，可以从这里找到定义&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/PCI/sysfs-pci.rst">https://github.com/torvalds/linux/blob/master/Documentation/PCI/sysfs-pci.rst&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>PCI device resouorces(PCI 设备的资源)&lt;/strong> 数据以文件形式保存，&lt;em>PCI 设备资源目录&lt;/em> 通常包含如下文件&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>文件名&lt;/th>
+&lt;th>功能&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>class&lt;/td>
+&lt;td>PCI 设备的类型 ID (ascii, ro)。比如 网卡、USB、etc.&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>device&lt;/td>
+&lt;td>PCI 设备的型号 ID (ascii, ro)。类似设备型号，比如 I350 Gigabit Network 这种。设备 ID 基于供应商 ID，是在供应商 ID 之下的。&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>vendor&lt;/td>
+&lt;td>PCI 设备的供应商 ID (ascii, ro)。各种厂家，比如 Intel、AMD、etc.&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>subsystem_device&lt;/td>
+&lt;td>PCI 设备的型号子系统 ID (ascii, ro)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>subsystem_vendor&lt;/td>
+&lt;td>PCI 设备的供应商子系统 ID (ascii, ro)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>config&lt;/td>
+&lt;td>PCI config space (binary, rw)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>enable&lt;/td>
+&lt;td>Whether the device is enabled (ascii, rw)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>irq&lt;/td>
+&lt;td>IRQ number (ascii, ro)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>local_cpus&lt;/td>
+&lt;td>nearby CPU mask (cpumask, ro)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>remove&lt;/td>
+&lt;td>remove device from kernel&amp;rsquo;s list (ascii, wo)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>resource&lt;/td>
+&lt;td>PCI resource host addresses (ascii, ro)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>resource0..N&lt;/td>
+&lt;td>PCI resource N, if present (binary, mmap, rw)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>resource0_wc..N_wc&lt;/td>
+&lt;td>PCI WC map resource N, if prefetchable (binary, mmap)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>revision&lt;/td>
+&lt;td>PCI revision (ascii, ro)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>rom&lt;/td>
+&lt;td>PCI ROM resource, if present (binary, ro)&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>该目录中主要由如下几类文件&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>ro(只读) 类型文件&lt;/strong> # &lt;strong>是信息性的&lt;/strong>，对它们的写入将被忽略，“rom”文件除外。可写文件可用于在设备上执行操作（例如更改配置空间、分离设备）。 mmapable 文件可通过偏移量 0 处的文件 mmap 获得，并可用于从用户空间进行实际设备编程。请注意，某些平台不支持某些资源的映射，因此请务必检查任何尝试的映射的返回值。其中最值得注意的是 I/O 端口资源，它也提供读/写访问
+&lt;ul>
+&lt;li>&lt;strong>class、vendor、device、subsystem_vendor、subsystem_device&lt;/strong> # PCI 设备信息文件，文件内容是 HEX(16 进制) 的数字，数字对应的含义可以参考 &lt;a href="https://github.com/torvalds/linux/blob/master/include/linux/pci_ids.h">GitHub 项目，torvalds/linux - include/linux/pci_ids.h&lt;/a>
+&lt;ul>
+&lt;li>这些文件中的值分别对应 CLASS_ID、VENDOR_ID、DEVICE_ID、SBUVENDOR_ID、SUBDEVICE_ID&lt;/li>
+&lt;li>&lt;strong>Tips&lt;/strong>: DEVICE_ID 都是包含在 VENDOR_ID 下的，理解为某个供应商下的某个设备比如 1521 这个 DEVICE_ID，可以在 8086 这个 VENDOR_ID 下找到，表示英特尔公司的 1350 Gigabit Network Connection 型号的网卡&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>enable 文件&lt;/strong> # 提供了一个计数器，指示设备已启用的次数。如果“enable”文件当前返回“4”，并且回显“1”，则它将返回“5”。回显“0”会减少计数。但是，即使返回到 0，某些初始化也可能无法逆转。&lt;/li>
+&lt;li>&lt;strong>rom 文件&lt;/strong> # 的特殊之处在于它提供对设备 ROM 文件（如果可用）的只读访问。但默认情况下它是禁用的，因此应用程序应在尝试读取调用之前将字符串“1”写入文件以启用它，并在访问后通过将“0”写入文件来禁用它。请注意，必须启用设备才能读取 ROM 才能成功返回数据。如果驱动程序未绑定到设备，则可以使用上面记录的“enable”文件来启用它。&lt;/li>
+&lt;li>&lt;strong>remove 文件&lt;/strong> # 用于通过向文件写入非零整数来删除 PCI 设备。这不涉及任何类型的热插拔功能，例如关闭设备电源。该设备将从内核的 PCI 设备列表中删除，其 sysfs 目录也将被删除，并且该设备将从附加到它的任何驱动程序中删除。不允许移除 PCI 根总线。&lt;/li>
+&lt;/ul>
+&lt;h3 id="目录中的其他文件">目录中的其他文件&lt;a class="td-heading-self-link" href="#%e7%9b%ae%e5%bd%95%e4%b8%ad%e7%9a%84%e5%85%b6%e4%bb%96%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>&lt;strong>uevent&lt;/strong> # 用户空间事件&lt;/p>
+&lt;h1 id="pci-关联文件">PCI 关联文件&lt;a class="td-heading-self-link" href="#pci-%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>[!Question]
+如果有 pci.ids 文件，为啥还要自己定义 class、device、vendor、etc. 这些文件中的数字对应关系呢？是通过代码中的定义运行更效率？但是代码中的定义好像少。&lt;/p>
+&lt;p>看过下文之后，假如 DEVICE_ID 是 1521，在 pid.ids 文件中 &lt;a href="https://admin.pci-ids.ucw.cz/read/PC/8086/1521">https://admin.pci-ids.ucw.cz/read/PC/8086/1521&lt;/a>, 但是 Linux 源码 &lt;a href="https://github.com/torvalds/linux/blob/master/include/linux/pci_ids.h">https://github.com/torvalds/linux/blob/master/include/linux/pci_ids.h&lt;/a> 这里找不到对应 DEVICE_ID 是 1521。也就是说有部分 PCI 设备信息在 &lt;font color="#ff0000">pci.ids 文件中有，但是 Linxu 代码中没有&lt;/font>。&lt;/p>
+&lt;/blockquote>
+&lt;p>&lt;strong>pci.ids&lt;/strong> # 所有已知 PCI ID（vendors(供应商)、devices(设备)、classes(类别)、subclasses(子类别)）列表。可以称为 &lt;strong>PCI ID 存储库&lt;/strong>。&lt;/p>
+&lt;ul>
+&lt;li>不同的 Linux 发行版该文件所在位置不同，通常都是 &lt;code>/usr/share/XXX/pci.ids&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>.pciids-cache&lt;/strong> # 通过 DNS 查询模式获取到的所有 PCI ID 缓存文件&lt;/p>
+&lt;p>&lt;strong>pci_ids.h&lt;/strong> # &lt;a href="https://github.com/torvalds/linux/blob/master/include/linux/pci_ids.h">Linux 源码&lt;/a>中的 PCI ID 与 名称 的对应关系&lt;/p>
+&lt;p>&lt;strong>&lt;code>/sys/devices/pci${DOMAIN:BUS}/${DOMAIN:BUS:SLOT.FUNC}/&lt;/code>&lt;/strong> # &lt;a href="#PCI%20%E8%AE%BE%E5%A4%87%E8%B5%84%E6%BA%90%E7%9B%AE%E5%BD%95">PCI 设备资源储存目录&lt;/a>。包含该 PCI 设备的各种信息，e.g. 供应商、PCI 类型、etc.&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>/sys/bus/pci/devices/&lt;/strong> # 可以在这里找到所有 PCI 设备的列表，该目录下是 PCI Addr 命名的软链接，指向在 &lt;code>/sys/devices/pci${DOMAIN:BUS}/&lt;/code> 目录下的某个具体子目录。
+&lt;ul>
+&lt;li>Notes: 有的 PCI 层级可能比较多，比如这种 &lt;code>0000:08:00.0 -&amp;gt; ../../../devices/pci0000:00/0000:00:1c.1/0000:05:00.0/0000:06:00.0/0000:07:00.0/0000:08:00.0&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="pciids-文件">pci.ids 文件&lt;a class="td-heading-self-link" href="#pciids-%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考:&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://pci-ids.ucw.cz/">https://pci-ids.ucw.cz/&lt;/a>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/pciutils/pciids">GitHub 项目，pciutils/pciids&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man5/pci.ids.5.html">Manual(手册)，pci.ids(5)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>pci.ids 是 PCI 设备中使用的所有已知 ID 的公共存储库：供应商、设备、子系统和设备类别的 ID。它在各种程序（例如 &lt;a href="http://mj.ucw.cz/sw/pciutils/">PCI 实用程序&lt;/a>）中用于显示完整的人类可读名称，而不是神秘的数字代码。&lt;/p>
+&lt;p>该文件由 &lt;a href="https://github.com/pciutils">pciutils&lt;/a> 维护。在官方网站中有在线查询库可以在线查询，主要分为两大块查询&lt;/p>
+&lt;ul>
+&lt;li>查询 &lt;a href="https://admin.pci-ids.ucw.cz/read/PC/">PCI Device ID&lt;/a>
+&lt;ul>
+&lt;li>每个 Device 都在某个 Vendor 下，比如 1521 这个 DEVICE_ID，可以在 8086 这个 VENDOR_ID 下找到，表示英特尔公司的 1350 Gigabit Network Connection 型号的网卡&lt;/li>
+&lt;li>使用在线库查询时，先找到 VENDOR ID 点进去，再找 DEVICE ID，即可找到 设备的型号命名。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>查询 &lt;a href="https://admin.pci-ids.ucw.cz/read/PD/">PCI Device 类型 ID&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>TODO: 该文件的内容如何生成的？比如 /sys/devices/pci0000:00/0000:00:00.0/vendor 文件的值怎么来的？从 &lt;a href="https://github.com/torvalds/linux/blob/master/include/linux/pci.h">include/linux/pci.h&lt;/a> 文件的提示中 &lt;code>For more information, please consult the following manuals (look at http://www.pcisig.com/ for how to get them)&lt;/code> 合理猜测这些数据都是从 PCI SIG 定义的规范中获取到的？&lt;/p>
+&lt;/blockquote>
+&lt;p>下面的维护和更新由 AI 回答，待验证&lt;/p>
+&lt;h2 id="维护和更新">维护和更新&lt;a class="td-heading-self-link" href="#%e7%bb%b4%e6%8a%a4%e5%92%8c%e6%9b%b4%e6%96%b0" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>维护机构&lt;/strong>：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>pci.ids&lt;/code> 文件由 &lt;code>pciutils&lt;/code> 项目维护，该项目的开发者和社区成员定期更新这个文件。&lt;/li>
+&lt;li>&lt;code>pciutils&lt;/code> 项目由 Martin Mares 维护，托管在 &lt;code>https://github.com/pciutils/pciids&lt;/code>。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>数据来源&lt;/strong>：&lt;/p>
+&lt;ul>
+&lt;li>新的供应商 ID 和设备 ID 通常由硬件制造商提供。&lt;/li>
+&lt;li>制造商向 &lt;a href="https://desistdaydream.github.io/docs/Standard/IT/PCI-SIG.md">PCI-SIG&lt;/a> 注册他们的 ID。PCI-SIG 是管理和分配 PCI ID 的机构。&lt;/li>
+&lt;li>社区成员和开发者通过手动添加新设备的信息到 &lt;code>pci.ids&lt;/code> 文件中。&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>更新过程&lt;/strong>：&lt;/p>
+&lt;ul>
+&lt;li>新的设备信息通过提交补丁的方式添加到 &lt;code>pciutils&lt;/code> 项目的仓库中。&lt;/li>
+&lt;li>开发者在 GitHub 上提交 Pull Request 或直接发送补丁给维护者。&lt;/li>
+&lt;li>维护者审核并合并这些更改。&lt;/li>
+&lt;li>合并后的更新会在 &lt;code>pciutils&lt;/code> 项目的新版本中发布。&lt;/li>
+&lt;/ul>
+&lt;h1 id="pci-io-虚拟化">PCI I/O 虚拟化&lt;a class="td-heading-self-link" href="#pci-io-%e8%99%9a%e6%8b%9f%e5%8c%96" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/PCI/pci-iov-howto.rst">https://github.com/torvalds/linux/blob/master/Documentation/PCI/pci-iov-howto.rst&lt;/a>&lt;/p>
+&lt;p>用 &lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/DPDK.md">DPDK&lt;/a> 举例&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># lshw -c net -businfo&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Bus info Device Class &lt;span style="color:#000">Description&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">=======================================================&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pci@0000:02:00.0 network Ethernet 10G 2P X520 Adapter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pci@0000:02:00.1 network Ethernet 10G 2P X520 Adapter
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pci@0000:01:00.0 eno3 network I350 Gigabit Network Connection
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pci@0000:01:00.1 eno4 network I350 Gigabit Network Connection
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># dpdk-devbind.py -s&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Network devices using DPDK-compatible &lt;span style="color:#000">driver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">============================================&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:02:00.0 &lt;span style="color:#4e9a06">&amp;#39;Ethernet 10G 2P X520 Adapter 154d&amp;#39;&lt;/span> &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb_uio &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>ixgbe,vfio-pci
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:02:00.1 &lt;span style="color:#4e9a06">&amp;#39;Ethernet 10G 2P X520 Adapter 154d&amp;#39;&lt;/span> &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb_uio &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>ixgbe,vfio-pci
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Network devices using kernel &lt;span style="color:#000">driver&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">===================================&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:01:00.0 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>eno3 &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb_uio,vfio-pci
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:01:00.1 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>eno4 &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb_uio,vfio-pci
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># find / -name &amp;#39;sriov_numvfs&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/sys/devices/pci0000:00/0000:00:02.0/0000:02:00.0/sriov_numvfs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/sys/devices/pci0000:00/0000:00:02.0/0000:02:00.1/sriov_numvfs
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过 DPDK 管理的 PCI 设备可以找到 sriov_numvfs 文件&lt;/p>
+&lt;h1 id="pci-源码与实现规范">PCI 源码与实现规范&lt;a class="td-heading-self-link" href="#pci-%e6%ba%90%e7%a0%81%e4%b8%8e%e5%ae%9e%e7%8e%b0%e8%a7%84%e8%8c%83" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;a href="https://github.com/torvalds/linux/blob/v6.9/include/linux/pci.h#L322">https://github.com/torvalds/linux/blob/v6.9/include/linux/pci.h#L322&lt;/a> - &lt;code>struct pci_dev&lt;/code> 是存储 PCI 信息的结构体&lt;/p>
+&lt;p>&lt;code>include/linux/pci.h&lt;/code> 文件的开头注释中有这么一段&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span> &lt;span style="color:#000">For&lt;/span> &lt;span style="color:#000">more&lt;/span> &lt;span style="color:#000">information&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">please&lt;/span> &lt;span style="color:#000">consult&lt;/span> &lt;span style="color:#000">the&lt;/span> &lt;span style="color:#000">following&lt;/span> &lt;span style="color:#000">manuals&lt;/span> &lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">look&lt;/span> &lt;span style="color:#000">at&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span> &lt;span style="color:#f57900">http&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#8f5902;font-style:italic">//www.pcisig.com/ for how to get them):
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span> &lt;span style="color:#000">PCI&lt;/span> &lt;span style="color:#000">BIOS&lt;/span> &lt;span style="color:#000">Specification&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span> &lt;span style="color:#000">PCI&lt;/span> &lt;span style="color:#000">Local&lt;/span> &lt;span style="color:#000">Bus&lt;/span> &lt;span style="color:#000">Specification&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span> &lt;span style="color:#000">PCI&lt;/span> &lt;span style="color:#000">to&lt;/span> &lt;span style="color:#000">PCI&lt;/span> &lt;span style="color:#000">Bridge&lt;/span> &lt;span style="color:#000">Specification&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span> &lt;span style="color:#000">PCI&lt;/span> &lt;span style="color:#000">Express&lt;/span> &lt;span style="color:#000">Specification&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span> &lt;span style="color:#000">PCI&lt;/span> &lt;span style="color:#000">System&lt;/span> &lt;span style="color:#000">Design&lt;/span> &lt;span style="color:#000">Guide&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以查查这些规范里都有什么&lt;/p>
+&lt;ul>
+&lt;li>PCI BIOS Specification&lt;/li>
+&lt;li>PCI Local Bus Specification&lt;/li>
+&lt;li>PCI to PCI Bridge Specification&lt;/li>
+&lt;li>PCI Express Specification&lt;/li>
+&lt;li>PCI System Design Guide&lt;/li>
+&lt;/ul>
+&lt;h1 id="todo-wsl-中的-网卡-pci-总结">TODO: WSL 中的 网卡 PCI 总结&lt;a class="td-heading-self-link" href="#todo-wsl-%e4%b8%ad%e7%9a%84-%e7%bd%91%e5%8d%a1-pci-%e6%80%bb%e7%bb%93" aria-label="Heading self-link">&lt;/a>&lt;/h1></description></item></channel></rss>

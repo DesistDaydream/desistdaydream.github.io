@@ -7,21 +7,52 @@
 &lt;li>&lt;a href="https://prometheus.io/docs/practices/instrumentation/">官方文档，最佳实践-Instrumentation&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;p>Prometheus 可以通过 3 种方式从目标上 Scrape(抓取) 指标：&lt;/p>
-&lt;ol>
-&lt;li>&lt;strong>Instrumentation(检测仪)&lt;/strong> # 内部代码。将 Prometheus 的 Client Libraries(客户端库) 添加到程序代码中，以此暴露一个 endpoint，Prometheus Server 可以通过该 Endpoiint 抓取到指标。
-&lt;ol>
+&lt;p>Prometheus 可以从如下几类 Intrumenting 中 Scrape(抓取) 指标：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Instrumentation(检测仪/仪表化)&lt;/strong> # 内部仪表。本质上是 Prometheus 的 &lt;strong>Client Libraries(客户端库)&lt;/strong> 添加到程序代码中，以此暴露一个 endpoint，Prometheus Server 可以通过该 Endpoiint 抓取到指标。
+&lt;ul>
 &lt;li>可以理解为内嵌的 Exporter，比如 Prometheus Server 的 9090 端口的 &lt;code>/metrics&lt;/code> 就属于此类。&lt;/li>
 &lt;li>说白了，就是被监控目标自己就可以吐出符合 Prometheus 格式的指标数据&lt;/li>
-&lt;/ol>
+&lt;/ul>
 &lt;/li>
-&lt;li>&lt;strong>Exporters&lt;/strong> # 外部程序。&lt;/li>
+&lt;li>&lt;strong>Exporters&lt;/strong> # 外部仪表。
+&lt;ul>
+&lt;li>概念更为宽泛，除了使用到 Instrumentation 实现的各种程序外，还有一些通过脚本产生的符合 Prometheus &lt;a href="docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Storage(%E5%AD%98%E5%82%A8)/Data%20Model(%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B).md">Data Model(数据模型)&lt;/a> 的纯文本的程序也可以称为 Exporter。&lt;/li>
+&lt;/ul>
+&lt;/li>
 &lt;li>&lt;strong>Pushgateway&lt;/strong> # 针对需要推送指标的应用&lt;/li>
-&lt;/ol>
+&lt;/ul>
 &lt;h1 id="instrumentation">Instrumentation&lt;a class="td-heading-self-link" href="#instrumentation" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考:&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://prometheus.io/docs/instrumenting/clientlibs/">官方文档，Instrumentation - 客户端库&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Instrumentation(仪表化)&lt;/strong>，顾名思义，将某个东西变为 Instrumenting（也可以说变为 Exporter）。所以 Instrumentation 是一组 Library，当我们在编写的程序代码中引入了 Instrumentation，并使用其提供的各种方法、接口，那么我们的程序就可以变成像仪表一样的东西，以展示出想要的 观测或监控 数据。&lt;/p>
+&lt;p>Prometheus 官方维护了某些语言的 Library:&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/prometheus/client_golang">Go&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/prometheus/client_java">Java or Scala&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/prometheus/client_python">Python&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/prometheus/client_ruby">Ruby&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/prometheus/client_rust">Rust&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>除了官方自己维护的，还有一些官方推荐的第三方维护的特定语言的 Library，详见官网页。&lt;/p>
+&lt;h2 id="prometheus-开发工具包">Prometheus 开发工具包&lt;a class="td-heading-self-link" href="#prometheus-%e5%bc%80%e5%8f%91%e5%b7%a5%e5%85%b7%e5%8c%85" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;blockquote>
+&lt;p>参考:&lt;/p>
+&lt;p>&lt;a href="https://github.com/prometheus/exporter-toolkit">GitHub 项目，prometheus/exporter-toolkit&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://pkg.go.dev/github.com/prometheus/exporter-toolkit/web">https://pkg.go.dev/github.com/prometheus/exporter-toolkit/web&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Prometheus Exporter Toolkit 是一个可用于在 Prometheus 生态系统中进行开发时推广一组通用实践的工具包。它是用 Golang 编写的。&lt;/p>
+&lt;p>借助 exporter-toolkit 可以为自己开发的 Exporter 创建像 &lt;a href="docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/HTTPS%20%E5%92%8C%20Authentication(%E8%AE%A4%E8%AF%81).md">HTTPS 和 Authentication(认证)&lt;/a> 的能力。比如 node-exporter、push gateway、etc. 甚至 Prometheus 自身，都可以通过 &amp;ndash;web.config.file 参数实现认证功能，这就是通过 exporter-toolkit 库实现的。&lt;/p>
 &lt;h1 id="exporter">Exporter&lt;a class="td-heading-self-link" href="#exporter" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>在&lt;a href="https://github.com/prometheus/prometheus/wiki/Default-port-allocations">这里&lt;/a>可以看到经过 Prometheus 官方注册的各类 Exporter 所默认使用的端口号。&lt;/p>
-&lt;h1 id="push-gateway">Push Gateway&lt;a class="td-heading-self-link" href="#push-gateway" aria-label="Heading self-link">&lt;/a>&lt;/h1></description></item><item><title>Docs: Blackbox Exporter</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/Blackbox-Exporter/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/Blackbox-Exporter/</guid><description>
+&lt;h1 id="push-gateway">Push Gateway&lt;a class="td-heading-self-link" href="#push-gateway" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;a href="docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/Push%20Gateway.md">Push Gateway&lt;/a>&lt;/p></description></item><item><title>Docs: Blackbox Exporter</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/Blackbox-Exporter/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/Blackbox-Exporter/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -428,8 +459,8 @@
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
-&lt;li>&lt;a href="https://github.com/prometheus/pushgateway">GitHub 项目&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://prometheus.io/docs/practices/pushing/#when-to-use-the-pushgateway">官方文档,最佳实践-合时使用 Pushgateway&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/prometheus/pushgateway">GitHub 项目，prometheus/pushgateway&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://prometheus.io/docs/practices/pushing/#when-to-use-the-pushgateway">官方文档，最佳实践 - 合时使用 Pushgateway&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>Pushgateway 是 Prometheus 生态中一个重要工具，使用它的原因主要是：&lt;/p>
@@ -442,10 +473,15 @@
 &lt;li>将多个节点数据汇总到 pushgateway, 如果 pushgateway 挂了，受影响比多个 target 大。&lt;/li>
 &lt;li>Prometheus 拉取状态 up 只针对 pushgateway, 无法做到对每个节点有效。&lt;/li>
 &lt;li>Pushgateway 可以持久化推送给它的所有监控数据。&lt;/li>
+&lt;li>Pushgateway 对不推送的指标没有超时设计，并且在讨论中也不打算实现，因为各种提案都是不好的模式
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/prometheus/pushgateway/issues/19">https://github.com/prometheus/pushgateway/issues/19&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://groups.google.com/forum/#!topic/prometheus-developers/9IyUxRvhY7w">https://groups.google.com/forum/#!topic/prometheus-developers/9IyUxRvhY7w&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
 &lt;/ul>
 &lt;p>因此，即使你的监控已经下线，prometheus 还会拉取到旧的监控数据，需要手动清理 pushgateway 不要的数据。&lt;/p>
-&lt;p>Note：
-pushgateway 无法主动获取获取目标 metrics。目标需要通过脚本、daemon 程序、手动(e.g.通过 curl 获取 metrics 再发送给 pushgateway)等等方式，主动推送自己的 metrics 到 pushgateway 上。&lt;/p>
+&lt;p>Note：pushgateway 无法主动获取获取目标 metrics。目标需要通过脚本、daemon 程序、手动(e.g.通过 curl 获取 metrics 再发送给 pushgateway)等等方式，主动推送自己的 metrics 到 pushgateway 上。&lt;/p>
 &lt;h1 id="pushgateway-部署">PushGateway 部署&lt;a class="td-heading-self-link" href="#pushgateway-%e9%83%a8%e7%bd%b2" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker run -d -p 9091:9091 prom/pushgateway
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 Prometheus Server 的配置文件中加入配置以便让 Prometheus Server 获取 pushgateway 中的 metrics&lt;/p>
@@ -456,12 +492,12 @@ pushgateway 无法主动获取获取目标 metrics。目标需要通过脚本、
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">env&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#4e9a06">&amp;#39;pushgateway&amp;#39;&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">honor_labels&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">true&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="pushgateway-的使用方式">PushGateway 的使用方式&lt;a class="td-heading-self-link" href="#pushgateway-%e7%9a%84%e4%bd%bf%e7%94%a8%e6%96%b9%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>METRICS | curl &amp;ndash;data-binary @- http://IP:PORT/metrics/job/JobName/TableName1/TableValue1/&amp;hellip;./TableNameN/TableValueN&lt;/p>
-&lt;p>通过该命令来将 METRICS 中的内容推送到 PushGateway 中，其中 IP:PORT 就是 PushGateway 所在设备的 IP 及其监听的端口&lt;/p>
-&lt;p>METRICS # 想要推送给 PushGateway 的 metrics 信息。可以通过 curl 来获取指定对象的 metrics，也可以从文件中读取 metcis 格式的内容，等等。&lt;/p>
-&lt;p>IP:PORT # PushGateway 程序所在设备的 IP，及 PushGateway 监听的端口&lt;/p>
-&lt;p>JobName # 指定本次推送 metrics 的 job 名称。&lt;/p>
-&lt;p>TableXXX # JobName 后面的内容可以作为标签，附加在每个指标上&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-BASH" data-lang="BASH">&lt;span style="display:flex;">&lt;span>METRICS &lt;span style="color:#000;font-weight:bold">|&lt;/span> curl --data-binary @- http://IP:PORT/metrics/job/JobName/LabelName_1/LabelValue_1/..../LabelName_N/LabelValue_N
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过该命令来将 METRICS 中的内容推送到 PushGateway 中，其中 IP:PORT 就是 PushGateway 所在设备的 IP 及其监听的端口&lt;/p>
+&lt;p>&lt;strong>METRICS&lt;/strong> # 想要推送给 PushGateway 的 metrics 信息。可以通过 curl 来获取指定对象的 metrics，也可以从文件中读取 metcis 格式的内容，等等。&lt;/p>
+&lt;p>&lt;strong>IP:PORT&lt;/strong> # PushGateway 程序所在设备的 IP，及 PushGateway 监听的端口&lt;/p>
+&lt;p>&lt;strong>JobName&lt;/strong> # 指定本次推送 metrics 的 job 名称。&lt;/p>
+&lt;p>&lt;strong>LabelName_X | LabelValue_X&lt;/strong> # JobName 后面的内容可以作为标签，附加在每个指标上&lt;/p>
 &lt;p>每当使用该命令给 PushGateway 推送信息后，Prometheus 就会从 PushGateway 中获取该数据并存储在本地。&lt;/p>
 &lt;h1 id="推送数据示例">推送数据示例&lt;a class="td-heading-self-link" href="#%e6%8e%a8%e9%80%81%e6%95%b0%e6%8d%ae%e7%a4%ba%e4%be%8b" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>curl &lt;a href="http://10.10.100.205:9137/metrics">http://10.10.100.205:9137/metrics&lt;/a> | curl &amp;ndash;data-binary @- &lt;a href="http://10.10.100.110:9091/metrics/job/get_vs_state/vs_info/dev_phone_vs">http://10.10.100.110:9091/metrics/job/get_vs_state/vs_info/dev_phone_vs&lt;/a>&lt;/p>

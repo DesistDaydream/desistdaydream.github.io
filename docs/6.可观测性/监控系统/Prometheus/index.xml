@@ -68,6 +68,7 @@
 &lt;/li>
 &lt;li>&lt;strong>Pushgateway&lt;/strong> # 针对需要推送指标的应用&lt;/li>
 &lt;/ul>
+&lt;p>详见 &lt;a href="docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Instrumenting/Instrumenting.md">Instrumenting&lt;/a>&lt;/p>
 &lt;h2 id="label-与-relabeling">Label 与 Relabeling&lt;a class="td-heading-self-link" href="#label-%e4%b8%8e-relabeling" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>详见 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Target(%E7%9B%AE%E6%A0%87)%20%E4%B8%8E%20Relabeling(%E9%87%8D%E6%96%B0%E6%A0%87%E8%AE%B0).md">Label 与 Relabeling 章节&lt;/a>&lt;/p>
 &lt;h2 id="instrumenting-的安装与使用">Instrumenting 的安装与使用&lt;a class="td-heading-self-link" href="#instrumenting-%e7%9a%84%e5%ae%89%e8%a3%85%e4%b8%8e%e4%bd%bf%e7%94%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
@@ -591,18 +592,25 @@ groups 在 recording rule 中并没有实际意义，只是与 alerting rule 同
 &lt;h2 id="alerting">alerting&lt;a class="td-heading-self-link" href="#alerting" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>&lt;strong>alert_relabel_configs&lt;/strong>(&lt;a href="#relabel_configs">relabel_configs&lt;/a>)&lt;/p>
 &lt;p>适用于推送告警时的 Relabel 功能，配置与 &lt;a href="#PGKul">relabel_configs&lt;/a> 相同&lt;/p>
-&lt;p>&lt;strong>alertmanager&lt;/strong>([]OBJECT)&lt;/p>
+&lt;p>&lt;strong>alertmanager&lt;/strong>([]&lt;a href="#alertmanager">alertmanager&lt;/a>) # 该字段配置方式与 scrape_config 字段的配置非常相似，只不过不是配置抓取目标，而是配置推送告警的目标&lt;/p>
+&lt;h3 id="alertmanager">alertmanager&lt;a class="td-heading-self-link" href="#alertmanager" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;p>&lt;a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/#alertmanager_config">https://prometheus.io/docs/prometheus/latest/configuration/configuration/#alertmanager_config&lt;/a>&lt;/p>
-&lt;blockquote>
-&lt;p>该字段配置方式与 scrape_config 字段的配置非常相似，只不过不是配置抓取目标，而是配置推送告警的目标&lt;/p>
-&lt;/blockquote>
 &lt;p>alertmanager 字段指定了 Prometheus Server 发送警报的目标 Alertmanager，还提供了参数来配置如何与这些 Alertmanager 通信。此外，relabel_configs 允许从已发现的实体中选择 Alertmanagers，并对使用的 API 路径进行高级修改，该路径通过 &lt;strong>alerts_path&lt;/strong> 标签暴露。&lt;/p>
-&lt;p>&lt;strong>alerts.timeout(DURATION)&lt;/strong> # 推送警报时，每个目标 Alertmanager 超时，单位：秒。&lt;code>默认值: 10&lt;/code>。&lt;/p>
-&lt;p>&lt;strong>timeout(DURATION)&lt;/strong> # 推送告警时的超时时间。&lt;/p>
+&lt;p>&lt;strong>timeout(DURATION)&lt;/strong> # 推送警报时，每个目标 Alertmanager 超时，单位：秒。&lt;code>默认值: 10&lt;/code>。&lt;/p>
 &lt;p>&lt;strong>api_version(STRING)&lt;/strong> # 推送告警时，应该使用哪个版本的 Alertmanager 路径。&lt;code>默认值：v2&lt;/code>。&lt;/p>
 &lt;p>&lt;strong>path_prefix(PATH)&lt;/strong> # 推送告警时的，目标路径前缀。&lt;code>默认值：/&lt;/code>。&lt;/p>
 &lt;ul>
 &lt;li>注意：就算指定了其他路径，也会默认在末尾添加 &lt;code>/api/v2/alerts&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;h4 id="alerts-推送目标的配置">Alerts 推送目标的配置&lt;a class="td-heading-self-link" href="#alerts-%e6%8e%a8%e9%80%81%e7%9b%ae%e6%a0%87%e7%9a%84%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h4>
+&lt;p>Prometheus 根据这部分配置来推送需要&lt;/p>
+&lt;p>&lt;strong>static_configs&lt;/strong>(&lt;a href="#static_configs">static_configs&lt;/a>) # 静态配置。指定推送告警时的目标。&lt;/p>
+&lt;ul>
+&lt;li>具体配置详见下文 &lt;a href="#%E9%9D%99%E6%80%81%E7%9B%AE%E6%A0%87%E5%8F%91%E7%8E%B0">静态目标发现&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>XXX_sd_configs&lt;/strong>([]OBJECT) # 动态配置。动态发现可供推送告警的 alertmanager-XXXX。不同的服务发现，有不同的配置方式。与 scrape_configs 字段中的 XXX_sd_configs 配置类似。&lt;/p>
+&lt;ul>
+&lt;li>具体配置详见下文 &lt;a href="#%E5%8A%A8%E6%80%81%E7%9B%AE%E6%A0%87%E5%8F%91%E7%8E%B0">动态目标发现&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;h4 id="http-配置-1">HTTP 配置&lt;a class="td-heading-self-link" href="#http-%e9%85%8d%e7%bd%ae-1" aria-label="Heading self-link">&lt;/a>&lt;/h4>
 &lt;p>&lt;strong>scheme(SCHEME)&lt;/strong> # 推送告警时，所使用的协议。&lt;code>默认值：HTTP&lt;/code>&lt;/p>
@@ -621,16 +629,6 @@ groups 在 recording rule 中并没有实际意义，只是与 alerting rule 同
 &lt;/ul>
 &lt;p>&lt;strong>oauth2(Object)&lt;/strong> # 配置 OAuth 2.0 的认证配置。与 basic_auth 和 authorization 两个字段互斥&lt;/p>
 &lt;p>&lt;strong>tls_config(Object)&lt;/strong> # 指定推送告警时的 TLS 设定&lt;/p>
-&lt;h4 id="alerts-推送目标的配置">Alerts 推送目标的配置&lt;a class="td-heading-self-link" href="#alerts-%e6%8e%a8%e9%80%81%e7%9b%ae%e6%a0%87%e7%9a%84%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h4>
-&lt;p>Prometheus 根据这部分配置来推送需要&lt;/p>
-&lt;p>&lt;strong>static_configs&lt;/strong>(&lt;a href="#static_configs">static_configs&lt;/a>) # 静态配置。指定推送告警时的目标。&lt;/p>
-&lt;ul>
-&lt;li>具体配置详见下文 &lt;a href="#%E9%9D%99%E6%80%81%E7%9B%AE%E6%A0%87%E5%8F%91%E7%8E%B0">静态目标发现&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;p>&lt;strong>XXX_sd_configs&lt;/strong>([]OBJECT) # 动态配置。动态发现可供推送告警的 alertmanager- XXXX # 不同的服务发现，有不同的配置方式。与 scrape_configs 字段中的 XXX_sd_configs 配置类似。&lt;/p>
-&lt;ul>
-&lt;li>具体配置详见下文 &lt;a href="#IWvg5">动态目标发现&lt;/a>&lt;/li>
-&lt;/ul>
 &lt;h4 id="relabel-配置-1">Relabel 配置&lt;a class="td-heading-self-link" href="#relabel-%e9%85%8d%e7%bd%ae-1" aria-label="Heading self-link">&lt;/a>&lt;/h4>
 &lt;p>&lt;strong>relabel_configs&lt;/strong>(&lt;a href="#relabel_configs">relabel_configs&lt;/a>) # 在发现目标后，重新配置 targets 的标签&lt;/p>
 &lt;p>详见下文 &lt;a href="#%E9%87%8D%E8%AE%BE%E6%A0%87%E7%AD%BE">重设标签&lt;/a>&lt;/p>
@@ -1254,8 +1252,8 @@ groups 在 recording rule 中并没有实际意义，只是与 alerting rule 同
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>推送路径根据 Prometheus Server 配置文件中 &lt;code>alerting.alertmanagers.api_version&lt;/code> 和 &lt;code>alerting.alertmanagers.path_prefix&lt;/code> 这两个字段决定。&lt;/p>
 &lt;p>默认推送路径为 /api/v2/alerts。如果 api_version 为 v2，path_prefix 值为 /test，最终的路径就是 /test/api/v2/alerts&lt;/p>
 &lt;h2 id="labels-与-annotations-字段">labels 与 annotations 字段&lt;a class="td-heading-self-link" href="#labels-%e4%b8%8e-annotations-%e5%ad%97%e6%ae%b5" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>labels(标签)&lt;/strong> 是告警的唯一标识符。具有相同标签的告警，则称为重复数据，重复数据只会保留最新的一个。
-&lt;strong>annotations(注释)&lt;/strong> 顾名思义，就是用来注释一个告警&lt;/p>
+&lt;p>&lt;strong>labels(标签)&lt;/strong> 是告警的唯一标识符。具有相同标签的告警，则称为重复数据，重复数据只会保留最新的一个。&lt;/p>
+&lt;p>&lt;strong>annotations(注释)&lt;/strong> 顾名思义，就是用来注释一个告警&lt;/p>
 &lt;p>labels 包含如下内容：&lt;/p>
 &lt;ul>
 &lt;li>alertname 字段
@@ -1267,8 +1265,8 @@ groups 在 recording rule 中并没有实际意义，只是与 alerting rule 同
 &lt;li>产生告警的时间序列所具有的标签&lt;/li>
 &lt;/ul>
 &lt;h2 id="startsat-与-endsat-字段">startsAt 与 endsAt 字段&lt;a class="td-heading-self-link" href="#startsat-%e4%b8%8e-endsat-%e5%ad%97%e6%ae%b5" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>startsAt&lt;/strong> # 告警的开始时间
-&lt;strong>endsAt&lt;/strong> # 告警的结束时间&lt;/p>
+&lt;p>&lt;strong>startsAt&lt;/strong> # 告警的开始时间&lt;/p>
+&lt;p>&lt;strong>endsAt&lt;/strong> # 告警的结束时间&lt;/p>
 &lt;ul>
 &lt;li>结束时间可以这么理解：从开始时间到结束时间，如果 Alertmanager 没有再收到相同的告警，则认为告警已经处理&lt;/li>
 &lt;/ul>
@@ -1301,8 +1299,8 @@ groups 在 recording rule 中并没有实际意义，只是与 alerting rule 同
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;generatorURL&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;http://cs-cs-prometheus.desistdaydream.ltd/graph?g0.expr=vector%281%29\u0026g0.tab=1&amp;#34;&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">}&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">]&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>抓包内容如下：
-&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/sw6o6t/1621754366379-909c188e-f854-4c8e-8a9d-e75b6e671d2c.png" alt="image.png">&lt;/p></description></item><item><title>Docs: Federate(集群联邦)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Federate%E9%9B%86%E7%BE%A4%E8%81%94%E9%82%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Federate%E9%9B%86%E7%BE%A4%E8%81%94%E9%82%A6/</guid><description>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>抓包内容如下：&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/sw6o6t/1621754366379-909c188e-f854-4c8e-8a9d-e75b6e671d2c.png" alt="image.png">&lt;/p></description></item><item><title>Docs: Federate(集群联邦)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Federate%E9%9B%86%E7%BE%A4%E8%81%94%E9%82%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/Federate%E9%9B%86%E7%BE%A4%E8%81%94%E9%82%A6/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -1313,9 +1311,9 @@ groups 在 recording rule 中并没有实际意义，只是与 alerting rule 同
 &lt;p>通过 Remote Storage 可以分离监控样本采集和数据存储，解决 Prometheus 的持久化问题。这一部分会重点讨论如何利用联邦集群特性对 Promthues 进行扩展，以适应不同监控规模的变化。&lt;/p>
 &lt;p>Prometheus Federate 还可以充当代理功能，让 Prometheus Server 获取无法直接访问网段的 Metrics&lt;/p>
 &lt;h1 id="使用联邦集群">使用联邦集群&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8%e8%81%94%e9%82%a6%e9%9b%86%e7%be%a4" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>对于大部分监控规模而言，我们只需要在每一个数据中心(例如：EC2 可用区，Kubernetes 集群)安装一个 Prometheus Server 实例，就可以在各个数据中心处理上千规模的集群。同时将 Prometheus Server 部署到不同的数据中心可以避免网络配置的复杂性。
-&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gx0oz1/1616069518476-78bbd4f5-fc64-4a96-bde6-2309bd716812.jpeg" alt="">
-如上图所示，在每个数据中心部署单独的 Prometheus Server，用于采集当前数据中心监控数据。并由一个中心的 Prometheus Server 负责聚合多个数据中心的监控数据。这一特性在 Promthues 中称为联邦集群。&lt;/p>
+&lt;p>对于大部分监控规模而言，我们只需要在每一个数据中心(例如：EC2 可用区，Kubernetes 集群)安装一个 Prometheus Server 实例，就可以在各个数据中心处理上千规模的集群。同时将 Prometheus Server 部署到不同的数据中心可以避免网络配置的复杂性。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gx0oz1/1616069518476-78bbd4f5-fc64-4a96-bde6-2309bd716812.jpeg" alt="">&lt;/p>
+&lt;p>如上图所示，在每个数据中心部署单独的 Prometheus Server，用于采集当前数据中心监控数据。并由一个中心的 Prometheus Server 负责聚合多个数据中心的监控数据。这一特性在 Promthues 中称为联邦集群。&lt;/p>
 &lt;p>联邦集群的核心在于每一个 Prometheus Server 都包含额一个用于获取当前实例中监控样本的接口/federate(用于 web 打开 localhost:9090/federate 即可，初始是空白的，需要详细指明要匹配的内容，才可以获取 metrics)。对于中心 Prometheus Server 而言，无论是从其他的 Prometheus 实例还是 Exporter 实例中获取数据实际上并没有任何差异。其实其他的 promeheus 就相当于中心 prometheus 的一个 exporter&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">scrape_configs&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>- &lt;span style="color:#204a87;font-weight:bold">job_name&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#4e9a06">&amp;#34;federate&amp;#34;&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
@@ -1358,16 +1356,17 @@ groups 在 recording rule 中并没有实际意义，只是与 alerting rule 同
 &lt;/ol>
 &lt;/li>
 &lt;/ol>
-&lt;p>功能分区
-联邦集群的特性可以帮助用户根据不同的监控规模对 Promthues 部署架构进行调整。例如如下所示，可以在各个数据中心中部署多个 Prometheus Server 实例。每一个 Prometheus Server 实例只负责采集当前数据中心中的一部分任务(Job)，例如可以将不同的监控任务分离到不同的 Prometheus 实例当中，再有中心 Prometheus 实例进行聚合。&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gx0oz1/1616069518457-5ea7fc2c-1edc-4ce8-acc4-b5bd7534e556.jpeg" alt="">
-功能分区，即通过联邦集群的特性在任务级别对 Prometheus 采集任务进行划分，以支持规模的扩展。&lt;/p></description></item><item><title>Docs: HTTPS 和 Authentication(认证)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/HTTPS-%E5%92%8C-Authentication%E8%AE%A4%E8%AF%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/HTTPS-%E5%92%8C-Authentication%E8%AE%A4%E8%AF%81/</guid><description>
+&lt;p>功能分区&lt;/p>
+&lt;p>联邦集群的特性可以帮助用户根据不同的监控规模对 Promthues 部署架构进行调整。例如如下所示，可以在各个数据中心中部署多个 Prometheus Server 实例。每一个 Prometheus Server 实例只负责采集当前数据中心中的一部分任务(Job)，例如可以将不同的监控任务分离到不同的 Prometheus 实例当中，再有中心 Prometheus 实例进行聚合。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gx0oz1/1616069518457-5ea7fc2c-1edc-4ce8-acc4-b5bd7534e556.jpeg" alt="">&lt;/p>
+&lt;p>功能分区，即通过联邦集群的特性在任务级别对 Prometheus 采集任务进行划分，以支持规模的扩展。&lt;/p></description></item><item><title>Docs: HTTPS 和 Authentication(认证)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/HTTPS-%E5%92%8C-Authentication%E8%AE%A4%E8%AF%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E7%9B%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/Prometheus/HTTPS-%E5%92%8C-Authentication%E8%AE%A4%E8%AF%81/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
-&lt;li>&lt;a href="https://prometheus.io/docs/prometheus/latest/configuration/https/">官方文档,Prometheus-配置-HTTPS 和 认证&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://prometheus.io/docs/guides/basic-auth/">官方文档,指南-基础认证&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://kubernetes.github.io/ingress-nginx/examples/auth/basic/">Ngxin Ingress Controller 官方文档,认证-基础认证&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://prometheus.io/docs/prometheus/latest/configuration/https/">官方文档，Prometheus - 配置 - HTTPS 和 认证&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://prometheus.io/docs/guides/basic-auth/">官方文档，指南 - 基础认证&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.github.io/ingress-nginx/examples/auth/basic/">Ngxin Ingress Controller 官方文档，认证-基础认证&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://www.jianshu.com/p/4d5aa1995de3">知乎&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
@@ -1381,19 +1380,19 @@ groups 在 recording rule 中并没有实际意义，只是与 alerting rule 同
 &lt;h1 id="通过-ingress-controller-配置认证普通的-nginx-同理">通过 ingress controller 配置认证，普通的 nginx 同理&lt;a class="td-heading-self-link" href="#%e9%80%9a%e8%bf%87-ingress-controller-%e9%85%8d%e7%bd%ae%e8%ae%a4%e8%af%81%e6%99%ae%e9%80%9a%e7%9a%84-nginx-%e5%90%8c%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>首先需要安装 htpasswd 二进制文件，通过 htpasswd 命令行工具生成保存用户名密码的文件，然后通过该文件创建一个 secret 对象，并在 ingress 引用该 secret 对象&lt;/p>
 &lt;p>&lt;strong>通过 htpasswd 生成一个“auth”文件;用来存取我们创建的用户及加密之后的密码&lt;/strong>&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@desistdaydream:~# htpasswd -c auth admin
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># htpasswd -c auth admin&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>New password:
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Re-type new password:
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Adding password &lt;span style="color:#204a87;font-weight:bold">for&lt;/span> user admin
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 查看这个文件，可以看到密码是加密之后的字符串&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root@desistdaydream:~# cat auth
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat auth&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>admin:&lt;span style="color:#000">$apr1$8&lt;/span>NSwCSR3&lt;span style="color:#000">$s5G25cvkaUDAoxEFtaGZ11&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 密码：ehl1234&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>创建 kubernetes secret 来存储 auth 文件中的用户名和密码&lt;/strong>&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">root@desistdaydream:~# kubectl create -n monitoring secret generic basic-auth --from-file=auth&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">~]# kubectl create -n monitoring secret generic basic-auth --from-file=auth&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">secret &amp;#34;basic-auth&amp;#34; created&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">root@desistdaydream:~# kubectl get secrets -n monitoring basic-auth -oyaml | neat&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">~]# kubectl get secrets -n monitoring basic-auth -oyaml | neat&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">apiVersion&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">v1&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">data&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">auth&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">YWRtaW46JGFwcjEkOE5Td0NTUjMkczVHMjVjdmthVURBb3hFRnRhR1oxMQo=&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
@@ -1408,7 +1407,7 @@ groups 在 recording rule 中并没有实际意义，只是与 alerting rule 同
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">namespace&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">monitoring&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">type&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">Opaque&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>在 ingress 资源中添加注释&lt;/strong>&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">root@desistdaydream:~# kubectl get ingress -n monitoring monitor-bj-net-k8s-prometheus -oyaml | neat&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">~]# kubectl get ingress -n monitoring monitor-bj-net-k8s-prometheus -oyaml | neat&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">apiVersion&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">extensions/v1beta1&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">kind&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">Ingress&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">metadata&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
@@ -1446,12 +1445,16 @@ groups 在 recording rule 中并没有实际意义，只是与 alerting rule 同
 &lt;h2 id="web-config-文件详解">web-config 文件详解&lt;a class="td-heading-self-link" href="#web-config-%e6%96%87%e4%bb%b6%e8%af%a6%e8%a7%a3" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>该文件有 3 个主要字段&lt;/p>
 &lt;ul>
-&lt;li>tls_server_config&lt;/li>
-&lt;li>http_server_config&lt;/li>
-&lt;li>basic_auth_users&lt;/li>
+&lt;li>&lt;strong>tls_server_config&lt;/strong>(&lt;a href="#tls_server_config">tls_server_config&lt;/a>) # 为 Prometheus 开启 TLS&lt;/li>
+&lt;li>&lt;strong>http_server_config&lt;/strong>(&lt;a href="#http_server_config">http_server_config&lt;/a>) # 为 Prometheus 开启 HTTP/2。注意，HTTP/2 仅支持 TLS&lt;/li>
+&lt;li>&lt;strong>basic_auth_users&lt;/strong>(map[STRING]STRING) # 为 Prometheus Server 开启基本认证
+&lt;ul>
+&lt;li>KEY 是用户名，VALUE 是密码&lt;/li>
+&lt;li>注意：密码必须是经过 hash 的字符串，可以通过&lt;a href="https://bcrypt-generator.com/">这个网站&lt;/a>在线获取 hash 过的字符串。如果没有任何配置，则不开启任何 TLS 或 认证，只要配置了某个字段，就默认开启相关功能。&lt;/li>
 &lt;/ul>
-&lt;p>如果没有任何配置，则不开启任何 TLS 或 认证，只要配置了某个字段，就默认开启相关功能。&lt;/p>
-&lt;h3 id="tls_server_configobject--为-prometheus-开启-tls">tls_server_config(Object) # 为 Prometheus 开启 TLS&lt;a class="td-heading-self-link" href="#tls_server_configobject--%e4%b8%ba-prometheus-%e5%bc%80%e5%90%af-tls" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="tls_server_config">tls_server_config&lt;a class="td-heading-self-link" href="#tls_server_config" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;ul>
 &lt;li>&lt;strong>cert_file(FileName)&lt;/strong> # TLS 所需的证书文件&lt;/li>
 &lt;li>&lt;strong>key_file(FileName)&lt;/strong> # TLS 所需的私钥文件&lt;/li>
@@ -1483,21 +1486,11 @@ groups 在 recording rule 中并没有实际意义，只是与 alerting rule 同
 [ curve_preferences:
 [ - &amp;lt;string&amp;gt; ] ]&lt;/p>
 &lt;p>==========================&lt;/p>
-&lt;h3 id="http_server_configobject--为-prometheus-开启-http2注意http2-仅支持-tls">http_server_config(Object) # 为 Prometheus 开启 HTTP/2。注意，HTTP/2 仅支持 TLS&lt;a class="td-heading-self-link" href="#http_server_configobject--%e4%b8%ba-prometheus-%e5%bc%80%e5%90%af-http2%e6%b3%a8%e6%84%8fhttp2-%e4%bb%85%e6%94%af%e6%8c%81-tls" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;ul>
-&lt;li>&lt;strong>http2(BOOLEAN)&lt;/strong> # &lt;code>默认值：true&lt;/code>&lt;/li>
-&lt;/ul>
+&lt;h3 id="http_server_config">http_server_config&lt;a class="td-heading-self-link" href="#http_server_config" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>&lt;strong>http2(BOOLEAN)&lt;/strong> # &lt;code>默认值：true&lt;/code>&lt;/p>
 &lt;p>Usernames and hashed passwords that have full access to the web
 # server via basic authentication. If empty, no basic authentication is
 # required. Passwords are hashed with bcrypt.&lt;/p>
-&lt;h3 id="basic_auth_usersmapstringstring--为-prometheus-server-开启基本认证">basic_auth_users(map[STRING]STRING) # 为 Prometheus Server 开启基本认证&lt;a class="td-heading-self-link" href="#basic_auth_usersmapstringstring--%e4%b8%ba-prometheus-server-%e5%bc%80%e5%90%af%e5%9f%ba%e6%9c%ac%e8%ae%a4%e8%af%81" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;ul>
-&lt;li>&lt;strong>&amp;lt;KEY&amp;gt;(VALUE)&lt;/strong> # KEY 是用户名，VALUE 是密码
-&lt;ul>
-&lt;li>注意：密码必须是经过 hash 的字符串，可以通过&lt;a href="https://bcrypt-generator.com/">这个网站&lt;/a>在线获取 hash 过的字符串&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
 &lt;h2 id="配置示例">配置示例&lt;a class="td-heading-self-link" href="#%e9%85%8d%e7%bd%ae%e7%a4%ba%e4%be%8b" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>在&lt;a href="https://bcrypt-generator.com/">这里&lt;/a>生成密码的 hash 值，比如我使用 &lt;code>Prometheus@lch&lt;/code> 这个密码，生成的 hash 为 &lt;code>$2a$12$2MvNShJKv/FNV1T1.xFk4u4u9mFMolcTn4xb3lkFdjnXVMfOjbD6a&lt;/code>&lt;/p>
 &lt;p>在 /etc/prometheus/config_out/ 目录中创建一个 web-config.yml 文件&lt;/p>
