@@ -15,7 +15,7 @@
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>&lt;strong>Linux Memory Management Subsystem(Linux 内存管理子系统)&lt;/strong> 负责管理系统中的内存。这包括 &lt;strong>virtual memory(虚拟内存)&lt;/strong> 和 &lt;strong>demand paging(请求分页)&lt;/strong> 的实现、&lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Linux%20Kernel/Linux%20Kernel.md">Linux Kernel&lt;/a>内部结构和用户空间程序的内存分配、将文件映射到进程地址空间、etc.&lt;/p>
-&lt;p>Linux 内存管理是一个非常复杂系统，有很多可以配置的设置，这些设置可以通过 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/%E7%89%B9%E6%AE%8A%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/Proc%20File%20System.md">Proc File System&lt;/a> 修改，还可以使用 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux%20%E7%AE%A1%E7%90%86/Linux%20%E5%86%85%E6%A0%B8%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/sysctl.md">sysctl&lt;/a> 程序进行查询和调整，具体参数详见 Kernel 参数中的 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Linux%20Kernel/Kernel%20%E5%8F%82%E6%95%B0/vm(%E5%86%85%E5%AD%98%E7%9B%B8%E5%85%B3%E5%8F%82%E6%95%B0).md">vm(内存相关参数)&lt;/a>。&lt;/p>
+&lt;p>Linux 内存管理是一个非常复杂系统，有很多可以配置的设置，这些设置可以通过 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/%E7%89%B9%E6%AE%8A%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/proc.md">proc&lt;/a> 修改，还可以使用 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux%20%E7%AE%A1%E7%90%86/Linux%20%E5%86%85%E6%A0%B8%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/sysctl.md">sysctl&lt;/a> 程序进行查询和调整，具体参数详见 Kernel 参数中的 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Linux%20Kernel/Kernel%20%E5%8F%82%E6%95%B0/vm(%E5%86%85%E5%AD%98%E7%9B%B8%E5%85%B3%E5%8F%82%E6%95%B0).md">vm(内存相关参数)&lt;/a>。&lt;/p>
 &lt;h2 id="基础概念">基础概念&lt;a class="td-heading-self-link" href="#%e5%9f%ba%e7%a1%80%e6%a6%82%e5%bf%b5" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>Linux 中的内存管理是一个经过多年发展的复杂系统，包含越来越多的功能来支持从 &lt;em>微控制器(nommu)&lt;/em> 到 &lt;em>超级计算机&lt;/em> 的各种系统，下面是一些常见的内存管理中的概念和术语&lt;/p>
 &lt;blockquote>
@@ -554,10 +554,9 @@ sys 0m0.206s
 &lt;/blockquote>
 &lt;p>Linux Kernel 中有两种机制可以实现 物理内存 与 Huge Pages 的映射&lt;/p>
 &lt;ul>
-&lt;li>&lt;strong>HugeTLB filesystem&lt;/strong> # 大页文件系统，Hugetlbfs。在此文件系统中创建的文件，数据驻留在内存中并使用大页进行映射。&lt;/li>
-&lt;li>&lt;strong>Transparent HugePages&lt;/strong> # 透明大页，简称 THP。&lt;/li>
+&lt;li>&lt;strong>HugeTLB filesystem&lt;/strong> # 大页文件系统，简称 &lt;strong>&lt;a href="#HugeTLB%20FS">Hugetlbfs&lt;/a>&lt;/strong>。在此文件系统中创建的文件，数据驻留在内存中并使用大页进行映射。&lt;/li>
+&lt;li>&lt;strong>Transparent HugePages&lt;/strong> # 透明大页，简称 &lt;a href="#THP">&lt;strong>THP&lt;/strong>&lt;/a>。&lt;/li>
 &lt;/ul>
-&lt;p>程序想要使用 HugePage 的内存，需要在申请内存的系统调用（e.g. mmap()）时添加大页相关参数（e.g. MAP_HUGETLB、etc.）即可。&lt;/p>
 &lt;h1 id="hugetlb-fs">HugeTLB FS&lt;a class="td-heading-self-link" href="#hugetlb-fs" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考:&lt;/p>
@@ -576,11 +575,47 @@ sys 0m0.206s
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>x86 CPU 通常支持 4K 和 2M（如果架构支持，则为 1G）PageSize，ia64 架构支持多种 PageSize 4K、8K、64K、256K、1M、4M、16M、256M，ppc64 支持 4K 和 16M。 TLB 是虚拟到物理转换的缓存。通常，这是处理器上非常稀缺的资源。操作系统尝试充分利用有限数量的 TLB 资源。现在，随着越来越大的物理内存（几 GB）变得越来越可用，这种优化变得更加重要。&lt;/p>
 &lt;h2 id="关联文件与配置">关联文件与配置&lt;a class="td-heading-self-link" href="#%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6%e4%b8%8e%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>&lt;strong>/dev/hugepages/&lt;/strong> # HugeTLB 文件系统的默认挂载目录&lt;/p>
-&lt;p>可以在系统引导配置中（e.g. grub2.cfg、etc.）中添加一些参数以设定大页的信息&lt;/p>
+&lt;p>有多种方式可以设置 HugePages（TODO: 优先级？）&lt;/p>
 &lt;ul>
-&lt;li>hugepagesz # 大页的页容量&lt;/li>
-&lt;li>hugepages # 大页的页数量&lt;/li>
+&lt;li>&lt;strong>内核引导参数&lt;/strong> # 可以在系统引导配置中（e.g. grub2.cfg、etc.）中添加一些参数以设定大页的信息
+&lt;ul>
+&lt;li>hugepagesz # HugePages 的页容量&lt;/li>
+&lt;li>hugepages # HugePages 的页数量&lt;/li>
+&lt;li>default_hugepagesz # 默认的 HugePages 容量&lt;/li>
+&lt;li>etc.&lt;/li>
 &lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>/proc/sys/vm/*hugepages*&lt;/strong> # 仅为了向后兼容，保留这些文件。这些 HugePage 的用户空间接口已在 &lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/%E7%89%B9%E6%AE%8A%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/sysfs.md">sysfs&lt;/a> 中的 /sys/kernel/mm/hugepages/ 实现。&lt;/li>
+&lt;li>&lt;strong>/sys/kernel/mm/hugepages/&lt;/strong> # 由于要在运行时支持多个，该目录实现了 /proc/sys/vm/ 中大部分关于 HugePage 的用户空间接口
+&lt;ul>
+&lt;li>&lt;strong>&lt;code>./hugepages-${SIZE}kB/&lt;/code>&lt;/strong> # 详见下文 &lt;a href="#%E9%80%9A%E7%94%A8%E7%9B%AE%E5%BD%95">通用目录&lt;/a> 中的 &lt;code>hugepages-${SIZE}kB&lt;/code> 介绍&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>&lt;code>/sys/devices/system/node/node[0-9]*/hugepages/&lt;/code>&lt;/strong> # 针对 &lt;a href="docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Memory/NUMA.md">NUMA&lt;/a> 为每个 Node 设置 HugePages
+&lt;ul>
+&lt;li>&lt;strong>&lt;code>./hugepages-${SIZE}kB/&lt;/code>&lt;/strong> # 详见下文 &lt;a href="#%E9%80%9A%E7%94%A8%E7%9B%AE%E5%BD%95">通用目录&lt;/a> 中的 &lt;code>hugepages-${SIZE}kB&lt;/code> 介绍&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>Notes: 关于 NUMA 的 HugePages 的说明&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>/sys/bus/node/devices/node[0-9]*&lt;/code> 目录将会链接到 &lt;code>/sys/devices/system/node/node[0-9]*&lt;/code> 目录&lt;/li>
+&lt;li>sysfs 中根大页控制目录的内容子集将复制到内存位于以下位置的每个 NUMA 节点的每个系统设备下。&lt;/li>
+&lt;/ul>
+&lt;h3 id="通用目录">通用目录&lt;a class="td-heading-self-link" href="#%e9%80%9a%e7%94%a8%e7%9b%ae%e5%bd%95" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>&lt;strong>./hugepages-${SIZE}kB/&lt;/strong> # 特定于指定 SIZE(HugePage 的 &lt;strong>页容量&lt;/strong>) 的 HugePage 用户空间接口。SIZE 通常默认有两个值: 1048576 和 2048&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>nr_hugepages&lt;/strong> # HugePage 的页数量。当任务释放时，“持久”大页将返回到大页池。具有 root 权限的用户可以通过增加或减少 nr_hugepages 的值来动态分配更多或释放一些持久性大页面。&lt;/li>
+&lt;/ul>
+&lt;h2 id="使用-hugepages">使用 HugePages&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8-hugepages" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;a href="https://www.kernel.org/doc/html/latest/admin-guide/mm/hugetlbpage.html#using-huge-pages">https://www.kernel.org/doc/html/latest/admin-guide/mm/hugetlbpage.html#using-huge-pages&lt;/a>&lt;/p>
+&lt;p>程序想要使用 HugePage 的内存，需要在申请内存的系统调用（e.g. mmap()）时添加大页相关参数（e.g. MAP_HUGETLB、etc.）即可。&lt;/p>
+&lt;p>也可以通过标准 SYSV 共享内存系统调用（shmget、shmat）使用 Linux 的 Hugepages。&lt;/p>
+&lt;p>如果用户应用程序要使用 mmap 系统调用请求大页，则需要先挂载 Hugetlbfs 类型的文件系统：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>mount -t hugetlbfs &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> -o &lt;span style="color:#000">uid&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&amp;lt;value&amp;gt;,gid&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&amp;lt;value&amp;gt;,mode&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&amp;lt;value&amp;gt;,pagesize&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&amp;lt;value&amp;gt;,size&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&amp;lt;value&amp;gt;,&lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span> &lt;span style="color:#000">min_size&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&amp;lt;value&amp;gt;,nr_inodes&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&amp;lt;value&amp;gt; none /mnt/huge
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>此命令在目录 /mnt/huge 上挂载一个 hubetlbfs 类型的文件系统。在 /mnt/huge 上创建的任何文件都使用大页面。&lt;/p>
 &lt;h1 id="thp">THP&lt;a class="td-heading-self-link" href="#thp" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考:&lt;/p>
