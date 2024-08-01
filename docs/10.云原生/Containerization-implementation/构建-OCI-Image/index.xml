@@ -1,4 +1,148 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – 构建 OCI Image</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/</link><description>Recent content in 构建 OCI Image on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Dockerfile 指令</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%8C%87%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%8C%87%E4%BB%A4/</guid><description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – 构建 OCI Image</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/</link><description>Recent content in 构建 OCI Image on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 构建 OCI Image</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/%E6%9E%84%E5%BB%BA-OCI-Image/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/%E6%9E%84%E5%BB%BA-OCI-Image/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/">官方文档，使用 Docker 开发-构建镜像-编写 Dockerfile 的最佳实践&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>在容器刚刚流行的时候，想要构建一个容器镜像通常只有两种方式：&lt;/p>
+&lt;ul>
+&lt;li>通过对 Container 执行 commit 命令来创建基于该 Container 的 Image&lt;/li>
+&lt;li>通过 Dockerfile 功能来构建 Image&lt;/li>
+&lt;/ul>
+&lt;p>Dockerfile 构建镜像的方式逐渐成为主流甚至标准，但是随着各个项目的去 Docker 化，大家都想消除自身对 Docker 的依赖，这其中包括 Docker 项目的起源 Moby，从&lt;a href="https://github.com/moby/moby/issues/34227">这里(moby/moby 的 issue #34227)&lt;/a>可以略窥 12。但是 Dockerfile 的影响已经深入人心，所以各家一时半会也无法完全舍弃，只能说基于 Dockerfile 形式进行优化。时至今日(2022 年 6 月 3 日)，Dockerfile 依然是最常见最通用的构建镜像的方式，不管构建程序是什么，总归是要通过 Dockerfile 文件的。&lt;/p>
+&lt;h1 id="dockerfile">Dockerfile&lt;a class="td-heading-self-link" href="#dockerfile" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/">官方文档&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.docker.com/engine/reference/builder/">Dockerfile 参考&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Docker 通过读取 &lt;strong>Dockerfile 文件&lt;/strong>中的指令来构建符合 OCI 标准的容器镜像。Dockerfile 这个称呼有多个理解方式，可以是指一个&lt;strong>功能&lt;/strong>，也可以指一个文件的&lt;strong>文件名&lt;/strong>，也可以代指一类文件的&lt;strong>统称。&lt;/strong>&lt;/p>
+&lt;h2 id="dockerfile-功能的工作逻辑">DockerFile 功能的工作逻辑&lt;a class="td-heading-self-link" href="#dockerfile-%e5%8a%9f%e8%83%bd%e7%9a%84%e5%b7%a5%e4%bd%9c%e9%80%bb%e8%be%91" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ymn9n3/1616121926992-8640dd4a-029c-487c-9fa2-f20ee1b61b83.png" alt="">&lt;/p>
+&lt;ul>
+&lt;li>找一个专用目录，在目录中放入默认的名为 Dockerfile 的文件，该文件名首字母必须大写
+&lt;ul>
+&lt;li>Dockerfile 文件，类似于一个脚本，使用 docker build 命令创建镜像的时候默认使用名为 Dockerfile 的文件，通过该文件中的各种指令来执行操作。（如果想使用其余名字的文件，则需要使用-f 参数来指明需要使用的 DockerFile 的文件，这时候可以使用名字不为 Dockerfile 的文件）&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>如果该 Image 中需要打包进去很多文件(比如 rpm 包、配置文件等等)，则这些文件必须做好后，放到 Dockerfile 所在的目录中(可以有子目录)。&lt;/li>
+&lt;li>使用 docker build 命令并用指定目录路径，则该命令会自动查找该目录下的名为 Dockerfile 文件并根据其中内容创建 Image，效果如上图所示&lt;/li>
+&lt;/ul>
+&lt;h3 id="具体过程详解如下">具体过程详解如下&lt;a class="td-heading-self-link" href="#%e5%85%b7%e4%bd%93%e8%bf%87%e7%a8%8b%e8%af%a6%e8%a7%a3%e5%a6%82%e4%b8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;ul>
+&lt;li>首先在当前目录创建一个名为 Dockerfile 的文件，在该文件中写入需要执行的指令&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ll&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#0000cf;font-weight:bold">4&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r--. &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">49&lt;/span> Nov &lt;span style="color:#0000cf;font-weight:bold">27&lt;/span> 21:02 &lt;span style="color:#204a87">test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>FROM ubuntu
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN apt update &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span> apt install -y vim
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN apt install -y iproute2
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>使用 docker build -t ubuntu-vi -f test /dockerfile/ 命令创建镜像
+&lt;ul>
+&lt;li>当创建镜像的时候，会使用命令中定义的 PATH 中的默认名为 Dockerfile 文件中的指令来进行自动操作，可以通过-f 选项来选择指定路径下的 Dockerfile 文件（注：命令会从/dockerfile/目录中查找 Dockerfile 文件，然后把/root 目录中的所有文件发送给 Docker daemon 来使用，所以定义创建环境的时候最好使用一个空目录）
+&lt;ul>
+&lt;li>sending(发送)build context(创建环境)to(给)docker daemon(容器守护进程) 17.92KB(这个文件 17.92K)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># docker build -t ubuntu-vi -f test /dockerfile/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Sending build context to Docker daemon 2.048kB
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>执行文件中 FROM 指令,将 ubuntu 作为基础镜像，IMAGE ID 为 93fd78260bd1&lt;/li>
+&lt;/ul>
+&lt;pre tabindex="0">&lt;code>Step 1/3 : FROM ubuntu
+---&amp;gt; 93fd78260bd1
+&lt;/code>&lt;/pre>&lt;ul>
+&lt;li>基于 93fd78260bd1 这个 IMAGE 启动名为 607ce2e8553f 的临时容器，执行 RUN 后面的命令执行文件中的第二行 RUN 指令,安装 VIM&lt;/li>
+&lt;/ul>
+&lt;pre tabindex="0">&lt;code>Step 2/3 : RUN apt update &amp;amp;&amp;amp; apt install -y vim
+---&amp;gt; Running in 607ce2e8553f
+&lt;/code>&lt;/pre>&lt;ul>
+&lt;li>开始执行安装程序，会有警告，具体过程忽略不截图了&lt;/li>
+&lt;/ul>
+&lt;pre tabindex="0">&lt;code>WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+Get:1 http://archive.ubuntu.com/ubuntu bionic InRelease [242 kB]
+Get:2 http://security.ubuntu.com/ubuntu bionic-security InRelease [83.2 kB]
+Get:3 http://security.ubuntu.com/ubuntu bionic-security/multiverse amd64 Packages [1364 B]
+Get:4 http://archive.ubuntu.com/ubuntu bionic-updates InRelease [88.7 kB]
+Get:5 http://security.ubuntu.com/ubuntu bionic-security/main amd64 Packages [264 kB]
+Get:6 http://archive.ubuntu.com/ubuntu bionic-backports InRelease [74.6 kB]
+Get:7 http://archive.ubuntu.com/ubuntu bionic/main amd64 Packages [1344 kB]
+。。。。。。。后面省略
+&lt;/code>&lt;/pre>&lt;ul>
+&lt;li>生成临时 IMAGE，ID 为 f5d8205bae1b，移除临时容器 607ce2e8553f&lt;/li>
+&lt;li>注：这一步使用的就是 docker commit 命令类似的功能，提交一个运行中的容器生成镜像，只不过该容器是缓存状态，最后会彻底删除&lt;/li>
+&lt;/ul>
+&lt;pre tabindex="0">&lt;code>Removing intermediate container 607ce2e8553f
+---&amp;gt; f5d8205bae1b
+&lt;/code>&lt;/pre>&lt;ul>
+&lt;li>基于 f5d8205bae1b 这个临时 IMAGE 启动 ddceac75c0ef 容器，执行 Dockerfile 中第三行的 RUN 指令&lt;/li>
+&lt;/ul>
+&lt;pre tabindex="0">&lt;code>Step 3/3 : RUN apt install -y iproute2
+---&amp;gt; Running in ddceac75c0ef .......命令执行结果省略
+&lt;/code>&lt;/pre>&lt;ul>
+&lt;li>处理成功，生成最终 IMAGE，ID 为 9e0ddfd39bb1，并移除临时容器 ddceac75c0ef&lt;/li>
+&lt;li>注：这一步使用的就是 docker commit 命令类似的功能，提交一个运行中的容器生成镜像，只不过该容器是缓存状态，最后会彻底删除&lt;/li>
+&lt;/ul>
+&lt;pre tabindex="0">&lt;code>Processing triggers for libc-bin (2.27-3ubuntu1) ...
+Removing intermediate container ddceac75c0ef
+---&amp;gt; 9e0ddfd39bb1
+&lt;/code>&lt;/pre>&lt;ul>
+&lt;li>创建 IMAGE ID 为 9e0ddfd39bb1 的 IMAGE 成功，并成功给 IMAGE 打上标签为 ubuntu-vi:latest&lt;/li>
+&lt;/ul>
+&lt;pre tabindex="0">&lt;code>Successfully built 9e0ddfd39bb1
+Successfully tagged ubuntu-vi:latest
+&lt;/code>&lt;/pre>&lt;ul>
+&lt;li>下图是创建过程中查询容器，会发现，中间创建的临时 Container 已经都被删除了，并且还会有一个没有名字只有 IMAGE ID 的 IMAGE&lt;/li>
+&lt;/ul>
+&lt;pre tabindex="0">&lt;code>[root@master0 ~]# docker ps -a
+CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
+607ce2e8553f 93fd78260bd1 &amp;#34;/bin/sh -c &amp;#39;apt ins…&amp;#34; 2 seconds ago Up 2 seconds jovial_almeida
+[root@master0 ~]# docker ps -a
+CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
+ddceac75c0ef f5d8205bae1b &amp;#34;/bin/sh -c &amp;#39;apt ins…&amp;#34; 2 seconds ago Up 2 seconds serene_rosalind
+[root@master0 ~]# docker ps -a
+CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
+[root@master0 ~]# docker ps -a
+[root@master0 ~]# docker images -a
+ubuntu-vi latest 9e0ddfd39bb1 58 seconds ago 169M
+&amp;lt;none&amp;gt; &amp;lt;none&amp;gt; f5d8205bae1b 58 seconds ago 151MB
+ubuntu latest 93fd78260bd1 7 days ago 86.2MB
+&lt;/code>&lt;/pre>&lt;ul>
+&lt;li>该过程结束&lt;/li>
+&lt;li>总结
+&lt;ul>
+&lt;li>dockerfile 的每一个命令，就是给 base image 上新加一层 image&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="dockerfile-构建镜像的过程">Dockerfile 构建镜像的过程&lt;a class="td-heading-self-link" href="#dockerfile-%e6%9e%84%e5%bb%ba%e9%95%9c%e5%83%8f%e7%9a%84%e8%bf%87%e7%a8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;ol>
+&lt;li>从 base 镜像运行一个容器。&lt;/li>
+&lt;li>执行一条指令，对容器做修改。&lt;/li>
+&lt;li>执行类似 docker commit 的操作，生成一个新的镜像层。&lt;/li>
+&lt;li>Docker 再基于刚刚提交的镜像运行一个新容器。&lt;/li>
+&lt;li>重复 2-4 步，直到 Dockerfile 中的所有指令执行完毕&lt;/li>
+&lt;/ol>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ymn9n3/1616121927006-3431594b-1d7d-4764-b6ce-6227bcfc9966.png" alt="">&lt;/p>
+&lt;h1 id="dockerfile-格式">Dockerfile 格式&lt;a class="td-heading-self-link" href="#dockerfile-%e6%a0%bc%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>Dockerfile 遵循特定的格式和指令集，也就是说，Dockerfile 实际上是 &lt;strong>Instruction(指令)&lt;/strong> 的合集，Dockerfile 文件中每行都是一个指令极其参数:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-dockerfile" data-lang="dockerfile">&lt;span style="display:flex;">&lt;span>INSTRUCTION-1 arguments&lt;span style="color:#a40000">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a40000">&lt;/span>INSTRUCTION-2 arguments&lt;span style="color:#a40000">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a40000">&lt;/span>.......&lt;span style="color:#a40000">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a40000">&lt;/span>INSTRUCTION-n arguments&lt;span style="color:#a40000">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>实际上指令是不区分大小写的，但是，一般情况，都将他们写成大写，以便在人类阅读时，可以一眼就与参数区分开。&lt;/p>
+&lt;h2 id="dockerfile-指令">Dockerfile 指令&lt;a class="td-heading-self-link" href="#dockerfile-%e6%8c%87%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>详见 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/%E6%9E%84%E5%BB%BA%20OCI%20Image/Dockerfile%20%E6%8C%87%E4%BB%A4.md">Dockerfile 指令&lt;/a>&lt;/p></description></item><item><title>Docs: Dockerfile 指令</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%8C%87%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%8C%87%E4%BB%A4/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -136,7 +280,7 @@ Executable 是可执行的命令，参数是一个 JSON 格式的数组，不过
 &lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/137261919">知乎，官方下一代Docker镜像构建神器 &amp;ndash; BuildKit&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;p>BuildKit 是 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20%E4%BB%8B%E7%BB%8D/Docker%20%E4%BB%8B%E7%BB%8D.md">Docker&lt;/a> 上游社区(Moby)推出的下一代镜像构建神器，可以更加快速，有效，安全地构建容器镜像。Docker v18.06 已经集成了该组件。BuildKit 可用于多种导出格式（例如 OCI 或 Docker）以及前端支持（Dockerfile），并提供高效缓存和运行并行构建操作等功能。BuildKit 仅需要容器运行时就能执行，当前受支持的运行时包括 Containerd 和 Runc。&lt;/p>
+&lt;p>BuildKit 是 &lt;a href="docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker.md">Docker&lt;/a> 上游社区(Moby)推出的下一代镜像构建神器，可以更加快速，有效，安全地构建容器镜像。Docker v18.06 已经集成了该组件。BuildKit 可用于多种导出格式（例如 OCI 或 Docker）以及前端支持（Dockerfile），并提供高效缓存和运行并行构建操作等功能。BuildKit 仅需要容器运行时就能执行，当前受支持的运行时包括 Containerd 和 Runc。&lt;/p>
 &lt;h2 id="构建步骤优化">构建步骤优化&lt;a class="td-heading-self-link" href="#%e6%9e%84%e5%bb%ba%e6%ad%a5%e9%aa%a4%e4%bc%98%e5%8c%96" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>Docker 提供的原始构建最令人沮丧的问题之一是 Dockerfile 指令执行构建步骤的顺序性。在引入多阶段构建之后，可以将构建步骤分组为单独的逻辑构建任务在同一个 Dockerfile 中。&lt;/p>
 &lt;p>有时，这些构建阶段是彼此完全独立的，这意味着它们可以并行执行-或根本不需要执行。遗憾的是，传统的 Docker 镜像构建无法满足这种灵活性。这意味着构建时间通常会比绝对必要的时间更长。&lt;/p>
@@ -436,148 +580,4 @@ libc.so.6 =&amp;gt; /usr/lib/libc.so.6 (0x00007ff897ef6000)
 &lt;h3 id="脚注">&lt;strong>脚注&lt;/strong>&lt;a class="td-heading-self-link" href="#%e8%84%9a%e6%b3%a8" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;p>[1]&lt;strong>Ephemeral Containers: &lt;a href="https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/">https://kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/&lt;/a>&lt;/strong>&lt;/p>
 &lt;p>[2]&lt;strong>Dynamic-link library: &lt;a href="https://en.wikipedia.org/wiki/Dynamic-link_library">https://en.wikipedia.org/wiki/Dynamic-link_library&lt;/a>&lt;/strong>&lt;/p>
-&lt;p>[3]&lt;strong>VDSO: &lt;a href="https://en.wikipedia.org/wiki/VDSO">https://en.wikipedia.org/wiki/VDSO&lt;/a>&lt;/strong>&lt;/p></description></item><item><title>Docs: 构建 OCI Image</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/%E6%9E%84%E5%BB%BA-OCI-Image/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/%E6%9E%84%E5%BB%BA-OCI-Image/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/">官方文档，使用 Docker 开发-构建镜像-编写 Dockerfile 的最佳实践&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>在容器刚刚流行的时候，想要构建一个容器镜像通常只有两种方式：&lt;/p>
-&lt;ul>
-&lt;li>通过对 Container 执行 commit 命令来创建基于该 Container 的 Image&lt;/li>
-&lt;li>通过 Dockerfile 功能来构建 Image&lt;/li>
-&lt;/ul>
-&lt;p>Dockerfile 构建镜像的方式逐渐成为主流甚至标准，但是随着各个项目的去 Docker 化，大家都想消除自身对 Docker 的依赖，这其中包括 Docker 项目的起源 Moby，从&lt;a href="https://github.com/moby/moby/issues/34227">这里(moby/moby 的 issue #34227)&lt;/a>可以略窥 12。但是 Dockerfile 的影响已经深入人心，所以各家一时半会也无法完全舍弃，只能说基于 Dockerfile 形式进行优化。时至今日(2022 年 6 月 3 日)，Dockerfile 依然是最常见最通用的构建镜像的方式，不管构建程序是什么，总归是要通过 Dockerfile 文件的。&lt;/p>
-&lt;h1 id="dockerfile">Dockerfile&lt;a class="td-heading-self-link" href="#dockerfile" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/">官方文档&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://docs.docker.com/engine/reference/builder/">Dockerfile 参考&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>Docker 通过读取 &lt;strong>Dockerfile 文件&lt;/strong>中的指令来构建符合 OCI 标准的容器镜像。Dockerfile 这个称呼有多个理解方式，可以是指一个&lt;strong>功能&lt;/strong>，也可以指一个文件的&lt;strong>文件名&lt;/strong>，也可以代指一类文件的&lt;strong>统称。&lt;/strong>&lt;/p>
-&lt;h2 id="dockerfile-功能的工作逻辑">DockerFile 功能的工作逻辑&lt;a class="td-heading-self-link" href="#dockerfile-%e5%8a%9f%e8%83%bd%e7%9a%84%e5%b7%a5%e4%bd%9c%e9%80%bb%e8%be%91" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ymn9n3/1616121926992-8640dd4a-029c-487c-9fa2-f20ee1b61b83.png" alt="">&lt;/p>
-&lt;ul>
-&lt;li>找一个专用目录，在目录中放入默认的名为 Dockerfile 的文件，该文件名首字母必须大写
-&lt;ul>
-&lt;li>Dockerfile 文件，类似于一个脚本，使用 docker build 命令创建镜像的时候默认使用名为 Dockerfile 的文件，通过该文件中的各种指令来执行操作。（如果想使用其余名字的文件，则需要使用-f 参数来指明需要使用的 DockerFile 的文件，这时候可以使用名字不为 Dockerfile 的文件）&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>如果该 Image 中需要打包进去很多文件(比如 rpm 包、配置文件等等)，则这些文件必须做好后，放到 Dockerfile 所在的目录中(可以有子目录)。&lt;/li>
-&lt;li>使用 docker build 命令并用指定目录路径，则该命令会自动查找该目录下的名为 Dockerfile 文件并根据其中内容创建 Image，效果如上图所示&lt;/li>
-&lt;/ul>
-&lt;h3 id="具体过程详解如下">具体过程详解如下&lt;a class="td-heading-self-link" href="#%e5%85%b7%e4%bd%93%e8%bf%87%e7%a8%8b%e8%af%a6%e8%a7%a3%e5%a6%82%e4%b8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;ul>
-&lt;li>首先在当前目录创建一个名为 Dockerfile 的文件，在该文件中写入需要执行的指令&lt;/li>
-&lt;/ul>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ll&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#0000cf;font-weight:bold">4&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r--. &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> root root &lt;span style="color:#0000cf;font-weight:bold">49&lt;/span> Nov &lt;span style="color:#0000cf;font-weight:bold">27&lt;/span> 21:02 &lt;span style="color:#204a87">test&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat test&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>FROM ubuntu
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN apt update &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&amp;amp;&lt;/span> apt install -y vim
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RUN apt install -y iproute2
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
-&lt;li>使用 docker build -t ubuntu-vi -f test /dockerfile/ 命令创建镜像
-&lt;ul>
-&lt;li>当创建镜像的时候，会使用命令中定义的 PATH 中的默认名为 Dockerfile 文件中的指令来进行自动操作，可以通过-f 选项来选择指定路径下的 Dockerfile 文件（注：命令会从/dockerfile/目录中查找 Dockerfile 文件，然后把/root 目录中的所有文件发送给 Docker daemon 来使用，所以定义创建环境的时候最好使用一个空目录）
-&lt;ul>
-&lt;li>sending(发送)build context(创建环境)to(给)docker daemon(容器守护进程) 17.92KB(这个文件 17.92K)&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># docker build -t ubuntu-vi -f test /dockerfile/&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Sending build context to Docker daemon 2.048kB
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
-&lt;li>执行文件中 FROM 指令,将 ubuntu 作为基础镜像，IMAGE ID 为 93fd78260bd1&lt;/li>
-&lt;/ul>
-&lt;pre tabindex="0">&lt;code>Step 1/3 : FROM ubuntu
----&amp;gt; 93fd78260bd1
-&lt;/code>&lt;/pre>&lt;ul>
-&lt;li>基于 93fd78260bd1 这个 IMAGE 启动名为 607ce2e8553f 的临时容器，执行 RUN 后面的命令执行文件中的第二行 RUN 指令,安装 VIM&lt;/li>
-&lt;/ul>
-&lt;pre tabindex="0">&lt;code>Step 2/3 : RUN apt update &amp;amp;&amp;amp; apt install -y vim
----&amp;gt; Running in 607ce2e8553f
-&lt;/code>&lt;/pre>&lt;ul>
-&lt;li>开始执行安装程序，会有警告，具体过程忽略不截图了&lt;/li>
-&lt;/ul>
-&lt;pre tabindex="0">&lt;code>WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
-Get:1 http://archive.ubuntu.com/ubuntu bionic InRelease [242 kB]
-Get:2 http://security.ubuntu.com/ubuntu bionic-security InRelease [83.2 kB]
-Get:3 http://security.ubuntu.com/ubuntu bionic-security/multiverse amd64 Packages [1364 B]
-Get:4 http://archive.ubuntu.com/ubuntu bionic-updates InRelease [88.7 kB]
-Get:5 http://security.ubuntu.com/ubuntu bionic-security/main amd64 Packages [264 kB]
-Get:6 http://archive.ubuntu.com/ubuntu bionic-backports InRelease [74.6 kB]
-Get:7 http://archive.ubuntu.com/ubuntu bionic/main amd64 Packages [1344 kB]
-。。。。。。。后面省略
-&lt;/code>&lt;/pre>&lt;ul>
-&lt;li>生成临时 IMAGE，ID 为 f5d8205bae1b，移除临时容器 607ce2e8553f&lt;/li>
-&lt;li>注：这一步使用的就是 docker commit 命令类似的功能，提交一个运行中的容器生成镜像，只不过该容器是缓存状态，最后会彻底删除&lt;/li>
-&lt;/ul>
-&lt;pre tabindex="0">&lt;code>Removing intermediate container 607ce2e8553f
----&amp;gt; f5d8205bae1b
-&lt;/code>&lt;/pre>&lt;ul>
-&lt;li>基于 f5d8205bae1b 这个临时 IMAGE 启动 ddceac75c0ef 容器，执行 Dockerfile 中第三行的 RUN 指令&lt;/li>
-&lt;/ul>
-&lt;pre tabindex="0">&lt;code>Step 3/3 : RUN apt install -y iproute2
----&amp;gt; Running in ddceac75c0ef .......命令执行结果省略
-&lt;/code>&lt;/pre>&lt;ul>
-&lt;li>处理成功，生成最终 IMAGE，ID 为 9e0ddfd39bb1，并移除临时容器 ddceac75c0ef&lt;/li>
-&lt;li>注：这一步使用的就是 docker commit 命令类似的功能，提交一个运行中的容器生成镜像，只不过该容器是缓存状态，最后会彻底删除&lt;/li>
-&lt;/ul>
-&lt;pre tabindex="0">&lt;code>Processing triggers for libc-bin (2.27-3ubuntu1) ...
-Removing intermediate container ddceac75c0ef
----&amp;gt; 9e0ddfd39bb1
-&lt;/code>&lt;/pre>&lt;ul>
-&lt;li>创建 IMAGE ID 为 9e0ddfd39bb1 的 IMAGE 成功，并成功给 IMAGE 打上标签为 ubuntu-vi:latest&lt;/li>
-&lt;/ul>
-&lt;pre tabindex="0">&lt;code>Successfully built 9e0ddfd39bb1
-Successfully tagged ubuntu-vi:latest
-&lt;/code>&lt;/pre>&lt;ul>
-&lt;li>下图是创建过程中查询容器，会发现，中间创建的临时 Container 已经都被删除了，并且还会有一个没有名字只有 IMAGE ID 的 IMAGE&lt;/li>
-&lt;/ul>
-&lt;pre tabindex="0">&lt;code>[root@master0 ~]# docker ps -a
-CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
-607ce2e8553f 93fd78260bd1 &amp;#34;/bin/sh -c &amp;#39;apt ins…&amp;#34; 2 seconds ago Up 2 seconds jovial_almeida
-[root@master0 ~]# docker ps -a
-CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
-ddceac75c0ef f5d8205bae1b &amp;#34;/bin/sh -c &amp;#39;apt ins…&amp;#34; 2 seconds ago Up 2 seconds serene_rosalind
-[root@master0 ~]# docker ps -a
-CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
-[root@master0 ~]# docker ps -a
-[root@master0 ~]# docker images -a
-ubuntu-vi latest 9e0ddfd39bb1 58 seconds ago 169M
-&amp;lt;none&amp;gt; &amp;lt;none&amp;gt; f5d8205bae1b 58 seconds ago 151MB
-ubuntu latest 93fd78260bd1 7 days ago 86.2MB
-&lt;/code>&lt;/pre>&lt;ul>
-&lt;li>该过程结束&lt;/li>
-&lt;li>总结
-&lt;ul>
-&lt;li>dockerfile 的每一个命令，就是给 base image 上新加一层 image&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;h3 id="dockerfile-构建镜像的过程">Dockerfile 构建镜像的过程&lt;a class="td-heading-self-link" href="#dockerfile-%e6%9e%84%e5%bb%ba%e9%95%9c%e5%83%8f%e7%9a%84%e8%bf%87%e7%a8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;ol>
-&lt;li>从 base 镜像运行一个容器。&lt;/li>
-&lt;li>执行一条指令，对容器做修改。&lt;/li>
-&lt;li>执行类似 docker commit 的操作，生成一个新的镜像层。&lt;/li>
-&lt;li>Docker 再基于刚刚提交的镜像运行一个新容器。&lt;/li>
-&lt;li>重复 2-4 步，直到 Dockerfile 中的所有指令执行完毕&lt;/li>
-&lt;/ol>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ymn9n3/1616121927006-3431594b-1d7d-4764-b6ce-6227bcfc9966.png" alt="">&lt;/p>
-&lt;h1 id="dockerfile-格式">Dockerfile 格式&lt;a class="td-heading-self-link" href="#dockerfile-%e6%a0%bc%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>Dockerfile 遵循特定的格式和指令集，也就是说，Dockerfile 实际上是 &lt;strong>Instruction(指令)&lt;/strong> 的合集，Dockerfile 文件中每行都是一个指令极其参数:&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-dockerfile" data-lang="dockerfile">&lt;span style="display:flex;">&lt;span>INSTRUCTION-1 arguments&lt;span style="color:#a40000">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a40000">&lt;/span>INSTRUCTION-2 arguments&lt;span style="color:#a40000">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a40000">&lt;/span>.......&lt;span style="color:#a40000">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a40000">&lt;/span>INSTRUCTION-n arguments&lt;span style="color:#a40000">
-&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>实际上指令是不区分大小写的，但是，一般情况，都将他们写成大写，以便在人类阅读时，可以一眼就与参数区分开。&lt;/p>
-&lt;h2 id="dockerfile-指令">Dockerfile 指令&lt;a class="td-heading-self-link" href="#dockerfile-%e6%8c%87%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>详见 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/%E6%9E%84%E5%BB%BA%20OCI%20Image/Dockerfile%20%E6%8C%87%E4%BB%A4.md">Dockerfile 指令&lt;/a>&lt;/p></description></item></channel></rss>
+&lt;p>[3]&lt;strong>VDSO: &lt;a href="https://en.wikipedia.org/wiki/VDSO">https://en.wikipedia.org/wiki/VDSO&lt;/a>&lt;/strong>&lt;/p></description></item></channel></rss>

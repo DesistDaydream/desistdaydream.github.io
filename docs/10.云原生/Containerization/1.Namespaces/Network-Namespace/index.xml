@@ -19,7 +19,6 @@
 &lt;p>大家好，我是飞哥！&lt;/p>
 &lt;p>在 Linux 上通过 &lt;a href="https://mp.weixin.qq.com/s?__biz=MjM5Njg5NDgwNA==&amp;amp;mid=2247486424&amp;amp;idx=1&amp;amp;sn=d66fe4ebf1cd9e5079606f71a0169697&amp;amp;scene=21#wechat_redirect">veth&lt;/a> 我们可以创建出许多的虚拟设备。通过 &lt;a href="https://mp.weixin.qq.com/s?__biz=MjM5Njg5NDgwNA==&amp;amp;mid=2247486949&amp;amp;idx=1&amp;amp;sn=51bf822b1ee4f6a667d6253965d49201&amp;amp;scene=21#wechat_redirect">Bridge&lt;/a> 模拟以太网交换机的方式可以让这些网络设备之间进行通信。不过虚拟化中还有很重要的一步，那就是隔离。借用 Docker 的概念来说，那就是不能让 A 容器用到 B 容器的设备，甚至连看一眼都不可以。只有这样才能保证不同的容器之间复用硬件资源的同时，还不会影响其它容器的正常运行。&lt;/p>
 &lt;p>在 Linux 上实现隔离的技术手段就是 namespace。通过 namespace 可以隔离容器的进程 PID、文件系统挂载点、主机名等多种资源。不过我们今天重点要介绍的是网络 namespace，简称 netns。它可以为不同的命名空间从&lt;strong>逻辑上&lt;/strong>提供独立的网络协议栈，具体包括网络设备、路由表、arp 表、iptables、以及套接字（socket）等。使得不同的网络空间就都好像运行在独立的网络中一样。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/5447552d-f2d4-4b10-b52b-10e331535241/640" alt="">&lt;/p>
 &lt;p>你是不是和飞哥一样，也很好奇 Linux 底层到底是如何实现网络隔离的？我们今天来好好挖一挖 netns 的内部实现。&lt;/p>
 &lt;h2 id="一如何使用-netns">一、如何使用 netns&lt;a class="td-heading-self-link" href="#%e4%b8%80%e5%a6%82%e4%bd%95%e4%bd%bf%e7%94%a8-netns" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>由于我们平时的开发工作很少涉及网络空间，所以我们先来看一下网络空间是如何使用的吧。我们来创建一个新的命名空间 net1。再创建一对儿 veth，将 veth 的一头放到 net1 中。分别查看一下母机和 net1 空间内的 iptable、设备等。最后让两个命名空间之间进行通信。&lt;/p>
