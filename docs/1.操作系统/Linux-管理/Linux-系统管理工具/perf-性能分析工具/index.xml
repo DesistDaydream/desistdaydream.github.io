@@ -5,12 +5,89 @@
 &lt;ul>
 &lt;li>&lt;a href="https://github.com/torvalds/linux/tree/master/tools/perf">GitHub 项目，torvalds/linux - /tools/perf&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://perf.wiki.kernel.org/index.php/Main_Page">Kernel Wiki，perf&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://qastack.cn/unix/326621/what-are-kernel-pmu-event-s-in-perf-events-list">PMU 是什么？&lt;/a>&lt;/li>
+&lt;li>perf 事件列表中的内核 pmu 事件是什么
+&lt;ul>
+&lt;li>&lt;a href="https://unix.stackexchange.com/questions/326621/what-are-kernel-pmu-event-s-in-perf-events-list">https://unix.stackexchange.com/questions/326621/what-are-kernel-pmu-event-s-in-perf-events-list&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://qastack.cn/unix/326621/what-are-kernel-pmu-event-s-in-perf-events-list">https://qastack.cn/unix/326621/what-are-kernel-pmu-event-s-in-perf-events-list&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;a href="https://www.brendangregg.com/perf.html">brendangregg 博客，perf&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;p>&lt;strong>Linux Performance Events(Linux 性能事件，简称 LPE)&lt;/strong> 是用来分析 Linux 性能的工具，通常称为 &lt;strong>perf&lt;/strong>。perf 随 Kernel 2.6+ 一同发布。通过它，应用程序可以利用 PMU，tracepoint 和内核中的特殊计数器来进行性能统计。它不但可以分析指定应用程序的性能问题 (per thread)，也可以用来分析内核的性能问题，当然也可以同时分析应用代码和内核，从而全面理解应用程序中的性能瓶颈。&lt;/p>
+&lt;p>&lt;strong>Linux Performance Events(Linux 性能事件，简称 LPE)&lt;/strong> 是用来分析 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Linux%20Kernel/Linux%20Kernel.md">Linux Kernel&lt;/a> 性能的工具，通常称为 &lt;strong>perf&lt;/strong>。perf 随 Kernel 2.6+ 一同发布。通过它，应用程序可以利用 PMU，tracepoint 和内核中的特殊计数器来进行性能统计。它不但可以分析指定应用程序的性能问题 (per thread)，也可以用来分析内核的性能问题，当然也可以同时分析应用代码和内核，从而全面理解应用程序中的性能瓶颈。&lt;/p>
 &lt;p>perf 主要是通过 &lt;strong>Tracing(追踪)&lt;/strong> 的方式来实现性能数据的采集。&lt;/p>
-&lt;h1 id="perf-安装">perf 安装&lt;a class="td-heading-self-link" href="#perf-%e5%ae%89%e8%a3%85" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>perf 和其他调试工具一样，需要 &lt;strong>symbol(符号信息)&lt;/strong>。它们用于将内存地址转换为函数和变量名称，以便我们人类可以读取它们。如果没有符号，您将看到代表所分析的内存地址的十六进制数字。&lt;/p>
+&lt;blockquote>
+&lt;p>[!Note]
+perf 命令甚至有时候可以跟 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux%20%E7%AE%A1%E7%90%86/Linux%20%E7%B3%BB%E7%BB%9F%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/strace%20%E5%B7%A5%E5%85%B7.md">strace 工具&lt;/a> 实现类似的效果，比如 &lt;code>perf stat -e syscalls:*&lt;/code> 统计系统调用的计数，就很像 &lt;code>strace -c XX&lt;/code>&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="events">Events&lt;a class="td-heading-self-link" href="#events" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>使用 &lt;code>perf list&lt;/code> 命令可以列出可以分析的所有事件。&lt;/p>
+&lt;p>TODO: perf 可用的 Events 列表是从如何获取到的？&lt;/p>
+&lt;ul>
+&lt;li>perf_event_open() 系统调用？&lt;/li>
+&lt;li>/sys/kernel/debug/tracing/events/ 目录？是特定于 tracepoint 类型事件的？&lt;/li>
+&lt;li>由于 perf 本身就是与 Linux 内核强耦合的工具，所以获取 Events 应该也是通过某种方式动态获取的？&lt;/li>
+&lt;/ul>
+&lt;p>perf_event_open &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/System%20Call/System%20Call.md">系统调用&lt;/a>用以设置性能监控，其中 &lt;strong>perf_event_attr&lt;/strong> 参数（源码: &lt;a href="https://github.com/torvalds/linux/blob/v6.10/include/uapi/linux/perf_event.h#L389">include/uapi/linux/perf_event.h - struct perf_event_attr {}&lt;/a>） 是一个结构体，为正在创建的 Event 提供详细的配置信息，&lt;a href="%5Bperf_event_open%5D(https://man7.org/linux/man-pages/man2/perf_event_open.2.html)">perf_event_open 的 Manual&lt;/a> 中列出了所有 Events 的类型：&lt;/p>
+&lt;ul>
+&lt;li>PERF_TYPE_HARDWARE&lt;/li>
+&lt;li>PERF_TYPE_SOFTWARE&lt;/li>
+&lt;li>PERF_TYPE_TRACEPOINT&lt;/li>
+&lt;li>PERF_TYPE_HW_CACHE&lt;/li>
+&lt;li>PERF_TYPE_RAW&lt;/li>
+&lt;li>PERF_TYPE_BREAKPOINT (since Linux 2.6.33)&lt;/li>
+&lt;li>dynamic PMU&lt;/li>
+&lt;li>kprobe and uprobe (since Linux 4.17)&lt;/li>
+&lt;/ul>
+&lt;p>通过 &lt;code>perf list&lt;/code> 命令显示出来的分类：&lt;/p>
+&lt;ul>
+&lt;li>hw&lt;/li>
+&lt;li>sw&lt;/li>
+&lt;li>cache&lt;/li>
+&lt;li>tracepoint&lt;/li>
+&lt;li>pmu&lt;/li>
+&lt;li>sdt&lt;/li>
+&lt;li>event_glob&lt;/li>
+&lt;/ul>
+&lt;p>&lt;a href="https://www.brendangregg.com/perf.html#Events">brendangregg 对 Events 的分类&lt;/a>：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Hardware Events&lt;/strong> # CPU性能监控计数器。&lt;/li>
+&lt;li>&lt;strong>Software Events&lt;/strong> # 这些是基于内核计数器的低级事件。e.g. CPU migrations, minor faults, major faults, etc.&lt;/li>
+&lt;li>&lt;strong>Kernel Tracepoint Events&lt;/strong> # 这是静态的内核级检测点，它们被硬编码在内核中有趣且合乎逻辑的位置。（TODO: /sys/kernel/debug/tracing/events/ 目录？）&lt;/li>
+&lt;li>&lt;strong>User Statically-Defined Tracing (USDT)&lt;/strong> # 这些是用于用户级程序和应用程序的静态跟踪点。&lt;/li>
+&lt;li>&lt;strong>Dynamic Tracing&lt;/strong> # 软件可以动态检测，在任何位置创建事件。对于内核软件，这使用 kprobes 框架。对于用户级软件，uprobes。&lt;/li>
+&lt;li>&lt;strong>Timed Profiling&lt;/strong>: Snapshots can be collected at an arbitrary frequency, using perf record -F_Hz_. This is commonly used for CPU usage profiling, and works by creating custom timed interrupt events.&lt;/li>
+&lt;/ul>
+&lt;h3 id="tracepoint-事件">Tracepoint 事件&lt;a class="td-heading-self-link" href="#tracepoint-%e4%ba%8b%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://docs.kernel.org/core-api/tracepoint.html">内核官方文档，核心 API - tracepoint&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.brendangregg.com/perf.html#Tracepoints">https://www.brendangregg.com/perf.html#Tracepoints&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>Tracepoint 事件可以在 Linux Kernel 代码的 &lt;a href="https://github.com/torvalds/linux/blob/v6.10/include/trace/events/">include/trace/events/&lt;/a> 处找到所有注册的 Tracepoint，这里还可以从代码注释中看到每个 Tracepoint 事件的详细描述&lt;/p>
+&lt;p>比如，irq 相关 Tracepoint，可以在 include/trace/events/irq.h 文件中找到&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">TRACE_EVENT&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">irq_handler_entry&lt;/span>&lt;span style="color:#000;font-weight:bold">,......)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">TRACE_EVENT&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">irq_handler_exit&lt;/span>&lt;span style="color:#000;font-weight:bold">,......)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">DEFINE_EVENT&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">softirq&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">softirq_entry&lt;/span>&lt;span style="color:#000;font-weight:bold">,......)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">DEFINE_EVENT&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#000">softirq&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#000">softirq_exit&lt;/span>&lt;span style="color:#000;font-weight:bold">,......)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">......&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这与 &lt;code>perf list irq:*&lt;/code> 命令列出的内容一致&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># perf list irq:*&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>List of pre-defined events &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>to be used in -e&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> irq:irq_handler_entry &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Tracepoint event&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> irq:irq_handler_exit &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Tracepoint event&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> irq:softirq_entry &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Tracepoint event&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> irq:softirq_exit &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Tracepoint event&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> irq:softirq_raise &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>Tracepoint event&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在内核官方文档里，可以可以从核心 API 里找到 tracepoint 的描述&lt;/p>
+&lt;p>通过如下 &lt;code>perf list&lt;/code> 命令，可以查看每种 Tracepoint 类型下可用的 Tracepoint 总数&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>perf list &lt;span style="color:#000;font-weight:bold">|&lt;/span> awk -F: &lt;span style="color:#4e9a06">&amp;#39;/Tracepoint event/ { lib[$1]++ } END { for (l in lib) { printf &amp;#34; %-16.16s %d\n&amp;#34;, l, lib[l] } }&amp;#39;&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> sort &lt;span style="color:#000;font-weight:bold">|&lt;/span> column
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="perf-安装">perf 安装&lt;a class="td-heading-self-link" href="#perf-%e5%ae%89%e8%a3%85" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>&lt;strong>Ubuntu&lt;/strong>&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>sudo apt install -y linux-tools-generic linux-tools-&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>uname -r&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
@@ -18,25 +95,44 @@
 &lt;/blockquote>
 &lt;p>&lt;strong>CentOS&lt;/strong>&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>yum install -y perf
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="perf-工具使用详解">perf 工具使用详解&lt;a class="td-heading-self-link" href="#perf-%e5%b7%a5%e5%85%b7%e4%bd%bf%e7%94%a8%e8%af%a6%e8%a7%a3" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="syntax语法">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.man7.org/linux/man-pages/man1/perf.1.html">Manual(手册), perf(1)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://perf.wiki.kernel.org/index.php/Latest_Manual_Pages">官方手册&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
 &lt;p>&lt;strong>perf [OPTIONS] COMMAND [ARGS]&lt;/strong>&lt;/p>
 &lt;p>perf 主要由多个子命令来提供常用功能&lt;/p>
+&lt;p>&lt;strong>COMMAND&lt;/strong>&lt;/p>
+&lt;p>在源码 &lt;a href="https://github.com/torvalds/linux/blob/v6.10/tools/perf/perf.c#L51">tools/perf/perf.c&lt;/a> 处有所有子命令的列表&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>list&lt;/strong> # 列出所有可用事件
+&lt;ul>
+&lt;li>命令入口: &lt;a href="https://github.com/torvalds/linux/blob/v6.10/tools/perf/builtin-list.c#L505">tools/perf/builtin-list.c - cmd_list() 函数&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>stat&lt;/strong> # 收集性能计数器统计信息&lt;/li>
+&lt;/ul>
+&lt;p>通用 OPTIONS（下面这些 OPTIONS 不是所有命令都支持，但是有些命令的 OPTIONS 逻辑是类似的，这些命令都是 perf 进行性能监控的常用命令，比如 stat、record、top、etc.）&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-a, &amp;ndash;all-cpus&lt;/strong> # 从所有 CPU 采集数据&lt;/li>
+&lt;li>&lt;strong>-e, &amp;ndash;event &amp;lt;EVENT&amp;gt;&lt;/strong> # Event 选择器。让 perf 指定的事件进行操作。可以通过 &lt;code>perf list&lt;/code> 命令列出所有可用的 Events&lt;/li>
+&lt;li>&lt;strong>-g&lt;/strong> # 启动调用关系分析&lt;/li>
+&lt;li>&lt;strong>-p, &amp;ndash;pid &amp;lt;PID&amp;gt;&lt;/strong> # 指定要采集数据的进程的 PID&lt;/li>
+&lt;/ul>
 &lt;h2 id="record---追踪指定的进程并记录它的-profile-到-perfdata-文件中">record - 追踪指定的进程，并记录它的 profile 到 perf.data 文件中&lt;a class="td-heading-self-link" href="#record---%e8%bf%bd%e8%b8%aa%e6%8c%87%e5%ae%9a%e7%9a%84%e8%bf%9b%e7%a8%8b%e5%b9%b6%e8%ae%b0%e5%bd%95%e5%ae%83%e7%9a%84-profile-%e5%88%b0-perfdata-%e6%96%87%e4%bb%b6%e4%b8%ad" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
-&lt;li>&lt;a href="https://man7.org/linux/man-pages/man1/perf-record.1.html">Manual(手册)，perf-record(1)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://man7.org/linux/man-pages/man1/perf-record.1.html">Manual(手册), perf-record(1)&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>record 子命令将会跟踪指定命令或进程，并采集运行期间的 profile，然后默认将这些数据写入到 perf.data 文件中。&lt;strong>profile&lt;/strong> 这个词在这个语境中，可以理解为 &lt;strong>性能分析&lt;/strong>，详见 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/Flame%20Graphs(%E7%81%AB%E7%84%B0%E5%9B%BE).md">Flame Graphs(火焰图)&lt;/a>&lt;/p>
 &lt;p>&lt;strong>perf record [OPTIONS] [COMMAND]&lt;/strong>&lt;/p>
 &lt;p>&lt;strong>COMMAND&lt;/strong> # 可以指定一个命令，以便采集指定命令运行时的性能数据。或者省略 COMMAND，则采集当前系统下的所有进程。&lt;/p>
 &lt;p>&lt;strong>OPTIONS&lt;/strong>&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>-a, &amp;ndash;all-cpus&lt;/strong> # 从所有 CPU 采集数据&lt;/li>
-&lt;li>&lt;strong>-g&lt;/strong> # 启动调用关系分析&lt;/li>
-&lt;li>&lt;strong>-p, &amp;ndash;pid &amp;lt;PID&amp;gt;&lt;/strong> # 指定要采集数据的进程的 PID&lt;/li>
-&lt;/ul>
 &lt;p>EXAMPLE&lt;/p>
 &lt;ul>
 &lt;li>&lt;strong>perf record -a -g -p 5958 &amp;ndash; sleep 30&lt;/strong>&lt;/li>
@@ -44,7 +140,13 @@
 &lt;h2 id="report---读取-perfdata-文件中记录的内容并展示">report - 读取 perf.data 文件中记录的内容并展示&lt;a class="td-heading-self-link" href="#report---%e8%af%bb%e5%8f%96-perfdata-%e6%96%87%e4%bb%b6%e4%b8%ad%e8%ae%b0%e5%bd%95%e7%9a%84%e5%86%85%e5%ae%b9%e5%b9%b6%e5%b1%95%e7%a4%ba" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;h2 id="script---读取-perfdata-文件中记录的内容并展示追踪效果的数据">script - 读取 perf.data 文件中记录的内容，并展示追踪效果的数据&lt;a class="td-heading-self-link" href="#script---%e8%af%bb%e5%8f%96-perfdata-%e6%96%87%e4%bb%b6%e4%b8%ad%e8%ae%b0%e5%bd%95%e7%9a%84%e5%86%85%e5%ae%b9%e5%b9%b6%e5%b1%95%e7%a4%ba%e8%bf%bd%e8%b8%aa%e6%95%88%e6%9e%9c%e7%9a%84%e6%95%b0%e6%8d%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;h2 id="top---系统分析工具">top - 系统分析工具&lt;a class="td-heading-self-link" href="#top---%e7%b3%bb%e7%bb%9f%e5%88%86%e6%9e%90%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>可以实时显示占用 CPU 时钟最多得函数或进程。以 Symbol 为中心，显示指定 Symbol 的相关信息&lt;/p>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.man7.org/linux/man-pages/man1/perf-top.1.html">Manual(手册), perf-top(1)&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>可以实时显示占用 CPU 时钟最多的函数或进程。以 Symbol 为中心，显示指定 Symbol 的相关信息&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>Samples: 2K of event &lt;span style="color:#4e9a06">&amp;#39;cpu-clock:pppH&amp;#39;&lt;/span>, &lt;span style="color:#0000cf;font-weight:bold">4000&lt;/span> Hz, Event count &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>approx.&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>: &lt;span style="color:#0000cf;font-weight:bold">317933941&lt;/span> lost: 0/0 drop: 0/0
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Overhead Shared Object Symbol
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>16.96% perf &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>.&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span> __symbols__insert
@@ -60,21 +162,24 @@
 &lt;ul>
 &lt;li>Overhead # Symbol 的性能事件在所有样本中的百分比&lt;/li>
 &lt;li>Shared # Symbol 所在的动态共享对象(Dynamic Shared Object)。如 内核、进程名、动态链接库名、内核模块等等&lt;/li>
-&lt;li>Object # 动态共享对象的类型。比如 [.] 表示用户空间的可执行程序、或动态链接库，而 [k] 则表示内核空间&lt;/li>
+&lt;li>Object # 动态共享对象的类型。比如 &lt;code>[.]&lt;/code> 表示用户空间的可执行程序、或动态链接库，而 &lt;code>[k]&lt;/code> 则表示内核空间&lt;/li>
 &lt;li>Symbol # 符号名。即函数名。当函数名未知时，用十六进制的地址来表示。&lt;/li>
 &lt;/ul>
 &lt;p>&lt;strong>perf top [OPTIONS]&lt;/strong>&lt;/p>
 &lt;p>OPTIONS&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>-g&lt;/strong> # 开启调用关系分析&lt;/li>
-&lt;li>&lt;strong>-p &amp;lt;PID&amp;gt;&lt;/strong> # 分析指定进程的事件，PID 可以是使用 逗号 分隔的多个 PID&lt;/li>
-&lt;/ul>
 &lt;p>EXAMPLE&lt;/p>
-&lt;h1 id="生成火焰图">生成火焰图&lt;a class="td-heading-self-link" href="#%e7%94%9f%e6%88%90%e7%81%ab%e7%84%b0%e5%9b%be" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h1 id="最佳实践">最佳实践&lt;a class="td-heading-self-link" href="#%e6%9c%80%e4%bd%b3%e5%ae%9e%e8%b7%b5" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.brendangregg.com/perf.html#Examples">brendangregg 博客，perf - 例子&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="生成火焰图">生成火焰图&lt;a class="td-heading-self-link" href="#%e7%94%9f%e6%88%90%e7%81%ab%e7%84%b0%e5%9b%be" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>获取火焰图生成工具&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>git clone https://github.com/brendangregg/FlameGraph
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">cd&lt;/span> FlameGraph
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>将 perf record 抓到的记录转换成可读的采样记录&lt;/p>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>将 &lt;code>perf record XXX&lt;/code> 命令抓到的 perf.data 文件中的记录转换成可读的采样记录&lt;/p>
 &lt;p>&lt;code>perf script -i /root/tmp/perf.data&lt;/code>&lt;/p>
 &lt;p>合并调用栈信息&lt;/p>
 &lt;p>&lt;code>./stackcollapse-perf.pl&lt;/code>&lt;/p>
@@ -82,6 +187,24 @@
 &lt;p>&lt;code>./flamegraph.pl&lt;/code>&lt;/p>
 &lt;p>上述命令合并一下：&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>perf script -i /root/tmp/perf.data &lt;span style="color:#000;font-weight:bold">|&lt;/span> ./stackcollapse-perf.pl --all &lt;span style="color:#000;font-weight:bold">|&lt;/span> ./flamegraph.pl &amp;gt; /root/tmp/flame.svg
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="追踪中断">追踪中断&lt;a class="td-heading-self-link" href="#%e8%bf%bd%e8%b8%aa%e4%b8%ad%e6%96%ad" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;code>perf top -e irq:irq_handler_entry&lt;/code>&lt;/p>
+&lt;p>输出效果类似下面这样&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>Samples: 51K of event &lt;span style="color:#4e9a06">&amp;#39;irq:irq_handler_entry&amp;#39;&lt;/span>, &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> Hz, Event count &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>approx.&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>: &lt;span style="color:#0000cf;font-weight:bold">1436&lt;/span> lost: 0/0 drop: 0/0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Overhead Trace output
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 94.01% &lt;span style="color:#000">irq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">16&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>enp0s8
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 1.88% &lt;span style="color:#000">irq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">19&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>ehci_hcd:usb1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 1.88% &lt;span style="color:#000">irq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">19&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>enp0s3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 1.11% &lt;span style="color:#000">irq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">21&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>ahci&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>0000:00:0d.0&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 1.11% &lt;span style="color:#000">irq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">21&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>snd_intel8x0
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>Samples: 6K of event &lt;span style="color:#4e9a06">&amp;#39;irq:irq_handler_entry&amp;#39;&lt;/span>, &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> Hz, Event count &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>approx.&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>: &lt;span style="color:#0000cf;font-weight:bold">303&lt;/span> lost: 0/0 drop: 0/0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Overhead Trace output
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 15.84% &lt;span style="color:#000">irq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">53&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>ahci&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>0000:00:1f.2&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 10.23% &lt;span style="color:#000">irq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">44&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>enp9s0-TxRx-1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 8.58% &lt;span style="color:#000">irq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">43&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>enp9s0-TxRx-0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 7.59% &lt;span style="color:#000">irq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">45&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>enp9s0-TxRx-2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 2.97% &lt;span style="color:#000">irq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">46&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>enp9s0-TxRx-3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 0.99% &lt;span style="color:#000">irq&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">48&lt;/span> &lt;span style="color:#000">name&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>enp12s0-TxRx-0
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: trace 子命令</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/Linux-%E7%B3%BB%E7%BB%9F%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/perf-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%B7%A5%E5%85%B7/trace-%E5%AD%90%E5%91%BD%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/Linux-%E7%B3%BB%E7%BB%9F%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/perf-%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%B7%A5%E5%85%B7/trace-%E5%AD%90%E5%91%BD%E4%BB%A4/</guid><description>
 &lt;h2 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;blockquote>

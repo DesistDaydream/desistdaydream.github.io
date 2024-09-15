@@ -1,4 +1,399 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – 学习笔记</title><link>https://desistdaydream.github.io/docs/</link><description>Recent content in 学习笔记 on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: 📹11.多媒体</title><link>https://desistdaydream.github.io/docs/11.%E5%A4%9A%E5%AA%92%E4%BD%93/11.%E5%A4%9A%E5%AA%92%E4%BD%93/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/11.%E5%A4%9A%E5%AA%92%E4%BD%93/11.%E5%A4%9A%E5%AA%92%E4%BD%93/</guid><description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – 学习笔记</title><link>https://desistdaydream.github.io/docs/</link><description>Recent content in 学习笔记 on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Interrupts(中断)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts%E4%B8%AD%E6%96%AD/Interrupts%E4%B8%AD%E6%96%AD/</link><pubDate>Tue, 19 Mar 2024 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts%E4%B8%AD%E6%96%AD/Interrupts%E4%B8%AD%E6%96%AD/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Interrupt">Wiki，Interrupt&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/RPF-0e0oTYsUDefIEhgH_A">公众号-云原生实验室，Linux 中断（IRQ/softirq）基础：原理及内核实现&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Interrupte Request(终端请求，简称 IRQ)&lt;/strong>，是一种信号，该信号来源于外围硬件(相对于 CPU 和内存)的异步信号或者来自软件的同步信号，收到该信号后进行相应的硬件、软件处理。中断其实是一种异步的事件处理机制，可以提高系统的并发处理能力。&lt;/p>
+&lt;p>Linux 内核对计算机上所有的设备进行管理，进行管理的方式是内核和设备之间的通信。解决通信的方式有两种：&lt;/p>
+&lt;ol>
+&lt;li>轮询。轮询是指内核对设备状态进行周期性的查询&lt;/li>
+&lt;li>中断。中断是指在设备需要 CPU 的时候主动发起通信&lt;/li>
+&lt;/ol>
+&lt;p>从物理学的角度看，中断是一种电信号，由硬件设备产生，并直接送入中断控制器（如 8259A）的输入引脚上，然后再由中断控制器向处理器发送相应的信号。处理器一经检测到该信号，便中断自己当前正在处理的工作，转而去处理中断。此后，处理器会通知 OS 已经产生中断。这样，OS 就可以对这个中断进行适当的处理。不同的设备对应的中断不同，而每个中断都通过一个唯一的数字标识，这些值通常被称为中断线。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gw3w7b/1616168186714-4fa3beb1-a385-452f-a110-10b7291a875f.jpeg" alt="">&lt;/p>
+&lt;p>中断可以分为 NMI(不可屏蔽中断) 和 INTR(可屏蔽中断)。其中 NMI 通常用于电源掉电和物理存储器奇偶校验；INTR 是可屏蔽中断，可以通过设置中断屏蔽位来进行中断屏蔽，它主要用于接受外部硬件的中断信号，这些信号由中断控制器传递给 CPU。&lt;/p>
+&lt;p>常见的两种中断控制器：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>Programmable Interrupt Controller(可编程中断控制器，简称 PIC)&lt;/strong> 8259A&lt;/li>
+&lt;li>&lt;strong>Advanced Programmable Interrupt Controller(高级可编程中断控制器，简称 APIC)&lt;/strong>&lt;/li>
+&lt;/ol>
+&lt;p>传统的 PIC 是由两片 8259A 风格的外部芯片以“级联”的方式连接在一起。每个芯片可处理多达 8 个不同的 IRQ。因为从 PIC 的 INT 输出线连接到主 PIC 的 IRQ2 引脚，所以可用 IRQ 线的个数达到 15 个&lt;/p>
+&lt;h1 id="硬中断与软中断">硬中断与软中断&lt;a class="td-heading-self-link" href="#%e7%a1%ac%e4%b8%ad%e6%96%ad%e4%b8%8e%e8%bd%af%e4%b8%ad%e6%96%ad" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>中断处理分为两部分，上半部与下半部。&lt;/p>
+&lt;ol>
+&lt;li>硬中断，也就是中断处理的上半部
+&lt;ol>
+&lt;li>外围硬件发给 CPU 或者内存的异步信号就称之为硬中断&lt;/li>
+&lt;li>由与系统相连的外设(比如网卡、硬盘)自动产生的。主要是用来通知操作系统系统外设状态的变化。比如当网卡收到数据包的时候，就会发出一个中断。我们通常所说的中断指的是硬中断(hardirq)。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>软中断：也就是中断处理的下半部
+&lt;ol>
+&lt;li>由软件系统本身发给操作系统内核的中断信号，称之为软中断。通常是由硬中断处理程序或进程调度程序对操作系统内核的中断，也就是我们常说的系统调用(System Call)&lt;/li>
+&lt;li>为了满足实时系统的要求，中断处理应该是越快越好。linux 为了实现这个特点，当中断发生的时候，硬中断处理那些短时间就可以完成的工作，而将那些处理事件比较长的工作，放到中断之后来完成，也就是软中断(softirq)来完成。&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;/ol>
+&lt;p>也就是说，如果在一个完整的中断流程中，硬中断首先产生，然后硬中断的处理程序将会发出中断信号后，再有软中断进行处理。&lt;/p>
+&lt;h2 id="硬中断中断的上半部">硬中断(中断的上半部)&lt;a class="td-heading-self-link" href="#%e7%a1%ac%e4%b8%ad%e6%96%ad%e4%b8%ad%e6%96%ad%e7%9a%84%e4%b8%8a%e5%8d%8a%e9%83%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h3 id="网络设备的中断">网络设备的中断&lt;a class="td-heading-self-link" href="#%e7%bd%91%e7%bb%9c%e8%ae%be%e5%a4%87%e7%9a%84%e4%b8%ad%e6%96%ad" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>在内核中，网络设备驱动是通过中断的方式来接受和处理数据包。当网卡设备上有数据到达的时候，会触发一个硬件中断来通知 CPU 来处理数据，此类处理中断的程序一般称作 &lt;strong>Interrupt Service Routines(中断服务程序，简称 ISR)&lt;/strong>。ISR 程序不宜处理过多逻辑，否则会让设备的中断处理无法及时响应。因此 Linux 中将中断处理函数分为上半部和下半部。上半部是只进行最简单的工作，快速处理然后释放 CPU。剩下将绝大部分的工作都放到下半部中，下半部中逻辑由内核线程选择合适时机进行处理。&lt;/p>
+&lt;h2 id="软中断中断的下半部">软中断(中断的下半部)&lt;a class="td-heading-self-link" href="#%e8%bd%af%e4%b8%ad%e6%96%ad%e4%b8%ad%e6%96%ad%e7%9a%84%e4%b8%8b%e5%8d%8a%e9%83%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>Linux 2.4 以后内核版本采用的下半部实现方式是软中断，由 &lt;code>ksoftirqd&lt;/code> 内核线程全权处理， 正常情况下每个 CPU 核上都有自己的软中断处理数队列和 &lt;code>ksoftirqd&lt;/code> 内核线程。软中断实现只是通过给内存中设置一个对应的二进制值来标识，软中断处理的时机主要为以下 2 种：&lt;/p>
+&lt;ul>
+&lt;li>硬件中断 &lt;code>irq_exit&lt;/code>退出时；&lt;/li>
+&lt;li>被唤醒 &lt;code>ksoftirqd&lt;/code> 内核线程进行处理软中断；&lt;/li>
+&lt;/ul>
+&lt;p>常见的软中断类型如下，代码：&lt;a href="https://github.com/torvalds/linux/blob/v5.19/include/linux/interrupt.h#L548">include/linux/interrupt.h&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">enum&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">HI_SOFTIRQ&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#8f5902;font-style:italic">// tasklet
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000">TIMER_SOFTIRQ&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#8f5902;font-style:italic">// timer
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000">NET_TX_SOFTIRQ&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#8f5902;font-style:italic">// 网络数据包发送软中断
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000">NET_RX_SOFTIRQ&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#8f5902;font-style:italic">// 网络数据包接受软中断
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000">BLOCK_SOFTIRQ&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#8f5902;font-style:italic">// IO
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000">IRQ_POLL_SOFTIRQ&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">TASKLET_SOFTIRQ&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#8f5902;font-style:italic">// tasklet
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000">SCHED_SOFTIRQ&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#8f5902;font-style:italic">// schedule
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000">HRTIMER_SOFTIRQ&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#8f5902;font-style:italic">// timer
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000">RCU_SOFTIRQ&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span> &lt;span style="color:#8f5902;font-style:italic">// lock
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000">NR_SOFTIRQS&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">};&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>/proc/softirqs&lt;/code> 文件中显示的内容，即是这一段代码的实例化。&lt;/p>
+&lt;p>优先级自上而下，HI_SOFTIRQ 的优先级最高。其中 &lt;code>NET_TX_SOFTIRQ&lt;/code> 对应于网络数据包的发送， &lt;code>NET_RX_SOFTIRQ&lt;/code> 对应于网络数据包接受，两者共同完成网络数据包的发送和接收。网络相关的中断程序在网络子系统初始化的时候进行注册， &lt;code>NET_RX_SOFTIRQ&lt;/code> 的对应函数为 &lt;code>net_rx_action()&lt;/code> ，在 &lt;code>net_rx_action()&lt;/code> 函数中会调用网卡设备设置的 &lt;code>poll&lt;/code> 函数，批量收取网络数据包并调用上层注册的协议函数进行处理，如果是为 ip 协议，则会调用 &lt;code>ip_rcv&lt;/code>，上层协议为 icmp 的话，继续调用 &lt;code>icmp_rcv&lt;/code> 函数进行后续的处理。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gw3w7b/1616168186704-b346f542-96a8-4a50-a268-031938aadb86.png" alt="">&lt;/p>
+&lt;h2 id="硬中断与软中断之区别与联系">硬中断与软中断之区别与联系？&lt;a class="td-heading-self-link" href="#%e7%a1%ac%e4%b8%ad%e6%96%ad%e4%b8%8e%e8%bd%af%e4%b8%ad%e6%96%ad%e4%b9%8b%e5%8c%ba%e5%88%ab%e4%b8%8e%e8%81%94%e7%b3%bb" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;ul>
+&lt;li>硬中断是由外设硬件发出的，需要有中断控制器之参与。其过程是外设侦测到变化，告知中断控制器，中断控制器通过 CPU 或内存的中断脚通知 CPU，然后硬件进行程序计数器及堆栈寄存器之现场保存工作（引发上下文切换），并根据中断向量调用硬中断处理程序进行中断处理&lt;/li>
+&lt;li>软中断则通常是由硬中断处理程序或者进程调度程序等软件程序发出的中断信号，无需中断控制器之参与，直接以一个 CPU 指令之形式指示 CPU 进行程序计数器及堆栈寄存器之现场保存工作(亦会引发上下文切换)，并调用相应的软中断处理程序进行中断处理(即我们通常所言之系统调用)&lt;/li>
+&lt;li>硬中断直接以硬件的方式引发，处理速度快。软中断以软件指令之方式适合于对响应速度要求不是特别严格的场景&lt;/li>
+&lt;li>硬中断通过设置 CPU 的屏蔽位可进行屏蔽，软中断则由于是指令之方式给出，不能屏蔽&lt;/li>
+&lt;li>硬中断发生后，通常会在硬中断处理程序中调用一个软中断来进行后续工作的处理&lt;/li>
+&lt;li>硬中断和软中断均会引起上下文切换(进程/线程之切换)，进程切换的过程是差不多的&lt;/li>
+&lt;/ul>
+&lt;h1 id="查看中断情况">查看中断情况&lt;a class="td-heading-self-link" href="#%e6%9f%a5%e7%9c%8b%e4%b8%ad%e6%96%ad%e6%83%85%e5%86%b5" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>查看中断分布情况即 CPU 都在哪些设备上干活，干了多少(也可以使用 itop 工具实时查看)？&lt;/p>
+&lt;blockquote>
+&lt;p>注意：下面查看的信息只列出了前 4 个 CPU，实际该设备有 128 核&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="cat-procinterrupts-命令查看硬中断信息">&lt;code>cat /proc/interrupts&lt;/code> 命令查看硬中断信息&lt;a class="td-heading-self-link" href="#cat-procinterrupts-%e5%91%bd%e4%bb%a4%e6%9f%a5%e7%9c%8b%e7%a1%ac%e4%b8%ad%e6%96%ad%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 从左至右依次显示IRQ编号，每个cpu对该IRQ的处理次数(每个CPU占一列)，中断控制器的名字，IRQ的名字以及驱动程序注册该IRQ时使用的名字&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@host-3 ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /proc/interrupts&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU0 CPU1 CPU2 CPU3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 0: &lt;span style="color:#0000cf;font-weight:bold">620&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> IR-IO-APIC-edge timer
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 8: &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> IR-IO-APIC-edge rtc0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 9: &lt;span style="color:#0000cf;font-weight:bold">20774&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> IR-IO-APIC-fasteoi acpi
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 16: &lt;span style="color:#0000cf;font-weight:bold">28&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> IR-IO-APIC-fasteoi ehci_hcd:usb1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 23: &lt;span style="color:#0000cf;font-weight:bold">243&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> IR-IO-APIC-fasteoi ehci_hcd:usb2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 88: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> DMAR_MSI-edge dmar0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 89: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> DMAR_MSI-edge dmar1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 90: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> IR-PCI-MSI-edge PCIe PME
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>101: &lt;span style="color:#0000cf;font-weight:bold">169988&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> IR-PCI-MSI-edge i40e-enp25s0f0-TxRx-0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>134: &lt;span style="color:#0000cf;font-weight:bold">1900138&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> IR-PCI-MSI-edge eth2-q0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>150: &lt;span style="color:#0000cf;font-weight:bold">4262209&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> IR-PCI-MSI-edge eth3-q0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>166: &lt;span style="color:#0000cf;font-weight:bold">4&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> IR-PCI-MSI-edge ioat-msix
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NMI: &lt;span style="color:#0000cf;font-weight:bold">710&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">280&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">658&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">235&lt;/span> Non-maskable interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>LOC: &lt;span style="color:#0000cf;font-weight:bold">4230314&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">2640664&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">2427443&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1338890&lt;/span> Local timer interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>SPU: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> Spurious interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>PMI: &lt;span style="color:#0000cf;font-weight:bold">710&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">280&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">658&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">235&lt;/span> Performance monitoring interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>IWI: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> IRQ work interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>RES: &lt;span style="color:#0000cf;font-weight:bold">679921&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1369165&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1013002&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">573776&lt;/span> Rescheduling interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>CAL: &lt;span style="color:#0000cf;font-weight:bold">46507&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">67439&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">67569&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">67567&lt;/span> Function call interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>TLB: &lt;span style="color:#0000cf;font-weight:bold">6547&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">3416&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1798&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1015&lt;/span> TLB shootdowns
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>TRM: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> Thermal event interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>THR: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> Threshold APIC interrupts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>MCE: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> Machine check exceptions
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>MCP: &lt;span style="color:#0000cf;font-weight:bold">569&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">569&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">569&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">569&lt;/span> Machine check polls
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ERR: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>MIS: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这些信息在不同环境下，内容不同。比如对于网卡来说，物理机上一般是以 网卡名表示，比如上面的 eth2-q0 等等。而对于 kvm 虚拟机，一般是 virtio0-input.0 、 virtio0-output.0、virtio0-input.1、virtio0-output.1 等等，virtio0 这网卡有几个队列，就有几个对应的 input 和 output，input 和 output 分别表示该网卡队列的输出和输出的中断情况。&lt;/p>
+&lt;p>在 CPU 数量过多时，输出的信息非常杂乱，通常有这么几种方式可以简化输出
+&lt;strong>cat /proc/interrupts | tr -s &amp;quot; &amp;ldquo;&lt;/strong> # 让数据更紧凑，逐行查看
+&lt;strong>for i in $(egrep &amp;ldquo;-input.&amp;rdquo; /proc/interrupts |awk -F &amp;ldquo;:&amp;rdquo; &amp;lsquo;{print $1}&amp;rsquo;);do cat /proc/irq/$i/smp_affinity_list;done&lt;/strong> # 从 KVM 虚拟机中找到处理 IRQ 的 CPU。&lt;/p>
+&lt;blockquote>
+&lt;p>如果是物理机的话，把 grep 筛选的 -input. 这段内容改为物理机里网络设备名称即可&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="cat-procsoftirqs-命令查看软中断请求信息">cat /proc/softirqs 命令查看软中断请求信息&lt;a class="td-heading-self-link" href="#cat-procsoftirqs-%e5%91%bd%e4%bb%a4%e6%9f%a5%e7%9c%8b%e8%bd%af%e4%b8%ad%e6%96%ad%e8%af%b7%e6%b1%82%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@master-1 ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /proc/softirqs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU0 CPU1 CPU2 CPU3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> HI: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TIMER: &lt;span style="color:#0000cf;font-weight:bold">64617617&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">68513491&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">69044942&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">72115635&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NET_TX: &lt;span style="color:#0000cf;font-weight:bold">69847&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">732&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">763&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">789&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NET_RX: &lt;span style="color:#0000cf;font-weight:bold">27520994&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">45465624&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">45524602&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">56388657&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> BLOCK: &lt;span style="color:#0000cf;font-weight:bold">1107314&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1290437&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1396335&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1263193&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>BLOCK_IOPOLL: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TASKLET: &lt;span style="color:#0000cf;font-weight:bold">444161&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">163638&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">518738&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">264470&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> SCHED: &lt;span style="color:#0000cf;font-weight:bold">34176300&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">27939686&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">24531928&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">24977357&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> HRTIMER: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> RCU: &lt;span style="color:#0000cf;font-weight:bold">152761131&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">170249352&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">156225062&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">158460201&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在 CPU 数量过多时，输出的信息非常杂乱，通常有这么几种方式可以简化输出
+awk 脚本：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>BEGIN&lt;span style="color:#ce5c00;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">cpucount&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">6&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">NR&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">==&lt;/span> 1&lt;span style="color:#ce5c00;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">num&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> 5&lt;span style="color:#000;font-weight:bold">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> printf&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;%30s&amp;#34;&lt;/span>,&lt;span style="color:#000">$1&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">for&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">i&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>2&lt;span style="color:#000;font-weight:bold">;&lt;/span>i&amp;lt;&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>cpucount&lt;span style="color:#000;font-weight:bold">;&lt;/span>i++&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> printf&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;%15s\t&amp;#34;&lt;/span>,&lt;span style="color:#000">$i&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> printf&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>RS&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NR &amp;gt; 1&lt;span style="color:#ce5c00;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">for&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">i&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>1&lt;span style="color:#000;font-weight:bold">;&lt;/span>i&amp;lt;&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>cpucount+1&lt;span style="color:#000;font-weight:bold">;&lt;/span>i++&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> printf&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;%15s\t&amp;#34;&lt;/span>,&lt;span style="color:#000">$i&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ce5c00;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> printf&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>RS&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>awk 命令持续观察&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">#!/bin/bash
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span>&lt;span style="color:#8f5902;font-style:italic">#&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>run&lt;span style="color:#ce5c00;font-weight:bold">()&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#8f5902;font-style:italic"># 这个是输出指定列。即看个别 CPU 的软中断&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#8f5902;font-style:italic"># awk &amp;#39;NR&amp;gt;1{printf(&amp;#34;%15s\t%10s\t%10s\t%10s\t%10s\n&amp;#34;,$1,$3,$4,$5,$6)}&amp;#39; &amp;lt;/proc/softirqs | grep NET_RX&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#8f5902;font-style:italic"># 通过循环输出每行所有列。即看所有 CPU 的软中断&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> awk &lt;span style="color:#4e9a06">&amp;#39;NR&amp;gt;1{for(i=1;i&amp;lt;10;i++){printf(&amp;#34;%10s&amp;#34;,$i)}printf(&amp;#34;\n&amp;#34;)}&amp;#39;&lt;/span> &amp;lt;/proc/softirqs
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">printf&lt;/span> -v run_str &lt;span style="color:#4e9a06">&amp;#39;%q&amp;#39;&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;&lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>&lt;span style="color:#204a87">declare&lt;/span> -f run&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>&lt;span style="color:#4e9a06">; run&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>watch -c -d &lt;span style="color:#4e9a06">&amp;#34;bash -c &lt;/span>&lt;span style="color:#000">$run_str&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="其他">其他&lt;a class="td-heading-self-link" href="#%e5%85%b6%e4%bb%96" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>总的中断次数可以通过 vmstat 或者 dstat 查看，其中 vmstat 中的 in 表示每秒的中断次数；&lt;/p>
+&lt;p>通过 mpstat -P ALL 2,每隔两秒查看下所有核状态信息，其中%irq 为硬中断，%soft 为软中断&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>root@geekwolf:~# mpstat -P ALL &lt;span style="color:#0000cf;font-weight:bold">2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:04 AM CPU %usr %nice %sys %iowait %irq %soft %steal %guest %idle
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:05 AM all 4.31 0.00 0.70 0.00 0.00 0.06 0.00 0.00 94.93
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:05 AM &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> 5.26 0.00 1.05 0.00 0.00 60.05 0.00 0.00 92.63
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:05 AM &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> 7.07 0.00 1.01 0.00 0.00 0.00 0.00 0.00 91.92
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:05 AM &lt;span style="color:#0000cf;font-weight:bold">2&lt;/span> 8.91 0.00 0.99 0.00 0.00 0.00 0.00 0.00 90.10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>08:42:05 AM &lt;span style="color:#0000cf;font-weight:bold">3&lt;/span> 8.00 0.00 1.00 0.00 0.00 0.00 0.00 0.00 91.00
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="通过-取外卖-事件来类比中断">通过 “取外卖” 事件来类比中断&lt;a class="td-heading-self-link" href="#%e9%80%9a%e8%bf%87-%e5%8f%96%e5%a4%96%e5%8d%96-%e4%ba%8b%e4%bb%b6%e6%9d%a5%e7%b1%bb%e6%af%94%e4%b8%ad%e6%96%ad" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>说到中断，我在前面关于“上下文切换”的文章，简单说过中断的含义，先来回顾一下。&lt;/p>
+&lt;p>中断是系统用来响应硬件设备请求的一种机制，它会打断进程的正常调度和执行，然后调用内核中的中断处理程序来响应设备的请求。&lt;/p>
+&lt;p>你可能要问了，为什么要有中断呢？我可以举个生活中的例子，让你感受一下中断的魅力。&lt;/p>
+&lt;p>比如说你订了一份外卖，但是不确定外卖什么时候送到，也没有别的方法了解外卖的进度，但是，配送员送外卖是不等人的，到了你这儿没人取的话，就直接走人了。所以你只能苦苦等着，时不时去门口看看外卖送到没，而不能干其他事情。&lt;/p>
+&lt;p>不过呢，如果在订外卖的时候，你就跟配送员约定好，让他送到后给你打个电话，那你就不用苦苦等待了，就可以去忙别的事情，直到电话一响，接电话、取外卖就可以了。&lt;/p>
+&lt;p>这里的“打电话”，其实就是一个中断。没接到电话的时候，你可以做其他的事情；只有接到了电话（也就是发生中断），你才要进行另一个动作：取外卖。&lt;/p>
+&lt;p>这个例子你就可以发现，中断其实是一种异步的事件处理机制，可以提高系统的并发处理能力。&lt;/p>
+&lt;p>由于中断处理程序会打断其他进程的运行，所以，为了减少对正常进程运行调度的影响，中断处理程序就需要尽可能快地运行。如果中断本身要做的事情不多，那么处理起来也不会有太大问题；但如果中断要处理的事情很多，中断服务程序就有可能要运行很长时间。特别是，中断处理程序在响应中断时，还会临时关闭中断。这就会导致上一次中断处理完成之前，其他中断都不能响应，也就是说中断有可能会丢失。那么还是以取外卖为例。假如你订了 2 份外卖，一份主食和一份饮料，并且是由 2 个不同的配送员来配送。这次你不用时时等待着，两份外卖都约定了电话取外卖的方式。但是，问题又来了。&lt;/p>
+&lt;p>当第一份外卖送到时，配送员给你打了个长长的电话，商量发票的处理方式。与此同时，第二个配送员也到了，也想给你打电话。&lt;/p>
+&lt;p>但是很明显，因为电话占线（也就是关闭了中断响应），第二个配送员的电话是打不通的。所以，第二个配送员很可能试几次后就走掉了（也就是丢失了一次中断）。&lt;/p>
+&lt;p>软中断&lt;/p>
+&lt;p>如果你弄清楚了“取外卖”的模式，那对系统的中断机制就很容易理解了。事实上，为了解决中断处理程序执行过长和中断丢失的问题，Linux 将中断处理过程分成了两个阶段，也就是上半部和下半部：&lt;/p>
+&lt;ol>
+&lt;li>上半部用来快速处理中断，它在中断禁止模式下运行，主要处理跟硬件紧密相关的或时间敏感的工作。&lt;/li>
+&lt;li>上半部直接处理硬件请求，也就是我们常说的硬中断，特点是快速执行&lt;/li>
+&lt;li>下半部用来延迟处理上半部未完成的工作，通常以内核线程的方式运行。&lt;/li>
+&lt;li>下半部则是由内核触发，也就是我们常说的软中断，特点是延迟执行。&lt;/li>
+&lt;/ol>
+&lt;p>比如说前面取外卖的例子：&lt;/p>
+&lt;ul>
+&lt;li>上半部就是你接听电话，告诉配送员你已经知道了，其他事儿见面再说，然后电话就可以挂断了&lt;/li>
+&lt;li>下半部才是取外卖的动作，以及见面后商量发票处理的动作。&lt;/li>
+&lt;/ul>
+&lt;p>这样，第一个配送员不会占用你太多时间，当第二个配送员过来时，照样能正常打通你的电话。&lt;/p>
+&lt;p>除了取外卖，我再举个最常见的网卡接收数据包的例子，让你更好地理解。&lt;/p>
+&lt;p>网卡接收到数据包后，会通过&lt;strong>硬件中断&lt;/strong>的方式，通知内核有新的数据到了。这时，内核就应该调用中断处理程序来响应它。你可以自己先想一下，这种情况下的上半部和下半部分别负责什么工作呢？&lt;/p>
+&lt;ol>
+&lt;li>对上半部来说，既然是快速处理，其实就是要把网卡的数据读到内存中，然后更新一下硬件寄存器的状态（表示数据已经读好了），最后再发送一个&lt;strong>软中断&lt;/strong>信号，通知下半部做进一步的处理。&lt;/li>
+&lt;li>而下半部被软中断信号唤醒后，需要从内存中找到网络数据，再按照网络协议栈，对数据进行逐层解析和处理，直到把它送给应用程序。&lt;/li>
+&lt;/ol>
+&lt;p>实际上，上半部会打断 CPU 正在执行的任务，然后立即执行中断处理程序。而下半部以内核线程的方式执行，并且每个 CPU 都对应一个软中断内核线程，名字为 “ksoftirqd/CPU 编号”，比如说， 0 号 CPU 对应的软中断内核线程的名字就是 ksoftirqd/0。&lt;/p>
+&lt;p>不过要注意的是，软中断不只包括了刚刚所讲的硬件设备中断处理程序的下半部，一些内核自定义的事件也属于软中断，比如内核调度和 RCU 锁（Read-Copy Update 的缩写，RCU 是 Linux 内核中最常用的锁之一）等。&lt;/p>
+&lt;p>那要怎么知道你的系统里有哪些软中断呢？&lt;/p>
+&lt;h2 id="查看软中断和内核线程">查看软中断和内核线程&lt;a class="td-heading-self-link" href="#%e6%9f%a5%e7%9c%8b%e8%bd%af%e4%b8%ad%e6%96%ad%e5%92%8c%e5%86%85%e6%a0%b8%e7%ba%bf%e7%a8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>运行下面的命令，查看 /proc/softirqs 文件的内容，你就可以看到各种类型软中断在不同 CPU 上的累积运行次数：
+/proc/softirqs 提供了软中断的运行情况；
+/proc/interrupts 提供了硬中断的运行情况&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@master-1 ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat /proc/softirqs&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> CPU0 CPU1 CPU2 CPU3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> HI: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TIMER: &lt;span style="color:#0000cf;font-weight:bold">64617617&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">68513491&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">69044942&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">72115635&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NET_TX: &lt;span style="color:#0000cf;font-weight:bold">69847&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">732&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">763&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">789&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> NET_RX: &lt;span style="color:#0000cf;font-weight:bold">27520994&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">45465624&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">45524602&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">56388657&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> BLOCK: &lt;span style="color:#0000cf;font-weight:bold">1107314&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1290437&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1396335&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1263193&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>BLOCK_IOPOLL: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TASKLET: &lt;span style="color:#0000cf;font-weight:bold">444161&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">163638&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">518738&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">264470&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> SCHED: &lt;span style="color:#0000cf;font-weight:bold">34176300&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">27939686&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">24531928&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">24977357&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> HRTIMER: &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> RCU: &lt;span style="color:#0000cf;font-weight:bold">152761131&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">170249352&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">156225062&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">158460201&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在查看 /proc/softirqs 文件内容时，你要特别注意以下这两点。&lt;/p>
+&lt;ul>
+&lt;li>第一，要注意软中断的类型，也就是这个界面中第一列的内容。从第一列你可以看到，软中断包括了 10 个类别，分别对应不同的工作类型。比如 NET_RX 表示网络接收中断，而 NET_TX 表示网络发送中断。&lt;/li>
+&lt;li>第二，要注意同一种软中断在不同 CPU 上的分布情况，也就是同一行的内容。正常情况下，同一种中断在不同 CPU 上的累积次数应该差不多。比如这个界面中，NET_RX 在 CPU0 和 CPU1 上的中断次数基本是同一个数量级，相差不大。&lt;/li>
+&lt;/ul>
+&lt;p>不过你可能发现，TASKLET 在不同 CPU 上的分布并不均匀。TASKLET 是最常用的软中断实现机制，每个 TASKLET 只运行一次就会结束 ，并且只在调用它的函数所在的 CPU 上运行。&lt;/p>
+&lt;p>因此，使用 TASKLET 特别简便，当然也会存在一些问题，比如说由于只在一个 CPU 上运行导致的调度不均衡，再比如因为不能在多个 CPU 上并行运行带来了性能限制。&lt;/p>
+&lt;p>另外，刚刚提到过，软中断实际上是以内核线程的方式运行的，每个 CPU 都对应一个软中断内核线程，这个软中断内核线程就叫做 ksoftirqd/CPU 编号。那要怎么查看这些线程的运行状况呢？&lt;/p>
+&lt;p>其实用 ps 命令就可以做到，比如执行下面的指令：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@master-1 ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ps aux | grep softirq&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#0000cf;font-weight:bold">6&lt;/span> 0.1 0.0 &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> ? S Sep25 8:32 &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>ksoftirqd/0&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#0000cf;font-weight:bold">14&lt;/span> 0.2 0.0 &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> ? S Sep25 11:55 &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>ksoftirqd/1&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#0000cf;font-weight:bold">19&lt;/span> 0.1 0.0 &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> ? S Sep25 10:48 &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>ksoftirqd/2&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>root &lt;span style="color:#0000cf;font-weight:bold">24&lt;/span> 0.2 0.0 &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> ? S Sep25 13:36 &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>ksoftirqd/3&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>注意，这些线程的名字外面都有中括号，这说明 ps 无法获取它们的命令行参数（cmline）。一般来说，ps 的输出中，名字括在中括号里的，一般都是内核线程。&lt;/p>
+&lt;p>小结
+Linux 中的中断处理程序分为上半部和下半部：&lt;/p>
+&lt;ol>
+&lt;li>上半部对应硬件中断，用来快速处理中断。&lt;/li>
+&lt;li>下半部对应软中断，用来异步处理上半部未完成的工作。&lt;/li>
+&lt;/ol>
+&lt;p>Linux 中的软中断包括网络收发、定时、调度、RCU 锁等各种类型，可以通过查看 /proc/softirqs 来观察软中断的运行情况。&lt;/p></description></item><item><title>Docs: OpenSSL</title><link>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Crypto-mgmt/OpenSSL/OpenSSL/</link><pubDate>Tue, 12 Sep 2023 08:11:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Crypto-mgmt/OpenSSL/OpenSSL/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.openssl.org/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/openssl/openssl">GitHub 项目，openssl/openssl&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>OpenSSL 是一个商业级且功能齐全的工具包，用于通用密码学和安全通信&lt;/p>
+&lt;p>OpenSSL 可以实现 &lt;strong>TLS(传输层安全性)&lt;/strong> 和 &lt;strong>SSL(安全套接字层)&lt;/strong> 协议的预期功能，类似于 OpenSSH 是 ssh 协议的实现&lt;/p>
+&lt;p>OpenSSL 主要包含两组东西：&lt;/p>
+&lt;ul>
+&lt;li>openssl # 多用途的命令行工具&lt;/li>
+&lt;li>libraries # OpenSSL 库
+&lt;ul>
+&lt;li>libcrypto # 加密解密库&lt;/li>
+&lt;li>libssl # ssl 库，实现了 ssl 及 tls 的功能&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h1 id="openssl-关联文件">OpenSSL 关联文件&lt;a class="td-heading-self-link" href="#openssl-%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>/etc/ssl/openssl.conf&lt;/strong> # OpenSSL 的“命令行工具”和 “库”默认使用的配置文件。&lt;/p>
+&lt;p>如果想要使用 CA 功能，需要进行如下配置&lt;/p>
+&lt;ul>
+&lt;li>touch /etc/pki/CA/index.txt&lt;/li>
+&lt;li>echo 01 &amp;gt; /etc/pki/CA/serial&lt;/li>
+&lt;/ul>
+&lt;h1 id="openssl-命令行工具">openssl 命令行工具&lt;a class="td-heading-self-link" href="#openssl-%e5%91%bd%e4%bb%a4%e8%a1%8c%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.openssl.org/docs/manmaster/man1/openssl.html">Manual(手册)，openssl&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>openssl 程序提供了丰富的子命令，以实现 TLS/SSL 网络协议以及它们所需要的相关加密标准。&lt;/p>
+&lt;h2 id="syntax语法">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>openssl Command [ OPTIONS ] [ ARGUMENTS ]&lt;/strong>&lt;/p>
+&lt;h3 id="command">Command&lt;a class="td-heading-self-link" href="#command" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;ul>
+&lt;li>Standard commands # 标准命令
+&lt;ul>
+&lt;li>asn1parse，ca，ciphers，cms，crl，crl2pkcs7，dgst，dh，dhparam，dsa，dsaparam，ec，ecparam，enc，engine，errstr，gendh，gendsa，genpkey，genrsa，nseq，ocsp，passwd，pkcs12，pkcs7，pkcs8，pkey，pkeyparam，pkeyutl，prime，rand，req，rsa，rsautl，s_client，s_server，s_time，sess_id，smime，speed，spkac，ts，verify，version，x509&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Message Digest commands # 消息摘要命令，消息摘要算法的实现(用于单向加密)。使用 dgst 命令
+&lt;ul>
+&lt;li>md2，md4，md5，rmd160，sha，sha1&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>Cipher commands # 密码命令（其中都是各种加密算法，用于对称加密）。使用 enc 命令
+&lt;ul>
+&lt;li>aes-128-cbc，aes-128-ecb，aes-192-cbc，aes-192-ecb，aes-256-cbc，aes-256-ecb，base64，bf，bf-cbc，bf-cfb，bf-ecb，bf-ofb，camellia-128-cbc，camellia-128-ecb，camellia-192-cbc，camellia-192-ecb，camellia-256-cbc，camellia-256-ecb，cast，cast-cbc，cast5-cbc，cast5-cfb，cast5-ecb，cast5-ofb，des，des-cbc，des-cfb，des-ecb，des-ede，des-ede-cbc，des-ede-cfb，des-ede-ofb，des-ede3，des-ede3-cbc，des-ede3-cfb，des-ede3-ofb，des-ofb，des3，desx，idea，idea-cbc，idea-cfb，idea-ecb，idea-ofb，rc2，rc2-40-cbc，rc2-64-cbc，rc2-cbc，rc2-cfb，rc2-ecb，rc2-ofb，rc4，rc4-40，rc5，rc5-cbc，rc5-cfb，rc5-ecb，rc5-ofb，seed，seed-cbc，seed-cfb，seed-ecb，seed-ofb，zlib&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h3 id="global-options">Global OPTIONS&lt;a class="td-heading-self-link" href="#global-options" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;ul>
+&lt;li>-in FILE # 指明使用的文件&lt;/li>
+&lt;li>-out FILE # 指明输出的文件&lt;/li>
+&lt;/ul>
+&lt;h2 id="standard-commands标准命令">Standard commands(标准命令)&lt;a class="td-heading-self-link" href="#standard-commands%e6%a0%87%e5%87%86%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;a href="docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Crypto%20mgmt/OpenSSL/Standard%20commands.md">Standard commands&lt;/a>&lt;/p>
+&lt;h2 id="message-digest-commands消息摘要命令">Message Digest commands(消息摘要命令)&lt;a class="td-heading-self-link" href="#message-digest-commands%e6%b6%88%e6%81%af%e6%91%98%e8%a6%81%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>消息摘要算法的实现(用于单向加密)。使用 dgst 命令&lt;/p>
+&lt;h2 id="cipher-commands密码命令">Cipher commands(密码命令)&lt;a class="td-heading-self-link" href="#cipher-commands%e5%af%86%e7%a0%81%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>其中都是各种加密算法，用于对称加密。使用 enc 命令&lt;/p>
+&lt;h3 id="openssl-enc---对称密钥程序用于创建管理对称密钥">openssl enc - 对称密钥程序，用于创建管理对称密钥&lt;a class="td-heading-self-link" href="#openssl-enc---%e5%af%b9%e7%a7%b0%e5%af%86%e9%92%a5%e7%a8%8b%e5%ba%8f%e7%94%a8%e4%ba%8e%e5%88%9b%e5%bb%ba%e7%ae%a1%e7%90%86%e5%af%b9%e7%a7%b0%e5%af%86%e9%92%a5" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>OPTIONS&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>-e&lt;/strong> # 加密文件&lt;/li>
+&lt;li>&lt;strong>-d&lt;/strong> # 解密文件&lt;/li>
+&lt;li>&lt;strong>-des3&lt;/strong> # 使用 des3 算法进行加密或解密&lt;/li>
+&lt;li>&lt;strong>-a&lt;/strong> # 基于文本进行编码&lt;/li>
+&lt;li>&lt;strong>-salt&lt;/strong> # 加入一些盐&lt;/li>
+&lt;/ul>
+&lt;p>EXAMPLE&lt;/p>
+&lt;ul>
+&lt;li>openssl enc -e -des3 -a -salt -in fstab -out fstab.ciphertext # 加密 fstab 文件为 fstab.ciphertext，算法为 des3，基于文本进行编码，加入一些 salt&lt;/li>
+&lt;li>openssl enc -d -des3 -a -salt -in fstab.ciphertext -out fstab # 解密 fstab.ciphertext 为 fstab 文件&lt;/li>
+&lt;/ul>
+&lt;h1 id="应用实例">应用实例&lt;a class="td-heading-self-link" href="#%e5%ba%94%e7%94%a8%e5%ae%9e%e4%be%8b" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="创建自签-ca-证书">创建自签 ca 证书&lt;a class="td-heading-self-link" href="#%e5%88%9b%e5%bb%ba%e8%87%aa%e7%ad%be-ca-%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;ul>
+&lt;li>(umask 077; openssl genrsa -out ca.key 2048)&lt;/li>
+&lt;li>openssl req -new -x509 -key ca.key -days 3650 -out ca.crt&lt;/li>
+&lt;/ul>
+&lt;h2 id="在-kubernetes-中生成个人证书">在 kubernetes 中生成个人证书&lt;a class="td-heading-self-link" href="#%e5%9c%a8-kubernetes-%e4%b8%ad%e7%94%9f%e6%88%90%e4%b8%aa%e4%ba%ba%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;ul>
+&lt;li>在当前目录下生成一个 2048 位的名为 lch.key 的私钥（括号的作用是创建子 shell 执行命令，这样 umask 命令对当前 shell 没影响）
+&lt;ul>
+&lt;li>(umask 077;openssl genrsa -out lch.key 2048)&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>使用 lck.key 进行证书申请
+&lt;ul>
+&lt;li>openssl req -new -key lch.key -out lch.csr -subj &amp;ldquo;/CN=lch&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>使用 ca.key 来给 lch.crt 颁发证书，以生成 lch.crt 文件
+&lt;ul>
+&lt;li>openssl x509 -req -in lch.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out lch.crt -days 365&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>查看 ca.crt 证书的信息
+&lt;ul>
+&lt;li>openssl x509 -in lch.crt -text -noout&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>openssl x509 部分命令&lt;/p>
+&lt;p>打印出证书的内容：&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -text&lt;/p>
+&lt;p>打印出证书的系列号&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -serial&lt;/p>
+&lt;p>打印出证书的拥有者名字&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -subject&lt;/p>
+&lt;p>以 RFC2253 规定的格式打印出证书的拥有者名字&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -subject -nameopt RFC2253&lt;/p>
+&lt;p>在支持 UTF8 的终端一行过打印出证书的拥有者名字&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -subject -nameopt oneline -nameopt -escmsb&lt;/p>
+&lt;p>打印出证书的 MD5 特征参数&lt;/p>
+&lt;p>openssl x509 -in cert.pem -noout -fingerprint&lt;/p>
+&lt;p>打印出证书的 SHA 特征参数&lt;/p>
+&lt;p>openssl x509 -sha1 -in cert.pem -noout -fingerprint&lt;/p>
+&lt;p>把 PEM 格式的证书转化成 DER 格式&lt;/p>
+&lt;p>openssl x509 -in cert.pem -inform PEM -out cert.der -outform DER&lt;/p>
+&lt;p>把一个证书转化成 CSR&lt;/p>
+&lt;p>openssl x509 -x509toreq -in cert.pem -out req.pem -signkey key.pem&lt;/p>
+&lt;p>给一个 CSR 进行处理，颁发字签名证书，增加 CA 扩展项&lt;/p>
+&lt;p>openssl x509 -req -in careq.pem -extfile openssl.cnf -extensions v3_ca -signkey key.pem -out cacert.pem&lt;/p>
+&lt;p>给一个 CSR 签名，增加用户证书扩展项&lt;/p>
+&lt;p>openssl x509 -req -in req.pem -extfile openssl.cnf -extensions v3_usr -CA cacert.pem -CAkey key.pem -CAcreateserial&lt;/p>
+&lt;p>查看 csr 文件细节：&lt;/p>
+&lt;p>openssl req -in my.csr -noout -text&lt;/p></description></item><item><title>Docs: Cilium</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/CNI/Cilium/Cilium/</link><pubDate>Sun, 10 Sep 2023 10:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/CNI/Cilium/Cilium/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/cilium/cilium">GitHub 项目，cilium/cilium&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://cilium.io/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.cilium.io/en/latest/">官方文档&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;a href="https://docs.google.com/presentation/d/1cZJ-pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit#slide=id.g7608b8c2de_0_0">https://docs.google.com/presentation/d/1cZJ-pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit#slide=id.g7608b8c2de_0_0&lt;/a>
+&lt;a href="https://www.youtube.com/watch?v=bIRwSIwNHC0">https://www.youtube.com/watch?v=bIRwSIwNHC0&lt;/a>
+&lt;a href="http://arthurchiao.art/blog/ebpf-and-k8s-zh/">http://arthurchiao.art/blog/ebpf-and-k8s-zh/&lt;/a>&lt;/p>
+&lt;h1 id="常见问题">常见问题&lt;a class="td-heading-self-link" href="#%e5%b8%b8%e8%a7%81%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>如果在设备 A 添加了到 PodIP 段的静态路由，从集群外部直接访问 pod ip 是不通的。。。。。icmp 行。。。其他不行。。好像在 datapath 处理的时候，给略过了。。。。&lt;/p></description></item><item><title>Docs: 📹11.多媒体</title><link>https://desistdaydream.github.io/docs/11.%E5%A4%9A%E5%AA%92%E4%BD%93/11.%E5%A4%9A%E5%AA%92%E4%BD%93/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/11.%E5%A4%9A%E5%AA%92%E4%BD%93/11.%E5%A4%9A%E5%AA%92%E4%BD%93/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -958,7 +1353,179 @@
 &lt;/ul>
 &lt;/li>
 &lt;/ul>
-&lt;h2 id="pwck">pwck&lt;a class="td-heading-self-link" href="#pwck" aria-label="Heading self-link">&lt;/a>&lt;/h2></description></item><item><title>Docs: AI Projects</title><link>https://desistdaydream.github.io/docs/12.AI/AI-Projects/AI-Projects/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/12.AI/AI-Projects/AI-Projects/</guid><description>
+&lt;h2 id="pwck">pwck&lt;a class="td-heading-self-link" href="#pwck" aria-label="Heading self-link">&lt;/a>&lt;/h2></description></item><item><title>Docs: ACME</title><link>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Crypto-mgmt/ACME/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Crypto-mgmt/ACME/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://datatracker.ietf.org/doc/html/rfc8555/">RFC 8555, Automatic Certificate Management Environment (ACME)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.rfc-editor.org/rfc/rfc8737.html">RFC 8737, Automated Certificate Management Environment (ACME) TLS Application‑Layer Protocol Negotiation (ALPN) Challenge Extension&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.rfc-editor.org/rfc/rfc8738.html">RFC 8738, Automated Certificate Management Environment (ACME) IP Identifier Validation Extension&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Automatic_Certificate_Management_Environment">Wiki，ACME&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>&lt;strong>Automatic Certificate Management Environment(自动证书管理环境，简称 ACME)&lt;/strong> 是一种通信协议，用于自动化证书颁发机构与其用户的 Web 服务器之间的交互，允许以非常低的成本自动部署 PKI。它是由 ISRG 为他们的 Let&amp;rsquo;s Encrypt 服务设计的。&lt;/p>
+&lt;h2 id="acme-服务提供商">ACME 服务提供商&lt;a class="td-heading-self-link" href="#acme-%e6%9c%8d%e5%8a%a1%e6%8f%90%e4%be%9b%e5%95%86" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>支持免费或低成本基于 ACME 的证书服务的提供商包括 Let&amp;rsquo;s Encrypt、Buypass Go SSL、ZeroSSL 和 SSL.com。许多其他证书颁发机构和软件供应商提供 ACME 服务，作为 &lt;a href="https://en.wikipedia.org/wiki/Entrust">Entrust&lt;/a> 和 &lt;a href="https://en.wikipedia.org/wiki/DigiCert">DigiCert&lt;/a> 等付费 PKI 解决方案的一部分。&lt;/p>
+&lt;h2 id="acme-的实现">ACME 的实现&lt;a class="td-heading-self-link" href="#acme-%e7%9a%84%e5%ae%9e%e7%8e%b0" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>想要实现自动签证书，要经过如下几个步骤&lt;/p>
+&lt;ul>
+&lt;li>验证要签名证书所使用的域名是属于我的。这个验证过程又有多种途径
+&lt;ul>
+&lt;li>&lt;strong>DNS 验证&lt;/strong> # 通过提供域名注册商的认证信息(比如 ak、sk)，ACME 程序将会从域名注册商处验证域名属于我的&lt;/li>
+&lt;li>&lt;strong>Web 验证&lt;/strong> # 通过域名访问 Web 服务。由于自己可以配置域名解析，所以只要域名可以解析到运行 ACME 程序的设备上，那么 ACME 程序就认为这个域名是属于我的。
+&lt;ul>
+&lt;li>这种方式有个弊端：首先要保证自己的域名可以解析到运行 ACME 程序的设备上；然后还要保证 ACME 程序可以通过域名访问到自己。这在国内没有备案的域名是不方便的&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;a href="https://github.com/go-acme/lego">GitHub 项目，go-acme/lego&lt;/a> # 用 &lt;a href="docs/2.%E7%BC%96%E7%A8%8B/%E9%AB%98%E7%BA%A7%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/Go/Go.md">Go&lt;/a> 语言实现的 ACME 库 和 Let&amp;rsquo;s Encrypt 客户端&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/rea1shane/lego-docker-helper">https://github.com/rea1shane/lego-docker-helper&lt;/a> 这是？&lt;/li>
+&lt;/ul>
+&lt;h1 id="lets-encrypt">Let&amp;rsquo;s Encrypt&lt;a class="td-heading-self-link" href="#lets-encrypt" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://letsencrypt.org/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Let%27s_Encrypt">Wiki，Let&amp;rsquo;s Encrypt&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/certbot/certbot">GitHub 项目，certbot/certbot&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;h2 id="使用-certbot-创建证书">使用 certbot 创建证书&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8-certbot-%e5%88%9b%e5%bb%ba%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>Let&amp;rsquo;s Encrypt 使用 certbot 工具为我们签署证书&lt;/p>
+&lt;blockquote>
+&lt;p>注意：保证执行 certbot 的服务器的 80 端口是可以被公网访问的，且保证签署证书时提供的域名是可以解析的(即已备案或无需备案)&lt;/p>
+&lt;/blockquote>
+&lt;p>证书申请成功后将会出现如下提示：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># certbot certonly --standalone&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Saving debug log to /var/log/letsencrypt/letsencrypt.log
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Plugins selected: Authenticator standalone, Installer None
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Please enter in your domain name&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>s&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>comma and/or space separated&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>Enter &lt;span style="color:#4e9a06">&amp;#39;c&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>to cancel&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>: 这里输入自己的&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">域名&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Obtaining a new certificate
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Performing the following challenges:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http-01 challenge &lt;span style="color:#204a87;font-weight:bold">for&lt;/span> &lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">域名&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Waiting &lt;span style="color:#204a87;font-weight:bold">for&lt;/span> verification...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Cleaning up challenges
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>IMPORTANT NOTES:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - Congratulations! Your certificate and chain have been saved at:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> /etc/letsencrypt/live/&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">域名&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>/fullchain.pem
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Your key file has been saved at:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> /etc/letsencrypt/live/&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">域名&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>/privkey.pem
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Your cert will expire on 2022-09-05. To obtain a new or tweaked
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> version of this certificate in the future, simply run certbot
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> again. To non-interactively renew *all* of your certificates, run
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;certbot renew&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - If you like Certbot, please consider supporting our work by:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Donating to ISRG / Let&lt;span style="color:#a40000">&amp;#39;&lt;/span>s Encrypt: https://letsencrypt.org/donate
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Donating to EFF: https://eff.org/donate-le
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>根据提示，在 &lt;code>/etc/letsencrypt/live/${DNS}/&lt;/code> 目录下，可以找到已经签署的证书及私钥&lt;/p>
+&lt;h1 id="zerosll">ZeroSLL&lt;a class="td-heading-self-link" href="#zerosll" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://zerossl.com/">官网&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/zerossl/">GitHub 组织，ZeroSSL&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>ZeroSLL 是一个 CA 机构，可以为所有人提供快速、可靠、自由的 SSL 保护。&lt;/p>
+&lt;p>在 &lt;a href="https://zerossl.com/features/acme/#clients">ZeroSSL Partners &amp;amp; ACME Clients&lt;/a> 这里可以看到所有可以支持使用 ZeroSSL 实现 ACME 的客户端应用，其中就包括 &lt;a href="#acme.sh">acme.sh&lt;/a>&lt;/p>
+&lt;h1 id="acmesh">acme.sh&lt;a class="td-heading-self-link" href="#acmesh" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/acmesh-official/acme.sh">GitHub 项目，acemsh-official/acme.sh&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>acmesh 是一个使用纯粹 Shell（Unix shell）语言编写的 ACME 协议客户端。&lt;/p>
+&lt;p>在过去，acme.sh 是一个常用的工具来申请、部署和续期免费的 SSL 证书，而默认的免费 SSL 证书 CA 机构是 Let&amp;rsquo;s Encrypt。然而，从 acme.sh v3.0 开始，默认的免费 SSL 证书 CA 机构变更为 ZeroSSL。这意味着 acmesh.sh 现在支持使用 ZeroSSL 来申请免费的SSL证书。&lt;/p>
+&lt;h3 id="安装-acmesh">安装 acme.sh&lt;a class="td-heading-self-link" href="#%e5%ae%89%e8%a3%85-acmesh" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>acme.sh 是一个纯 Shell 脚本，首先下载这个脚本&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">MY_EMAIL&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;我的邮箱&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>curl https://get.acme.sh &lt;span style="color:#000;font-weight:bold">|&lt;/span> sh -s &lt;span style="color:#000">$MY_EMAIL&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">source&lt;/span> ~/.bashrc
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>该脚本会创建 &lt;code>~/.acme.sh/&lt;/code> 目录，并在该目录中安装 acme.sh 脚本。acme.sh 的配置文件，生成证书默认保存的位置也在这里。同时会在 &lt;code>~/.bashrc&lt;/code> 文件中添加 &lt;code>. &amp;quot;/root/.acme.sh/acme.sh.env&amp;quot;&lt;/code>&lt;/p>
+&lt;p>&lt;strong>安装过程不会污染已有的系统任何功能和文件&lt;/strong>, 所有的修改都限制在安装目录中: &lt;code>~/.acme.sh/&lt;/code>&lt;/p>
+&lt;p>会在系统的 Crontab 中创建一个逻辑&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># crontab -l&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">26&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> * * * /root/.acme.sh/acme.sh --cron --home &lt;span style="color:#4e9a06">&amp;#34;/root/.acme.sh&amp;#34;&lt;/span> &amp;gt; /dev/null
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="关联文件与配置">关联文件与配置&lt;a class="td-heading-self-link" href="#%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6%e4%b8%8e%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>~/.acme.sh/&lt;/strong> # acme.sh 程序的主要工作目录&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>./account.conf&lt;/strong> # 包括不同 DNS 提供商的认证信息、账户信息、等等&lt;/li>
+&lt;li>&lt;strong>./$DOMAIN_NAME/&lt;/strong> # 已处理域名的信息保存路径
+&lt;ul>
+&lt;li>&lt;strong>./$DOMAIN_NAME.conf&lt;/strong> # 与该域名相关的配置信息。&lt;code>acme.sh --info -d example.com&lt;/code> 命令读取的就是这个文件&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="生成证书">生成证书&lt;a class="td-heading-self-link" href="#%e7%94%9f%e6%88%90%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h3 id="不同-dns-提供商的处理">不同 DNS 提供商的处理&lt;a class="td-heading-self-link" href="#%e4%b8%8d%e5%90%8c-dns-%e6%8f%90%e4%be%9b%e5%95%86%e7%9a%84%e5%a4%84%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;h4 id="使用阿里云解析生成证书">使用阿里云解析生成证书&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8%e9%98%bf%e9%87%8c%e4%ba%91%e8%a7%a3%e6%9e%90%e7%94%9f%e6%88%90%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h4>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/acmesh-official/acme.sh/wiki/dnsapi#11-use-aliyun-domain-api-to-automatically-issue-cert">GitHub 项目 Wiki，acmesh-official/acme.sh-dnsapi-使用阿里云域名 API 自动颁发证书&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>从 &lt;a href="https://ram.console.aliyun.com/users">阿里云控制台-RAM 访问控制-身份管理-用户&lt;/a> 处创建用户并获取 AK、SK&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">Ali_Key&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;AccessKeyId&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">Ali_Secret&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;AccessKeySecret&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="使用-namecom-生成证书">使用 Name.com 生成证书&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8-namecom-%e7%94%9f%e6%88%90%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h4>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/acmesh-official/acme.sh/wiki/dnsapi#28-use-namecom-api">GitHub 项目 Wiki，acmesh-official/acme.sh-dnsapi-使用 Name.com API&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>从 &lt;a href="https://www.name.com/zh-cn/account/settings/api">https://www.name.com/zh-cn/account/settings/api&lt;/a> 创建 Token&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">Namecom_Username&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;XXXX&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">Namecom_Token&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;XXXXX&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>注意：这俩变量要使用 PRODUCTION(生产)环境的。Name.com 创建完 Token 后会有两个~一个用于生产，一个用于测试，对应不用的 API&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>acme.sh --issue --dns dns_namecom -d 102205.xyz -d *.102205.xyz
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="使用-dnspod-生成证书">使用 DNSPod 生成证书&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8-dnspod-%e7%94%9f%e6%88%90%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h4>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">DP_Id&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;XXXXXX&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">DP_Key&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;YYYYYYYYYYYYYYYY&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>acme.sh --issue --dns dns_dp -d 102205.xyz -d *.102205.xyz
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="拷贝证书">拷贝证书&lt;a class="td-heading-self-link" href="#%e6%8b%b7%e8%b4%9d%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>前面证书生成以后, 接下来需要把证书 copy 到真正需要用它的地方.&lt;/p>
+&lt;p>注意, 默认生成的证书都放在安装目录下: &lt;code>~/.acme.sh/&lt;/code>, 请不要直接使用此目录下的文件, 例如: 不要直接让 nginx/apache 的配置文件使用这下面的文件. 这里面的文件都是内部使用, 而且目录结构可能会变化.&lt;/p>
+&lt;p>正确的使用方法是使用 &lt;code>--install-cert&lt;/code> 命令,并指定目标位置, 然后证书文件会被copy到相应的位置&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>acme.sh --install-cert -d 102205.xyz &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--key-file ~/projects/DesistDaydream/cloud-native-apps/compose/nginx-myself/config/certs/102205.key &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--fullchain-file ~/projects/DesistDaydream/cloud-native-apps/compose/nginx-myself/config/certs/102205.pem &lt;span style="color:#4e9a06">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--reloadcmd &lt;span style="color:#4e9a06">&amp;#34;docker exec -it nginx-geoip2 nginx -c /etc/nginx/nginx/nginx.conf -s reload&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="查看证书信息">查看证书信息&lt;a class="td-heading-self-link" href="#%e6%9f%a5%e7%9c%8b%e8%af%81%e4%b9%a6%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>acme.sh --info -d example.com
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 会输出如下内容：&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">DOMAIN_CONF&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/root/.acme.sh/example.com/example.com.conf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_Domain&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>example.com
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_Alt&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>no
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_Webroot&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>dns_ali
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_PreHook&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_PostHook&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_RenewHook&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_API&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>https://acme-v02.api.letsencrypt.org/directory
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_Keylength&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_OrderFinalize&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>https://acme-v02.api.letsencrypt.org/acme/finalize/23xxxx150/781xxxx4310
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_LinkOrder&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>https://acme-v02.api.letsencrypt.org/acme/order/233xxx150/781xxxx4310
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_LinkCert&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>https://acme-v02.api.letsencrypt.org/acme/cert/04cbd28xxxxxx349ecaea8d07
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_CertCreateTime&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">1649358725&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_CertCreateTimeStr&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>Thu Apr &lt;span style="color:#0000cf;font-weight:bold">7&lt;/span> 19:12:05 UTC &lt;span style="color:#0000cf;font-weight:bold">2022&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_NextRenewTimeStr&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>Mon Jun &lt;span style="color:#0000cf;font-weight:bold">6&lt;/span> 19:12:05 UTC &lt;span style="color:#0000cf;font-weight:bold">2022&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_NextRenewTime&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">1654456325&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_RealCertPath&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_RealCACertPath&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_RealKeyPath&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/etc/acme/example.com/privkey.pem
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_ReloadCmd&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>service nginx force-reload
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_RealFullChainPath&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/etc/acme/example.com/chain.pem
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这些信息是保存在 &lt;code>~/.acme.sh/DOMAIN_NAME/DOMAIN_NAME.conf&lt;/code> 文件中的，我们可以直接修改文件内容，比如 ReloadCmd、等等&lt;/p></description></item><item><title>Docs: AI Projects</title><link>https://desistdaydream.github.io/docs/12.AI/AI-Projects/AI-Projects/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/12.AI/AI-Projects/AI-Projects/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -2930,7 +3497,7 @@ UA 与 SA 的对比在 &lt;a href="https://kubernetes.io/docs/reference/access-a
 &lt;li>&lt;a href="http://kerneltravel.net/categories/ebpf/">某网站系列文章&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;p>&lt;strong>extended Berkeley Packet Filter(扩展的 BPF，简称 eBPF)&lt;/strong> 起源于 BPF，是对 BPF 的扩展。eBPF 针对现代硬件进行了优化和全新的设计，使其生成的指令集比 cBPF 解释器生成的机器码更快。这个扩展版本还将 cBPF VM 中的寄存器数量从两个 32 位寄存器增加到 10 个 64 位寄存器。寄存器数量和寄存器宽度的增加为编写更复杂的程序提供了可能性，开发人员可以自由的使用函数参数交换更多的信息。这些改进使得 eBPF 比原来的 cBPF 快四倍。这些改进，主要还是对网络过滤器内部处理的 eBPF 指令集进行优化，仍然被限制在内核空间中，只有少数用户空间中的程序可以编写 BPF 过滤器供内核处理，比如 Tcpdump 和 Seccomp。&lt;/p>
+&lt;p>&lt;strong>extended Berkeley Packet Filter(扩展的 BPF，简称 eBPF)&lt;/strong> 起源于 BPF，是对 BPF 的扩展。&lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/BPF/eBPF.md">eBPF&lt;/a> 针对现代硬件进行了优化和全新的设计，使其生成的指令集比 cBPF 解释器生成的机器码更快。这个扩展版本还将 cBPF VM 中的寄存器数量从两个 32 位寄存器增加到 10 个 64 位寄存器。寄存器数量和寄存器宽度的增加为编写更复杂的程序提供了可能性，开发人员可以自由的使用函数参数交换更多的信息。这些改进使得 eBPF 比原来的 cBPF 快四倍。这些改进，主要还是对网络过滤器内部处理的 eBPF 指令集进行优化，仍然被限制在内核空间中，只有少数用户空间中的程序可以编写 BPF 过滤器供内核处理，比如 Tcpdump 和 Seccomp。&lt;/p>
 &lt;p>除了上述的优化之外，eBPF 最让人兴奋的改进，是其向用户空间的开放。开发者可以在用户空间，编写 eBPF 程序，并将其加在到内核空间执行。虽然 eBPF 程序看起来更像内核模块，但与内核模块不同的是，eBPF 程序不需要开发者重新编译内核，而且保证了在内核不崩溃的情况下完成加载操作，着重强调了安全性和稳定性。BPF 代码的主要贡献单位主要包括 Cilium、Facebook、Red Hat 以及 Netronome 等。&lt;/p>
 &lt;p>Linux Kernel 一直是实现 可观察性、网络、安全性 的理想场所。不幸的是，想要自定义这些实现通常是不切实际的，因为它需要更改内核源代码或加载内核模块，并导致彼此堆叠的抽象层。而 eBPF 的出现，让这一切成为可能，&lt;strong>eBPF 可以在 Linux 内核中运行沙盒程序，而无需更改内核源代码或加载内核模块&lt;/strong>。通过&lt;strong>使 Linux Kernel 可编程&lt;/strong>，基础架构软件可以利用现有的层，从而使它们更加智能和功能丰富，而无需继续为系统增加额外的复杂性层。&lt;/p>
 &lt;p>也正由于此，eBPF 不再局限于网络的过滤，而且 eBPF 就相当于内核本身的代码，想象空间无限，并且热加载到内核，换句话说，一旦加载到内核，内核的行为就变了。所以，eBPF 带动了 安全性、应用程序配置/跟踪、性能故障排除 等等领域的新一代工具的开发，这些工具不再依赖现有的内核功能，而是在不影响执行效率或安全性的情况下主动重新编程运行时行为：&lt;/p>
@@ -3386,7 +3953,122 @@ Cilium 此时支持的功能：&lt;/p>
 &lt;/blockquote>
 &lt;h2 id="block-cipher-与-stream-cipher">Block cipher 与 Stream cipher&lt;a class="td-heading-self-link" href="#block-cipher-%e4%b8%8e-stream-cipher" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>随着时代的发展，曾经对每个字节进行加密的方式不再显示，一个动辄几个 G 的文件，如果使用与明文相同的密钥进行加密，那么密钥也需要几个 G，这给密钥的分发造成了苦难，这时，可以将原始明文划分成多个长度相同的小块（也就是分组），然后使用和这些小块长度相同改的密钥依次和所有分组中的明文进行异或运算以进行加密，这就是早期的 &lt;a href="https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Cryptography/Cipher/Block%20cipher.md">Block cipher&lt;/a> 加密算法。解密时，先对密文进行同样大小的分组，然后用相同的密钥和所有的密文块异或，再合并得到明文。&lt;/p>
-&lt;p>TODO: Stream cipher 算法是基于什么痛点出现的呢？&lt;/p></description></item><item><title>Docs: Cobbler</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/Cobbler/Cobbler/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/Cobbler/Cobbler/</guid><description>
+&lt;p>TODO: Stream cipher 算法是基于什么痛点出现的呢？&lt;/p></description></item><item><title>Docs: CNI</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/CNI/CNI/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/CNI/CNI/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://github.com/containernetworking/cni">GitHub 项目&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://github.com/containernetworking/cni/blob/master/SPEC.md">GitHub,containernetworking-cni-规范&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>CNI 与 [OCI](/docs/10.云原生/2.1.容器/Open%20Containers%20Initiative(开放容器倡议).md Containers Initiative(开放容器倡议).md) 是类似的东西，都是一种规范。&lt;/p>
+&lt;p>&lt;strong>Container Network Interface(容器网络接口，简称 CNI)&lt;/strong> 是一个 CNCF 项目，用于编写为 Linux 容器配置网络接口的插件。CNI 由两部分组成：&lt;/p>
+&lt;ul>
+&lt;li>CNI Specification(规范)&lt;/li>
+&lt;li>CNI Libraries(库)&lt;/li>
+&lt;/ul>
+&lt;p>由于 CNI 仅仅关注在容器的网络连接以及在删除容器时移出通过 CNI 分配的网络资源。所以，CNI 具有广泛的支持，并且该规范易于实现。&lt;/p>
+&lt;h2 id="cni-specification规范">CNI Specification(规范)&lt;a class="td-heading-self-link" href="#cni-specification%e8%a7%84%e8%8c%83" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>每个 CNI 插件必须由 二进制文件 来实现，且这些文件应该可以被容器管理系统(比如 Kubernetes)调用。&lt;/p>
+&lt;p>CNI 插件负责将网络接口插入容器网络名称空间(例如 veth 对的一端)中，并在主机上进行任何必要的更改(例如将 veth 的另一端连接到网桥)。然后通过调用适当的 IPAM 插件，将 IP 分配给接口并设置与 IP 地址管理部分一致的路由。&lt;/p>
+&lt;h2 id="cni-libraries库">CNI Libraries(库)&lt;a class="td-heading-self-link" href="#cni-libraries%e5%ba%93" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>任何程序都可以调用 CNI 库来实现容器网络，比如 &lt;a href="https://github.com/containerd/nerdctl">nerdctl&lt;/a>、kubelet 等&lt;/p>
+&lt;h1 id="cni-的部署和使用方式">CNI 的部署和使用方式&lt;a class="td-heading-self-link" href="#cni-%e7%9a%84%e9%83%a8%e7%bd%b2%e5%92%8c%e4%bd%bf%e7%94%a8%e6%96%b9%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>官方文档：&lt;a href="https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#installation">https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#installation&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>CNI 规范与编程语言无关，并且 CNI 自身仅仅维护标准配置文件和基础插件，想要使用 CNI 来实现容器网络，只需根据标准，调用 CNI 库，即可在程序中实现(比如 nerdctl、kubelet 等)。这些通过 CNI 库实现了容器网络的程序，通过 &lt;strong>CNI 插件&lt;/strong>为其所启动的容器，创建关联网络。&lt;/p>
+&lt;p>就拿 kubelet 举例,&lt;a href="https://github.com/kubernetes/kubernetes/blob/release-1.22/cmd/kubelet/app/options/container_runtime.go">https://github.com/kubernetes/kubernetes/blob/release-1.22/cmd/kubelet/app/options/container_runtime.go&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">const&lt;/span> &lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#8f5902;font-style:italic">// When these values are updated, also update test/utils/image/manifest.go
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000">defaultPodSandboxImageName&lt;/span> &lt;span style="color:#000;font-weight:bold">=&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;k8s.gcr.io/pause&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">defaultPodSandboxImageVersion&lt;/span> &lt;span style="color:#000;font-weight:bold">=&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;3.5&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">var&lt;/span> &lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">defaultPodSandboxImage&lt;/span> &lt;span style="color:#000;font-weight:bold">=&lt;/span> &lt;span style="color:#000">defaultPodSandboxImageName&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">+&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;:&amp;#34;&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">+&lt;/span> &lt;span style="color:#000">defaultPodSandboxImageVersion&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">// NewContainerRuntimeOptions will create a new ContainerRuntimeOptions with
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">// default values.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">func&lt;/span> &lt;span style="color:#000">NewContainerRuntimeOptions&lt;/span>&lt;span style="color:#000;font-weight:bold">()&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">ContainerRuntimeOptions&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">dockerEndpoint&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">:=&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span> &lt;span style="color:#000">runtime&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">GOOS&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">!=&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;windows&amp;#34;&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">dockerEndpoint&lt;/span> &lt;span style="color:#000;font-weight:bold">=&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;unix:///var/run/docker.sock&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">return&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">&amp;amp;&lt;/span>&lt;span style="color:#000">config&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">ContainerRuntimeOptions&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">ContainerRuntime&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000">kubetypes&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">DockerContainerRuntime&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">DockerEndpoint&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000">dockerEndpoint&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">DockershimRootDirectory&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;/var/lib/dockershim&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">PodSandboxImage&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000">defaultPodSandboxImage&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">ImagePullProgressDeadline&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#000">metav1&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">Duration&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#000">Duration&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span> &lt;span style="color:#000">time&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">Minute&lt;/span>&lt;span style="color:#000;font-weight:bold">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">CNIBinDir&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;/opt/cni/bin&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">CNIConfDir&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;/etc/cni/net.d&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">CNICacheDir&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;/var/lib/cni/cache&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到，kubelet 在启动时通过 /etc/cni/net.d/ 目录下的配置文件来加载网络插件。当启动一个 Pod 时，kubelet 调用该目录下的网络插件配置后，由网络插件代为给 Pod 地址分配，接口创建，网络创建等&lt;/p>
+&lt;p>在部署 Kubernetes 的 CNI 插件时，有一个步骤是安装 kubernetes-cni 包，其目的就是在宿主机上安装 CNI 插件所需的基础二进制文件。这些文件一般保存在 /opt/cni/bin/ 目录中。&lt;/p>
+&lt;p>kubelet 配置 pod 网络时，首先会读取下 /etc/cni/net.d/&lt;em>目录下的配置，查看当前所使用的 CNI 插件及插件参数，比如现在是 flannel ，那么 flannel 会将 /run/flannel/subnet.env 文件的配置信息传递给 kubelet ，然后 kubelet 使用 /opt/cni/bin/&lt;/em> 目录中的二进制文件，来处理处理 pod 的网络信息。&lt;/p>
+&lt;p>注意：各种 CNI 的 cidr 配置由 controller-manager 维护，&lt;code>--cluster-cidr=10.244.0.0/16&lt;/code> 与 &lt;code>--node-cidr-mask-size=24&lt;/code> 这俩参数用来指定 cidr 的范围。&lt;/p>
+&lt;p>同时 CNI 还可以被 nerdctl 工具使用，作为直接使用 Containerd 启动容器的网络接口，让容器附加在通过 CNI 的 plugin 创建出来的网络设备上。nerdctl 同样会读取 CNI 配置文件，并通过 CNI 插件创建网络设备之后，nerdctl 再将容器关联到网络设备上。&lt;/p>
+&lt;h2 id="cni-插件说的通俗易懂点其实就是两个主要功能">CNI 插件说的通俗易懂点，其实就是两个主要功能&lt;a class="td-heading-self-link" href="#cni-%e6%8f%92%e4%bb%b6%e8%af%b4%e7%9a%84%e9%80%9a%e4%bf%97%e6%98%93%e6%87%82%e7%82%b9%e5%85%b6%e5%ae%9e%e5%b0%b1%e6%98%af%e4%b8%a4%e4%b8%aa%e4%b8%bb%e8%a6%81%e5%8a%9f%e8%83%bd" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;ol>
+&lt;li>路由表维护&lt;/li>
+&lt;li>发现路由规则&lt;/li>
+&lt;li>生成路由表&lt;/li>
+&lt;li>流量处理(如果需要的话)&lt;/li>
+&lt;/ol>
+&lt;h1 id="cni-插件列表">CNI 插件列表&lt;a class="td-heading-self-link" href="#cni-%e6%8f%92%e4%bb%b6%e5%88%97%e8%a1%a8" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>官方文档：&lt;a href="https://github.com/containernetworking/plugins">https://github.com/containernetworking/plugins&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>下面仅列出由 CNI 团队维护的一些参考和示例插件。CNI 的基础可执行文件一般分为三类：&lt;/p>
+&lt;p>第一类：Main 插件，用于创建具体的网络设备。&lt;/p>
+&lt;p>比如，bridge、ipvlan、loopback、macvlan、ptp(Veth Pair)、vlan 等。都属于“网桥”类型的 CNI 插件，所以在具体实现中，往往会调用 bridge 这个二进制文件。&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>bridge&lt;/strong> # 创建一个桥设备，向其中添加主机和容器。&lt;/li>
+&lt;li>&lt;strong>ipvlan&lt;/strong> # Adds an ipvlan interface in the container.&lt;/li>
+&lt;li>&lt;strong>loopback&lt;/strong> # Set the state of loopback interface to up.&lt;/li>
+&lt;li>&lt;strong>macvlan&lt;/strong> # Creates a new MAC address, forwards all traffic to that to the container.&lt;/li>
+&lt;li>&lt;strong>ptp&lt;/strong> # 创建一对 veth 设备&lt;/li>
+&lt;li>&lt;strong>vlan&lt;/strong> # Allocates a vlan device.&lt;/li>
+&lt;li>&lt;strong>host-device&lt;/strong> # Move an already-existing device into a container.&lt;/li>
+&lt;/ul>
+&lt;p>第二类：IPAM 插件(IP Address Management)，用于负责分配 IP 地址。&lt;/p>
+&lt;p>比如，dchp、host-local&lt;/p>
+&lt;ul>
+&lt;li>dhcp：这个文件会向 DHCP 服务器发起请求；&lt;/li>
+&lt;li>host-local，会使用预先配置的 IP 地址段来进行分配&lt;/li>
+&lt;/ul>
+&lt;p>第三类：其他插件&lt;/p>
+&lt;p>比如 flannel、tuning、portmap、bandwidth&lt;/p>
+&lt;ul>
+&lt;li>flannel：专门为 Flannel 项目提供的 CNI 插件。早期的默认插件，叠加网络，不支持网络策略(即定义哪个 Pod 访问哪个 Pod 等策略)&lt;/li>
+&lt;li>tuning：是一个通过 sysctl 调整网络设备参数的二进制文件&lt;/li>
+&lt;li>portmap：是一个通过 iptables 配置端口映射的二进制文件&lt;/li>
+&lt;li>bandwidth：是一个使用 Token Bucket Filter(TBF)来进行限流的二进制文件&lt;/li>
+&lt;/ul>
+&lt;h3 id="第三方-plugin">第三方 plugin&lt;a class="td-heading-self-link" href="#%e7%ac%ac%e4%b8%89%e6%96%b9-plugin" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;blockquote>
+&lt;p>可用的第三方插件列表在这里：&lt;a href="https://github.com/containernetworking/cni#3rd-party-plugins">https://github.com/containernetworking/cni#3rd-party-plugins&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;p>下面是一些常用的第三方 CNI 简介&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Calico&lt;/strong> # 三层隧道网络，基于 BGP 协议，即支持网络配置也支持网络策略&lt;/li>
+&lt;li>&lt;strong>Cilium&lt;/strong> # 基于 eBPF 实现的，性能很好&lt;/li>
+&lt;li>等&lt;/li>
+&lt;/ul>
+&lt;h2 id="各种-cni-的对比">各种 CNI 的对比&lt;a class="td-heading-self-link" href="#%e5%90%84%e7%a7%8d-cni-%e7%9a%84%e5%af%b9%e6%af%94" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/afl2qt/1616118670278-ee95f4dd-7834-4fbc-82e2-e8b9ddddcf33.jpeg" alt="">&lt;/p>
+&lt;h1 id="cni-关联文件">CNI 关联文件&lt;a class="td-heading-self-link" href="#cni-%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>/etc/cni/net.d/&lt;/strong># 默认配置文件保存目录&lt;/p>
+&lt;p>&lt;strong>/opt/cni/bin/&lt;/strong> # 默认 CNI 插件保存目录&lt;/p>
+&lt;p>&lt;strong>/var/lib/cni/&lt;/strong> # 默认 CNI 运行时产生的数据目录&lt;/p></description></item><item><title>Docs: Cobbler</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/Cobbler/Cobbler/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/Cobbler/Cobbler/</guid><description>
 &lt;h1 id="前言">前言&lt;a class="td-heading-self-link" href="#%e5%89%8d%e8%a8%80" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>网络安装服务器套件 Cobbler(补鞋匠) 出现以前，我们一直在做装机民工这份很有前途的职业。自打若干年前 Red Hat 推出了 Kickstart，此后我们顿觉身价倍增。不再需要刻了光盘一台一台地安装 Linux，只要搞定 PXE、DHCP、 TFTP，还有那满屏眼花缭乱不知所云的 Kickstart 脚本，我们就可以像哈里波特一样，轻点魔棒，瞬间安装上百台服务器。这一堆花里胡哨的东西可不是一般人都能整明白的，没有大专以上学历，通不过英语四级， 根本别想玩转。&lt;/p>
 &lt;p>总而言之，这是一份多么有前途，多么有技术含量的工作啊。&lt;/p>
@@ -3505,7 +4187,7 @@ Cilium 此时支持的功能：&lt;/p>
 &lt;h2 id="安装-docker-的-compose-插件">安装 Docker 的 Compose 插件&lt;a class="td-heading-self-link" href="#%e5%ae%89%e8%a3%85-docker-%e7%9a%84-compose-%e6%8f%92%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>官方推荐以 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20CLI/Docker%20CLI%20Plugin.md">Docker CLI Plugin&lt;/a> 的方式使用 Compose&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">COMPOSE_VERSION&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;2.24.2&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">DOCKER_CONFIG&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">DOCKER_CONFIG&lt;/span>&lt;span style="color:#204a87;font-weight:bold">:-&lt;/span>&lt;span style="color:#000">$HOME&lt;/span>&lt;span style="color:#000;font-weight:bold">/.docker&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">DOCKER_CONFIG&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">DOCKER_CONFIG&lt;/span>&lt;span style="color:#204a87;font-weight:bold">:-&lt;/span>&lt;span style="color:#000;font-weight:bold">/usr/local/lib/docker&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>mkdir -p &lt;span style="color:#000">$DOCKER_CONFIG&lt;/span>/cli-plugins
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>curl -SL https://github.com/docker/compose/releases/download/v&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">COMPOSE_VERSION&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>/docker-compose-linux-x86_64 -o &lt;span style="color:#000">$DOCKER_CONFIG&lt;/span>/cli-plugins/docker-compose
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>chmod +x &lt;span style="color:#000">$DOCKER_CONFIG&lt;/span>/cli-plugins/docker-compose
@@ -4523,180 +5205,7 @@ Controller Manager 管理 Deployment 资源，连接到 API Server 监听到了 
 &lt;p>&lt;a href="https://github.com/g1879/DrissionPage">https://github.com/g1879/DrissionPage&lt;/a>&lt;/p>
 &lt;ul>
 &lt;li>基于python的网页自动化工具。既能控制浏览器，也能收发数据包。可兼顾浏览器自动化的便利性和requests的高效率。功能强大，内置无数人性化设计和便捷功能。语法简洁而优雅，代码量少。&lt;/li>
-&lt;/ul></description></item><item><title>Docs: Crypto mgmt tools</title><link>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Crypto-mgmt-tools/Crypto-mgmt-tools/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Crypto-mgmt-tools/Crypto-mgmt-tools/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;h1 id="acme">ACME&lt;a class="td-heading-self-link" href="#acme" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://datatracker.ietf.org/doc/html/rfc8555">RFC-8555&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Automatic_Certificate_Management_Environment">Wiki，ACME&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>&lt;strong>Automatic Certificate Management Environment(自动证书管理环境，简称 ACME)&lt;/strong> 是一种通信协议，用于自动化证书颁发机构与其用户的 Web 服务器之间的交互，允许以非常低的成本自动部署 PKI。它是由 ISRG 为他们的 Let&amp;rsquo;s Encrypt 服务设计的。&lt;/p>
-&lt;h2 id="acme-服务提供商">ACME 服务提供商&lt;a class="td-heading-self-link" href="#acme-%e6%9c%8d%e5%8a%a1%e6%8f%90%e4%be%9b%e5%95%86" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>支持免费或低成本基于 ACME 的证书服务的提供商包括 Let&amp;rsquo;s Encrypt、Buypass Go SSL、ZeroSSL 和 SSL.com。许多其他证书颁发机构和软件供应商提供 ACME 服务，作为 &lt;a href="https://en.wikipedia.org/wiki/Entrust">Entrust&lt;/a> 和 &lt;a href="https://en.wikipedia.org/wiki/DigiCert">DigiCert&lt;/a> 等付费 PKI 解决方案的一部分。&lt;/p>
-&lt;h2 id="acme-的实现">ACME 的实现&lt;a class="td-heading-self-link" href="#acme-%e7%9a%84%e5%ae%9e%e7%8e%b0" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>想要实现自动签证书，要经过如下几个步骤&lt;/p>
-&lt;ul>
-&lt;li>验证要签名证书所使用的域名是属于我的。这个验证过程又有多种途径
-&lt;ul>
-&lt;li>&lt;strong>DNS 验证&lt;/strong> # 通过提供域名注册商的认证信息(比如 ak、sk)，ACME 程序将会从域名注册商处验证域名属于我的&lt;/li>
-&lt;li>&lt;strong>Web 验证&lt;/strong> # 通过域名访问 Web 服务。由于自己可以配置域名解析，所以只要域名可以解析到运行 ACME 程序的设备上，那么 ACME 程序就认为这个域名是属于我的。
-&lt;ul>
-&lt;li>这种方式有个弊端：首先要保证自己的域名可以解析到运行 ACME 程序的设备上；然后还要保证 ACME 程序可以通过域名访问到自己。这在国内没有备案的域名是不方便的&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;h1 id="lets-encrypt">Let&amp;rsquo;s Encrypt&lt;a class="td-heading-self-link" href="#lets-encrypt" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://letsencrypt.org/">官网&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Let%27s_Encrypt">Wiki，Let&amp;rsquo;s Encrypt&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://github.com/certbot/certbot">GitHub 项目，certbot/certbot&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;h2 id="使用-certbot-创建证书">使用 certbot 创建证书&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8-certbot-%e5%88%9b%e5%bb%ba%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>Let&amp;rsquo;s Encrypt 使用 certbot 工具为我们签署证书&lt;/p>
-&lt;blockquote>
-&lt;p>注意：保证执行 certbot 的服务器的 80 端口是可以被公网访问的，且保证签署证书时提供的域名是可以解析的(即已备案或无需备案)&lt;/p>
-&lt;/blockquote>
-&lt;p>证书申请成功后将会出现如下提示：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># certbot certonly --standalone&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Saving debug log to /var/log/letsencrypt/letsencrypt.log
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Plugins selected: Authenticator standalone, Installer None
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Please enter in your domain name&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>s&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>comma and/or space separated&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>Enter &lt;span style="color:#4e9a06">&amp;#39;c&amp;#39;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>to cancel&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>: 这里输入自己的&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">域名&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Obtaining a new certificate
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Performing the following challenges:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>http-01 challenge &lt;span style="color:#204a87;font-weight:bold">for&lt;/span> &lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">域名&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Waiting &lt;span style="color:#204a87;font-weight:bold">for&lt;/span> verification...
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Cleaning up challenges
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>IMPORTANT NOTES:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - Congratulations! Your certificate and chain have been saved at:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> /etc/letsencrypt/live/&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">域名&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>/fullchain.pem
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Your key file has been saved at:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> /etc/letsencrypt/live/&lt;span style="color:#4e9a06">${&lt;/span>&lt;span style="color:#000">域名&lt;/span>&lt;span style="color:#4e9a06">}&lt;/span>/privkey.pem
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Your cert will expire on 2022-09-05. To obtain a new or tweaked
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> version of this certificate in the future, simply run certbot
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> again. To non-interactively renew *all* of your certificates, run
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;certbot renew&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - If you like Certbot, please consider supporting our work by:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Donating to ISRG / Let&lt;span style="color:#a40000">&amp;#39;&lt;/span>s Encrypt: https://letsencrypt.org/donate
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Donating to EFF: https://eff.org/donate-le
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>根据提示，在 &lt;code>/etc/letsencrypt/live/${DNS}/&lt;/code> 目录下，可以找到已经签署的证书及私钥&lt;/p>
-&lt;h1 id="zerosll">ZeroSLL&lt;a class="td-heading-self-link" href="#zerosll" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://zerossl.com/">官网&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://github.com/zerossl/">GitHub 组织，ZeroSSL&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>ZeroSLL 是一个 CA 机构，可以为所有人提供快速、可靠、自由的 SSL 保护。&lt;/p>
-&lt;p>在 &lt;a href="https://zerossl.com/features/acme/#clients">ZeroSSL Partners &amp;amp; ACME Clients&lt;/a> 这里可以看到所有可以支持使用 ZeroSSL 实现 ACME 的客户端应用，其中就包括 &lt;a href="#acme.sh">acme.sh&lt;/a>&lt;/p>
-&lt;h1 id="acmesh">acme.sh&lt;a class="td-heading-self-link" href="#acmesh" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/acmesh-official/acme.sh">GitHub 项目，acemsh-official/acme.sh&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>acmesh 是一个使用纯粹 Shell（Unix shell）语言编写的 ACME 协议客户端。&lt;/p>
-&lt;p>在过去，acme.sh 是一个常用的工具来申请、部署和续期免费的 SSL 证书，而默认的免费 SSL 证书 CA 机构是 Let&amp;rsquo;s Encrypt。然而，从 acme.sh v3.0 开始，默认的免费 SSL 证书 CA 机构变更为 ZeroSSL。这意味着 acmesh.sh 现在支持使用 ZeroSSL 来申请免费的SSL证书。&lt;/p>
-&lt;h3 id="安装-acmesh">安装 acme.sh&lt;a class="td-heading-self-link" href="#%e5%ae%89%e8%a3%85-acmesh" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>acme.sh 是一个纯 Shell 脚本，首先下载这个脚本&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">MY_EMAIL&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;我的邮箱&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>curl https://get.acme.sh &lt;span style="color:#000;font-weight:bold">|&lt;/span> sh -s &lt;span style="color:#000">$MY_EMAIL&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">source&lt;/span> ~/.bashrc
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>该脚本会创建 &lt;code>~/.acme.sh/&lt;/code> 目录，并在该目录中安装 acme.sh 脚本。acme.sh 的配置文件，生成证书默认保存的位置也在这里。同时会在 &lt;code>~/.bashrc&lt;/code> 文件中添加 &lt;code>. &amp;quot;/root/.acme.sh/acme.sh.env&amp;quot;&lt;/code>&lt;/p>
-&lt;p>&lt;strong>安装过程不会污染已有的系统任何功能和文件&lt;/strong>, 所有的修改都限制在安装目录中: &lt;code>~/.acme.sh/&lt;/code>&lt;/p>
-&lt;p>会在系统的 Crontab 中创建一个逻辑&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># crontab -l&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">26&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> * * * /root/.acme.sh/acme.sh --cron --home &lt;span style="color:#4e9a06">&amp;#34;/root/.acme.sh&amp;#34;&lt;/span> &amp;gt; /dev/null
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="关联文件与配置">关联文件与配置&lt;a class="td-heading-self-link" href="#%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6%e4%b8%8e%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>~/.acme.sh/&lt;/strong> # acme.sh 程序的主要工作目录&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>./account.conf&lt;/strong> # 包括不同 DNS 提供商的认证信息、账户信息、等等&lt;/li>
-&lt;li>&lt;strong>./$DOMAIN_NAME/&lt;/strong> # 已处理域名的信息保存路径
-&lt;ul>
-&lt;li>&lt;strong>./$DOMAIN_NAME.conf&lt;/strong> # 与该域名相关的配置信息。&lt;code>acme.sh --info -d example.com&lt;/code> 命令读取的就是这个文件&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;h2 id="生成证书">生成证书&lt;a class="td-heading-self-link" href="#%e7%94%9f%e6%88%90%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h3 id="不同-dns-提供商的处理">不同 DNS 提供商的处理&lt;a class="td-heading-self-link" href="#%e4%b8%8d%e5%90%8c-dns-%e6%8f%90%e4%be%9b%e5%95%86%e7%9a%84%e5%a4%84%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;h4 id="使用阿里云解析生成证书">使用阿里云解析生成证书&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8%e9%98%bf%e9%87%8c%e4%ba%91%e8%a7%a3%e6%9e%90%e7%94%9f%e6%88%90%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h4>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/acmesh-official/acme.sh/wiki/dnsapi#11-use-aliyun-domain-api-to-automatically-issue-cert">GitHub 项目 Wiki，acmesh-official/acme.sh-dnsapi-使用阿里云域名 API 自动颁发证书&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>从 &lt;a href="https://ram.console.aliyun.com/users">阿里云控制台-RAM 访问控制-身份管理-用户&lt;/a> 处创建用户并获取 AK、SK&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">Ali_Key&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;AccessKeyId&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">Ali_Secret&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;AccessKeySecret&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="使用-namecom-生成证书">使用 Name.com 生成证书&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8-namecom-%e7%94%9f%e6%88%90%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h4>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/acmesh-official/acme.sh/wiki/dnsapi#28-use-namecom-api">GitHub 项目 Wiki，acmesh-official/acme.sh-dnsapi-使用 Name.com API&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>从 &lt;a href="https://www.name.com/zh-cn/account/settings/api">https://www.name.com/zh-cn/account/settings/api&lt;/a> 创建 Token&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">Namecom_Username&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;XXXX&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">Namecom_Token&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;XXXXX&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>注意：这俩变量要使用 PRODUCTION(生产)环境的。Name.com 创建完 Token 后会有两个~一个用于生产，一个用于测试，对应不用的 API&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>acme.sh --issue --dns dns_namecom -d 102205.xyz -d *.102205.xyz
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="使用-dnspod-生成证书">使用 DNSPod 生成证书&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8-dnspod-%e7%94%9f%e6%88%90%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h4>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">DP_Id&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;XXXXXX&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">export&lt;/span> &lt;span style="color:#000">DP_Key&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;YYYYYYYYYYYYYYYY&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>acme.sh --issue --dns dns_dp -d 102205.xyz -d *.102205.xyz
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="拷贝证书">拷贝证书&lt;a class="td-heading-self-link" href="#%e6%8b%b7%e8%b4%9d%e8%af%81%e4%b9%a6" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>前面证书生成以后, 接下来需要把证书 copy 到真正需要用它的地方.&lt;/p>
-&lt;p>注意, 默认生成的证书都放在安装目录下: &lt;code>~/.acme.sh/&lt;/code>, 请不要直接使用此目录下的文件, 例如: 不要直接让 nginx/apache 的配置文件使用这下面的文件. 这里面的文件都是内部使用, 而且目录结构可能会变化.&lt;/p>
-&lt;p>正确的使用方法是使用 &lt;code>--install-cert&lt;/code> 命令,并指定目标位置, 然后证书文件会被copy到相应的位置&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>acme.sh --install-cert -d 102205.xyz &lt;span style="color:#4e9a06">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--key-file ~/projects/DesistDaydream/cloud-native-apps/compose/nginx-myself/config/certs/102205.key &lt;span style="color:#4e9a06">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--fullchain-file ~/projects/DesistDaydream/cloud-native-apps/compose/nginx-myself/config/certs/102205.pem &lt;span style="color:#4e9a06">\
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&lt;/span>--reloadcmd &lt;span style="color:#4e9a06">&amp;#34;docker exec -it nginx-geoip2 nginx -c /etc/nginx/nginx/nginx.conf -s reload&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="查看证书信息">查看证书信息&lt;a class="td-heading-self-link" href="#%e6%9f%a5%e7%9c%8b%e8%af%81%e4%b9%a6%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>acme.sh --info -d example.com
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 会输出如下内容：&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">DOMAIN_CONF&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/root/.acme.sh/example.com/example.com.conf
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_Domain&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>example.com
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_Alt&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>no
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_Webroot&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>dns_ali
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_PreHook&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_PostHook&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_RenewHook&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_API&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>https://acme-v02.api.letsencrypt.org/directory
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_Keylength&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_OrderFinalize&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>https://acme-v02.api.letsencrypt.org/acme/finalize/23xxxx150/781xxxx4310
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_LinkOrder&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>https://acme-v02.api.letsencrypt.org/acme/order/233xxx150/781xxxx4310
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_LinkCert&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>https://acme-v02.api.letsencrypt.org/acme/cert/04cbd28xxxxxx349ecaea8d07
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_CertCreateTime&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">1649358725&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_CertCreateTimeStr&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>Thu Apr &lt;span style="color:#0000cf;font-weight:bold">7&lt;/span> 19:12:05 UTC &lt;span style="color:#0000cf;font-weight:bold">2022&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_NextRenewTimeStr&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>Mon Jun &lt;span style="color:#0000cf;font-weight:bold">6&lt;/span> 19:12:05 UTC &lt;span style="color:#0000cf;font-weight:bold">2022&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_NextRenewTime&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">1654456325&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_RealCertPath&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_RealCACertPath&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_RealKeyPath&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/etc/acme/example.com/privkey.pem
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_ReloadCmd&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>service nginx force-reload
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">Le_RealFullChainPath&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>/etc/acme/example.com/chain.pem
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这些信息是保存在 &lt;code>~/.acme.sh/DOMAIN_NAME/DOMAIN_NAME.conf&lt;/code> 文件中的，我们可以直接修改文件内容，比如 ReloadCmd、等等&lt;/p></description></item><item><title>Docs: Cryptography</title><link>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Cryptography/Cryptography/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Cryptography/Cryptography/</guid><description>
+&lt;/ul></description></item><item><title>Docs: Cryptography</title><link>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Cryptography/Cryptography/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/7.%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/Cryptography/Cryptography/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -5462,610 +5971,4 @@ Controller Manager 管理 Deployment 资源，连接到 API Server 监听到了 
 &lt;h2 id="7-卷快照卷克隆能力">7. 卷快照/卷克隆能力&lt;a class="td-heading-self-link" href="#7-%e5%8d%b7%e5%bf%ab%e7%85%a7%e5%8d%b7%e5%85%8b%e9%9a%86%e8%83%bd%e5%8a%9b" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>鉴于本文篇幅，此处不做过多原理性介绍。读者感兴趣见官方介绍：卷快照、卷克隆。&lt;/p>
 &lt;h1 id="总结">总结&lt;a class="td-heading-self-link" href="#%e6%80%bb%e7%bb%93" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>本文首先对 CSI 核心流程进行了大体介绍，并结合 CSI Sidecar 组件、CSI 接口、API 对象对 CSI 标准进行了深度解析。在 K8s 上，使用任何一种 CSI 存储卷都离不开上面的流程，环境上的容器存储问题也一定是其中某个环节出现了问题。&lt;/p></description></item><item><title>Docs: Disk</title><link>https://desistdaydream.github.io/docs/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/Disk/Disk/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/Disk/Disk/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>对很多 PC 的使用者来说，UEFI 就像是一颗深水炸弹，表面风平浪静，暗地里却早已引发了巨大的震动。多亏了 Microsoft 的强横，预装 WIN8 的电脑指定需要 GPT 分区这一举措，让人们不禁发出感慨：哦天哪，我的电脑里还有这东西？一些好学的人对 GPT 进行了解以后，进一步发现了我们的幕后功臣：UEFI。本期文章我们就来说说，硬盘和硬盘分区这点事。&lt;/p>
-&lt;p>简单地说，硬盘分区是就使用分区编辑器（partition editor）将一个硬盘上划分几个独立的逻辑部分，盘片一旦划分成数个分区，不同类的目录与文件可以存储进不同的分区。越多分区，也就有更多不同的地方，可以将文件的性质区分得更细，按照更为细分的性质，存储在不同的地方以管理文件；但太多分区就成了麻烦。&lt;/p>
-&lt;p>硬盘分区就像给一间空荡的房子划分出卧室，厨房，客厅等相互隔离的空间一样。主要是为了方面用户的使用。另一方面，通过合理的硬盘分区，有效保护系统盘空间，确实能够提高系统运行速度，再者，硬盘分区也可以有效地对数据进行保护。你当然可以不分区，只不过，当你面对越来越多的子目录，或者是越来越慢的 Windows，不得不费功夫去管理你的文件，或者重装 Windows 的时候，恐怕会悔不当初。 “不要把所有的鸡蛋放在同一个篮子里”这句至理名言在经济学以外的其他领域也同样是句警世恒言。&lt;/p>
-&lt;p>在讲解 MBR 之前，有必要讲讲机械硬盘的一些相关概念，毕竟 MBR 作为 20 世纪最棒的磁盘管理方式，与机械硬盘可是联系紧密的&lt;/p>
-&lt;p>（这样可以更好地理解后面的内容）。&lt;/p>
-&lt;h1 id="机械硬盘原理">机械硬盘原理&lt;a class="td-heading-self-link" href="#%e6%9c%ba%e6%a2%b0%e7%a1%ac%e7%9b%98%e5%8e%9f%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>机械硬盘由坚硬金属材料制成的涂以磁性介质的盘片，盘片两面称为盘面或扇面，都可以记录信息，由磁头对盘面进行操作（如果你有坏的硬盘，可以动手拆开看。嗯？为什么用坏的？用好的可能费钱……）一般用磁头号区分。结构特性决定了机械硬盘如果受到剧烈冲击（摔在地上或是勤奋的你想拆开学习），磁头与盘面可能产生的哪怕是轻微撞击都有可能报废。&lt;/p>
-&lt;p>继续讲原理：假设磁头不动，硬盘旋转，那么磁头就会在磁盘表面画出一个圆形轨迹并将之磁化，数据就保存在这些磁化区中，称之为磁道，将每个磁道分段，一个弧段就是一个扇区。一个硬盘可以包含多个扇面，扇面同轴重叠放置，每个盘面磁道数相同，具有相同周长的磁道所形成的圆柱称之为柱面，柱面数与磁道数相等。如下图&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kwiih4/1623075065699-cc31c470-bed5-45ba-95b5-1c56eafbfb57.png" alt="image.png">&lt;/p>
-&lt;p>了解了这些，我们就可以对最初的硬盘地址管理方式作一个原理层面的了解：&lt;/p>
-&lt;p>最初的寻址方式称为 CHS，在 LBA（Logical Block Address）概念诞生之前，由他负责管理磁盘地址。所谓 CHS 即柱面（cylinder），磁头（header），扇区（sector），通过这三个变量描述磁盘地址，需要明白的是，这里表示的已不是物理地址而是逻辑地址了。这种方法也称作是 LARGE 寻址方式。该方法下：&lt;/p>
-&lt;ul>
-&lt;li>硬盘容量=磁头数 × 柱面数 × 扇区数 × 扇区大小（一般为 512byte）。&lt;/li>
-&lt;/ul>
-&lt;p>后来，人们通过为每个扇区分配逻辑地址，以扇区为单位进行寻址，也就有了 LBA 寻址方式。但是为了保持与 CHS 模式的兼容，通过逻辑变换算法，可以转换为磁头/柱面/扇区三种参数来表示，和 LARGE 寻址模式一样，这里的地址也是逻辑地址了。（固态硬盘的存储原理虽然与机械硬盘不同，采用的是 flash 存储，但仍然使用 LBA 进行管理，此处不再详述。）&lt;/p>
-&lt;p>科普到这里，我们可以试图去理解 MBR 分区了。现在我们来看看 MBR 分区的技术原理。&lt;/p>
-&lt;h1 id="mbr-原理">MBR 原理&lt;a class="td-heading-self-link" href="#mbr-%e5%8e%9f%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>MBR：Master Boot Record，主分区引导记录。最早在 1983 年在 IBM PC DOS 2.0 中提出。前面说过，每个扇区/区块都被分配了一个逻辑块地址，即 LBA，而引导扇区则是每个分区的第一扇区，而主引导扇区则是整个硬盘的第一扇区（主分区的第一个扇区）。MBR 就保存在主引导扇区中。另外，这个扇区里还包含了硬盘分区表 DPT（Disk Partition Table），和结束标志字（Magic number）。扇区总计 512 字节，MBR 占 446 字节（0000H - 01BDH），DPT 占据 64 个字节（01BEH - 01FDH），最后的 magic number 占 2 字节（01FEH – 01FFH）。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kwiih4/1623075104446-267bee24-522c-4faa-9103-51ff02b02d91.png" alt="image.png">&lt;/p>
-&lt;p>现在，我们来看一个 MBR 记录的实例：&lt;/p>
-&lt;p>&lt;strong>80 01 01 00, 0B FE BF FC, 3F 00 00 00, 7E 86 BB 00&lt;/strong>&lt;/p>
-&lt;p>其中， “80”是一个分区的激活标志，表示系统可引导；“01 01 00”表示分区开始的磁头号为 01，开始的扇区号为 01，开始的柱面号为 00；“0B”表示该分区的系统类型是 FAT32，其他比较常用的有 04(FAT16)、07(NTFS)；“FE BF FC”表示分区结束的磁头号为 254，分区结束的扇区号为 63、分区结束的柱面号为 764；“3F 00 00 00”表示首扇区的相对扇区号为 63；“7E 86 BB 00”表示总扇区数为 12289622。&lt;/p>
-&lt;p>可以看到，在只分配 64 字节给 DPT 的情况下，每个分区项分别占用 16 个字节，因此只能记录四个分区信息，尽管后来为了支持更多的分区，引入了扩展分区及逻辑分区的概念。但每个分区项仍然用 16 个字节存储。能表示的最大扇区数为 FF FF,FF FFH，因此可管理的最大空间=总扇区数*扇区大小（512byte），也就是 2TB（由于硬盘制造商采用 1:1000 进行单位换算，因此也有 2.2TB 一说，别怪他们，他们不是程序员）。超过 2TB 以后的空间，不能分配地址，自然也就无法管理了。&lt;/p>
-&lt;p>MBR 的诸多缺点使其应用大大受限。硬盘技术日新月异，硬盘容量突飞猛进（希捷将于今年开卖 60TB 固态硬盘），多出来的硬盘空间总不能晾着吧，于是，在刚诞生的 UEFI 规范下一起研发了新技术&lt;/p>
-&lt;h1 id="gpt-原理">GPT 原理&lt;a class="td-heading-self-link" href="#gpt-%e5%8e%9f%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>GPT 分区：全称为 Globally Unique Identifier Partition Table，也叫做 GUID 分区表，它是 UEFI 规范的一部分。由于硬盘容量的急速增长，MBR 的 2.2T 容量难以满足要求，而 UEFI BIOS 的推广也为 GPT 的实现打下了坚实的技术基础，GPT 应运而生，&lt;/p>
-&lt;p>我们来看看 GPT 的结构图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kwiih4/1623075115463-8dca0892-772a-42b0-a682-6ce0fc9efc22.png" alt="image.png">&lt;/p>
-&lt;p>等等，MBR 是不是走错片场了？答案当然是没有。这里的 P 意为 protective，PMBR 存在的意义就是，当不支持 GPT 的分区工具试图对硬盘进行操作时（例如 MS-DOS 和 Linux 的 fdisk 程序），它可以根据这份 PMBR 以传统方式启动，过程和 MBR+BIOS 完全一致，极大地提高了兼容性。而支持 GPT 的系统在检测 PMBR 后会直接跳到 GPT 表头读取分区表。和 MBR 类似，分区表中存储了某个分区的起始和结束位置及其文件系统属性信息，而分区才是实际存在的物理磁盘的一部分。&lt;/p>
-&lt;p>GPT HDR：GPT 表头，如下图，主要定义了分区表中项目数及每项大小，还包含硬盘的容量信息。在 64 位的 Windows Server 2003 的机器上，最多可以创建 128 个分区，即分区表中保留了 128 个项，其中每个都是 128 字节。（也是 EFI 标准中的最低要求：分区表最小要有 16,384 字节）分区表头还记录了这块硬盘的 GUID，分区表头位置（总是 LBA1）和大小，也包含了备份分区表头和分区表的位置和大小信息（LBA-1~LBA-34）。同时还储存着它本身和分区表的 CRC32 校验。固件、引导程序和操作系统在启动时可以根据这个校验值来判断分区表是否出错，如果出错，可以使用软件从硬盘最后的备份 GPT 中恢复整个分区表，如果备份 GPT 也校验错误，硬盘将不可使用。具体内容如下表：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kwiih4/1623075153084-e4d0873a-dbcf-4878-a1b4-522235fe8f3b.png" alt="image.png">&lt;/p>
-&lt;p>Partition Table：分区表，包含分区的类型 GUID（如：EFI 系统分区的 GUID 类型是{C12A7328-F81F-11D2-BA4B-00A0C93EC93B}），名称，起始终止位置，该分区的 GUID 以及分区属性。其内容如下：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kwiih4/1623075157132-b6dd078b-59ca-429a-b6f2-a93d16d9b553.png" alt="image.png">&lt;/p>
-&lt;p>Microsoft 对分区属性做了更详细的区分，目前有：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kwiih4/1623075161478-4a21cc5d-b761-474a-a545-aff2fb7d0f22.png" alt="image.png">&lt;/p>
-&lt;p>相较于 MBR，GPT 具有以下优点：&lt;/p>
-&lt;ol>
-&lt;li>得益于 LBA 提升至 64 位，以及分区表中每项 128 位设定，GPT 可管理的空间近乎无限大，假设一个扇区大小仍为 512 字节，可表示扇区数为，算下来，可管理的硬盘容量=18EB(1EB=1024PB=1,048,576TB)，2T 在它面前完全不在话下。按目前的硬盘技术来看，确实近乎无限，不过，以后的事谁知道呢。&lt;/li>
-&lt;li>分区数量几乎没有限制，由于可在表头中设置分区数量的大小，如果愿意，设置个分区也可以（有人愿意管理这么多分区吗），不过，目前 windows 仅支持最大 128 个分区。&lt;/li>
-&lt;li>自带保险，由于在磁盘的首尾部分各带一个 GPT 表头，任何一个受到破坏后都可以通过另一份恢复，极大地提高了磁盘的抗性（两个一起坏的请出门买彩票）。&lt;/li>
-&lt;li>循环冗余检验值针对关键数据结构而计算，提高了数据崩溃的检测几率。&lt;/li>
-&lt;li>尽管目前分区类型不超过百数（十数也没有吧。），GPT 仍提供了 16 字节的 GUID 来标识分区类型，使其更不容易产生冲突。&lt;/li>
-&lt;li>每个分区都可以拥有一个特别的名字，最长 72 字节，足够写一首七律了。满足你的各种奇葩起名需求。&lt;/li>
-&lt;/ol>
-&lt;p>完美支持 UEFI，毕竟它就是 UEFI 规范的衍生品。在将来全行业 UEFI 的情境下，GPT 必将更快淘汰 MBR。&lt;/p>
-&lt;h1 id="其他">其他&lt;a class="td-heading-self-link" href="#%e5%85%b6%e4%bb%96" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>接下来进入加料时间，更详细的讲述硬盘知识。&lt;/p>
-&lt;p>前面说到过，磁化的弧段称作一个扇区，一个扇区大小 512B，但硬盘在进行文件操作时并非以扇区为单位，而是——簇，“簇”是系统进行分配的最小单位，一个簇可以包含多个扇区，假设目前一个簇包含 4 个扇区，簇大小为 2KB，一个文件大小恰为 2KB，则占用了簇的所有可用空间，即便你有一个 1B 大小的文件需要保存，那么你占用的空间也是一个簇，簇内其他空间不可读写。&lt;/p>
-&lt;p>而对簇的大小进行管理的就是文件系统：&lt;/p>
-&lt;p>FAT16/FAT32: 早期的 MS-DOS 和 WIN95 操作系统中最常见的硬盘分区格式。一个簇最小为 512 个字节，其大小可以成倍增长，最大为 32K，系统为每个簇分配唯一的索引号——一个 16 位二进制数来标识。因为 16 位二进制数最大为 65536，所以 FAT 分区所拥有的簇的数量不可能超过 65536 个。这正是 FAT 分区大小不能超过 2GB 的原因。FAT16 的继任者——FAT32 与其原理基本相同，相比前任优势仅在于分区可以大于 2GB，但不能存储大于 4GB 的单个文件，看看现在一部 BD 的电影都要 3,4 个 G，显然不能满足时代的需求，被淘汰的很快。&lt;/p>
-&lt;p>更多 FAT 文件系统知识：FAT 文件系统与 UEFI - 知乎专栏&lt;/p>
-&lt;p>NTFS 文件系统相比 FAT，最大优点在于支持文件加密，通过采用日志式文件系统，详细记录磁盘的所有读写操作，提高了数据和系统的安全性，另一点则是突破了 4GB 大小限制。也是目前机械硬盘上的分区主流。不过对于目前越来越亲民的的 flash 存储，过多的操作记录对存储介质造成了较大的负担，同样的存取操作，NTFS 下的读写次数就会比 FAT32 下来得多，造成了寿命较短的缺陷。因此针对移动存储设备和固态硬盘，推出了 exFAT 文件系统。&lt;/p>
-&lt;p>exFAT：分区大小和单文件大小最大可达 16EB（16×1024×1024TB）；簇大小非 常灵活，最小 512B，最高达 32MB；采用了剩余空间分配表，空间利用率更高；同一目录下最大文件数可达 65536 个。其特性未必强于 NTFS，主要是针对 flash 存储设备进行了优化（SSD，U 盘），传统硬盘不能格式化为该格式。&lt;/p>
-&lt;p>要是到现在你对扇区，簇，文件系统，分区几个名词有点混淆，不妨看看下图：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/kwiih4/1623075174204-ac88087e-ef89-4716-878b-7383f3a1db7f.png" alt="image.png">&lt;/p>
-&lt;p>有人会问，图中的怎么突然出现了 4k 扇区，而且为什么下面又包含的是 8 个 512b 的扇区呢？边上的伪装是啥意思？恭喜你，你已经抓住了近年来的硬盘发展潮流。&lt;/p>
-&lt;p>扇区的大小虽然约定俗成，但其实是可以更改的，开始于 2009 年晚期，硬盘制造商正在从传统的 512 字节扇区迁移到更大、更高效的 4096 字节扇区，国际硬盘设备与材料协会（International Disk Drive Equipment and&lt;/p>
-&lt;p>Materials Association，IDEMA）将之称为高级格式化，也就是现在常说的“4K 扇区”。&lt;/p>
-&lt;p>多年来，硬盘行业一直采用 512 字节扇区。然而，随着硬盘容量的不断增长，扇区大小日渐成为提高硬盘容量和纠错效率方面的制约。扇区分辨率（扇区大小和总存储大小的百分比）越来越低，尽管在管理小型离散数据时，分辨率越低越好。但现代的计算系统中多的是大型数据块，一般远比传统 512 字节扇区大小要大得多。另外，随着区域密度的增加，小型 512 字节扇区在硬盘表面上占用的空间也将越来越小。硬盘扇区中的数据占据的空间越小，错误纠正就会变得越困难，因为同样大小的介质缺陷对总体数据负载损害的百分比更高，所以就需要更大的纠错强度。现在，硬盘开始通过先进的区域密度来提高错误纠正的上限。因此，为了改善错误纠正和实现格式化效率，提高扇区大小是硬盘行业内的普遍诉求。&lt;/p>
-&lt;p>不过，由于计算机系统的缓慢发展，多数仍将扇区假定为 512 字节，因此就产生了 4K 对齐问题。即使物理硬盘分区与计算机使用的逻辑分区对齐，保证硬盘读写效率。&lt;/p>
-&lt;p>有 4k 对齐当然就有 4k 对不齐。这个锅，或许应该甩给操作系统。硬盘厂商为了保证与操作系统的兼容性，将新标准的&amp;quot;4K 扇区&amp;quot;的硬盘模拟成扇区为 512B 的硬盘，问题出现在此时：当在一些特殊情况下格式化的系统（比如用 ghost11.5 以下版本），会默认定义为 4096 字节大小为一个簇，这没毛病，但是，由于其引导区只占用了不多不少 63 个扇区，真正的文件系统在 63 号扇区之后，&lt;/p>
-&lt;p>我们可以算出前 63 个扇区大小为：63*512B = 32256B。&lt;/p>
-&lt;p>63 个扇区占用簇个数：32256B/4096B=7.875 簇。&lt;/p>
-&lt;p>从第 64 个扇区开始，每个簇都会跨越两个物理单元，占据前一个单元的一小部分和后一个单元的一大部分，前面说过，系统文件操作以簇为单位，如果每个簇都要用到两个扇区，势必拖累读写速度。也就产生了“4k 对不齐”的概念，“4K 对齐”要做的事就是将硬盘的模拟扇区(512B)对齐到的 8 整数倍个“实际”4K 扇区，即 8*4096 = 32768B，使其正好跨过 63 扇区的特性，从第 64 个扇区对齐。&lt;/p>
-&lt;p>其实不仅是操作系统，一些广泛使用的软件程序也可能引发 4k 对不齐现象。因此，对齐技术的存在确有其必要性。尽管 4k 必然取代 512b，但冰冻三尺非一日之寒，全行业仍需要一个时间来进行技术的全面推广。&lt;/p>
-&lt;p>后记
-一些经常被问到的关于 GPT 的问题：
-1. Q：怎么知道我的硬盘是 MBR 的还是 GPT 的？
-A： windows 自带个非常好用的工具-diskpart，简单几条命令即可，如图：&lt;/p>
-&lt;p>2. Q：如何将 GPT 转换为 MBR？
-A: 还是 diskpart,(警告：请先备份内容），通过 convert mbr 指令&lt;/p>
-&lt;p>不过我还是建议你不要这样做，毕竟 MBR 是个被淘汰的技术。在转换之前要删除所有分区或者直接用 clean。如果不想丢失内容，推荐使用 AOMEI Partition Assistant Standard，它是个免费软件。非常好用。为谨慎起见还是建议提前备份内容。&lt;/p>
-&lt;p>3.\ Q：GPT 真好，我想立刻使用，可是如何将 MBR 转换为 GPT？
-A：这是个好主意，答案还是 Diskpart&lt;/p>
-&lt;p>在转换之前要删除所有分区或者直接用 clean。如果不想丢失内容，我推荐使用 AOMEI Partition Assistant Standard，它是个免费软件。非常好用。为谨慎起见还是建议提前备份内容。&lt;/p></description></item><item><title>Docs: Docker</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://docs.docker.com/guides/">官方文档，指南&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://docs.docker.com/manuals/">官方文档，手册&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://docs.docker.com/reference/">官方文档，参考&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>Docker 是一个基于 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/Containerization.md">Containerization(容器化)&lt;/a> 的开放式平台，可以 开发、分享、运行应用程序。Docker 分为两个版本&lt;/p>
-&lt;ul>
-&lt;li>Docker-CE # 社区版&lt;/li>
-&lt;li>Docker-EE # 商业版&lt;/li>
-&lt;/ul>
-&lt;p>Docker 为了解决 LXC 无法批量管理、复刻容器等问题应运而生，简化用户对容器的应用。Docker 是 Docker.inc 公司开源的一个基于 LXC 技术之上构建的 Container 引擎，不再使用模板技术，而是使用了 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20Image.md">Docker Image&lt;/a> 文件的方式来创建。Image 是放在统一的互联网仓库中，当需要使用 Container 的时候，直接 run 或者 creat 等即可从仓库中下载到该 Image，然后基于该 Image 再运行 Container。&lt;/p>
-&lt;p>Note：一开始，docker 在 linux 上实现容器技术的后端使用的是 lxc，后来使用 runc 来代替。&lt;/p>
-&lt;h1 id="docker-架构">Docker 架构&lt;a class="td-heading-self-link" href="#docker-%e6%9e%b6%e6%9e%84" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/docker/202407241618409.png" alt="image.png">&lt;/p>
-&lt;p>Docker 对使用者来讲是一个 &lt;a href="https://desistdaydream.github.io/docs/Standard/B_S%20%E5%92%8C%20C_S%20%E6%9E%B6%E6%9E%84.md">C/S&lt;/a> 模式的架构，Client 和 Server 使用 REST API 通过 UNIX &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Process/Inter%20Process%20Communication(%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1)/Socket(%E5%A5%97%E6%8E%A5%E5%AD%97)/Socket(%E5%A5%97%E6%8E%A5%E5%AD%97).md">Socket&lt;/a> 或者网络进行通信。&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Compose/Compose.md">Compose&lt;/a> 同样也可以作为客户端。&lt;/p>
-&lt;p>官方将这种架构称为 &lt;a href="https://docs.docker.com/engine/">&lt;strong>Docker Engine(引擎)&lt;/strong>&lt;/a>，通常这个引擎具有：&lt;/p>
-&lt;ul>
-&lt;li>一个 Server 进程 dockerd，长时间以 Daemon 形式运行&lt;/li>
-&lt;li>与 dockerd 通信的 API&lt;/li>
-&lt;li>一个 CLI 程序 docker&lt;/li>
-&lt;/ul>
-&lt;p>dockerd 是实现容器能力的核心，用来管理 &lt;strong>Docker Objects(Docker 对象)&lt;/strong>，e.g. &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20Image.md">Docker Image&lt;/a>、&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20Runtime.md">Docker Runtime&lt;/a>、&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20Network.md">Docker Network&lt;/a>、&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20Storage.md">Docker Storage&lt;/a>&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/docker/202407301251102.png" alt="Docker Architecture" title="https://newsletter.iximiuz.com/posts/ivan-on-the-server-side-1">&lt;/p>
-&lt;h2 id="运行逻辑概述">运行逻辑概述&lt;a class="td-heading-self-link" href="#%e8%bf%90%e8%a1%8c%e9%80%bb%e8%be%91%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qqh0gm/1616122015445-eda7a719-b2a0-4fd6-8c61-b8d450d2dc3d.png" alt="">&lt;/p>
-&lt;p>当利用 docker run 来创建容器时，Docker 在后台运行的标准操作包括：&lt;/p>
-&lt;ol>
-&lt;li>检查本地是否存在指定的镜像，不存在就从公有仓库下载&lt;/li>
-&lt;li>利用镜像创建并启动一个容器&lt;/li>
-&lt;li>分配一个文件系统，并在只读的镜像层外面挂在一层可读写层&lt;/li>
-&lt;li>从宿主主机配置的网桥接口中桥接一个虚拟接口到容器中去&lt;/li>
-&lt;li>从地址池配置一个 ip 地址给容器&lt;/li>
-&lt;li>执行用户指定的应用程序&lt;/li>
-&lt;li>执行完毕后 Container 被终止&lt;/li>
-&lt;li>docker 容器默认会把容器内部第一个进程，也就是 pid=1 的程序作为 docker 容器是否正在运行的依据，如果 docker 容器 pid 挂了，那么 docker 容器便会直接退出。&lt;/li>
-&lt;li>如果不想让 Container 运行完程序就终止，那么需要让 PID 为 1 的程序始终运行，比如 nginx 使用 daemon off 选项，或者其余任何可以让程序运行在前台的方法&lt;/li>
-&lt;/ol>
-&lt;h1 id="docker-关联文件">Docker 关联文件&lt;a class="td-heading-self-link" href="#docker-%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>Note：目录名中的 overlay2 指的是 docker 当前 Storage Driver 类型，使用不同的存储驱动，则目录名字也不同，如果我使用 aufs 驱动，那么目录名就会变为 aufs
-由于 Docker 为 C/S 架构，所以 客户端与服务端分别有各自的配置&lt;/p>
-&lt;ul>
-&lt;li>客户端就是 docker 程序，也可以称为 docker-cli、docker 命令行工具&lt;/li>
-&lt;li>服务端就是 dockerd 程序&lt;/li>
-&lt;/ul>
-&lt;h2 id="dockerd-程序关联文件">dockerd 程序关联文件&lt;a class="td-heading-self-link" href="#dockerd-%e7%a8%8b%e5%ba%8f%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>/etc/docker/daemon.json&lt;/strong> # dockerd 服务运行时配置文件。该目录与文件需要自行创建，默认不存在，以 JSON 格式为守护程序设置任何配置选项。&lt;/p>
-&lt;p>&lt;strong>/run/docker/&lt;/strong> # container 的状态文件(state.json)、IO 文件 、netns 文件保存路径。&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>./containerd/&lt;/strong> # container 的 IO 文件(init-stdin、init-stdout)保存路径。其内目录名为 &lt;strong>ContainerID&lt;/strong>。&lt;/li>
-&lt;li>&lt;strong>./netns/&lt;/strong> # 网络名称空间保存路径。&lt;/li>
-&lt;li>&lt;strong>./runtime-runc/moby/&lt;/strong> # container 的运行时状态文件保存路径。其内目录名为 &lt;strong>ContainerID&lt;/strong>。&lt;/li>
-&lt;/ul>
-&lt;p>&lt;strong>/run/containerd/&lt;/strong> # container 的 bundle 以及 containerd.sock 文件保存路径&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>./io.containerd.runtime.v1.linux/moby/&lt;/strong> # 容器启动后生成的 bundle 文件保存路径，其内目录名为 &lt;strong>ContainerID&lt;/strong>。&lt;/li>
-&lt;/ul>
-&lt;p>&lt;strong>/var/lib/docker/&lt;/strong> # Docker 管理的 网络、镜像、容器 等信息的保存路径。该路径为默认路径，可以通过配置修改。&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>./containers/&lt;/strong> # 所有 container 的元数据保存路径(其中包括容器日志文件、容器运行配置等)。其内目录名为 &lt;strong>ContainerID&lt;/strong>&lt;/li>
-&lt;li>&lt;strong>./image/overlay2/&lt;/strong> # docker images 以及 所有 layers 的元数据保存路径。
-&lt;ul>
-&lt;li>&lt;strong>./imagedb/&lt;/strong> # images 的元数据保存路径
-&lt;ul>
-&lt;li>&lt;strong>./content/sha256/&lt;/strong> # 所有 images 的 Image Configuration 文件保存路径。其内文件名为 &lt;strong>ImageID&lt;/strong>。&lt;/li>
-&lt;li>&lt;strong>./metadata/sha256/&lt;/strong> # 所有 images 的 创建时间、更新时间、父镜像的 Image Configuration 文件名 等信息保存路径，其内目录名为 &lt;strong>ImageID&lt;/strong>。
-&lt;ul>
-&lt;li>注意：好像只有自己在本地构建的镜像才会在该目录中记录。&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>&lt;strong>./layerdb&lt;/strong> # 所有 layers 的元数据保存路径。
-&lt;ul>
-&lt;li>&lt;strong>./mounts/&lt;/strong> # container layers 元数据保存路径，其内目录名为 ContainerID。容器创建完后，该容器的可读写层的元数据保存在此。包括可读写层父层的 chainID、可读写层的 cacheID(目录内的 mount-id 文件内容就是 &lt;strong>cacheID&lt;/strong>)。&lt;/li>
-&lt;li>&lt;strong>./sha256/&lt;/strong> # images layers 元数据保存路径，其内目录名为 chainID。包括 layer 的 &lt;strong>cacheID&lt;/strong>&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>&lt;strong>./overlay2/&lt;/strong> # 所有 layers 的数据保存路径，其内目录名为 cacheID。docker run 的时候，是通过该目录中镜像层来启动的。创建容器后生成的可写层，也会保存在该目录，直到容器被删除。&lt;/li>
-&lt;li>&lt;strong>./volumes/&lt;/strong> # docker 创建的 volume 信息保存在该目录，如果是自动自动创建的 volume 则名为一串随机数&lt;/li>
-&lt;/ul>
-&lt;h2 id="docker-程序关联文件">docker 程序关联文件&lt;a class="td-heading-self-link" href="#docker-%e7%a8%8b%e5%ba%8f%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>~/.docker/&lt;/strong> # docker 运行时数据文件保存路径&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>./config.json&lt;/strong> # docker login 后的信息都保存在此处，用户名和密码通过 base64 格式保存在其中。&lt;/li>
-&lt;li>&lt;strong>./cli-plugins/&lt;/strong> # docker 命令行工具插件的保存路径。&lt;/li>
-&lt;/ul>
-&lt;h1 id="docker-部署">Docker 部署&lt;a class="td-heading-self-link" href="#docker-%e9%83%a8%e7%bd%b2" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20%E9%83%A8%E7%BD%B2.md">Docker 部署&lt;/a>&lt;/p>
-&lt;h1 id="docker-日志介绍">Docker 日志介绍&lt;a class="td-heading-self-link" href="#docker-%e6%97%a5%e5%bf%97%e4%bb%8b%e7%bb%8d" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>容器日志指的是每个容器打到 stdout 和 stderr 的日志，而不是容器内部的日志文件。docker 管理所有容器打到 stdout 和 stderr 的日志，其他来源的日志不归 docker 管理。我们通过 docker logs 命令查看容器日志都是读取容器打到 stdout 和 stderr 的日志。&lt;/p>
-&lt;p>基于日志驱动（loging driver）的日志管理机制&lt;/p>
-&lt;p>Docker 提供了一套通用、灵活的日志管理机制，Docker 将所有容器打到 stdout 和 stderr 的日志都统一通过日志驱动重定向到某个地方。&lt;/p>
-&lt;p>Docker 支持的日志驱动有很多，比如 local、json-file、syslog、journald 等等，类似插件一样，不同的日志驱动可以将日志重定向到不同的地方，这体现了 Docker 日志管理的灵活性，以热插拔的方式实现日志不同目的地的输出。&lt;/p>
-&lt;p>Dokcer 默认的日志日志驱动是 json-file，该驱动将将来自容器的 stdout 和 stderr 日志都统一以 json 的形式存储到本地磁盘。日志存储路径格式为：/var/lib/docker/containers/&amp;lt;容器 id&amp;gt;/&amp;lt;容器 id&amp;gt;-json.log。所以可以看出在 json-file 日志驱动下，Docker 将所有容器日志都统一重定向到了 /var/lib/docker/containers/ 目录下，这为日志收集提供了很大的便利。&lt;/p>
-&lt;p>注意：只有日志驱动为：local、json-file 或者 journald 时，docker logs 命令才能查看到容器打到 stdout/stderr 的日志。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qqh0gm/1616122015494-8bc7a655-2804-40b9-b3d4-0e541a93359b.png" alt="">&lt;/p>
-&lt;p>下面为官方支持的日志驱动列表：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qqh0gm/1616122015440-06e63de1-bbb8-4d6c-9271-b37947d483ae.png" alt="">&lt;/p>
-&lt;h2 id="docker-日志驱动loging-driver配置">Docker 日志驱动（loging driver）配置&lt;a class="td-heading-self-link" href="#docker-%e6%97%a5%e5%bf%97%e9%a9%b1%e5%8a%a8loging-driver%e9%85%8d%e7%bd%ae" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>上面我们已经知道 Docker 支持多种日志驱动类型，我们可以修改默认的日志驱动配置。日志驱动可以全局配置，也可以给特定容器配置。&lt;/p>
-&lt;ul>
-&lt;li>查看 Docker 当前的日志驱动配置&lt;/li>
-&lt;/ul>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker info &lt;span style="color:#000;font-weight:bold">|&lt;/span>grep &lt;span style="color:#4e9a06">&amp;#34;Logging Driver&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
-&lt;li>查看单个容器的设置的日志驱动&lt;/li>
-&lt;/ul>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker inspect -f &lt;span style="color:#4e9a06">&amp;#39;{{.HostConfig.LogConfig.Type}}&amp;#39;&lt;/span> 容器id
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
-&lt;li>Docker 日志驱动全局配置，全局配置意味所有容器都生效，编辑 /etc/docker/daemon.json 文件（如果文件不存在新建一个），添加日志驱动配置。示例：配置 Docker 引擎日志驱动为 syslog&lt;/li>
-&lt;/ul>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">&amp;#34;log-driver&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;syslog&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
-&lt;li>给特定容器配置日志驱动，在启动容器时指定日志驱动 &amp;ndash;log-driver 参数。示例：启动 nginx 容器，日志驱动指定为 journald&lt;/li>
-&lt;/ul>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker run --name nginx -d --log-driver journald nginx
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="docker-默认的日志驱动-json-file">Docker 默认的日志驱动 json-file&lt;a class="td-heading-self-link" href="#docker-%e9%bb%98%e8%ae%a4%e7%9a%84%e6%97%a5%e5%bf%97%e9%a9%b1%e5%8a%a8-json-file" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>json-file 日志驱动记录所有容器的 STOUT/STDERR 的输出 ，用 JSON 的格式写到文件中，每一条 json 日志中默认包含 log, stream, time 三个字段，示例日志如下：文件路径为： /var/lib/docker/containers/40f1851f5eb9e684f0b0db216ea19542529e0a2a2e7d4d8e1d69f3591a573c39/40f1851f5eb9e684f0b0db216ea19542529e0a2a2e7d4d8e1d69f3591a573c39-json.log&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-json" data-lang="json">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#204a87;font-weight:bold">&amp;#34;log&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;14:C 25 Jul 2019 12:27:04.072 * DB saved on disk\n&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#204a87;font-weight:bold">&amp;#34;stream&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;stdout&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#204a87;font-weight:bold">&amp;#34;time&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;2019-07-25T12:27:04.072712524Z&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>那么打到磁盘的 json 文件该如何配置轮替，防止撑满磁盘呢？每种 Docker 日志驱动都有相应的配置项日志轮转，比如根据单个文件大小和日志文件数量配置轮转。json-file 日志驱动支持的配置选项如下：&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/qqh0gm/1616122015431-a74f2c52-7a4b-443a-b6ec-d7031a967089.png" alt="">&lt;/p></description></item><item><title>Docs: Docker CLI</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker-CLI/Docker-CLI/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker-CLI/Docker-CLI/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://docs.docker.com/engine/reference/commandline/docker/">官方文档，参考 - CLI 参考 - docker&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;h1 id="syntax语法">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;strong>docker [OPTIONS] COMMAND [ARG&amp;hellip;]&lt;/strong>&lt;/p>
-&lt;h2 id="options">OPTIONS&lt;a class="td-heading-self-link" href="#options" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;ul>
-&lt;li>&amp;ndash;config=~/.docker # Location of client config files # 客户端配置文件的位置&lt;/li>
-&lt;li>-D, &amp;ndash;debug=false # Enable debug mode # 启用 Debug 调试模式&lt;/li>
-&lt;li>-H, &amp;ndash;host=[] # Daemon socket(s) to connectto # 守护进程的套接字（Socket）连接&lt;/li>
-&lt;li>-l, &amp;ndash;log-level=info # Set the logging level # 设置日志级别&lt;/li>
-&lt;li>&amp;ndash;tls=false # Use TLS; implied by&amp;ndash;tlsverify #&lt;/li>
-&lt;li>&amp;ndash;tlscacert=~/.docker/ca.pem # Trust certs signed only by this CA # 信任证书签名 CA&lt;/li>
-&lt;li>&amp;ndash;tlscert=~/.docker/cert.pem # Path to TLS certificate file # TLS 证书文件路径&lt;/li>
-&lt;li>&amp;ndash;tlskey=~/.docker/key.pem # Path to TLS key file # TLS 密钥文件路径&lt;/li>
-&lt;li>&amp;ndash;tlsverify=false # Use TLS and verify theremote # 使用 TLS 验证远程&lt;/li>
-&lt;/ul>
-&lt;h1 id="management-commands">Management Commands&lt;a class="td-heading-self-link" href="#management-commands" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>management command 在使用的时候，当后面还需要跟其子命令的时候，是可省的。直接使用子命令就表示对其执行，但是有的管理命令不行，比如 create，对于 container 可省，对于 network 不可省&lt;/p>
-&lt;h2 id="container---容器管理">container - 容器管理&lt;a class="td-heading-self-link" href="#container---%e5%ae%b9%e5%99%a8%e7%ae%a1%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>attach cp diff export kill ls port rename rm start stop unpause wait&lt;/p>
-&lt;p>commit create exec inspect logs pause prune restart run stats top update&lt;/p>
-&lt;p>对容器的操作说明：docker 的 container 相关操作命令有一些关于如何进入容器操作的命令&lt;/p>
-&lt;p>其更本思想为：&lt;/p>
-&lt;ul>
-&lt;li>连接标准输入，输入到 host 上的内容同样输入到 container 中&lt;/li>
-&lt;li>连接标准输出，输出到 container 中的同样输出到 host 上&lt;/li>
-&lt;li>可以分配一个终端(shell)给 container，以便操作更便捷&lt;/li>
-&lt;/ul>
-&lt;p>注意：有的 Container 在启动的时候，会自带命令去执行一些操作，该操作会自动输出一些内容，当连接到该 Container 的标准输入和输出上之后，可能没法对其进行输入操作，因为该 Container 正在其前台运行某程序(就好像平时用 linux 的 tailf 命令似的)(有的程序有输出内容，有的程序没有输出内容)，前台运行程序的时候，是没法输入的。&lt;/p>
-&lt;p>&lt;strong>docker container [OPTIONS]&lt;/strong>&lt;/p>
-&lt;p>EXAMPLE&lt;/p>
-&lt;ul>
-&lt;li>docker container prune -a # 清理所有已经停止的 container&lt;/li>
-&lt;/ul>
-&lt;h2 id="image---docker-镜像的管理命令">image - Docker 镜像的管理命令&lt;a class="td-heading-self-link" href="#image---docker-%e9%95%9c%e5%83%8f%e7%9a%84%e7%ae%a1%e7%90%86%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>详见 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20CLI/image.md">image&lt;/a>&lt;/p>
-&lt;h2 id="network---docker-网络的管理命令">network - Docker 网络的管理命令&lt;a class="td-heading-self-link" href="#network---docker-%e7%bd%91%e7%bb%9c%e7%9a%84%e7%ae%a1%e7%90%86%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>详见 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20CLI/network.md">network&lt;/a>&lt;/p>
-&lt;h2 id="plugin-manage-plugins">plugin Manage plugins&lt;a class="td-heading-self-link" href="#plugin-manage-plugins" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="secret-manage-docker-secrets">secret Manage Docker secrets&lt;a class="td-heading-self-link" href="#secret-manage-docker-secrets" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="service-manage-services">service Manage services&lt;a class="td-heading-self-link" href="#service-manage-services" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="stack-manage-docker-stacks">stack Manage Docker stacks&lt;a class="td-heading-self-link" href="#stack-manage-docker-stacks" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="system---docker-系统管理">system - docker 系统管理&lt;a class="td-heading-self-link" href="#system---docker-%e7%b3%bb%e7%bb%9f%e7%ae%a1%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>docker system COMMAND&lt;/strong>&lt;/p>
-&lt;p>COMMAND:&lt;/p>
-&lt;ul>
-&lt;li>df # 显示 docker 系统的磁盘使用情况，效果如下：&lt;/li>
-&lt;/ul>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># docker system df&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>TYPE TOTAL ACTIVE SIZE RECLAIMABLE
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Images &lt;span style="color:#0000cf;font-weight:bold">11&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10&lt;/span> 1.043GB 96.12MB &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>9%&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Containers &lt;span style="color:#0000cf;font-weight:bold">34&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">18&lt;/span> 4.588kB 2.294kB &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>50%&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Local Volumes &lt;span style="color:#0000cf;font-weight:bold">2&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">2&lt;/span> 152.8MB 0B &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>0%&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Build Cache &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> 0B 0B
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
-&lt;li>events # Get real time events from the server&lt;/li>
-&lt;li>info # 等同于 docker info 命令&lt;/li>
-&lt;li>prune # 删除未使用的数据。删除内容如下&lt;/li>
-&lt;/ul>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># docker system prune&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>WARNING! This will remove:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - all stopped containers
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - all networks not used by at least one container
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - all dangling images
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - all dangling build cache
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="volume---管理-docker-的卷">volume - 管理 docker 的卷&lt;a class="td-heading-self-link" href="#volume---%e7%ae%a1%e7%90%86-docker-%e7%9a%84%e5%8d%b7" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>详见 《[Docker 存储](/docs/10.云原生/2.2.实现容器的工具/Docker/Docker%20 存储.md 存储.md)》&lt;/p>
-&lt;h1 id="commands">COMMANDS&lt;a class="td-heading-self-link" href="#commands" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;h2 id="attach---当前-shell-下-attach连接到指定运行中的镜像">attach - 当前 shell 下 attach(连接)到指定运行中的镜像&lt;a class="td-heading-self-link" href="#attach---%e5%bd%93%e5%89%8d-shell-%e4%b8%8b-attach%e8%bf%9e%e6%8e%a5%e5%88%b0%e6%8c%87%e5%ae%9a%e8%bf%90%e8%a1%8c%e4%b8%ad%e7%9a%84%e9%95%9c%e5%83%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>Attach local standard input, output, and error streams to a running container # 把本地终端上的标准输入、输出和错误数据流连接到一个运行中的容器(即从一个运行中的容器剥离了其终端，再重新连接到其终端)&lt;/p>
-&lt;h2 id="build---通过-dockerfile-定制镜像">build - 通过 Dockerfile 定制镜像&lt;a class="td-heading-self-link" href="#build---%e9%80%9a%e8%bf%87-dockerfile-%e5%ae%9a%e5%88%b6%e9%95%9c%e5%83%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>docker build [OPTIONS] PATH # 使用 dockerfile 文件自动创建镜像&lt;/p>
-&lt;p>注：PATH 是 build context 创建环境的位置，从创建环境中搜索 Dockerfile 文件来使用。PATH 也可以是一个 URL，通过网上下载镜像。&lt;/p>
-&lt;p>OPTIONS：&lt;/p>
-&lt;ul>
-&lt;li>-t &amp;lt;NAME&amp;gt; # 自己定义一个创建完成后的镜像名 NAME&lt;/li>
-&lt;li>-f &amp;lt;NAME&amp;gt; # 指定使用创建环境中哪个 NAME 文件作为 Dockerfile,默认使用文件名为 Dockerfile 的文件&lt;/li>
-&lt;li>&amp;ndash;no-cache # 创建镜像时不使用缓存&lt;/li>
-&lt;/ul>
-&lt;p>EXAMPLE&lt;/p>
-&lt;ul>
-&lt;li>docker build ./ # 从当前目录下查找名为 Dockerfile 的文件进行 Image 的创建&lt;/li>
-&lt;li>docker build -t ubuntu-vi -f test /dockerfile/ # 使用 dockerfile 目录，并使用该目录中的 test 文件作为 dockerfile 文件，创建一个名为 ubuntu-vi 的 Image&lt;/li>
-&lt;/ul>
-&lt;h2 id="commit---从容器的变化中创建一个新的-image提交当前容器为新的镜像">commit - 从容器的变化中创建一个新的 image。提交当前容器为新的镜像&lt;a class="td-heading-self-link" href="#commit---%e4%bb%8e%e5%ae%b9%e5%99%a8%e7%9a%84%e5%8f%98%e5%8c%96%e4%b8%ad%e5%88%9b%e5%bb%ba%e4%b8%80%e4%b8%aa%e6%96%b0%e7%9a%84-image%e6%8f%90%e4%ba%a4%e5%bd%93%e5%89%8d%e5%ae%b9%e5%99%a8%e4%b8%ba%e6%96%b0%e7%9a%84%e9%95%9c%e5%83%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>docker commit [OPTIONS] CONTAINER [REPOSITORY[:TAG]]&lt;/p>
-&lt;p>使用 docker commit ContainerName NewName 命令创建新镜像&lt;/p>
-&lt;p>(ContainerName 为正在运行的容器名 NewName 为需要创建的镜像名，自己定)&lt;/p>
-&lt;p>每一次 commit 就相当于把当前的可写入层变成 image 的一层&lt;/p>
-&lt;h2 id="cp---从容器中拷贝指定文件或者目录到宿主机中">cp - 从容器中拷贝指定文件或者目录到宿主机中&lt;a class="td-heading-self-link" href="#cp---%e4%bb%8e%e5%ae%b9%e5%99%a8%e4%b8%ad%e6%8b%b7%e8%b4%9d%e6%8c%87%e5%ae%9a%e6%96%87%e4%bb%b6%e6%88%96%e8%80%85%e7%9b%ae%e5%bd%95%e5%88%b0%e5%ae%bf%e4%b8%bb%e6%9c%ba%e4%b8%ad" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="create---创建一个新的容器同-run-但不启动容器">create - 创建一个新的容器，同 run 但不启动容器&lt;a class="td-heading-self-link" href="#create---%e5%88%9b%e5%bb%ba%e4%b8%80%e4%b8%aa%e6%96%b0%e7%9a%84%e5%ae%b9%e5%99%a8%e5%90%8c-run-%e4%bd%86%e4%b8%8d%e5%90%af%e5%8a%a8%e5%ae%b9%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="diff---inspect-changes-on-a-containers-filesystem-查看-docker-容器变化">diff - Inspect changes on a container&amp;rsquo;s filesystem 查看 docker 容器变化&lt;a class="td-heading-self-link" href="#diff---inspect-changes-on-a-containers-filesystem-%e6%9f%a5%e7%9c%8b-docker-%e5%ae%b9%e5%99%a8%e5%8f%98%e5%8c%96" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="events---get-real-time-events-from-the-server-从-docker-服务获取容器实时事件">events - Get real time events from the server 从 docker 服务获取容器实时事件&lt;a class="td-heading-self-link" href="#events---get-real-time-events-from-the-server-%e4%bb%8e-docker-%e6%9c%8d%e5%8a%a1%e8%8e%b7%e5%8f%96%e5%ae%b9%e5%99%a8%e5%ae%9e%e6%97%b6%e4%ba%8b%e4%bb%b6" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="exec---在运行中的容器上执行命令">exec - 在运行中的容器上执行命令&lt;a class="td-heading-self-link" href="#exec---%e5%9c%a8%e8%bf%90%e8%a1%8c%e4%b8%ad%e7%9a%84%e5%ae%b9%e5%99%a8%e4%b8%8a%e6%89%a7%e8%a1%8c%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="export---导出容器的文件系统为一个-tar-归档文件对应-import">export - 导出容器的文件系统为一个 tar 归档文件(对应 import)&lt;a class="td-heading-self-link" href="#export---%e5%af%bc%e5%87%ba%e5%ae%b9%e5%99%a8%e7%9a%84%e6%96%87%e4%bb%b6%e7%b3%bb%e7%bb%9f%e4%b8%ba%e4%b8%80%e4%b8%aa-tar-%e5%bd%92%e6%a1%a3%e6%96%87%e4%bb%b6%e5%af%b9%e5%ba%94-import" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="history---展示一个镜像形成历史">history - 展示一个镜像形成历史&lt;a class="td-heading-self-link" href="#history---%e5%b1%95%e7%a4%ba%e4%b8%80%e4%b8%aa%e9%95%9c%e5%83%8f%e5%bd%a2%e6%88%90%e5%8e%86%e5%8f%b2" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>docker history [OPTIONS] IMAGE&lt;/p>
-&lt;p>OPTIONS&lt;/p>
-&lt;ul>
-&lt;li>&amp;ndash;no-trunc # 不要截断输出 i.e.每列显示的内容都是完整内容，不会被截断&lt;/li>
-&lt;/ul>
-&lt;p>EXAMPLE&lt;/p>
-&lt;h2 id="images---列出系统当前镜像">images - 列出系统当前镜像&lt;a class="td-heading-self-link" href="#images---%e5%88%97%e5%87%ba%e7%b3%bb%e7%bb%9f%e5%bd%93%e5%89%8d%e9%95%9c%e5%83%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>OPTIONS&lt;/p>
-&lt;ul>
-&lt;li>&amp;ndash;all , -a # Show all images (default hides intermediate images)&lt;/li>
-&lt;li>&amp;ndash;digests # Show digests&lt;/li>
-&lt;li>&amp;ndash;filter , -f # Filter output based on conditions provided&lt;/li>
-&lt;li>&amp;ndash;format # Pretty-print images using a Go template
-&lt;ul>
-&lt;li>可用的 Go 模板占位符详见：https://docs.docker.com/engine/reference/commandline/images/#format-the-output&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>&amp;ndash;no-trunc # Don’t truncate output&lt;/li>
-&lt;li>&amp;ndash;quiet , -q # Only show numeric IDs&lt;/li>
-&lt;/ul>
-&lt;p>EXAMPLE&lt;/p>
-&lt;ul>
-&lt;li>docker images # 查看本地 images，效果如图&lt;/li>
-&lt;/ul>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/urb4r9/1616121613241-36e0f6eb-bee7-4db6-a9ed-d02ca5cd679d.png" alt="">&lt;/p>
-&lt;h2 id="import---import-the-contents-from-a-tarball-to-create-a-filesystem-image-从-tar-包中的内容创建一个新的文件系统映像对应-export">import - Import the contents from a tarball to create a filesystem image 从 tar 包中的内容创建一个新的文件系统映像(对应 export)&lt;a class="td-heading-self-link" href="#import---import-the-contents-from-a-tarball-to-create-a-filesystem-image-%e4%bb%8e-tar-%e5%8c%85%e4%b8%ad%e7%9a%84%e5%86%85%e5%ae%b9%e5%88%9b%e5%bb%ba%e4%b8%80%e4%b8%aa%e6%96%b0%e7%9a%84%e6%96%87%e4%bb%b6%e7%b3%bb%e7%bb%9f%e6%98%a0%e5%83%8f%e5%af%b9%e5%ba%94-export" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="info---与-docker-system-info-命令效果相同">info - 与 docker system info 命令效果相同&lt;a class="td-heading-self-link" href="#info---%e4%b8%8e-docker-system-info-%e5%91%bd%e4%bb%a4%e6%95%88%e6%9e%9c%e7%9b%b8%e5%90%8c" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="inspect---返回有关容器或镜像的底层信息">inspect - 返回有关容器或镜像的底层信息&lt;a class="td-heading-self-link" href="#inspect---%e8%bf%94%e5%9b%9e%e6%9c%89%e5%85%b3%e5%ae%b9%e5%99%a8%e6%88%96%e9%95%9c%e5%83%8f%e7%9a%84%e5%ba%95%e5%b1%82%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>显示 docker 所能管理的所有 object 的详细信息，object 包括 image，container，network 等等&lt;/p>
-&lt;p>&lt;strong>docker [OBJECT] inspect [OPTIONS]&lt;/strong>&lt;/p>
-&lt;p>OPTIONS&lt;/p>
-&lt;p>EXAMPLE&lt;/p>
-&lt;ul>
-&lt;li>获取 snmp_exporter 容器 merged 目录的绝对路径
-&lt;ul>
-&lt;li>&lt;strong>docker inspect snmp_exporter | jq .[0].GraphDriver.Data.MergedDir | tr -d &amp;ldquo;&amp;rdquo;&amp;quot;&lt;/strong>&lt;/li>
-&lt;li>&lt;strong>docker inspect snmp_exporter &amp;ndash;format=&amp;rsquo;{{.GraphDriver.Data.MergedDir}}&amp;rsquo;&lt;/strong>&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>获取容器的 PID
-&lt;ul>
-&lt;li>docker inspect mysql-pxc1-1 &amp;ndash;format=&amp;rsquo;{{.State.Pid}}'&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;h2 id="kill---kill-一个运行中的容器">kill - kill 一个运行中的容器&lt;a class="td-heading-self-link" href="#kill---kill-%e4%b8%80%e4%b8%aa%e8%bf%90%e8%a1%8c%e4%b8%ad%e7%9a%84%e5%ae%b9%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="load---从-tar-包-或标准输入中加载一个镜像对应-save">load - 从 tar 包 或标准输入中加载一个镜像(对应 save)&lt;a class="td-heading-self-link" href="#load---%e4%bb%8e-tar-%e5%8c%85-%e6%88%96%e6%a0%87%e5%87%86%e8%be%93%e5%85%a5%e4%b8%ad%e5%8a%a0%e8%bd%bd%e4%b8%80%e4%b8%aa%e9%95%9c%e5%83%8f%e5%af%b9%e5%ba%94-save" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>docker load [OPTIONS]FILE&lt;/strong>&lt;/p>
-&lt;p>OPTIONS&lt;/p>
-&lt;ul>
-&lt;li>-i # 从 tar 存档文件读取，而不是 STDIN&lt;/li>
-&lt;/ul>
-&lt;p>EXAMPLE&lt;/p>
-&lt;ul>
-&lt;li>docker load -i kubernetes.tar&lt;/li>
-&lt;/ul>
-&lt;h2 id="login---注册或者登录到一个-docker-registry">login - 注册或者登录到一个 Docker Registry&lt;a class="td-heading-self-link" href="#login---%e6%b3%a8%e5%86%8c%e6%88%96%e8%80%85%e7%99%bb%e5%bd%95%e5%88%b0%e4%b8%80%e4%b8%aa-docker-registry" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="logout---从当前-docker-registry-登出">logout - 从当前 Docker Registry 登出&lt;a class="td-heading-self-link" href="#logout---%e4%bb%8e%e5%bd%93%e5%89%8d-docker-registry-%e7%99%bb%e5%87%ba" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="logs---获取容器得日志">logs - 获取容器得日志&lt;a class="td-heading-self-link" href="#logs---%e8%8e%b7%e5%8f%96%e5%ae%b9%e5%99%a8%e5%be%97%e6%97%a5%e5%bf%97" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>docker logs [OPTIONS] CONTAINER&lt;/strong>&lt;/p>
-&lt;p>OPTIONS&lt;/p>
-&lt;ul>
-&lt;li>&amp;ndash;details # Show extra details provided to logs&lt;/li>
-&lt;li>&lt;strong>-f, &amp;ndash;follow&lt;/strong># 跟踪日志的输出&lt;/li>
-&lt;li>&amp;ndash;since string Show logs since timestamp (e.g. 2013-01-02T13:23:37Z) or relative (e.g. 42m for 42 minutes)&lt;/li>
-&lt;li>&lt;strong>-n, &amp;ndash;tail STRING&lt;/strong># 从日志末尾开始显示日志的指定行数。&lt;code>默认值：all&lt;/code>&lt;/li>
-&lt;li>&lt;strong>-t, &amp;ndash;timestamps&lt;/strong> # 在每行日志行首显示时间戳&lt;/li>
-&lt;li>&amp;ndash;until string # Show logs before a timestamp (e.g. 2013-01-02T13:23:37Z) or relative (e.g. 42m for 42 minutes)&lt;/li>
-&lt;/ul>
-&lt;h2 id="pause---暂停一个-container-中的所有进程">pause - 暂停一个 Container 中的所有进程&lt;a class="td-heading-self-link" href="#pause---%e6%9a%82%e5%81%9c%e4%b8%80%e4%b8%aa-container-%e4%b8%ad%e7%9a%84%e6%89%80%e6%9c%89%e8%bf%9b%e7%a8%8b" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="port---查看映射端口对应的容器内部源端口">port - 查看映射端口对应的容器内部源端口&lt;a class="td-heading-self-link" href="#port---%e6%9f%a5%e7%9c%8b%e6%98%a0%e5%b0%84%e7%ab%af%e5%8f%a3%e5%af%b9%e5%ba%94%e7%9a%84%e5%ae%b9%e5%99%a8%e5%86%85%e9%83%a8%e6%ba%90%e7%ab%af%e5%8f%a3" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>docker port CONTAINER [PRIVATE_PORT[/PROTO]]&lt;/p>
-&lt;p>EXAMPLE&lt;/p>
-&lt;ul>
-&lt;li>docker port nginx1 # 查看名为 nginx1 这个 Container 的端口映射情况&lt;/li>
-&lt;/ul>
-&lt;h2 id="ps---列出容器">ps - 列出容器&lt;a class="td-heading-self-link" href="#ps---%e5%88%97%e5%87%ba%e5%ae%b9%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>详见：docker ps 命令，可以查看很多容器信息&lt;/p>
-&lt;h2 id="pull---从-registry-拉取指定镜像或者镜像仓库">pull - 从 Registry 拉取指定镜像或者镜像仓库&lt;a class="td-heading-self-link" href="#pull---%e4%bb%8e-registry-%e6%8b%89%e5%8f%96%e6%8c%87%e5%ae%9a%e9%95%9c%e5%83%8f%e6%88%96%e8%80%85%e9%95%9c%e5%83%8f%e4%bb%93%e5%ba%93" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>docker pull [REGISTRY][:Port]/[NAMESPACE/]&amp;lt;NAME&amp;gt;:[TAG]&lt;/strong>&lt;/p>
-&lt;p>如果不加 registry，则默认从 hub.docker.com 拉取 image；如果不设置 namespace，则默认从指定的 registry 中的顶层仓库拉取镜像，如果使用了 namespace，则从该用户仓库拉取镜像；如果不指定 TAG，则默认拉取 lastest 版的 image&lt;/p>
-&lt;p>EXAMPLE&lt;/p>
-&lt;ul>
-&lt;li>docker pull quay.io/coreos/flannel&lt;/li>
-&lt;/ul>
-&lt;h2 id="push---推送指定镜像或者库镜像至-docker-源服务器">push - 推送指定镜像或者库镜像至 docker 源服务器&lt;a class="td-heading-self-link" href="#push---%e6%8e%a8%e9%80%81%e6%8c%87%e5%ae%9a%e9%95%9c%e5%83%8f%e6%88%96%e8%80%85%e5%ba%93%e9%95%9c%e5%83%8f%e8%87%b3-docker-%e6%ba%90%e6%9c%8d%e5%8a%a1%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="rename---重命名容器">rename - 重命名容器&lt;a class="td-heading-self-link" href="#rename---%e9%87%8d%e5%91%bd%e5%90%8d%e5%ae%b9%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="restart---重启运行的容器">restart - 重启运行的容器&lt;a class="td-heading-self-link" href="#restart---%e9%87%8d%e5%90%af%e8%bf%90%e8%a1%8c%e7%9a%84%e5%ae%b9%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="rm---移除一个或者多个容器">rm - 移除一个或者多个容器&lt;a class="td-heading-self-link" href="#rm---%e7%a7%bb%e9%99%a4%e4%b8%80%e4%b8%aa%e6%88%96%e8%80%85%e5%a4%9a%e4%b8%aa%e5%ae%b9%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>EXAMPLE&lt;/p>
-&lt;ul>
-&lt;li>docker rm &lt;code>docker ps -a | grep &amp;quot;Exited&amp;quot; | awk '{print $NF}'&lt;/code> # 移除所以已经停止的容器&lt;/li>
-&lt;/ul>
-&lt;h2 id="rmi---移除一个或多个镜像">rmi - 移除一个或多个镜像&lt;a class="td-heading-self-link" href="#rmi---%e7%a7%bb%e9%99%a4%e4%b8%80%e4%b8%aa%e6%88%96%e5%a4%9a%e4%b8%aa%e9%95%9c%e5%83%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>Notes: 无容器使用该镜像才可以删除，否则需要删除相关容器才可以继续或者-f 强制删除&lt;/p>
-&lt;h2 id="run---创建一个新的容器并运行一个命令">run - 创建一个新的容器并运行一个命令&lt;a class="td-heading-self-link" href="#run---%e5%88%9b%e5%bb%ba%e4%b8%80%e4%b8%aa%e6%96%b0%e7%9a%84%e5%ae%b9%e5%99%a8%e5%b9%b6%e8%bf%90%e8%a1%8c%e4%b8%80%e4%b8%aa%e5%91%bd%e4%bb%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>详见：&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20CLI/run.md">docker run 运行容器&lt;/a>&lt;/p>
-&lt;h2 id="save---保存一个或多个镜像为一个-tar-包对应-load">save - 保存一个或多个镜像为一个 tar 包(对应 load)&lt;a class="td-heading-self-link" href="#save---%e4%bf%9d%e5%ad%98%e4%b8%80%e4%b8%aa%e6%88%96%e5%a4%9a%e4%b8%aa%e9%95%9c%e5%83%8f%e4%b8%ba%e4%b8%80%e4%b8%aa-tar-%e5%8c%85%e5%af%b9%e5%ba%94-load" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>docker save [OPTIONS] Image1 Image2 &amp;hellip; ImageN /PATH/FILE&lt;/p>
-&lt;p>OPTIONS&lt;/p>
-&lt;ul>
-&lt;li>-o # save 的时候写入文件，而不是 STDOUT&lt;/li>
-&lt;/ul>
-&lt;p>EXAMPLE&lt;/p>
-&lt;ul>
-&lt;li>docker save k8s.gcr.io/kube-proxy:v1.12.1 -o kubernetes.tar # 保存 k8s.gcr.io/kube-proxy:v1.12.1 这个 image 到 kubernetes.tar 这个文件中&lt;/li>
-&lt;li>docker save -o XXXX.tar $(docker images | awk &amp;lsquo;{print $1,$2}&amp;rsquo; OFS=&amp;quot;:&amp;quot; | awk &amp;lsquo;NR!=1{print}&amp;rsquo;) # 保存全部镜像到 XXX.tar 文件中&lt;/li>
-&lt;/ul>
-&lt;h2 id="search---在-dockerhub-中搜索镜像">search - 在 dockerhub 中搜索镜像&lt;a class="td-heading-self-link" href="#search---%e5%9c%a8-dockerhub-%e4%b8%ad%e6%90%9c%e7%b4%a2%e9%95%9c%e5%83%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>docker search [OPTIONS] TERM&lt;/p>
-&lt;p>EXAMPLE&lt;/p>
-&lt;p>&lt;code>docker search centos&lt;/code> # 搜索所有 centos 的 docker 镜像&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/urb4r9/1616121613281-5ce787a3-8986-43c9-926a-680de555c36e.png" alt="">&lt;/p>
-&lt;h2 id="start---启动容器">start - 启动容器&lt;a class="td-heading-self-link" href="#start---%e5%90%af%e5%8a%a8%e5%ae%b9%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="stats---显示实时的容器资源使用情况统计流">stats - 显示实时的容器资源使用情况统计流&lt;a class="td-heading-self-link" href="#stats---%e6%98%be%e7%a4%ba%e5%ae%9e%e6%97%b6%e7%9a%84%e5%ae%b9%e5%99%a8%e8%b5%84%e6%ba%90%e4%bd%bf%e7%94%a8%e6%83%85%e5%86%b5%e7%bb%9f%e8%ae%a1%e6%b5%81" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>命令用法详见：容器状态查看命令&lt;/p>
-&lt;h2 id="stop---停止容器">stop - 停止容器&lt;a class="td-heading-self-link" href="#stop---%e5%81%9c%e6%ad%a2%e5%ae%b9%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="tag---在一个-repostiory-中标记一个-image">tag - 在一个 repostiory 中标记一个 image&lt;a class="td-heading-self-link" href="#tag---%e5%9c%a8%e4%b8%80%e4%b8%aa-repostiory-%e4%b8%ad%e6%a0%87%e8%ae%b0%e4%b8%80%e4%b8%aa-image" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>docker tag SOURCE_IMAGE[:TAG] TARGET_IMAGE[:TAG]&lt;/strong>&lt;/p>
-&lt;h2 id="top---查看容器中运行的进程信息">top - 查看容器中运行的进程信息&lt;a class="td-heading-self-link" href="#top---%e6%9f%a5%e7%9c%8b%e5%ae%b9%e5%99%a8%e4%b8%ad%e8%bf%90%e8%a1%8c%e7%9a%84%e8%bf%9b%e7%a8%8b%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>EXAMPLE&lt;/p>
-&lt;p>&lt;code>docker top prometheus&lt;/code> # 查看 prometheus 这个 container 运行的程序，该信息的格式为 ps 命令所输出的内容&lt;/p>
-&lt;h2 id="unpause---取消暂停容器">unpause - 取消暂停容器&lt;a class="td-heading-self-link" href="#unpause---%e5%8f%96%e6%b6%88%e6%9a%82%e5%81%9c%e5%ae%b9%e5%99%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="wait---截取容器停止时的退出状态值">wait - 截取容器停止时的退出状态值&lt;a class="td-heading-self-link" href="#wait---%e6%88%aa%e5%8f%96%e5%ae%b9%e5%99%a8%e5%81%9c%e6%ad%a2%e6%97%b6%e7%9a%84%e9%80%80%e5%87%ba%e7%8a%b6%e6%80%81%e5%80%bc" aria-label="Heading self-link">&lt;/a>&lt;/h2></description></item><item><title>Docs: DPDK</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/DPDK/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/DPDK/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/DPDK/dpdk">GitHub 项目，DPDK/dpdk&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.dpdk.org/">官网&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://en.wikipedia.org/wiki/Data_Plane_Development_Kit">Wiki，Data Plane Development Kit&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://sdn.0voice.com/">DPDK 开发中文网&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>&lt;strong>Data Plane Development Kit(数据平面开发套件，简称 DPDK)&lt;/strong> 是一个由 &lt;a href="https://desistdaydream.github.io/docs/Standard/Foundation/Linux%20Foundation.md">Linux 基金会&lt;/a> 管理的开源软件项目。用于将 TCP 数据包的处理能力从内核空间移动到用户空间中的进程。主要是跳过了内核的 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Interrupts(%E4%B8%AD%E6%96%AD)/Interrupts(%E4%B8%AD%E6%96%AD).md">Interrupts(中断)&lt;/a> 逻辑。&lt;/p>
-&lt;p>处理数据包的传统方式是 CPU 中断方式，即网卡驱动接收到数据包后通过中断通知 CPU 处理，然后由 CPU 拷贝数据并交给协议栈。在数据量大时，这种方式会产生大量 CPU 中断，导致 CPU 无法运行其他程序。&lt;/p>
-&lt;p>而 DPDK 则采用轮询方式实现数据包处理过程：DPDK 程序加载了网卡驱动，该驱动在收到数据包后不中断通知 CPU，而是将数据包通过零拷贝技术存入内存，这时应用层程序就可以通过 DPDK 提供的接口，直接从内存读取数据包。&lt;/p>
-&lt;p>这种处理方式节省了 CPU 中断时间、内存拷贝时间，并向应用层提供了简单易行且高效的数据包处理方式，使得网络应用的开发更加方便。但同时，由于需要重载网卡驱动，因此该开发包目前只能用在部分采用 Intel 网络处理芯片的网卡中。&lt;/p>
-&lt;p>DPDK 主要包含如下几个部分（https://doc.dpdk.org/guides/prog_guide/source_org.html#libraries）&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>Environmental Abstraction Layer(环境抽象层，简称 EAL)&lt;/strong> # 负责为应用间接访问底层的资源，比如内存空间、线程、设备、定时器等。如果把我们使用了 DPDK 的应用比作一个豪宅的主人的话，&lt;code>EAL&lt;/code>就是这个豪宅的管家。&lt;/li>
-&lt;li>&lt;strong>DPDK API Library&lt;/strong> # DPDK 的 API 库
-&lt;ul>
-&lt;li>etc.&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>&lt;strong>&lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Networking%20device/NIC.md">NIC&lt;/a> Driver(网卡驱动程序)&lt;/strong> # 如名，只不过是轮询模式的驱动。
-&lt;ul>
-&lt;li>etc.&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>&lt;strong>DPDK APP&lt;/strong> # 一些实用的程序&lt;/li>
-&lt;/ul>
-&lt;h2 id="eal">EAL&lt;a class="td-heading-self-link" href="#eal" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;a href="https://doc.dpdk.org/guides/prog_guide/env_abstraction_layer.html">https://doc.dpdk.org/guides/prog_guide/env_abstraction_layer.html&lt;/a>&lt;/p>
-&lt;p>&lt;strong>Environment Abstraction Layer(环境抽象层，简称 EAL)&lt;/strong> 负责访问低级资源，例如硬件和内存空间。它提供了一个通用接口，对应用程序和库隐藏了环境细节。初始化例程负责决定如何分配这些资源（即内存空间、设备、定时器、控制台等）。&lt;/p>
-&lt;h2 id="dpdk-library">DPDK Library&lt;a class="td-heading-self-link" href="#dpdk-library" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>TODO: 好多好多的库，功能非常全。&lt;/p>
-&lt;p>&lt;a href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/DPDK/Graph%20Library.md">Graph Library&lt;/a>&lt;/p>
-&lt;h2 id="driver">Driver&lt;a class="td-heading-self-link" href="#driver" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>Linux 驱动&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules">https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules&lt;/a>&lt;/li>
-&lt;li>&lt;strong>vfio&lt;/strong> # 使用 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/VFIO.md">VFIO&lt;/a> 功能的驱动。依赖 &lt;code>vfio-pci&lt;/code> 模块。&lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules">官方文档&lt;/a>建议所有情况下都是用 vfio-pci 作为 DPDK 绑定端口的内核模块&lt;/li>
-&lt;/ul>
-&lt;p>TODO: 好多好多驱动。&lt;/p>
-&lt;h2 id="dpdk-app">DPDK APP&lt;a class="td-heading-self-link" href="#dpdk-app" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;a href="https://doc.dpdk.org/guides/tools/index.html">https://doc.dpdk.org/guides/tools/index.html&lt;/a>&lt;/p>
-&lt;h1 id="dpdk-部署">DPDK 部署&lt;a class="td-heading-self-link" href="#dpdk-%e9%83%a8%e7%bd%b2" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考:&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://core.dpdk.org/doc/quick-start/">官方文档，快速开始&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/613149235">知乎，KVM虚拟机安装DPDK(vfio+igb_uio)&lt;/a> TODO: 待验证&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>&lt;a href="https://doc.dpdk.org/guides/linux_gsg/index.html">这里&lt;/a> 是要在 Linux 安装 DPDK 的一些要求&lt;/p>
-&lt;p>DPDK 的部署依赖 meson 和 ninja 两个构建工具、vfio-pci 内核模块。&lt;/p>
-&lt;h2 id="dpdk-使用注意">DPDK 使用注意&lt;a class="td-heading-self-link" href="#dpdk-%e4%bd%bf%e7%94%a8%e6%b3%a8%e6%84%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>当我们让 DPDK 程序接管网卡后，从系统中就无法通过常见的命令（e.g. ip, etc.）查看到系统中的网络设备，效果如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># lspci | grep Ethernet&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ip link show&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>1: lo: &amp;lt;LOOPBACK,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">65536&lt;/span> qdisc noqueue state UNKNOWN mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>2: eno3: &amp;lt;BROADCAST,MULTICAST,UP,LOWER_UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">1500&lt;/span> qdisc mq state UP mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether 44:a8:42:38:4e:2c brd ff:ff:ff:ff:ff:ff
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>5: enp2s0f1: &amp;lt;NO-CARRIER,BROADCAST,MULTICAST,UP&amp;gt; mtu &lt;span style="color:#0000cf;font-weight:bold">1500&lt;/span> qdisc mq state DOWN mode DEFAULT group default qlen &lt;span style="color:#0000cf;font-weight:bold">1000&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link/ether a0:36:9f:91:17:a7 brd ff:ff:ff:ff:ff:ff
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># dpdk-devbind.py -s&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Network devices using DPDK-compatible &lt;span style="color:#000">driver&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">============================================&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:01:00.1 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:02:00.0 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Network devices using kernel &lt;span style="color:#000">driver&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">===================================&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:01:00.0 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>eno3 &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci *Active*
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>0000:02:00.1 &lt;span style="color:#4e9a06">&amp;#39;I350 Gigabit Network Connection 1521&amp;#39;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>enp2s0f1 &lt;span style="color:#000">drv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>igb &lt;span style="color:#000">unused&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>vfio-pci
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>可以看到机器上有 4 个 Ethernet，但是通过 ip 命令仅能看到 2 个（ip 这类命令只能看到内核管理的），另外 2 个被 DPDK 使用了，只有使用 DPDK 提供的程序才能获取到非内核管理的网卡信息。&lt;/p>
-&lt;p>此时想要查看网卡当前所使用的驱动，可以使用 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux%20%E7%AE%A1%E7%90%86/Linux%20%E7%A1%AC%E4%BB%B6%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/Linux%20%E7%A1%AC%E4%BB%B6%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7.md">Linux 硬件管理工具&lt;/a> 查看到当前网卡所使用的驱动程序（lspci、lshw、etc.）。（虽然其中显示的是 Kernel driver in use，但是实际上，驱动是 vfio-pci 的网卡已经被 DPDK 接管了）&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># lspci -k | grep -i &amp;#34;Ethernet controller&amp;#34; -A 3&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DeviceName: NIC1
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Dell Gigabit 2P I350-t LOM
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: igb
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>01:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DeviceName: NIC2
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Dell Gigabit 2P I350-t LOM
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: vfio-pci
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>--
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Intel Corporation Ethernet Server Adapter I350-T2
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: vfio-pci
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel modules: igb
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>02:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network Connection &lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>rev 01&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Subsystem: Intel Corporation Ethernet Server Adapter I350-T2
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel driver in use: igb
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Kernel modules: igb
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="dpdk-的实现">DPDK 的实现&lt;a class="td-heading-self-link" href="#dpdk-%e7%9a%84%e5%ae%9e%e7%8e%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/486288121">知乎，DPDK的整体工作原理&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://doc.dpdk.org/guides/prog_guide/overview.html">https://doc.dpdk.org/guides/prog_guide/overview.html&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>在 &lt;a href="https://doc.dpdk.org/guides/linux_gsg/linux_drivers.html?highlight=vfio%20pci#binding-and-unbinding-network-ports-to-from-the-kernel-modules">DPDK 官方文档 - 7.1&lt;/a> 章节中，建议在所有情况下都使用 &lt;strong>vfio-pci&lt;/strong> 作为 DPDK 绑定端口的内核模块。如果 IOMMU 不可用，则可以在 no-iommu 模式下使用 vfio-pci。如果由于某种原因 vfio 不可用，则可以使用基于 UIO 的模块 igb_uio 和 uio_pci_generic。详细信息请参见 UIO 部分。&lt;/p>
-&lt;h2 id="lcore--socket">lcore &amp;amp; socket&lt;a class="td-heading-self-link" href="#lcore--socket" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>Logical core(逻辑核心)&lt;/strong> DPDK 使用逻辑核心来管理并行处理，将任务分配给不同的逻辑核心以充分利用多核处理器的性能。通过使用逻辑核心，DPDK 应用程序可以更好地控制和利用系统中的处理器资源。狭义上 1 个 lcore 可以指 EAL 的 1 个线程。&lt;/p>
-&lt;p>这两个概念在 &lt;code>DPDK&lt;/code>的代码中随处可见，&lt;strong>注意&lt;/strong>这里的 &lt;strong>socket&lt;/strong> 不是网络编程里面的那一套东西，而是 &lt;strong>CPU&lt;/strong> 相关的东西。具体的概念可以参看&lt;a href="https://link.zhihu.com/?target=https%3A//link.segmentfault.com/%3Fenc%3DkeRHFE71AwA4LEWK3gy%252F%252Bg%253D%253D.zL548YXL%252F1rT%252BQN9hhP0BSuhSZUszAZly2ULaOcHzihSAMFb3k6C8kBfLxFL65VqtdDdc0MigZcmMKHcWpmSUSTYHTTZ%252BgYz9XlsRQPKOK%252BWch%252FsoT6h%252BzR46e7YgN19TmdjGuy%252BwWL%252FfT2wdU6Q7Q%253D%253D">Differences between physical CPU vs logical CPU vs Core vs Thread vs Socket&lt;/a> 或者其翻译版本&lt;a href="https://link.zhihu.com/?target=https%3A//link.segmentfault.com/%3Fenc%3DQvdG3%252BI75LlbmFlczo3WpQ%253D%253D.wu%252FAAZX7seAtEJjmuttDzYMu8zmGLKxX2fcFZ%252BZxKkIQvVQguoy2MSUnOVZPbaU6">physical CPU vs logical CPU vs Core vs Thread vs Socket（翻译）&lt;/a>。&lt;/p>
-&lt;p>对我们来说，只要知道可以&lt;code>DPDK&lt;/code>可以运行在多个&lt;code>lcore&lt;/code>上就足够了.&lt;/p>
-&lt;p>&lt;code>DPDK&lt;/code> 如何知道有多少个&lt;code>lcore&lt;/code>呢 ? 在启动时解析文件系统中的特定文件就可以了, 参考函数&lt;code>eal_cpu_detected&lt;/code>&lt;/p>
-&lt;h2 id="内存的使用">内存的使用&lt;a class="td-heading-self-link" href="#%e5%86%85%e5%ad%98%e7%9a%84%e4%bd%bf%e7%94%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>TODO: &lt;a href="https://xie.infoq.cn/article/a7c83189a19387018b8595e98">https://xie.infoq.cn/article/a7c83189a19387018b8595e98&lt;/a>&lt;/p>
-&lt;p>调用 DPDK 的程序自己管理如何使用内存，需要提前预留一块空间给 DPDK 程序自身，并保证不被其他程序使用，通常这块内存空间的的分页是 1GiB、512MiB 等大小的 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Memory/Huge%20Pages.md">Huge Pages&lt;/a>。&lt;/p>
-&lt;p>e.g. 一个 256 GiB 的系统，可以留出来 192 个 1GiB 页大小的内存空间，总计 192 GiB，这一部分内存空间就是大页空间，因为每个分页的大小高达 1GiB&lt;/p>
-&lt;h1 id="dpdk-工具">DPDK 工具&lt;a class="td-heading-self-link" href="#dpdk-%e5%b7%a5%e5%85%b7" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;a href="https://doc.dpdk.org/guides/tools/index.html">https://doc.dpdk.org/guides/tools/index.html&lt;/a>&lt;/p>
-&lt;h2 id="dpdk-devbind---绑定和取消绑定设备与驱动程序检查他们的状态">dpdk-devbind - 绑定和取消绑定设备与驱动程序，检查他们的状态&lt;a class="td-heading-self-link" href="#dpdk-devbind---%e7%bb%91%e5%ae%9a%e5%92%8c%e5%8f%96%e6%b6%88%e7%bb%91%e5%ae%9a%e8%ae%be%e5%a4%87%e4%b8%8e%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f%e6%a3%80%e6%9f%a5%e4%bb%96%e4%bb%ac%e7%9a%84%e7%8a%b6%e6%80%81" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;a href="https://github.com/DPDK/dpdk/blob/main/usertools/dpdk-devbind.py">https://github.com/DPDK/dpdk/blob/main/usertools/dpdk-devbind.py&lt;/a>&lt;/p>
-&lt;p>&lt;a href="https://doc.dpdk.org/guides/tools/devbind.html">https://doc.dpdk.org/guides/tools/devbind.html&lt;/a>&lt;/p>
-&lt;h3 id="syntax语法">Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>&lt;strong>dpdk-devbind [OPTIONS] DEVICE1 DEVICE2 &amp;hellip;.&lt;/strong>&lt;/p>
-&lt;p>&lt;strong>OPTIONS&lt;/strong>&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>-s, &amp;ndash;status&lt;/strong> # 打印所有已知网络接口的当前状态。对于每个设备，它显示 PCI 域、总线、插槽和功能，以及设备的文本描述。根据设备是否由内核驱动程序、vfio-pci 驱动程序或无驱动程序使用，将显示其他相关信息：
-&lt;ul>
-&lt;li>Linux 接口名称，例如 if=eth0&lt;/li>
-&lt;li>正在使用的驱动程序，例如drv=vfio-pci&lt;/li>
-&lt;li>当前未使用该设备的任何合适的驱动程序，例如used=vfio-pci 注意：如果此标志与绑定/取消绑定选项一起传递，则状态显示将始终在其他操作发生后发生。&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>&lt;strong>-b, &amp;ndash;bind DRIVER&lt;/strong> # 选择绑定网卡要使用的驱动程序。可以使用 none 以解除绑定&lt;/li>
-&lt;li>&lt;strong>-u, &amp;ndash;unbind&lt;/strong> # 接触网卡设备绑定。等价于 &lt;code>-b none&lt;/code>&lt;/li>
-&lt;li>&lt;strong>&amp;ndash;force&lt;/strong> # 强制绑定。默认情况下，若目标网卡已被内核启用（通常表现为已在路由表条目中），则无法被 DPDK 绑定。&lt;/li>
-&lt;/ul>
-&lt;p>-s 选项输出内容说明，包含如下几部分&lt;/p>
-&lt;ul>
-&lt;li>Network devices using DPDK-compatible driver # 由 DPDK 管理的网卡&lt;/li>
-&lt;li>Network devices using kernel driver # 由内核管理的网卡&lt;/li>
-&lt;li>Other Network devices # 既不由 DPDK 管理也不由内核管理的网卡。（使用 -u 解绑后的网卡）&lt;/li>
-&lt;/ul>
-&lt;h3 id="example">EXAMPLE&lt;a class="td-heading-self-link" href="#example" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>从当前驱动程序绑定 eth1 并转而使用 vfio-pci：&lt;/p>
-&lt;ul>
-&lt;li>&lt;code>dpdk-devbind --bind=vfio-pci eth1&lt;/code>&lt;/li>
-&lt;/ul>
-&lt;h1 id="dpdk-与-bpf-与-netfilter">DPDK 与 BPF 与 Netfilter&lt;a class="td-heading-self-link" href="#dpdk-%e4%b8%8e-bpf-%e4%b8%8e-netfilter" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>TODO&lt;/p>
-&lt;h1 id="faq">FAQ&lt;a class="td-heading-self-link" href="#faq" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;a href="https://doc.dpdk.org/guides/faq/index.html">https://doc.dpdk.org/guides/faq/index.html&lt;/a>&lt;/p>
-&lt;h2 id="将-dpdk-管理的网卡还给内核">将 DPDK 管理的网卡还给内核&lt;a class="td-heading-self-link" href="#%e5%b0%86-dpdk-%e7%ae%a1%e7%90%86%e7%9a%84%e7%bd%91%e5%8d%a1%e8%bf%98%e7%bb%99%e5%86%85%e6%a0%b8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>一、查看绑定的网卡&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>dpdk-devbind.py -s
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>二、将 &lt;code>Network devices using DPDK-compatible driver&lt;/code> 部分的网卡从 DPDK 中解绑&lt;/p>
-&lt;blockquote>
-&lt;p>Note: 多个网卡以空格分割。同时记录下&lt;/p>
-&lt;/blockquote>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>dpdk-devbind.py -u 0000:21:00.0 0000:21:00.1
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>解绑后，通过 &lt;code>dpdk-devbind.py -s&lt;/code> 可以在 &lt;code>Other Network devices&lt;/code> 部分查看到未被 Kernel 和 DPDK 管理的网卡。其中最后一部分 &lt;code>unused=i40e,igb_uio,vfio-pci&lt;/code> unused 的值的第一段（逗号分割）可以作为内核所使用的驱动（e.g. i40e）&lt;/p>
-&lt;p>三、将 &lt;code>Other Network devices&lt;/code> 部分的网卡绑定给内核&lt;/p>
-&lt;blockquote>
-&lt;p>Note: 这里使用上面查看到的 i40e 作为驱动示例&lt;/p>
-&lt;/blockquote>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>dpdk-devbind.py -b i40e 0000:21:00.0 0000:21:00.1
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>四、总结&lt;/p>
-&lt;p>这里面的绑定与解绑从 dpdk-devbind.py 源码中可以看到，主要依赖于 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/%E7%89%B9%E6%AE%8A%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/sysfs.md">sysfs&lt;/a> 中 PCI 的 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Driver.md#PCI">Driver&lt;/a> 管理能力。i.e. /sys/bus/pci/drivers/&amp;hellip;/bind 与 /sys/bus/pci/drivers/&amp;hellip;/unbind 文件&lt;/p></description></item></channel></rss>
+&lt;p>本文首先对 CSI 核心流程进行了大体介绍，并结合 CSI Sidecar 组件、CSI 接口、API 对象对 CSI 标准进行了深度解析。在 K8s 上，使用任何一种 CSI 存储卷都离不开上面的流程，环境上的容器存储问题也一定是其中某个环节出现了问题。&lt;/p></description></item></channel></rss>
