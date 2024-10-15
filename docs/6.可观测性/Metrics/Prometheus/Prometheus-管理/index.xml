@@ -10,12 +10,13 @@
 &lt;/li>
 &lt;li>&lt;a href="https://cloud.tencent.com/developer/article/1758801">腾讯云+社区，prometheus 告警指标&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://mp.weixin.qq.com/s/rPxTBYmwG_7HnZRpRXMFuQ">公众号，云原生小白-监控容器 OOMKill 的正确指标&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://panzhongxian.cn/cn/2023/09/grafana-pannel-skills/">https://panzhongxian.cn/cn/2023/09/grafana-pannel-skills/&lt;/a> Grafana 常用但难配的图表。一些真实场景的查询语句写法以及对应 Grafana 图标如何用&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
 &lt;h1 id="问题">问题&lt;a class="td-heading-self-link" href="#%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>如何获取范围向量中的第一个和最后一个值。 &lt;a href="https://stackoverflow.com/questions/68895729/how-to-get-the-first-and-last-element-of-a-range-vector-in-promql">https://stackoverflow.com/questions/68895729/how-to-get-the-first-and-last-element-of-a-range-vector-in-promql&lt;/a>&lt;/p>
 &lt;ul>
-&lt;li>MetricsQS 中有 &lt;code>first_over_time()&lt;/code> 函数&lt;/li>
+&lt;li>MetricsQL 中有 &lt;code>first_over_time()&lt;/code> 函数&lt;/li>
 &lt;/ul>
 &lt;p>如何获取范围向量中，指定的值。 &lt;a href="https://stackoverflow.com/questions/45213745/prometheus-how-to-calculate-proportion-of-single-value-over-time">https://stackoverflow.com/questions/45213745/prometheus-how-to-calculate-proportion-of-single-value-over-time&lt;/a> ，比如 &lt;code>count_over_time(my_metric[1m] != 0)&lt;/code>获取 1 分钟内所有值中不为 0 的值&lt;/p>
 &lt;ul>
@@ -587,7 +588,7 @@ description: Redis is running out of memory (&amp;gt; 90%)\n VALUE = {{ $value }
 &lt;/blockquote>
 &lt;h2 id="prometheus-uts-时区问题">Prometheus UTS 时区问题&lt;a class="td-heading-self-link" href="#prometheus-uts-%e6%97%b6%e5%8c%ba%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>&lt;a href="https://prometheus.io/docs/introduction/faq/#can-i-change-the-timezone-why-is-everything-in-utc">https://prometheus.io/docs/introduction/faq/#can-i-change-the-timezone-why-is-everything-in-utc&lt;/a>&lt;/p>
-&lt;p>官方表示为了避免夏令时问题，将 UTS 时区写入代码中，任何外部的配置都无法生效（e.g. 配置 /etc/timezone 无效）。&lt;/p>
+&lt;p>官方表示，为了避免夏令时问题，将 UTS 时区写入代码中，任何外部的配置都无法生效（e.g. 配置 /etc/timezone 无效）。&lt;/p>
 &lt;p>更多讨论在 &lt;a href="https://github.com/prometheus/prometheus/issues/500">issue 500&lt;/a>&lt;/p>
 &lt;p>其实这个限制是不影响使用的：&lt;/p>
 &lt;ul>
@@ -596,6 +597,15 @@ description: Redis is running out of memory (&amp;gt; 90%)\n VALUE = {{ $value }
 &lt;li>如果因为 Prometheus 自带的 UI 不是本地时间，看着不舒服，&lt;a href="https://github.com/prometheus/prometheus/commit/d996ba20ec9c7f1808823a047ed9d5ce96be3d8f">2.16 版本&lt;/a>的新版 Web UI 已经引入了 Local Timezone 的选项&lt;/li>
 &lt;li>如果仍然想改 Prometheus 代码来适应自己的时区，可以参考&lt;a href="https://zhangguanzhang.github.io/2019/09/05/prometheus-change-timezone/">这篇文章&lt;/a>。&lt;/li>
 &lt;/ul>
+&lt;p>对于 Prometheus 生态的程序，e.g. &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Instrumenting/Node%20Exporter.md">Node Exporter&lt;/a>、etc. 也会有 UTS 时区问题，程序的日志时间就是 UTS 时区的，并且无法在程序实例化阶段通过代码修改，因为这些程序引用的是 &lt;a href="https://pkg.go.dev/github.com/prometheus/common/promlog">promlog&lt;/a> 库。promlog 在 &lt;a href="https://github.com/prometheus/common/blob/v0.60.0/promlog/log.go#L33">log.go&lt;/a> 中定义了日志的时区。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#8f5902;font-style:italic">// This timestamp format differs from RFC3339Nano by using .000 instead
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#8f5902;font-style:italic">// of .999999999 which changes the timestamp from 9 variable to 3 fixed
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#8f5902;font-style:italic">// decimals (.130 instead of .130987456).
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span> &lt;span style="color:#000">timestampFormat&lt;/span> &lt;span style="color:#000;font-weight:bold">=&lt;/span> &lt;span style="color:#000">log&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">TimestampFormat&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">func&lt;/span>&lt;span style="color:#000;font-weight:bold">()&lt;/span> &lt;span style="color:#000">time&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">Time&lt;/span> &lt;span style="color:#000;font-weight:bold">{&lt;/span> &lt;span style="color:#204a87;font-weight:bold">return&lt;/span> &lt;span style="color:#000">time&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">Now&lt;/span>&lt;span style="color:#000;font-weight:bold">().&lt;/span>&lt;span style="color:#000">UTC&lt;/span>&lt;span style="color:#000;font-weight:bold">()&lt;/span> &lt;span style="color:#000;font-weight:bold">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#4e9a06">&amp;#34;2006-01-02T15:04:05.000Z07:00&amp;#34;&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>若想使用其他时区，现阶段（2024-10-14）的解决方案是在编译时直接修改 promlog 库中上面的代码，将 &lt;code>.UTC()&lt;/code> 去掉&lt;/p>
 &lt;h1 id="重大变化">重大变化&lt;a class="td-heading-self-link" href="#%e9%87%8d%e5%a4%a7%e5%8f%98%e5%8c%96" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;h2 id="v239">V2.39&lt;a class="td-heading-self-link" href="#v239" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;blockquote>
@@ -714,25 +724,42 @@ description: Redis is running out of memory (&amp;gt; 90%)\n VALUE = {{ $value }
 &lt;li>监控系统一般情况下可用性大于一致性，容忍部分副本数据丢失，保证查询请求成功。这个后面说 Thanos 去重的时候会提到。&lt;/li>
 &lt;li>Prometheus 不一定保证数据准确，这里的不准确一是指 rate、histogram_quantile 等函数会做统计和推断，产生一些反直觉的结果，这个后面会详细展开。二来查询范围过长要做降采样，势必会造成数据精度丢失，不过这是时序数据的特点，也是不同于日志系统的地方。&lt;/li>
 &lt;/ul>
-&lt;h1 id="promql">PromQL&lt;a class="td-heading-self-link" href="#promql" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考:&lt;/p>
+&lt;h1 id="prometheus-容量规划">Prometheus 容量规划&lt;a class="td-heading-self-link" href="#prometheus-%e5%ae%b9%e9%87%8f%e8%a7%84%e5%88%92" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>容量规划除了上边说的内存，还有磁盘存储规划，这和你的 Prometheus 的架构方案有关。&lt;/p>
 &lt;ul>
-&lt;li>&lt;a href="https://prometheus.io/docs/prometheus/latest/querying/basics/#gotchas">官方文档，查询 - 基础 - 陷阱&lt;/a>&lt;/li>
+&lt;li>如果是单机 Prometheus，计算本地磁盘使用量。&lt;/li>
+&lt;li>如果是 Remote-Write，和已有的 Tsdb 共用即可。&lt;/li>
+&lt;li>如果是 Thanos 方案，本地磁盘可以忽略（2H)，计算对象存储的大小就行。&lt;/li>
 &lt;/ul>
-&lt;/blockquote>
-&lt;h2 id="避免缓慢的查询和过载">避免缓慢的查询和过载&lt;a class="td-heading-self-link" href="#%e9%81%bf%e5%85%8d%e7%bc%93%e6%85%a2%e7%9a%84%e6%9f%a5%e8%af%a2%e5%92%8c%e8%bf%87%e8%bd%bd" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>如果查询需要对大量数据进行操作，则将其绘制图表可能会导致服务器或浏览器超时或过载。因此，在构建对未知数据的查询时，始终在 Prometheus 表达式浏览器的表格视图中开始构建查询，直到结果集看起来合理（最多数百个而不是数千个时间序列）。仅当您充分过滤或聚合数据后，才切换到图表模式。如果表达式仍然需要太长的时间来绘制临时图表，请通过 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Configuration/Rules.md#Recording%20Rule(%E8%AE%B0%E5%BD%95%E8%A7%84%E5%88%99)">Recording Rule(记录规则)&lt;/a> 预先记录它。&lt;/p>
-&lt;p>这与 Prometheus 的查询语言尤其相关，其中像 api_http_requests_total 这样的裸指标名称选择器可以扩展到数千个具有不同标签的时间序列。另外，请记住，即使输出只是少量时间序列，聚合多个时间序列的表达式也会在服务器上产生负载。这类似于对关系数据库中列的所有值求和的速度很慢，即使输出值只是一个数字。&lt;/p>
-&lt;h1 id="prometheus-问题集锦">Prometheus 问题集锦&lt;a class="td-heading-self-link" href="#prometheus-%e9%97%ae%e9%a2%98%e9%9b%86%e9%94%a6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>Prometheus 每 2 小时将已缓冲在内存中的数据压缩到磁盘上的块中。包括 Chunks、Indexes、Tombstones、Metadata，这些占用了一部分存储空间。一般情况下，Prometheus 中存储的每一个样本大概占用 1-2 字节大小（1.7Byte）。可以通过 PromQL 来查看每个样本平均占用多少空间：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-promql" data-lang="promql">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">rate&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">prometheus_tsdb_compaction_chunk_size_bytes_sum&lt;/span>&lt;span style="color:#000;font-weight:bold">[&lt;/span>&lt;span style="color:#4e9a06">2h&lt;/span>&lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">/&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">rate&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">prometheus_tsdb_compaction_chunk_samples_sum&lt;/span>&lt;span style="color:#000;font-weight:bold">[&lt;/span>&lt;span style="color:#4e9a06">2h&lt;/span>&lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果大致估算本地磁盘大小，可以通过以下公式：&lt;/p>
+&lt;p>$磁盘大小 = 保留时间 * 每秒获取样本数 * 样本大小$&lt;/p>
+&lt;p>保留时间 (retention_time_seconds) 和样本大小 (bytes_per_sample) 不变的情况下，如果想减少本地磁盘的容量需求，只能通过减少每秒获取样本数 (ingested_samples_per_second) 的方式。&lt;/p>
+&lt;p>查看当前每秒获取的样本数：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>rate&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>prometheus_tsdb_head_samples_appended_total&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>1h&lt;span style="color:#ce5c00;font-weight:bold">])&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>有两种手段，一是减少时间序列的数量，二是增加采集样本的时间间隔。考虑到 Prometheus 会对时间序列进行压缩，因此减少时间序列的数量效果更明显。&lt;/p>
+&lt;p>举例说明：&lt;/p>
+&lt;ul>
+&lt;li>采集频率 30s，机器数量 1000，Metric 种类 6000，1000_6000_2_60_24 约 200 亿，30G 左右磁盘。&lt;/li>
+&lt;li>只采集需要的指标，如 match[], 或者统计下最常使用的指标，性能最差的指标。&lt;/li>
+&lt;/ul>
+&lt;p>以上磁盘容量并没有把 wal 文件算进去，wal 文件 (Raw Data) 在 Prometheus 官方文档中说明至少会保存 3 个 Write-Ahead Log Files，每一个最大为 128M(实际运行发现数量会更多)。&lt;/p>
+&lt;p>因为我们使用了 Thanos 的方案，所以本地磁盘只保留 2H 热数据。Wal 每 2 小时生成一份 Block 文件，Block 文件每 2 小时上传对象存储，本地磁盘基本没有压力。&lt;/p>
+&lt;p>关于 Prometheus 存储机制，可以看&lt;a href="http://www.xuyasong.com/?p=1601">这篇&lt;/a>。&lt;/p>
+&lt;h2 id="你的应用需要暴露多少指标">你的应用需要暴露多少指标&lt;a class="td-heading-self-link" href="#%e4%bd%a0%e7%9a%84%e5%ba%94%e7%94%a8%e9%9c%80%e8%a6%81%e6%9a%b4%e9%9c%b2%e5%a4%9a%e5%b0%91%e6%8c%87%e6%a0%87" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>当你开发自己的服务的时候，你可能会把一些数据暴露 Metric 出去，比如特定请求数、Goroutine 数等，指标数量多少合适呢？&lt;/p>
+&lt;p>虽然指标数量和你的应用规模相关，但也有一些&lt;a href="https://www.robustperception.io/how-many-metrics-should-an-application-return">建议 (Brian Brazil)&lt;/a>,&lt;/p>
+&lt;p>比如简单的服务如缓存等，类似 Pushgateway，大约 120 个指标，Prometheus 本身暴露了 700 左右的指标，如果你的应用很大，也尽量不要超过 10000 个指标，需要合理控制你的 Label。&lt;/p>
+&lt;h1 id="prometheus-大内存问题">Prometheus 大内存问题&lt;a class="td-heading-self-link" href="#prometheus-%e5%a4%a7%e5%86%85%e5%ad%98%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
-&lt;li>&lt;a href="http://www.xuyasong.com/?p=1921">Vermouth 博客，高可用 Prometheus 问题集锦&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://mp.weixin.qq.com/s/iLeVjKIAnUzZvA9FI-v_Rw">公众号 - KubeSphere云原生，Prometheus 大内存分析及优化&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;p>监控系统的历史悠久，是一个很成熟的方向，而 Prometheus 作为新生代的开源监控系统，慢慢成为了云原生体系的事实标准，也证明了其设计很受欢迎。本文主要分享在 Prometheus 实践中遇到的一些问题和思考，如果你对 K8S 监控体系或 Prometheus 的设计还不太了解，可以先看下&lt;a href="https://yasongxu.gitbook.io/container-monitor/">容器监控系列&lt;/a>。&lt;/p>
-&lt;h2 id="prometheus-大内存问题">Prometheus 大内存问题&lt;a class="td-heading-self-link" href="#prometheus-%e5%a4%a7%e5%86%85%e5%ad%98%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>随着规模变大，Prometheus 需要的 CPU 和内存都会升高，内存一般先达到瓶颈，这个时候要么加内存，要么集群分片减少单机指标。这里我们先讨论单机版 Prometheus 的内存问题。&lt;/p>
 &lt;p>原因：&lt;/p>
 &lt;ul>
@@ -765,32 +792,19 @@ description: Redis is running out of memory (&amp;gt; 90%)\n VALUE = {{ $value }
 &lt;li>&lt;a href="https://github.com/prometheus/prometheus/issues/5723">https://github.com/prometheus/prometheus/issues/5723&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://github.com/prometheus/prometheus/issues/1881">https://github.com/prometheus/prometheus/issues/1881&lt;/a>&lt;/li>
 &lt;/ul>
-&lt;h2 id="prometheus-容量规划">Prometheus 容量规划&lt;a class="td-heading-self-link" href="#prometheus-%e5%ae%b9%e9%87%8f%e8%a7%84%e5%88%92" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>容量规划除了上边说的内存，还有磁盘存储规划，这和你的 Prometheus 的架构方案有关。&lt;/p>
-&lt;ul>
-&lt;li>如果是单机 Prometheus，计算本地磁盘使用量。&lt;/li>
-&lt;li>如果是 Remote-Write，和已有的 Tsdb 共用即可。&lt;/li>
-&lt;li>如果是 Thanos 方案，本地磁盘可以忽略（2H)，计算对象存储的大小就行。&lt;/li>
-&lt;/ul>
-&lt;p>Prometheus 每 2 小时将已缓冲在内存中的数据压缩到磁盘上的块中。包括 Chunks、Indexes、Tombstones、Metadata，这些占用了一部分存储空间。一般情况下，Prometheus 中存储的每一个样本大概占用 1-2 字节大小（1.7Byte）。可以通过 PromQL 来查看每个样本平均占用多少空间：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-promql" data-lang="promql">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">rate&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">prometheus_tsdb_compaction_chunk_size_bytes_sum&lt;/span>&lt;span style="color:#000;font-weight:bold">[&lt;/span>&lt;span style="color:#4e9a06">2h&lt;/span>&lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">/&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">rate&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">prometheus_tsdb_compaction_chunk_samples_sum&lt;/span>&lt;span style="color:#000;font-weight:bold">[&lt;/span>&lt;span style="color:#4e9a06">2h&lt;/span>&lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果大致估算本地磁盘大小，可以通过以下公式：&lt;/p>
-&lt;p>$磁盘大小 = 保留时间 * 每秒获取样本数 * 样本大小$&lt;/p>
-&lt;p>保留时间 (retention_time_seconds) 和样本大小 (bytes_per_sample) 不变的情况下，如果想减少本地磁盘的容量需求，只能通过减少每秒获取样本数 (ingested_samples_per_second) 的方式。&lt;/p>
-&lt;p>查看当前每秒获取的样本数：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-shell" data-lang="shell">&lt;span style="display:flex;">&lt;span>rate&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>prometheus_tsdb_head_samples_appended_total&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>1h&lt;span style="color:#ce5c00;font-weight:bold">])&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>有两种手段，一是减少时间序列的数量，二是增加采集样本的时间间隔。考虑到 Prometheus 会对时间序列进行压缩，因此减少时间序列的数量效果更明显。&lt;/p>
-&lt;p>举例说明：&lt;/p>
-&lt;ul>
-&lt;li>采集频率 30s，机器数量 1000，Metric 种类 6000，1000_6000_2_60_24 约 200 亿，30G 左右磁盘。&lt;/li>
-&lt;li>只采集需要的指标，如 match[], 或者统计下最常使用的指标，性能最差的指标。&lt;/li>
-&lt;/ul>
-&lt;p>以上磁盘容量并没有把 wal 文件算进去，wal 文件 (Raw Data) 在 Prometheus 官方文档中说明至少会保存 3 个 Write-Ahead Log Files，每一个最大为 128M(实际运行发现数量会更多)。&lt;/p>
-&lt;p>因为我们使用了 Thanos 的方案，所以本地磁盘只保留 2H 热数据。Wal 每 2 小时生成一份 Block 文件，Block 文件每 2 小时上传对象存储，本地磁盘基本没有压力。&lt;/p>
-&lt;p>关于 Prometheus 存储机制，可以看&lt;a href="http://www.xuyasong.com/?p=1601">这篇&lt;/a>。&lt;/p>
-&lt;h2 id="高基数问题-cardinality">高基数问题 Cardinality&lt;a class="td-heading-self-link" href="#%e9%ab%98%e5%9f%ba%e6%95%b0%e9%97%ae%e9%a2%98-cardinality" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h2 id="找到最大的-metric-或-job">找到最大的 metric 或 job&lt;a class="td-heading-self-link" href="#%e6%89%be%e5%88%b0%e6%9c%80%e5%a4%a7%e7%9a%84-metric-%e6%88%96-job" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>top10 的 metric 数量： 按 metric 名字分&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-promql" data-lang="promql">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">topk&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">10&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">count&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">by&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">__name__&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)(&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">__name__&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=~&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">.+&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">))&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">apiserver_request_latencies_bucket&lt;/span>&lt;span style="color:#000;font-weight:bold">{}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">62544&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">apiserver_response_sizes_bucket&lt;/span>&lt;span style="color:#000;font-weight:bold">{}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">44600&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>top10 的 metric 数量： 按 job 名字分&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-promql" data-lang="promql">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">topk&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">10&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">count&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">by&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">__name__&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">job&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)(&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">__name__&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=~&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">.+&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">))&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">job&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">master-scrape&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">525667&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">job&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">xxx-kubernetes-cadvisor&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">50817&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">job&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">yyy-kubernetes-cadvisor&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">44261&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="高基数问题-cardinality">高基数问题 Cardinality&lt;a class="td-heading-self-link" href="#%e9%ab%98%e5%9f%ba%e6%95%b0%e9%97%ae%e9%a2%98-cardinality" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>高基数是数据库避不开的一个话题，对于 Mysql 这种 DB 来讲，基数是指特定列或字段中包含的唯一值的数量。基数越低，列中重复的元素越多。对于时序数据库而言，就是 tags、label 这种标签值的数量多少。&lt;/p>
 &lt;p>比如 Prometheus 中如果有一个指标  &lt;code>http_request_count{method=&amp;quot;get&amp;quot;,path=&amp;quot;/abc&amp;quot;,originIP=&amp;quot;1.1.1.1&amp;quot;}&lt;/code>表示访问量，method 表示请求方法，originIP 是客户端 IP，method 的枚举值是有限的，但 originIP 却是无限的，加上其他 label 的排列组合就无穷大了，也没有任何关联特征，因此这种高基数不适合作为 Metric 的 label，真要的提取 originIP，应该用日志的方式，而不是 Metric 监控&lt;/p>
 &lt;p>时序数据库会为这些 Label 建立索引，以提高查询性能，以便您可以快速找到与所有指定标签匹配的值。如果值的数量过多，索引是没有意义的，尤其是做 P95 等计算的时候，要扫描大量 Series 数据&lt;/p>
@@ -824,34 +838,37 @@ description: Redis is running out of memory (&amp;gt; 90%)\n VALUE = {{ $value }
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">1297&lt;/span> uid
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">1276&lt;/span> pod
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="k8s-集群中常用的-exporter">K8S 集群中常用的 exporter&lt;a class="td-heading-self-link" href="#k8s-%e9%9b%86%e7%be%a4%e4%b8%ad%e5%b8%b8%e7%94%a8%e7%9a%84-exporter" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>Prometheus 属于 CNCF 项目，拥有完整的开源生态，与 Zabbix 这种传统 agent 监控不同，它提供了丰富的 exporter 来满足你的各种需求。你可以在&lt;a href="https://prometheus.io/docs/instrumenting/exporters/">这里&lt;/a>看到官方、非官方的 exporter。如果还是没满足你的需求，你还可以自己编写 exporter，简单方便、自由开放，这是优点。&lt;/p>
-&lt;p>但是过于开放就会带来选型、试错成本。之前只需要在 zabbix agent 里面几行配置就能完成的事，现在你会需要很多 exporter 搭配才能完成。还要对所有 exporter 维护、监控。尤其是升级 exporter 版本时，很痛苦。非官方 exporter 还会有不少 bug。这是使用上的不足，当然也是 Prometheus 的设计原则。&lt;/p>
-&lt;p>K8S 生态的组件都会提供 / metric 接口以提供自监控，这里列下我们正在使用的：&lt;/p>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="promql">PromQL&lt;a class="td-heading-self-link" href="#promql" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考:&lt;/p>
 &lt;ul>
-&lt;li>&lt;a href="http://www.xuyasong.com/?p=1483">cadvisor&lt;/a>: 集成在 Kubelet 中。&lt;/li>
-&lt;li>kubelet: 10255 为非认证端口，10250 为认证端口。&lt;/li>
-&lt;li>apiserver: 6443 端口，关心请求数、延迟等。&lt;/li>
-&lt;li>scheduler: 10251 端口。&lt;/li>
-&lt;li>controller-manager: 10252 端口。&lt;/li>
-&lt;li>etcd: 如 etcd 写入读取延迟、存储容量等。&lt;/li>
-&lt;li>docker: 需要开启 experimental 实验特性，配置 metrics-addr，如容器创建耗时等指标。&lt;/li>
-&lt;li>kube-proxy: 默认 127 暴露，10249 端口。外部采集时可以修改为 0.0.0.0 监听，会暴露：写入 iptables 规则的耗时等指标。&lt;/li>
-&lt;li>&lt;a href="http://www.xuyasong.com/?p=1525">kube-state-metrics&lt;/a>: K8S 官方项目，采集 pod、deployment 等资源的元信息。&lt;/li>
-&lt;li>&lt;a href="http://www.xuyasong.com/?p=1539">node-exporter&lt;/a>: Prometheus 官方项目，采集机器指标如 CPU、内存、磁盘。&lt;/li>
-&lt;li>blackbox_exporter: Prometheus 官方项目，网络探测，dns、ping、http 监控&lt;/li>
-&lt;li>process-exporter: 采集进程指标&lt;/li>
-&lt;li>nvidia exporter: 我们有 gpu 任务，需要 gpu 数据监控&lt;/li>
-&lt;li>node-problem-detector: 即 npd，准确的说不是 exporter，但也会监测机器状态，上报节点异常打 taint&lt;/li>
-&lt;li>应用层 exporter: mysql、nginx、mq 等，看业务需求。&lt;/li>
+&lt;li>&lt;a href="https://prometheus.io/docs/prometheus/latest/querying/basics/#gotchas">官方文档，查询 - 基础 - 陷阱&lt;/a>&lt;/li>
 &lt;/ul>
-&lt;p>还有各种场景下的&lt;a href="http://www.xuyasong.com/?p=1942">自定义 exporter&lt;/a>，如日志提取后面会再做介绍。&lt;/p>
-&lt;h2 id="k8s-核心组件监控与-grafana-面板">K8S 核心组件监控与 Grafana 面板&lt;a class="td-heading-self-link" href="#k8s-%e6%a0%b8%e5%bf%83%e7%bb%84%e4%bb%b6%e7%9b%91%e6%8e%a7%e4%b8%8e-grafana-%e9%9d%a2%e6%9d%bf" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>k8s 集群运行中需要关注核心组件的状态、性能。如 kubelet、apiserver 等，基于上面提到的 exporter 的指标，可以在 Grafana 中绘制如下图表。模板可以参考&lt;a href="https://povilasv.me/grafana-dashboards-for-kubernetes-administrators/">dashboards-for-kubernetes-administrators&lt;/a>，根据运行情况不断调整报警阈值。&lt;/p>
-&lt;p>这里提一下 Grafana 虽然支持了 templates 能力，可以很方便地做多级下拉框选择，但是不支持 templates 模式下配置报警规则，相关&lt;a href="https://github.com/grafana/grafana/issues/9334">issue&lt;/a>&lt;/p>
-&lt;p>官方对这个功能解释了一堆，可最新版本仍然没有支持。借用 issue 的一句话吐槽下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>It would be grate to add templates support in alerts. Otherwise the feature looks useless a bit.
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>关于 Grafana 的基础用法，可以看&lt;a href="http://www.xuyasong.com/?p=1693">这个文章&lt;/a>&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="避免缓慢的查询和过载">避免缓慢的查询和过载&lt;a class="td-heading-self-link" href="#%e9%81%bf%e5%85%8d%e7%bc%93%e6%85%a2%e7%9a%84%e6%9f%a5%e8%af%a2%e5%92%8c%e8%bf%87%e8%bd%bd" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>如果查询需要对大量数据进行操作，则将其绘制图表可能会导致服务器或浏览器超时或过载。因此，在构建对未知数据的查询时，始终在 Prometheus 表达式浏览器的表格视图中开始构建查询，直到结果集看起来合理（最多数百个而不是数千个时间序列）。仅当您充分过滤或聚合数据后，才切换到图表模式。如果表达式仍然需要太长的时间来绘制临时图表，请通过 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Configuration/Rules.md#Recording%20Rule(%E8%AE%B0%E5%BD%95%E8%A7%84%E5%88%99)">Recording Rule(记录规则)&lt;/a> 预先记录它。&lt;/p>
+&lt;p>这与 Prometheus 的查询语言尤其相关，其中像 api_http_requests_total 这样的裸指标名称选择器可以扩展到数千个具有不同标签的时间序列。另外，请记住，即使输出只是少量时间序列，聚合多个时间序列的表达式也会在服务器上产生负载。这类似于对关系数据库中列的所有值求和的速度很慢，即使输出值只是一个数字。&lt;/p>
+&lt;h2 id="慢查询问题">慢查询问题&lt;a class="td-heading-self-link" href="#%e6%85%a2%e6%9f%a5%e8%af%a2%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>Promql 的基础知识看这篇&lt;a href="http://www.xuyasong.com/?p=1578">文章&lt;/a>&lt;/p>
+&lt;p>Prometheus 提供了自定义的 Promql 作为查询语句，在 Graph 上调试的时候，会告诉你这条 Sql 的返回时间，如果太慢你就要注意了，可能是你的用法出现了问题。&lt;/p>
+&lt;p>评估 Prometheus 的整体响应时间，可以用这个默认指标:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-promql" data-lang="promql">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">prometheus_engine_query_duration_seconds&lt;/span>&lt;span style="color:#000;font-weight:bold">{}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>一般情况下响应过慢都是 Promql 使用不当导致，或者指标规划有问题，如：&lt;/p>
+&lt;ul>
+&lt;li>大量使用 join 来组合指标或者增加 label，如将 kube-state-metric 中的一些 meta label 和 node-exporter 中的节点属性 label 加入到 cadvisor 容器数据里，像统计 pod 内存使用率并按照所属节点的机器类型分类，或按照所属 rs 归类。&lt;/li>
+&lt;li>范围查询时，大的时间范围 step 值却很小，导致查询到的数量过大。&lt;/li>
+&lt;li>rate 会自动处理 counter 重置的问题，最好由 promql 完成，不要自己拿出来全部元数据在程序中自己做 rate 计算。&lt;/li>
+&lt;li>在使用 rate 时，range duration 要大于等于&lt;a href="https://www.robustperception.io/step-and-query_range">step&lt;/a>，否则会丢失&lt;a href="https://chanjarster.github.io/post/p8s-step-param/">部分数据&lt;/a>&lt;/li>
+&lt;li>prometheus 是有基本预测功能的，如&lt;code>deriv&lt;/code>和&lt;code>predict_linear&lt;/code>(更准确) 可以根据已有数据预测未来趋势&lt;/li>
+&lt;li>如果比较复杂且耗时的 sql，可以使用 record rule 减少指标数量，并使查询效率更高，但不要什么指标都加 record，一半以上的 metric 其实不太会查询到。同时 label 中的值不要加到 record rule 的 name 中。&lt;/li>
+&lt;/ul>
+&lt;h1 id="prometheus-问题集锦">Prometheus 问题集锦&lt;a class="td-heading-self-link" href="#prometheus-%e9%97%ae%e9%a2%98%e9%9b%86%e9%94%a6" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="http://www.xuyasong.com/?p=1921">Vermouth 博客，高可用 Prometheus 问题集锦&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
 &lt;h2 id="采集组件-all-in-one">采集组件 All IN One&lt;a class="td-heading-self-link" href="#%e9%87%87%e9%9b%86%e7%bb%84%e4%bb%b6-all-in-one" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>Prometheus 体系中 Exporter 都是独立的，每个组件各司其职，如机器资源用 Node-Exporter，Gpu 有 Nvidia Exporter 等等。但是 Exporter 越多，运维压力越大，尤其是对 Agent 做资源控制、版本升级。我们尝试对一些 Exporter 进行组合，方案有二：&lt;/p>
 &lt;ol>
@@ -992,16 +1009,6 @@ description: Redis is running out of memory (&amp;gt; 90%)\n VALUE = {{ $value }
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">container_accelerator_memory_total_bytes&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">container_accelerator_memory_used_bytes&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
 &lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果要更详细的 GPU 数据，可以安装&lt;a href="https://github.com/NVIDIA/gpu-monitoring-tools/tree/master/exporters/prometheus-dcgm">dcgm exporter&lt;/a>，不过 K8S 1.13 才能支持。&lt;/p>
-&lt;h2 id="如何采集-lb-后面的-rs-的-metric">如何采集 LB 后面的 RS 的 Metric&lt;a class="td-heading-self-link" href="#%e5%a6%82%e4%bd%95%e9%87%87%e9%9b%86-lb-%e5%90%8e%e9%9d%a2%e7%9a%84-rs-%e7%9a%84-metric" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>假如你有一个负载均衡 LB，但网络上 Prometheus 只能访问到 LB 本身，访问不到后面的 RS，应该如何采集 RS 暴露的 Metric？&lt;/p>
-&lt;ul>
-&lt;li>RS 的服务加 Sidecar Proxy，或者本机增加 Proxy 组件，保证 Prometheus 能访问到。&lt;/li>
-&lt;li>LB 增加 /backend1 和 /backend2 请求转发到两个单独的后端，再由 Prometheus 访问 LB 采集。&lt;/li>
-&lt;/ul>
-&lt;h2 id="版本的选择">版本的选择&lt;a class="td-heading-self-link" href="#%e7%89%88%e6%9c%ac%e7%9a%84%e9%80%89%e6%8b%a9" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>Prometheus 当前最新版本为 2.16，Prometheus 还在不断迭代，因此尽量用最新版，1.X 版本就不用考虑了。&lt;/p>
-&lt;p>2.16 版本上有一套实验 UI，可以查看 TSDB 的状态，包括 Top 10 的 Label、Metric.&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/968e45ad-b739-4db1-99dc-a25b11e5e1fd/9668d944-b7b7-425e-b86b-ae24c5aa2f0c.jpg" alt="">&lt;/p>
 &lt;h2 id="对-apiserver-的性能影响">对 Apiserver 的性能影响&lt;a class="td-heading-self-link" href="#%e5%af%b9-apiserver-%e7%9a%84%e6%80%a7%e8%83%bd%e5%bd%b1%e5%93%8d" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>如果你的 Prometheus 使用了 kubernetes_sd_config 做服务发现，请求一般会经过集群的 Apiserver，随着规模的变大，需要评估下对 Apiserver 性能的影响，尤其是 Proxy 失败的时候，会导致 CPU 升高。当然了，如果单 K8S 集群规模太大，一般都是拆分集群，不过随时监测下 Apiserver 的进程变化还是有必要的。&lt;/p>
 &lt;p>在监控 Cadvisor、Docker、Kube-Proxy 的 Metric 时，我们一开始选择从 Apiserver Proxy 到节点的对应端口，统一设置比较方便，但后来还是改为了直接拉取节点，Apiserver 仅做服务发现。&lt;/p>
@@ -1028,61 +1035,32 @@ description: Redis is running out of memory (&amp;gt; 90%)\n VALUE = {{ $value }
 &lt;/code>&lt;/pre>
 &lt;p>所以我们从题目唯一能确定的只有 B 的 P99 应该不能超过 100ms，A 的 P99 耗时 50Ms 这个条件其实没啥用。&lt;/p>
 &lt;p>类似的疑问很多，因此对于 histogram_quantile 函数，可能会产生反直觉的一些结果，最好的处理办法是不断试验调整你的 Bucket 的值，保证更多的请求时间落在更细致的区间内，这样的请求时间才有统计意义。&lt;/p>
-&lt;h2 id="慢查询问题">慢查询问题&lt;a class="td-heading-self-link" href="#%e6%85%a2%e6%9f%a5%e8%af%a2%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>Promql 的基础知识看这篇&lt;a href="http://www.xuyasong.com/?p=1578">文章&lt;/a>&lt;/p>
-&lt;p>Prometheus 提供了自定义的 Promql 作为查询语句，在 Graph 上调试的时候，会告诉你这条 Sql 的返回时间，如果太慢你就要注意了，可能是你的用法出现了问题。&lt;/p>
-&lt;p>评估 Prometheus 的整体响应时间，可以用这个默认指标:&lt;/p>
-&lt;pre>&lt;code>prometheus_engine_query_duration_seconds{}
-&lt;/code>&lt;/pre>
-&lt;p>一般情况下响应过慢都是 Promql 使用不当导致，或者指标规划有问题，如：&lt;/p>
-&lt;ul>
-&lt;li>大量使用 join 来组合指标或者增加 label，如将 kube-state-metric 中的一些 meta label 和 node-exporter 中的节点属性 label 加入到 cadvisor 容器数据里，像统计 pod 内存使用率并按照所属节点的机器类型分类，或按照所属 rs 归类。&lt;/li>
-&lt;li>范围查询时，大的时间范围 step 值却很小，导致查询到的数量过大。&lt;/li>
-&lt;li>rate 会自动处理 counter 重置的问题，最好由 promql 完成，不要自己拿出来全部元数据在程序中自己做 rate 计算。&lt;/li>
-&lt;li>在使用 rate 时，range duration 要大于等于&lt;a href="https://www.robustperception.io/step-and-query_range">step&lt;/a>，否则会丢失&lt;a href="https://chanjarster.github.io/post/p8s-step-param/">部分数据&lt;/a>&lt;/li>
-&lt;li>prometheus 是有基本预测功能的，如&lt;code>deriv&lt;/code>和&lt;code>predict_linear&lt;/code>(更准确) 可以根据已有数据预测未来趋势&lt;/li>
-&lt;li>如果比较复杂且耗时的 sql，可以使用 record rule 减少指标数量，并使查询效率更高，但不要什么指标都加 record，一半以上的 metric 其实不太会查询到。同时 label 中的值不要加到 record rule 的 name 中。&lt;/li>
-&lt;/ul>
-&lt;h2 id="找到最大的-metric-或-job">找到最大的 metric 或 job&lt;a class="td-heading-self-link" href="#%e6%89%be%e5%88%b0%e6%9c%80%e5%a4%a7%e7%9a%84-metric-%e6%88%96-job" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>top10 的 metric 数量： 按 metric 名字分&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-promql" data-lang="promql">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">topk&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">10&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">count&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">by&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">__name__&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)(&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">__name__&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=~&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">.+&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">))&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">apiserver_request_latencies_bucket&lt;/span>&lt;span style="color:#000;font-weight:bold">{}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">62544&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">apiserver_response_sizes_bucket&lt;/span>&lt;span style="color:#000;font-weight:bold">{}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">44600&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>top10 的 metric 数量： 按 job 名字分&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-promql" data-lang="promql">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">topk&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">10&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">count&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">by&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">__name__&lt;/span>&lt;span style="color:#000;font-weight:bold">,&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">job&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)(&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">__name__&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=~&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">.+&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">))&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">job&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">master-scrape&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">525667&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">job&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">xxx-kubernetes-cadvisor&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">50817&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">job&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">yyy-kubernetes-cadvisor&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">44261&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="prometheus-重启慢与热加载">Prometheus 重启慢与热加载&lt;a class="td-heading-self-link" href="#prometheus-%e9%87%8d%e5%90%af%e6%85%a2%e4%b8%8e%e7%83%ad%e5%8a%a0%e8%bd%bd" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h2 id="prometheus-重启慢与热加载">Prometheus 重启慢与热加载&lt;a class="td-heading-self-link" href="#prometheus-%e9%87%8d%e5%90%af%e6%85%a2%e4%b8%8e%e7%83%ad%e5%8a%a0%e8%bd%bd" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>Prometheus 重启的时候需要把 Wal 中的内容 Load 到内存里，保留时间越久、Wal 文件越大，重启的实际越长，这个是 Prometheus 的机制，没得办法，因此能 Reload 的就不要重启，重启一定会导致短时间的不可用，而这个时候 Prometheus 高可用就很重要了。&lt;/p>
 &lt;p>Prometheus 也曾经对启动时间做过优化，在 2.6 版本中对于 Wal 的 Load 速度就做过速度的优化，希望重启的时间不超过  &lt;a href="https://www.robustperception.io/optimising-startup-time-of-prometheus-2-6-0-with-pprof">1 分钟&lt;/a>&lt;/p>
 &lt;p>Prometheus 提供了热加载能力，不过需要开启&lt;code>web.enable-lifecycle&lt;/code>配置，更改完配置后，curl 下 reload 接口即可。prometheus-operator 中更改了配置会默认触发 reload，如果你没有使用 operator，又希望可以监听 configmap 配置变化来 reload 服务，可以试下这个简单的脚本&lt;/p>
-&lt;pre>&lt;code>#!/bin/sh FILE=$1 URL=$2 HASH=$(md5sum $(readlink -f $FILE)) while true; do NEW_HASH=$(md5sum $(readlink -f $FILE)) if [ &amp;quot;$HASH&amp;quot; != &amp;quot;$NEW_HASH&amp;quot; ]; then HASH=&amp;quot;$NEW_HASH&amp;quot; echo &amp;quot;[$(date +%s)] Trigger refresh&amp;quot; curl -sSL -X POST &amp;quot;$2&amp;quot; &amp;gt; /dev/null fi sleep 5 done
-&lt;/code>&lt;/pre>
-&lt;p>使用时和 prometheus 挂载同一个 configmap，传入如下参数即可：&lt;/p>
-&lt;pre>&lt;code>args: - /etc/prometheus/prometheus.yml - http://prometheus.kube-system.svc.cluster.local:9090/-/reload args: - /etc/alertmanager/alertmanager.yml - http://prometheus.kube-system.svc.cluster.local:9093/-/reload
-&lt;/code>&lt;/pre>
-&lt;h2 id="你的应用需要暴露多少指标">你的应用需要暴露多少指标&lt;a class="td-heading-self-link" href="#%e4%bd%a0%e7%9a%84%e5%ba%94%e7%94%a8%e9%9c%80%e8%a6%81%e6%9a%b4%e9%9c%b2%e5%a4%9a%e5%b0%91%e6%8c%87%e6%a0%87" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>当你开发自己的服务的时候，你可能会把一些数据暴露 Metric 出去，比如特定请求数、Goroutine 数等，指标数量多少合适呢？&lt;/p>
-&lt;p>虽然指标数量和你的应用规模相关，但也有一些&lt;a href="https://www.robustperception.io/how-many-metrics-should-an-application-return">建议 (Brian Brazil)&lt;/a>,&lt;/p>
-&lt;p>比如简单的服务如缓存等，类似 Pushgateway，大约 120 个指标，Prometheus 本身暴露了 700 左右的指标，如果你的应用很大，也尽量不要超过 10000 个指标，需要合理控制你的 Label。&lt;/p>
-&lt;h2 id="node-exporter-的问题">node-exporter 的问题&lt;a class="td-heading-self-link" href="#node-exporter-%e7%9a%84%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;ol>
-&lt;li>node-exporter 不支持进程监控，这个前面已经提到了。&lt;/li>
-&lt;li>node-exporter 只支持 unix 系统，windows 机器 请使用 wmi_exporter。因此以 yaml 形式不是 node-exporter 的时候，node-selector 要表明 os 类型。&lt;/li>
-&lt;li>因为 node_exporter 是比较老的组件，有一些最佳实践并没有 merge 进去，比如符合 Prometheus&lt;a href="https://prometheus.io/docs/practices/naming/">命名规范&lt;/a>，因此建议使用较新的 0.16 和 0.17 版本。&lt;/li>
-&lt;/ol>
-&lt;p>一些指标名字的变化：&lt;/p>
-&lt;pre>&lt;code>* node_cpu -&amp;gt; node_cpu_seconds_total * node_memory_MemTotal -&amp;gt; node_memory_MemTotal_bytes * node_memory_MemFree -&amp;gt; node_memory_MemFree_bytes * node_filesystem_avail -&amp;gt; node_filesystem_avail_bytes * node_filesystem_size -&amp;gt; node_filesystem_size_bytes * node_disk_io_time_ms -&amp;gt; node_disk_io_time_seconds_total * node_disk_reads_completed -&amp;gt; node_disk_reads_completed_total * node_disk_sectors_written -&amp;gt; node_disk_written_bytes_total * node_time -&amp;gt; node_time_seconds * node_boot_time -&amp;gt; node_boot_time_seconds * node_intr -&amp;gt; node_intr_total
-&lt;/code>&lt;/pre>
-&lt;p>如果你之前用的旧版本 exporter，在绘制 grafana 的时候指标名称就会有差别，解决方法有两种：&lt;/p>
-&lt;ul>
-&lt;li>一是在机器上启动两个版本的 node-exporter，都让 prometheus 去采集。&lt;/li>
-&lt;li>二是使用&lt;a href="https://github.com/prometheus/node_exporter/blob/master/docs/example-16-compatibility-rules.yml">指标转换器&lt;/a>, 他会将旧指标名称转换为新指标&lt;/li>
-&lt;/ul>
-&lt;h2 id="kube-state-metric-的问题">kube-state-metric 的问题&lt;a class="td-heading-self-link" href="#kube-state-metric-%e7%9a%84%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">#!/bin/sh
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span>&lt;span style="color:#000">FILE&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">$1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">URL&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">$2&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">HASH&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>md5sum &lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>readlink -f &lt;span style="color:#000">$FILE&lt;/span>&lt;span style="color:#204a87;font-weight:bold">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">while&lt;/span> true&lt;span style="color:#000;font-weight:bold">;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">do&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">NEW_HASH&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>md5sum &lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>readlink -f &lt;span style="color:#000">$FILE&lt;/span>&lt;span style="color:#204a87;font-weight:bold">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">if&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;&lt;/span>&lt;span style="color:#000">$HASH&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;&lt;/span> !&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;&lt;/span>&lt;span style="color:#000">$NEW_HASH&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#000;font-weight:bold">;&lt;/span> &lt;span style="color:#204a87;font-weight:bold">then&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">HASH&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;&lt;/span>&lt;span style="color:#000">$NEW_HASH&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87">echo&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;[&lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>date +%s&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>&lt;span style="color:#4e9a06">] Trigger refresh&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> curl -sSL -X POST &lt;span style="color:#4e9a06">&amp;#34;&lt;/span>&lt;span style="color:#000">$2&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;&lt;/span> &amp;gt; /dev/null
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#204a87;font-weight:bold">fi&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sleep &lt;span style="color:#0000cf;font-weight:bold">5&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">done&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用时和 prometheus 挂载同一个 configmap，传入如下参数即可：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">args&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>- &lt;span style="color:#000">/etc/prometheus/prometheus.yml&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>- &lt;span style="color:#000">http://prometheus.kube-system.svc.cluster.local:9090/-/reload&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">args&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>- &lt;span style="color:#000">/etc/alertmanager/alertmanager.yml&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>- &lt;span style="color:#000">http://prometheus.kube-system.svc.cluster.local:9093/-/reload&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="kube-state-metric-的问题">kube-state-metric 的问题&lt;a class="td-heading-self-link" href="#kube-state-metric-%e7%9a%84%e9%97%ae%e9%a2%98" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>kube-state-metric 的使用和原理可以先看下&lt;a href="http://www.xuyasong.com/?p=1525">这篇&lt;/a>&lt;/p>
 &lt;p>除了文章中提到的作用，kube-state-metric 还有一个很重要的使用场景，就是和 cadvisor 指标组合，原始的 cadvisor 中只有 pod 信息，不知道属于哪个 deployment 或者 sts，但是和 kube-state-metric 中的 kube_pod_info 做 join 查询之后就可以显示出来，kube-state-metric 的元数据指标，在扩展 cadvisor 的 label 中起到了很多作用，prometheus-operator 的很多 record rule 就使用了 kube-state-metric 做组合查询。&lt;/p>
 &lt;p>kube-state-metric 中也可以展示 pod 的 label 信息，可以在拿到 cadvisor 数据后更方便地做 group by，如按照 pod 的运行环境分类。但是 kube-state-metric 不暴露 pod 的 annotation，原因是下面会提到的高基数问题，即 annotation 的内容太多，不适合作为指标暴露。&lt;/p>
@@ -1091,22 +1069,20 @@ description: Redis is running out of memory (&amp;gt; 90%)\n VALUE = {{ $value }
 &lt;p>场景 2：你的 Pod 内存使用率一直升高，你希望知道大概多久之后会到达 Limit 值，并在一定时刻报警出来，在被杀掉之前上去排查。&lt;/p>
 &lt;p>Prometheus 的 Deriv 和 Predict_Linear 方法可以满足这类需求， Promtheus 提供了基础的预测能力，基于当前的变化速度，推测一段时间后的值。&lt;/p>
 &lt;p>以 mem_free 为例，最近一小时的 free 值一直在下降。&lt;/p>
-&lt;pre>&lt;code>mem_free仅为举例，实际内存可用以mem_available为准
-&lt;/code>&lt;/pre>
+&lt;blockquote>
+&lt;p>Notes: mem_free 仅为举例，实际内存可用以 mem_available 为准&lt;/p>
+&lt;/blockquote>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/968e45ad-b739-4db1-99dc-a25b11e5e1fd/467d1419-1757-4130-810c-d00fe0b1169b.jpg" alt="">&lt;/p>
 &lt;p>deriv 函数可以显示指标在一段时间的变化速度:&lt;/p>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/968e45ad-b739-4db1-99dc-a25b11e5e1fd/56b44830-006e-4d9a-be5b-50e92f5c08bd.jpg" alt="">&lt;/p>
 &lt;p>predict_linear 方法是预测基于这种速度，最后可以达到的值:&lt;/p>
-&lt;pre>&lt;code>predict_linear(mem_free{instanceIP=&amp;quot;100.75.155.55&amp;quot;}[1h], 2*3600)/1024/1024
-&lt;/code>&lt;/pre>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/968e45ad-b739-4db1-99dc-a25b11e5e1fd/1967b016-6b0e-4876-98b7-b5c8228c4654.jpg" alt="">&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-promql" data-lang="promql">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">predict_linear&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">mem_free&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">instanceIP&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">100.75.155.55&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}[&lt;/span>&lt;span style="color:#4e9a06">1h&lt;/span>&lt;span style="color:#000;font-weight:bold">],&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">2&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">3600&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)/&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">1024&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">/&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">1024&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/968e45ad-b739-4db1-99dc-a25b11e5e1fd/1967b016-6b0e-4876-98b7-b5c8228c4654.jpg" alt="">&lt;/p>
 &lt;p>你可以基于设置合理的报警规则，如小于 10 时报警:&lt;/p>
-&lt;pre>&lt;code>rule: predict_linear(mem_free{instanceIP=&amp;quot;100.75.155.55&amp;quot;}[1h], 2*3600)/1024/1024 &amp;lt;10
-&lt;/code>&lt;/pre>
-&lt;p>predict_linear 与 deriv 的关系: 含义上约等于如下表达式，不过 predict_linear 稍微准确一些。&lt;/p>
-&lt;pre>&lt;code> deriv(mem_free{instanceIP=&amp;quot;100.75.155.55&amp;quot;}[1h]) * 2 * 3600 + mem_free{instanceIP=&amp;quot;100.75.155.55&amp;quot;}[1h]
-&lt;/code>&lt;/pre>
-&lt;p>如果你要基于 Metric 做模型预测，可以参考下&lt;a href="https://github.com/nfrumkin/forecast-prometheus">forecast-prometheus&lt;/a>&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-promql" data-lang="promql">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">rule&lt;/span>&lt;span style="color:#a40000">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">predict_linear&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">mem_free&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">instanceIP&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">100.75.155.55&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}[&lt;/span>&lt;span style="color:#4e9a06">1h&lt;/span>&lt;span style="color:#000;font-weight:bold">],&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">2&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">3600&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)/&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">1024&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">/&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">1024&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">&amp;lt;&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">10&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>predict_linear 与 deriv 的关系: 含义上约等于如下表达式，不过 predict_linear 稍微准确一些。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-promql" data-lang="promql">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">deriv&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>&lt;span style="color:#000">mem_free&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">instanceIP&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">100.75.155.55&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}[&lt;/span>&lt;span style="color:#4e9a06">1h&lt;/span>&lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">2&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#0000cf;font-weight:bold">3600&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">+&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">mem_free&lt;/span>&lt;span style="color:#000;font-weight:bold">{&lt;/span>&lt;span style="color:#f57900">instanceIP&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;&lt;/span>&lt;span style="color:#4e9a06">100.75.155.55&lt;/span>&lt;span style="color:#000;font-weight:bold">&amp;#34;}[&lt;/span>&lt;span style="color:#4e9a06">1h&lt;/span>&lt;span style="color:#000;font-weight:bold">]&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>如果你要基于 Metric 做模型预测，可以参考下 &lt;a href="https://github.com/nfrumkin/forecast-prometheus">forecast-prometheus&lt;/a>&lt;/p>
 &lt;h2 id="alertmanager-的上层封装">alertmanager 的上层封装&lt;a class="td-heading-self-link" href="#alertmanager-%e7%9a%84%e4%b8%8a%e5%b1%82%e5%b0%81%e8%a3%85" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>Prometheus 部署之后很少会改动，尤其是做了服务发现，就不需要频繁新增 target。但报警的配置是很频繁的，如修改阈值、修改报警人等。alertmanager 拥有丰富的报警能力如分组、抑制等，但如果你要想把他给业务部门使用，就要做一层封装了，也就是报警配置台。用户喜欢表单操作，而非晦涩的 yaml，同时他们也并不愿意去理解 promql。而且大多数公司内已经有现成的监控平台，也只有一份短信或邮件网关，所以最好能使用 webhook 直接集成。&lt;/p>
 &lt;p>例如: 机器磁盘使用量超过 90% 就报警，rule 应该写为：&lt;code>disk_used/disk_total &amp;gt; 0.9&lt;/code>&lt;/p>
@@ -1134,14 +1110,6 @@ description: Redis is running out of memory (&amp;gt; 90%)\n VALUE = {{ $value }
 &lt;li>缺少了服务发现和拉取控制，Prom 只知道一个 Exposer，不知道具体是哪些 Target，不知道他们的 UP 时间，无法使用 Scrape_* 等指标做查询，也无法用 &lt;a href="https://www.robustperception.io/using-sample_limit-to-avoid-overload">scrape_limit&lt;/a> 做限制。&lt;/li>
 &lt;/ol>
 &lt;p>如果你的架构和 Prometheus 的设计理念相悖，可能要重新设计一下方案了，否则扩展性和可靠性反而会降低。&lt;/p>
-&lt;h2 id="prometheus-operator-的场景">prometheus-operator 的场景&lt;a class="td-heading-self-link" href="#prometheus-operator-%e7%9a%84%e5%9c%ba%e6%99%af" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>如果你是在 K8S 集群内部署 Prometheus，那大概率会用到 prometheus-operator，他对 Prometheus 的配置做了 CRD 封装，让用户更方便的扩展 Prometheus 实例，同时 prometheus-operator 还提供了丰富的 Grafana 模板，包括上面提到的 master 组件监控的 Grafana 视图，operator 启动之后就可以直接使用，免去了配置面板的烦恼。&lt;/p>
-&lt;p>operator 的优点很多，就不一一列举了，只提一下 operator 的局限：&lt;/p>
-&lt;ul>
-&lt;li>因为是 operator，所以依赖 K8S 集群，如果你需要二进制部署你的 Prometheus，如集群外部署，就很难用上 prometheus-operator 了，如多集群场景。当然你也可以在 K8S 集群中部署 operator 去监控其他的 K8S 集群，但这里面坑不少，需要修改一些配置。&lt;/li>
-&lt;li>operator 屏蔽了太多细节，这个对用户是好事，但对于理解 Prometheus 架构就有些 gap 了，比如碰到一些用户一键安装了 operator，但 Grafana 图表异常后完全不知道如何排查，record rule 和 服务发现还不了解的情况下就直接配置，建议在使用 operator 之前，最好熟悉 prometheus 的基础用法。&lt;/li>
-&lt;li>operator 方便了 Prometheus 的扩展和配置，对于 alertmanager 和 exporter 可以很方便的做到多实例高可用，但是没有解决 Prometheus 的高可用问题，因为无法处理数据不一致，operator 目前的定位也还不是这个方向，和 Thanos、Cortex 等方案的定位是不同的，下面会详细解释。&lt;/li>
-&lt;/ul>
 &lt;h2 id="高可用方案">高可用方案&lt;a class="td-heading-self-link" href="#%e9%ab%98%e5%8f%af%e7%94%a8%e6%96%b9%e6%a1%88" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>Prometheus 高可用有几种方案：&lt;/p>
 &lt;ol>
@@ -1191,27 +1159,4 @@ description: Redis is running out of memory (&amp;gt; 90%)\n VALUE = {{ $value }
 &lt;ul>
 &lt;li>使用  &lt;a href="https://github.com/AliyunContainerService/kube-eventer">kube-eventer&lt;/a>  之类的组件采集 Events 并推送到 ES&lt;/li>
 &lt;li>使用  &lt;a href="https://github.com/caicloud/event_exporter">event_exporter&lt;/a>  之类的组件将 Events 转化为 Prometheus Metric，同类型的还有谷歌云的 stackdriver 下的  &lt;a href="https://github.com/GoogleCloudPlatform/k8s-stackdriver/tree/master/event-exporter">event-exporter&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;h2 id="参考">参考&lt;a class="td-heading-self-link" href="#%e5%8f%82%e8%80%83" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;ul>
-&lt;li>&lt;a href="https://tech.meituan.com/2018/11/01/cat-in-depth-java-application-monitoring.html">https://tech.meituan.com/2018/11/01/cat-in-depth-java-application-monitoring.html&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://dbaplus.cn/news-134-1462-1.html">https://dbaplus.cn/news-134-1462-1.html&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.infoq.cn/article/P3A5EuKl6jowO9v4_ty1">https://www.infoq.cn/article/P3A5EuKl6jowO9v4_ty1&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://zhuanlan.zhihu.com/p/60791449">https://zhuanlan.zhihu.com/p/60791449&lt;/a>&lt;/li>
-&lt;li>&lt;a href="http://download.xuliangwei.com/jiankong.html#0-%E7%9B%91%E6%8E%A7%E7%9B%AE%E6%A0%87">http://download.xuliangwei.com/jiankong.html#0-%E7%9B%91%E6%8E%A7%E7%9B%AE%E6%A0%87&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://aleiwu.com/post/prometheus-bp/">https://aleiwu.com/post/prometheus-bp/&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.infoq.cn/article/1AofGj2SvqrjW3BKwXlN">https://www.infoq.cn/article/1AofGj2SvqrjW3BKwXlN&lt;/a>&lt;/li>
-&lt;li>&lt;a href="http://bos.itdks.com/e8792eb0577b4105b4c9d19eb0dd1892.pdf">http://bos.itdks.com/e8792eb0577b4105b4c9d19eb0dd1892.pdf&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.infoq.cn/article/ff46l7LxcWAX698zpzB2">https://www.infoq.cn/article/ff46l7LxcWAX698zpzB2&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.robustperception.io/putting-queues-in-front-of-prometheus-for-reliability">https://www.robustperception.io/putting-queues-in-front-of-prometheus-for-reliability&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.slideshare.net/cadaam/devops-taiwan-monitor-tools-prometheus">https://www.slideshare.net/cadaam/devops-taiwan-monitor-tools-prometheus&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.robustperception.io/how-much-disk-space-do-prometheus-blocks-use">https://www.robustperception.io/how-much-disk-space-do-prometheus-blocks-use&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.imooc.com/article/296613">https://www.imooc.com/article/296613&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://dzone.com/articles/what-is-high-cardinality">https://dzone.com/articles/what-is-high-cardinality&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.robustperception.io/cardinality-is-key">https://www.robustperception.io/cardinality-is-key&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.robustperception.io/using-tsdb-analyze-to-investigate-churn-and-cardinality">https://www.robustperception.io/using-tsdb-analyze-to-investigate-churn-and-cardinality&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://blog.timescale.com/blog/prometheus-ha-postgresql-8de68d19b6f5/">https://blog.timescale.com/blog/prometheus-ha-postgresql-8de68d19b6f5/&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://asktug.com/t/topic/2618">https://asktug.com/t/topic/2618&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;p>本文为容器监控实践系列文章，完整内容见：&lt;a href="https://yasongxu.gitbook.io/container-monitor/">container-monitor-book&lt;/a>
-&lt;a href="https://www.kubernetes.org.cn/7216.html">https://www.kubernetes.org.cn/7216.html&lt;/a>&lt;/p></description></item><item><title>Docs: 故障处理</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-%E7%AE%A1%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-%E7%AE%A1%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</guid><description/></item></channel></rss>
+&lt;/ul></description></item><item><title>Docs: 故障处理</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-%E7%AE%A1%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-%E7%AE%A1%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</guid><description/></item></channel></rss>

@@ -7,7 +7,74 @@
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>&lt;strong>Block(块) 设备&lt;/strong> 包含的信息常见于如下几处&lt;/p>
-&lt;p>&lt;strong>/sys/block/&amp;lt;BLOCK&amp;gt;/stat&lt;/strong> # stat 文件提供了有关块设备 &amp;lt;BLOCK&amp;gt; 状态的多项统计信息。共 17 个字段&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="#Sysfs%20%E4%B8%AD%E7%9A%84%E7%A3%81%E7%9B%98%E4%BF%A1%E6%81%AF">Sysfs 中的磁盘信息&lt;/a>&lt;/li>
+&lt;li>&lt;a href="#Proc%20%E4%B8%AD%E7%9A%84%E7%A3%81%E7%9B%98%E4%BF%A1%E6%81%AF">Proc 中的磁盘信息&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h2 id="io-时间">I/O 时间&lt;a class="td-heading-self-link" href="#io-%e6%97%b6%e9%97%b4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;strong>I/O 时间&lt;/strong> 指 Block(块设备、磁盘、硬盘、etc.) 在执行 &lt;a href="https://desistdaydream.github.io/docs/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/I_O.md">I/O&lt;/a> 操作上花费的时间。&lt;/p>
+&lt;p>在 &lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/block/stat.rst">&lt;code>/sys/block/&amp;lt;DEV&amp;gt;/stat&lt;/code>&lt;/a> 文件中，io_ticks 字段记录了毫秒级的 磁盘 I/O 时间。如果磁盘在 1 秒内持续执行 I/O 操作，那么在 1 秒钟后，io_ticks 的值是 1000；如果 1 秒内磁盘一直空闲，那么 io_ticks 的值是 0。也就是说，io_ticks 的值每秒最多增加 1000。&lt;/p>
+&lt;blockquote>
+&lt;p>[!Note]
+在 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Instrumenting/Node%20Exporter.md">Node Exporter&lt;/a> 源码中，&lt;a href="https://github.com/prometheus/node_exporter/blob/v1.6.1/collector/diskstats_linux.go#L320">这里&lt;/a> 可以看到 &lt;code>stats.IOsTotalTicks&lt;/code> 对应 &lt;code>diskstatsCollector.descs[10]&lt;/code>(i.e. node_disk_io_time_seconds_total 指标)。而 &lt;code>IOsTotalTics&lt;/code> 对应到 &lt;a href="https://github.com/prometheus/procfs/blob/v0.15.1/blockdevice/stats.go#L61">prometheus/procfs 项目，blockdevice/stats.go 中的 IOStats 结构体得 IOsTotalTicks 属性&lt;/a>。这些结构体的信息来源遵循以下几个内核文档的说明&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://www.kernel.org/doc/Documentation/iostats.txt">https://www.kernel.org/doc/Documentation/iostats.txt&lt;/a>,&lt;/li>
+&lt;li>&lt;a href="https://www.kernel.org/doc/Documentation/block/stat.txt">https://www.kernel.org/doc/Documentation/block/stat.txt&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://www.kernel.org/doc/Documentation/ABI/testing/procfs-diskstats">https://www.kernel.org/doc/Documentation/ABI/testing/procfs-diskstats&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>一般情况下，io_ticks 的值可以当作磁盘的使用率，比如计算某区间时间中，io_ticks 每秒的变化率（基于上面的逻辑，这个变化率一定是 0 到 1 之间的小数）。比如我们统计 1 分钟时间 io_ticks 增加了 60000，那说明这一分钟的时间中，磁盘一直在执行 I/O，i.e. 使用率是 100%&lt;/p>
+&lt;h3 id="io_ticks-与-cpu-中-wa-的区别">io_ticks 与 cpu 中 wa 的区别&lt;a class="td-heading-self-link" href="#io_ticks-%e4%b8%8e-cpu-%e4%b8%ad-wa-%e7%9a%84%e5%8c%ba%e5%88%ab" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;p>Claude AI 回答：&lt;/p>
+&lt;p>top 命令中的 wa（wait）。&amp;ldquo;wa&amp;rdquo; 代表 I/O wait 时间，表示 CPU 等待 I/O 操作完成的时间百分比。具体来说：&lt;/p>
+&lt;ul>
+&lt;li>它表示 CPU 空闲（idle）且有未完成的 I/O 请求的时间比例。&lt;/li>
+&lt;li>高 wa 值通常表明系统有 I/O 瓶颈，可能是磁盘 I/O，也可能是网络 I/O。&lt;/li>
+&lt;li>wa 是从 CPU 的角度来看待 I/O 等待时间。&lt;/li>
+&lt;/ul>
+&lt;p>磁盘 I/O 的 io_ticks。io_ticks 是 /proc/diskstats 文件中的一个字段，表示磁盘花在处理 I/O 请求上的时间（以毫秒为单位）。具体来说：&lt;/p>
+&lt;ul>
+&lt;li>它直接反映了磁盘设备处理 I/O 请求所花费的时间。&lt;/li>
+&lt;li>这个值包括了所有类型的 I/O 操作（读和写）。&lt;/li>
+&lt;li>io_ticks 是从磁盘设备的角度来看待 I/O 时间。&lt;/li>
+&lt;/ul>
+&lt;p>联系：&lt;/p>
+&lt;ul>
+&lt;li>两者都与 I/O 操作的时间有关。&lt;/li>
+&lt;li>高 wa 值通常会对应较高的 io_ticks，因为 CPU 等待的 I/O 操作很可能就是磁盘 I/O。&lt;/li>
+&lt;/ul>
+&lt;p>区别：&lt;/p>
+&lt;ul>
+&lt;li>wa 是 CPU 时间的一个比例，而 io_ticks 是绝对时间值。&lt;/li>
+&lt;li>wa 包括所有类型的 I/O 等待（包括网络 I/O），而 io_ticks 专指特定磁盘设备的 I/O 时间。&lt;/li>
+&lt;li>多核系统中，wa 可能会被平均到所有 CPU 上，而 io_ticks 是针对特定磁盘的。&lt;/li>
+&lt;/ul>
+&lt;p>实际应用：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 查看 CPU 的 wa 百分比&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>top -bn1 &lt;span style="color:#000;font-weight:bold">|&lt;/span> grep &lt;span style="color:#4e9a06">&amp;#34;Cpu(s)&amp;#34;&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> sed &lt;span style="color:#4e9a06">&amp;#34;s/.*, *\([0-9.]*\)%* wa.*/\1/&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 查看特定磁盘的 io_ticks&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cat /proc/diskstats &lt;span style="color:#000;font-weight:bold">|&lt;/span> awk &lt;span style="color:#4e9a06">&amp;#39;$3 == &amp;#34;sda&amp;#34; {print $13}&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 使用 iostat 查看更详细的 I/O 统计信息&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>iostat -x &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过这些命令，您可以同时监控 wa 和 io_ticks，从而更全面地了解系统的 I/O 性能状况。&lt;/p>
+&lt;p>相关性：&lt;/p>
+&lt;ul>
+&lt;li>如果看到高 wa 值，但 io_ticks 并不高，可能说明 I/O 瓶颈不在磁盘，而在网络或其他设备。&lt;/li>
+&lt;li>如果 wa 和 io_ticks 都很高，这通常表明系统确实存在磁盘 I/O 瓶颈。&lt;/li>
+&lt;/ul>
+&lt;p>总的来说，虽然 wa 和 io_ticks 有关联，但它们提供了不同层面的 I/O 性能视角。结合使用这两个指标，可以更准确地诊断系统的 I/O 性能问题。&lt;/p>
+&lt;h1 id="sysfs-中的磁盘信息">Sysfs 中的磁盘信息&lt;a class="td-heading-self-link" href="#sysfs-%e4%b8%ad%e7%9a%84%e7%a3%81%e7%9b%98%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>/sys/block/&amp;lt;BLOCK&amp;gt;/queue/&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>./rotational&lt;/strong> # 块设备旋转的类型，旋转就是 HHD，不旋转就是 SSD，非常形象生动得比喻磁盘使用的情况~哈哈。&lt;code>0 表示 SSD&lt;/code>，&lt;code>1 表示 HDD&lt;/code>
+&lt;ul>
+&lt;li>注意：如果磁盘已经被做了 Raid，那么这个值将会一直都是 1。这个说法忘记了出处，找到后补充。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ul>
+&lt;p>&lt;strong>/sys/block/&amp;lt;BLOCK&amp;gt;/stat&lt;/strong> # stat 文件提供了有关块设备 &amp;lt;BLOCK&amp;gt; 状态的多项统计信息，共 17 个字段。内容详见上文&lt;/p>
 &lt;ul>
 &lt;li>&lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/block/stat.rst">https://github.com/torvalds/linux/blob/master/Documentation/block/stat.rst&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://www.kernel.org/doc/Documentation/iostats.txt">https://www.kernel.org/doc/Documentation/iostats.txt&lt;/a>&lt;/li>
@@ -110,80 +177,9 @@
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
-&lt;h2 id="io-时间">I/O 时间&lt;a class="td-heading-self-link" href="#io-%e6%97%b6%e9%97%b4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;strong>I/O 时间&lt;/strong> 指 Block(块设备、磁盘、硬盘、etc.) 在执行 &lt;a href="docs/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/I_O.md">I/O&lt;/a> 操作上花费的时间。&lt;/p>
-&lt;p>在 &lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/block/stat.rst">&lt;code>/sys/block/&amp;lt;DEV&amp;gt;/stat&lt;/code>&lt;/a> 文件中 io_ticks 字段记录了 磁盘 I/O 时间（单位: milliseconds）。如果磁盘在 1 秒内持续执行 I/O 操作，那么在 1 秒钟后，io_ticks 的值是 1000；如果 1 秒内磁盘一直空闲，那么 io_ticks 的值是 0。也就是说，io_ticks 的值每秒最多增加 1000。&lt;/p>
-&lt;blockquote>
-&lt;p>[!Note]
-在 &lt;a href="docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Instrumenting/Node%20Exporter.md">Node Exporter&lt;/a> 源码中，&lt;a href="https://github.com/prometheus/node_exporter/blob/v1.6.1/collector/diskstats_linux.go#L320">这里&lt;/a> 可以看到 &lt;code>stats.IOsTotalTicks&lt;/code> 对应 &lt;code>diskstatsCollector.descs[10]&lt;/code>(i.e. node_disk_io_time_seconds_total 指标)。而 &lt;code>IOsTotalTics&lt;/code> 对应到 &lt;a href="https://github.com/prometheus/procfs/blob/v0.15.1/blockdevice/stats.go#L61">prometheus/procfs 项目，blockdevice/stats.go 中的 IOStats 结构体得 IOsTotalTicks 属性&lt;/a>。这些结构体的信息来源遵循以下几个内核文档的说明&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://www.kernel.org/doc/Documentation/iostats.txt">https://www.kernel.org/doc/Documentation/iostats.txt&lt;/a>,&lt;/li>
-&lt;li>&lt;a href="https://www.kernel.org/doc/Documentation/block/stat.txt">https://www.kernel.org/doc/Documentation/block/stat.txt&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.kernel.org/doc/Documentation/ABI/testing/procfs-diskstats">https://www.kernel.org/doc/Documentation/ABI/testing/procfs-diskstats&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>一般情况下，io_ticks 的值可以当作磁盘的使用率，比如计算某区间时间中，io_ticks 每秒的变化率（基于上面的逻辑，这个变化率一定是 0 到 1 之间的小数）。比如我们统计 1 分钟时间 io_ticks 增加了 60000，那说明这一分钟的时间中，磁盘一直在执行 I/O，i.e. 使用率是 100%&lt;/p>
-&lt;h3 id="io_ticks-与-cpu-中-wa-的区别">io_ticks 与 cpu 中 wa 的区别&lt;a class="td-heading-self-link" href="#io_ticks-%e4%b8%8e-cpu-%e4%b8%ad-wa-%e7%9a%84%e5%8c%ba%e5%88%ab" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>Claude AI 回答：&lt;/p>
-&lt;p>top 命令中的 wa（wait）。&amp;ldquo;wa&amp;rdquo; 代表 I/O wait 时间，表示 CPU 等待 I/O 操作完成的时间百分比。具体来说：&lt;/p>
-&lt;ul>
-&lt;li>它表示 CPU 空闲（idle）且有未完成的 I/O 请求的时间比例。&lt;/li>
-&lt;li>高 wa 值通常表明系统有 I/O 瓶颈，可能是磁盘 I/O，也可能是网络 I/O。&lt;/li>
-&lt;li>wa 是从 CPU 的角度来看待 I/O 等待时间。&lt;/li>
-&lt;/ul>
-&lt;p>磁盘 I/O 的 io_ticks。io_ticks 是 /proc/diskstats 文件中的一个字段，表示磁盘花在处理 I/O 请求上的时间（以毫秒为单位）。具体来说：&lt;/p>
-&lt;ul>
-&lt;li>它直接反映了磁盘设备处理 I/O 请求所花费的时间。&lt;/li>
-&lt;li>这个值包括了所有类型的 I/O 操作（读和写）。&lt;/li>
-&lt;li>io_ticks 是从磁盘设备的角度来看待 I/O 时间。&lt;/li>
-&lt;/ul>
-&lt;p>联系：&lt;/p>
-&lt;ul>
-&lt;li>两者都与 I/O 操作的时间有关。&lt;/li>
-&lt;li>高 wa 值通常会对应较高的 io_ticks，因为 CPU 等待的 I/O 操作很可能就是磁盘 I/O。&lt;/li>
-&lt;/ul>
-&lt;p>区别：&lt;/p>
-&lt;ul>
-&lt;li>wa 是 CPU 时间的一个比例，而 io_ticks 是绝对时间值。&lt;/li>
-&lt;li>wa 包括所有类型的 I/O 等待（包括网络 I/O），而 io_ticks 专指特定磁盘设备的 I/O 时间。&lt;/li>
-&lt;li>多核系统中，wa 可能会被平均到所有 CPU 上，而 io_ticks 是针对特定磁盘的。&lt;/li>
-&lt;/ul>
-&lt;p>实际应用：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 查看 CPU 的 wa 百分比&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>top -bn1 &lt;span style="color:#000;font-weight:bold">|&lt;/span> grep &lt;span style="color:#4e9a06">&amp;#34;Cpu(s)&amp;#34;&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> sed &lt;span style="color:#4e9a06">&amp;#34;s/.*, *\([0-9.]*\)%* wa.*/\1/&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 查看特定磁盘的 io_ticks&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cat /proc/diskstats &lt;span style="color:#000;font-weight:bold">|&lt;/span> awk &lt;span style="color:#4e9a06">&amp;#39;$3 == &amp;#34;sda&amp;#34; {print $13}&amp;#39;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 使用 iostat 查看更详细的 I/O 统计信息&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>iostat -x &lt;span style="color:#0000cf;font-weight:bold">1&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过这些命令，您可以同时监控 wa 和 io_ticks，从而更全面地了解系统的 I/O 性能状况。&lt;/p>
-&lt;p>相关性：&lt;/p>
-&lt;ul>
-&lt;li>如果看到高 wa 值，但 io_ticks 并不高，可能说明 I/O 瓶颈不在磁盘，而在网络或其他设备。&lt;/li>
-&lt;li>如果 wa 和 io_ticks 都很高，这通常表明系统确实存在磁盘 I/O 瓶颈。&lt;/li>
-&lt;/ul>
-&lt;p>总的来说，虽然 wa 和 io_ticks 有关联，但它们提供了不同层面的 I/O 性能视角。结合使用这两个指标，可以更准确地诊断系统的 I/O 性能问题。&lt;/p>
 &lt;h1 id="proc-中的磁盘信息">Proc 中的磁盘信息&lt;a class="td-heading-self-link" href="#proc-%e4%b8%ad%e7%9a%84%e7%a3%81%e7%9b%98%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>&lt;strong>/proc/diskstats&lt;/strong>&lt;/p>
-&lt;p>对应 /sys/block/&amp;lt;BLOCK&amp;gt;/stat 的内容&lt;/p>
-&lt;h1 id="sysfs-中的磁盘信息">Sysfs 中的磁盘信息&lt;a class="td-heading-self-link" href="#sysfs-%e4%b8%ad%e7%9a%84%e7%a3%81%e7%9b%98%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;strong>/sys/block/&amp;lt;BLOCK&amp;gt;/queue/&lt;/strong>&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>./rotational&lt;/strong> # 块设备旋转的类型，旋转就是 HHD，不旋转就是 SSD，非常形象生动得比喻磁盘使用的情况~哈哈。&lt;code>0 表示 SSD&lt;/code>，&lt;code>1 表示 HDD&lt;/code>
-&lt;ul>
-&lt;li>注意：如果磁盘已经被做了 Raid，那么这个值将会一直都是 1。这个说法忘记了出处，找到后补充。&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
-&lt;p>&lt;strong>/sys/block/&amp;lt;BLOCK&amp;gt;/stat&lt;/strong>&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://www.kernel.org/doc/Documentation/iostats.txt">https://www.kernel.org/doc/Documentation/iostats.txt&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.kernel.org/doc/Documentation/block/stat.txt">https://www.kernel.org/doc/Documentation/block/stat.txt&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.kernel.org/doc/Documentation/ABI/testing/procfs-diskstats">https://www.kernel.org/doc/Documentation/ABI/testing/procfs-diskstats&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;p>stat 文件提供了有关块设备 &amp;lt;BLOCK&amp;gt; 状态的多项统计信息。共 17 个字段&lt;/p>
-&lt;p>&lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/block/stat.rst">https://github.com/torvalds/linux/blob/master/Documentation/block/stat.rst&lt;/a>&lt;/p></description></item><item><title>Docs: Driver</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Driver/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Driver/</guid><description>
+&lt;p>对应 /sys/block/&amp;lt;BLOCK&amp;gt;/stat 的内容&lt;/p></description></item><item><title>Docs: Driver</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Driver/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Driver/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -234,7 +230,7 @@
 &lt;p>同样的，若该 PCI 设备不支持某个驱动，在绑定时也会提示 No such device&lt;/p>
 &lt;/blockquote>
 &lt;p>通过 dmesg 过滤 PCI 地址，也可以看到在启动时，系统是如何为网卡分配 IP，以及如何为网卡命名的&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span> ~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># dmesg | grep 0000:0c:00.0&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># dmesg | grep 0000:0c:00.0&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> 1.352192&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span> pci 0000:0c:00.0: &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>8086:1533&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span> &lt;span style="color:#204a87">type&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">00&lt;/span> class 0x020000
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> 1.352219&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span> pci 0000:0c:00.0: reg 0x10: &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>mem 0xc7200000-0xc72fffff&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span> 1.352247&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span> pci 0000:0c:00.0: reg 0x18: &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>io 0x2000-0x201f&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>

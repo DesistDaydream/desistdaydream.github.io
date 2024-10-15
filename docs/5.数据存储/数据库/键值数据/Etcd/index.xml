@@ -41,7 +41,6 @@
 &lt;li>&lt;strong>Cluster(集群)&lt;/strong> # 由多个 Member 构成可以协同工作的 etcd 集群。&lt;/li>
 &lt;li>&lt;strong>Peer&lt;/strong> # 对同一个 etcd 集群中另外一个 Member 的称呼。&lt;/li>
 &lt;li>&lt;strong>Client&lt;/strong> # 向 etcd 集群发送 HTTP 请求的客户端。&lt;/li>
-&lt;li>&lt;strong>WAL&lt;/strong> # 预写式日志，etcd 用于持久化存储的日志格式。&lt;/li>
 &lt;li>&lt;strong>snapshot&lt;/strong> # etcd 防止 WAL 文件过多而设置的快照，存储 etcd 数据状态。&lt;/li>
 &lt;li>&lt;strong>Proxy&lt;/strong> # etcd 的一种模式，为 etcd 集群提供反向代理服务。&lt;/li>
 &lt;li>&lt;strong>Leader&lt;/strong> # Raft 算法中通过竞选而产生的处理所有数据提交的节点。&lt;/li>
@@ -647,13 +646,12 @@
 &lt;/ul>
 &lt;/blockquote>
 &lt;h1 id="wal">WAL&lt;a class="td-heading-self-link" href="#wal" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>数据库通常使用 &lt;a href="https://en.wikipedia.org/wiki/Write-ahead_logging">预写日志记录&lt;/a>； etcd 也使用它。有关预写日志记录的详细信息不在本文讨论范围之内，但是出于此目的，我们需要知道的是-每个 etcd 集群成员都在持久性存储上保留一个预写日志（WAL）。 etcd 在将某些操作（例如更新）写入键值存储之前，将其写入 WAL。如果成员崩溃并在快照之间重新启动，则可以通过查看 WAL 的内容在本地恢复自上次快照以来完成的事务。&lt;/p>
+&lt;p>数据库通常使用 &lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/WAL.md">WAL&lt;/a>； etcd 也使用它。有关预写日志记录的详细信息不在本文讨论范围之内，但是出于此目的，我们需要知道的是-每个 etcd 集群成员都在持久性存储上保留一个预写日志（WAL）。 etcd 在将某些操作（例如更新）写入键值存储之前，将其写入 WAL。如果成员崩溃并在快照之间重新启动，则可以通过查看 WAL 的内容在本地恢复自上次快照以来完成的事务。&lt;/p>
 &lt;p>因此，每当客户将密钥添加到键值存储或更新现有密钥的值时，客户端都会 etcd 在 WAL 上附加一个记录操作的条目，WAL 是持久性存储上的普通文件。在继续进行之前， etcd 必须 100％确信 WAL 条目已被实际保留。要在 Linux 上实现此目的，仅使用 write 系统调用是不够的， 因为实际写入物理存储的时间可能会延迟。例如，Linux 可能会将写入的 WAL 条目在内核内存高速缓存（例如页面高速缓存）中保留一段时间。为了确保将数据写入持久性存储中，您必须在“”之后调用 fdatasync 系统调用，write 这正是该 etcd 操作（如以下 strace 所示） 输出，其中 8 是 WAL 文件的文件描述符）：&lt;/p>
-&lt;pre>&lt;code>21:23:09.894875 lseek(8, 0, SEEK_CUR) = 12808 &amp;lt;0.000012&amp;gt;
-21:23:09.894911 write(8, &amp;quot;.\0\0\0\0\0\0\202\10\2\20\361\223\255\266\6\32$\10\0\20\10\30\26\&amp;quot;\34\&amp;quot;\r\n\3fo&amp;quot;..., 2296) = 2296 &amp;lt;0.000130&amp;gt;
-21:23:09.895041 fdatasync(8) = 0 &amp;lt;0.008314&amp;gt;
-&lt;/code>&lt;/pre>
-&lt;p>不幸的是，写入持久性存储需要时间。如果 fdatasync 花费太长时间，则 etcd 系统性能会降低。 &lt;a href="https://github.com/etcd-io/etcd/blob/master/Documentation/faq.md#what-does-the-etcd-warning-failed-to-send-out-heartbeat-on-time-mean">etcd 文档建议&lt;/a> 为了使存储足够快，fdatasync 写入 WAL 文件时调用的第 99 个百分点 &lt;strong>必须小于 10ms&lt;/strong>。还有其他与存储相关的指标，但这是本文的重点。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>21:23:09.894875 lseek&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>8, 0, SEEK_CUR&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">12808&lt;/span> &amp;lt;0.000012&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>21:23:09.894911 write&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>8, &lt;span style="color:#4e9a06">&amp;#34;.\0\0\0\0\0\0\202\10\2\20\361\223\255\266\6\32&lt;/span>$&lt;span style="color:#4e9a06">\10\0\20\10\30\26\&amp;#34;\34\&amp;#34;\r\n\3fo&amp;#34;&lt;/span>..., 2296&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">2296&lt;/span> &amp;lt;0.000130&amp;gt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>21:23:09.895041 fdatasync&lt;span style="color:#ce5c00;font-weight:bold">(&lt;/span>8&lt;span style="color:#ce5c00;font-weight:bold">)&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &amp;lt;0.008314&amp;gt;
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>不幸的是，写入持久性存储需要时间。如果 fdatasync 花费太长时间，则 etcd 系统性能会降低。 &lt;a href="https://github.com/etcd-io/etcd/blob/master/Documentation/faq.md#what-does-the-etcd-warning-failed-to-send-out-heartbeat-on-time-mean">etcd 文档建议&lt;/a> 为了使存储足够快，fdatasync 写入 WAL 文件时调用的第 99 个百分点 &lt;strong>必须小于 10ms&lt;/strong>。还有其他与存储相关的指标，但这是本文的重点。&lt;/p>
 &lt;h1 id="bbolt">bbolt&lt;a class="td-heading-self-link" href="#bbolt" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>&lt;a href="https://github.com/DesistDaydream/go-library/tree/master/bbolt">https://github.com/DesistDaydream/go-library/tree/master/bbolt&lt;/a> 代码练习&lt;/p></description></item><item><title>Docs: revision概念</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/revision-%E6%A6%82%E5%BF%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/revision-%E6%A6%82%E5%BF%B5/</guid><description>
 &lt;h1 id="heading">&lt;a class="td-heading-self-link" href="#heading" aria-label="Heading self-link">&lt;/a>&lt;/h1>

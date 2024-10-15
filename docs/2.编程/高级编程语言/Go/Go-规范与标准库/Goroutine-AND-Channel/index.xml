@@ -617,7 +617,7 @@ wg.Wait()
 &lt;/ul>
 &lt;p>如果需要搭配购买请直接透过&lt;a href="http://facebook.com/appleboy46">FB 联络我&lt;/a>，直接汇款（价格再减&lt;strong>100&lt;/strong>）&lt;/p>
 &lt;h2 id="使用-waitgroup">使用 WaitGroup&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8-waitgroup" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>学 Go 时肯定要学习如何使用并发(goroutine)，而开发者该如何控制并发呢？其实有两种方式，一种是&lt;a href="https://golang.org/pkg/sync/#WaitGroup">WaitGroup&lt;/a>，另一种就是 context，而什么时候需要用到 WaitGroup 呢？很简单，就是当您需要将同一件事情拆成不同的 Job 下去执行，最后需要等到全部的 Job 都执行完毕才继续执行主程式，这时候就需要用到 WaitGroup，看个实际例子&lt;/p>
+&lt;p>学 Go 时肯定要学习如何使用并发(goroutine)，而开发者该如何控制并发呢？其实有两种方式，一种是&lt;a href="https://golang.org/pkg/sync/#WaitGroup">WaitGroup&lt;/a>，另一种就是 context，而什么时候需要用到 WaitGroup 呢？很简单，就是当我们需要将同一件事情拆成不同的 Job 下去执行，最后需要等到全部的 Job 都执行完毕才继续执行主程式，这时候就需要用到 WaitGroup，看个实际例子&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">package&lt;/span> &lt;span style="color:#000">main&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">import&lt;/span> &lt;span style="color:#000;font-weight:bold">(&lt;/span>
@@ -673,9 +673,9 @@ wg.Wait()
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">stop&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">&amp;lt;-&lt;/span> &lt;span style="color:#204a87;font-weight:bold">true&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#000">time&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">Sleep&lt;/span>&lt;span style="color:#000;font-weight:bold">(&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">5&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">*&lt;/span> &lt;span style="color:#000">time&lt;/span>&lt;span style="color:#000;font-weight:bold">.&lt;/span>&lt;span style="color:#000">Second&lt;/span>&lt;span style="color:#000;font-weight:bold">)&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面可以看到，透过 select + channel 可以快速解决这问题，只要在任何地方将 bool 值丢入 stop channel 就可以停止背景正在处理的 Job。上述用 channel 来解决此问题，但是现在有个问题，假设背景有跑了无数个 goroutine，或者是 goroutine 内又有跑 goroutine 呢，变得相当复杂，例如底下的状况
-&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo205c/1653552924129-1cc087c5-ef1b-4937-ab75-266c5eaba68d.webp" alt="">
-这边就没办法用 channel 方式来进行处理了，而需要用到今天的重点 context。&lt;/p>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面可以看到，透过 select + channel 可以快速解决这问题，只要在任何地方将 bool 值丢入 stop channel 就可以停止背景正在处理的 Job。上述用 channel 来解决此问题，但是现在有个问题，假设背景有跑了无数个 goroutine，或者是 goroutine 内又有跑 goroutine 呢，变得相当复杂，例如底下的状况&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo205c/1653552924129-1cc087c5-ef1b-4937-ab75-266c5eaba68d.webp" alt="">&lt;/p>
+&lt;p>这边就没办法用 channel 方式来进行处理了，而需要用到 context。&lt;/p>
 &lt;h2 id="认识-context">认识 context&lt;a class="td-heading-self-link" href="#%e8%ae%a4%e8%af%86-context" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>从上图可以看到我们建立了三个 worker node 来处理不同的 Job，所以会在主程式最上面宣告一个主&lt;code>context.Background()&lt;/code>，然后在每个 worker node 分别在个别建立子 context，其最主要目的就是当关闭其中一个 context 就可以直接取消该 worker 内正在跑的 Job。拿上面的例子进行改写&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87;font-weight:bold">package&lt;/span> &lt;span style="color:#000">main&lt;/span>

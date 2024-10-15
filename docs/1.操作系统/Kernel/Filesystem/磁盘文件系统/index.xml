@@ -350,12 +350,12 @@
 &lt;li>如果 步骤 1 完成了、2 未完成。结果就是文件系统分配了一个数据块，但是没有任何文件用到这个数据块，造成空间浪费；&lt;/li>
 &lt;li>如果 步骤 3 完成了，2 未完成。结果就是用户数据写入了硬盘数据块中，但白写了，因为文件不知道这个数据块是自己的。&lt;/li>
 &lt;/ul>
-&lt;h1 id="journaling-file-system-原理">&lt;strong>Journaling File System 原理&lt;/strong>&lt;a class="td-heading-self-link" href="#journaling-file-system-%e5%8e%9f%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h1 id="journaling-file-system-原理">Journaling File System 原理&lt;a class="td-heading-self-link" href="#journaling-file-system-%e5%8e%9f%e7%90%86" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>&lt;strong>ext3、ext4、xfs 等都是一种 Journaling File System(日志文件系统)&lt;/strong>&lt;/p>
 &lt;/blockquote>
 &lt;p>&lt;strong>Journaling File System(日志文件系统)&lt;/strong> 就是为解决上述问题而诞生的。&lt;/p>
-&lt;p>它的原理是在进行写操作之前，把即将进行的各个步骤（称为 transaction）事先记录下来，保存在文件系统上单独开辟的一块空间上，这就是所谓的日志(journal)，也被称为 write-ahead logging，日志保存成功之后才进行真正的写操作、把文件系统的元数据和用户数据写进硬盘（称为 checkpoint），这样万一写操作的过程中掉电，下次挂载文件系统之前把保存好的日志重新执行一遍就行了（术语叫做 replay），避免了前述的数据损坏场景。&lt;/p>
+&lt;p>它的原理是在进行写操作之前，把即将进行的各个步骤（称为 transaction）事先记录下来，保存在文件系统上单独开辟的一块空间上，这就是所谓的日志(journal)，也被称为 Write-ahead logging，日志保存成功之后才进行真正的写操作、把文件系统的元数据和用户数据写进硬盘（称为 checkpoint），这样万一写操作的过程中掉电，下次挂载文件系统之前把保存好的日志重新执行一遍就行了（术语叫做 replay），避免了前述的数据损坏场景。&lt;/p>
 &lt;p>有人问如果保存日志的过程中掉电怎么办？最初始的想法是把一条日志的数据一次性写入硬盘，相当于一个原子操作，然而这并不可行，因为硬盘通常以 512 字节为单位进行操作，日志数据一超过 512 字节就不可能一次性写入了。所以实际上是这么做的：给每一条日志设置一个结束符，只有在日志写入成功之后才写结束符，如果一条日志没有对应的结束符就会被视为无效日志，直接丢弃，这样就保证了日志里的数据是完整的。&lt;/p>
 &lt;p>一条日志在它对应的写操作完成之后就没用了，占用的硬盘空间就可以释放。保存日志的硬盘空间大小是有限的，被循环使用，所以日志也被称为 circular log。&lt;/p>
 &lt;p>至此可以总结一下日志文件系统的工作步骤了：&lt;/p>
