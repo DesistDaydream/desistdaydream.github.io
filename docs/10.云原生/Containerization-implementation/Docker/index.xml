@@ -14,7 +14,7 @@
 &lt;li>Docker-EE # 商业版&lt;/li>
 &lt;/ul>
 &lt;p>Docker 为了解决 LXC 无法批量管理、复刻容器等问题应运而生，简化用户对容器的应用。Docker 是 Docker.inc 公司开源的一个基于 LXC 技术之上构建的 Container 引擎，不再使用模板技术，而是使用了 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Docker%20Image.md">Docker Image&lt;/a> 文件的方式来创建。Image 是放在统一的互联网仓库中，当需要使用 Container 的时候，直接 run 或者 creat 等即可从仓库中下载到该 Image，然后基于该 Image 再运行 Container。&lt;/p>
-&lt;p>Note：一开始，docker 在 linux 上实现容器技术的后端使用的是 lxc，后来使用 runc 来代替。&lt;/p>
+&lt;p>Note：一开始，Docker 在 linux 上实现容器技术的后端使用的是 lxc，后来使用 runc 来代替。&lt;/p>
 &lt;h1 id="docker-架构">Docker 架构&lt;a class="td-heading-self-link" href="#docker-%e6%9e%b6%e6%9e%84" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/docker/202407241618409.png" alt="image.png">&lt;/p>
 &lt;p>Docker 对使用者来讲是一个 &lt;a href="https://desistdaydream.github.io/docs/Standard/B_S%20%E5%92%8C%20C_S%20%E6%9E%B6%E6%9E%84.md">C/S&lt;/a> 模式的架构，Client 和 Server 使用 REST API 通过 UNIX &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Process/Inter%20Process%20Communication(%E8%BF%9B%E7%A8%8B%E9%97%B4%E9%80%9A%E4%BF%A1)/Socket(%E5%A5%97%E6%8E%A5%E5%AD%97)/Socket(%E5%A5%97%E6%8E%A5%E5%AD%97).md">Socket&lt;/a> 或者网络进行通信。&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization%20implementation/Docker/Compose/Compose.md">Compose&lt;/a> 同样也可以作为客户端。&lt;/p>
@@ -1047,14 +1047,70 @@
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
-&lt;li>&lt;a href="https://docs.docker.com/network">官方文档，网络&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.docker.com/engine/network/">官方文档，引擎 - 网络&lt;/a>&lt;/li>
 &lt;/ul>
-&lt;/blockquote></description></item><item><title>Docs: Docker Storage</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker-Storage/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker-Storage/</guid><description>
+&lt;/blockquote>
+&lt;h1 id="dns">DNS&lt;a class="td-heading-self-link" href="#dns" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>容器连接到默认网络时，会使用与主机相同的 DNS Server，继承主机的 /etc/resolv.conf。&lt;/p>
+&lt;p>容器连接到&lt;a href="https://docs.docker.com/engine/network/tutorials/standalone/#use-user-defined-bridge-networks">自定义网络&lt;/a>时，会使用 &lt;strong>&lt;font color="#ff0000">Docker 内嵌的 DNS Server&lt;/font>&lt;/strong>（127.0.0.11:53），将 容器 ID、容器名、别名 注册为 DNS 解析记录，以便其他容器可以通过这些域名访问到自己。示例可以参考下文 ”Bridge“ 驱动程序中的示例&lt;/p>
+&lt;h1 id="docker-网络的驱动程序">Docker 网络的驱动程序&lt;a class="td-heading-self-link" href="#docker-%e7%bd%91%e7%bb%9c%e7%9a%84%e9%a9%b1%e5%8a%a8%e7%a8%8b%e5%ba%8f" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;a href="https://docs.docker.com/engine/network/drivers/">https://docs.docker.com/engine/network/drivers/&lt;/a>&lt;/p>
+&lt;p>Docker 使用驱动程序实现网络子系统的核心能力，网络子系统是可插拔的。默认存在如下几种驱动程序：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>bridge&lt;/strong> # 默认驱动程序。当应用程序在需要与同一主机上的其他容器通信的容器中运行时，通常会使用 &lt;a href="#Bridge">Bridge(桥接)&lt;/a> 网络。&lt;/li>
+&lt;li>&lt;strong>host&lt;/strong> # 取消容器与 Docker 主机之间的网络隔离，直接使用主机的网络&lt;/li>
+&lt;li>&lt;strong>overlay&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>ipvlan&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>macvlan&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>none&lt;/strong> # 容器与宿主机及其他容器完全隔离。 none 不适用于 Swarm 服务。用人话说就是不使用任何网络驱动程序。&lt;/li>
+&lt;li>&lt;a href="https://docs.docker.com/engine/extend/plugins_network/">网络插件&lt;/a>：我们可以安装和使用第三方网络插件，以实现 Docker 自身无法实现的网络功能&lt;/li>
+&lt;/ul>
+&lt;h2 id="bridge">Bridge&lt;a class="td-heading-self-link" href="#bridge" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;a href="https://docs.docker.com/engine/network/drivers/bridge">https://docs.docker.com/engine/network/drivers/bridge&lt;/a>&lt;/p>
+&lt;p>当 Docker 启动时，会自动创建一个名为 brdige，Bridge 驱动类型的网络。默认情况下新启动的容器都会连接到 bridge 网络。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># docker network ls&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>NETWORK ID NAME DRIVER SCOPE
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dadd048eefa0 bridge bridge &lt;span style="color:#204a87">local&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>84cab5ef9276 host host &lt;span style="color:#204a87">local&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>4718cdfcb116 monitoring bridge &lt;span style="color:#204a87">local&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>4d68f227ca5d none null &lt;span style="color:#204a87">local&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>Notes: 名为 bridge 的是默认 Bridge 类型网络；名为 monitoring 的是用户自定义的 Bridge 类型网络。&lt;/p>
+&lt;/blockquote>
+&lt;p>连接到 Docker 默认 Bridge 类型网络上的容器只能通过 IP 地址互相访问。但是如果容器连接到用户自定义的 Bridge 类型网络，这些容器将会记录在 &lt;a href="#%E5%86%85%E5%B5%8C%E7%9A%84%20DNS">Docker 内嵌的 DNS&lt;/a>，后续可以通过名称或别名访问这些容器。&lt;/p>
+&lt;p>使用默认 Bridge 网络的效果：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># docker run -d --rm --name nginx nginx:1.27&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>55cd45af85d9e2be4dd505b3236120130155b66e5636960b9980ff39a0c0858c
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># docker run --rm -it nicolaka/netshoot nslookup nginx&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Server: 172.16.11.222
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address: 172.16.11.222#53
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>** server can&lt;span style="color:#a40000">&amp;#39;&lt;/span>t find nginx: SERVFAIL
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>使用自定义 Bridge 网络的效果：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># docker network create --driver bridge test&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>fd603b1caf6cbbd55c57542851eeeaeb63c3fc622899206eb9909527a03fe7d4
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># docker run -d --rm --name nginx --network test nginx:1.27&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>7d000f6870a41ac3a3c5cd44e4e4bb47c27f027748cea869659add90aecc1a54
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># docker run --rm -it --network test nicolaka/netshoot sh -c &amp;#34;nslookup nginx &amp;amp;&amp;amp; nslookup 7d000f6870a4&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Server: 127.0.0.11
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address: 127.0.0.11#53
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Non-authoritative answer:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Name: nginx
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address: 10.38.9.2
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Server: 127.0.0.11
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address: 127.0.0.11#53
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Non-authoritative answer:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Name: 7d000f6870a4
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Address: 10.38.9.2
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>本质上，使用 默认 或 自定义 Bridge 类型网络的区别在于是否会使用内嵌 DNS，从 /etc/resolv.conf 文件也可以看出来，DNS 地址也是不一样的。&lt;/p></description></item><item><title>Docs: Docker Storage</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker-Storage/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker-Storage/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
-&lt;li>&lt;a href="https://docs.docker.com/storage/">官方文档，在生产环境运行你的应用-管理应用数据-存储概述&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://docs.docker.com/storage/">官方文档，在生产环境运行你的应用 - 管理应用数据 - 存储概述&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>当关闭并重启 Container 的时候，其内的数据不受影响；但删除 Docker 容器后，则其内对最上面的可写层操作的内容则全部丢失，这时候会存在几个问题&lt;/p>

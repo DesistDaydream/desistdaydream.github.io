@@ -430,7 +430,7 @@ return errors.New(&amp;quot;cannot start an already running container&amp;
 &lt;p>表面上看，Docker 及其配套项目显得杂乱无章，但实际上其底层的结构清晰并且已经实现了模块化。也就是说，发现所有上面的这些信息不是一件轻松的事。它散落在代码、博客帖子、会议讨论、文档和会议笔记中。拥有清晰的“自文档化”的代码是一个伟大的目标，但当涉及到大型系统时，我认为这还不够。有时，你只需要用简单的语言写下系统的外观，以及每个组件的职责。&lt;/p>
 &lt;p>非常感谢这些项目的所有贡献者，特别是那些编写解释这些系统的文档的人。&lt;/p>
 &lt;p>希望这篇文章这有助于帮助你理解 Docker 是如何运行容器的。我知道将来我会多次使用这篇文章作为参考。&lt;/p></description></item><item><title>Docs: docker-shim 何去何从</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker-%E4%BB%8B%E7%BB%8D/docker-shim-%E4%BD%95%E5%8E%BB%E4%BD%95%E4%BB%8E/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker-%E4%BB%8B%E7%BB%8D/docker-shim-%E4%BD%95%E5%8E%BB%E4%BD%95%E4%BB%8E/</guid><description>
-&lt;h1 id="heading">&lt;a class="td-heading-self-link" href="#heading" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>关于 dockershim 即将灭亡的传言无疑存在严重夸大。如果一直有关注 Kubernetes 生态系统，很多朋友一时之间可能确实被 Kubernetes 1.20 版本的发布公告弄得有点不知所措。从公告内容来看，自 1.20 版本开始 dockershim 将被全面弃用。但请不要恐慌，调整呼吸，一切都会好起来。&lt;/p>
 &lt;p>更重要的是，Mirantis 现已同意与 Docker 开展合作，在 Kubernetes 之外独立维护 shim 代码并将其作为 Docker Engine API 的统一 CRI 接口。对于 Mirantis 客户而言，这意味着 Docker Engine 的商业支持版本 Mirantis Container Runtime（MCR）也将提供 CRI 兼容能力。我们将从&lt;a href="https://github.com/dims/cri-d...">https://github.com/dims/cri-d...&lt;/a>，并逐步将其转化为开源项目&lt;a href="https://github.com/Mirantis/c...">https://github.com/Mirantis/c...&lt;/a>。换句话说，你可以像之前一样继续基于 Docker Engine 构建 Kubernetes，唯一的区别就是 dockershim 由内置方案变成了外部方案。我们将共同努力，保证它在保持原有功能的同时，顺利通过各类一致性测试并提供与此前内置版本相同的使用体验。Mirantis 将在 Mirantis Kubernetes Engine 中使用 dockershim，Docker 方面也将在 Docker Desktop 中继续提供 dockershim。&lt;/p>
 &lt;p>从头说起……&lt;/p>
@@ -442,15 +442,9 @@ return errors.New(&amp;quot;cannot start an already running container&amp;
 &lt;p>Dockershim 是什么？&lt;/p>
 &lt;p>正如 Kubernetes 最初对 Docker Engine 提供内置支持一样，其中同样包含对各类存储卷解决方案、网络解决方案甚至是云服务商的内置支持。但要不断维护这些支持功能实在是太过麻烦，因此社区决定将所有第三方解决方案从核心中剥离出来并创建相关接口，例如：&lt;/p>
 &lt;ul>
-&lt;li>
-&lt;p>容器运行时接口（CRI）&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>容器网络接口（CNI）&lt;/p>
-&lt;/li>
-&lt;li>
-&lt;p>容器存储接口（CSI）&lt;/p>
-&lt;/li>
+&lt;li>容器运行时接口（CRI）&lt;/li>
+&lt;li>容器网络接口（CNI）&lt;/li>
+&lt;li>容器存储接口（CSI）&lt;/li>
 &lt;/ul>
 &lt;p>其中的基本思路在于，只要兼容这些接口，那么任何供应商都可以创建出能自动与 Kubernetes 相对接的产品。&lt;/p>
 &lt;p>当然，这绝不是说不兼容的组件就没办法与 Kubernetes 配合使用；Kubernetes 可以使用正确的组件完成各类协同。换言之，不兼容的组件仅仅需要加上个“shim（意为垫片）”，由其在组件与相应的 Kubernetes 接口之间完成转换，即可轻松解决问题。例如，dockershim 会接收 CRI 命令并将其转换为 Docker Engine 能够理解的内容，反之亦然。但在第三方组件被从 Kubernetes 核心内剥离的背景之下，dockershim 自身也需要逐步退出。&lt;/p>
