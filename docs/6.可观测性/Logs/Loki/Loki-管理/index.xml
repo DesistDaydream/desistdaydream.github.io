@@ -3,10 +3,36 @@
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
-&lt;li>&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/query/query_examples/">官方文档，查询 - 查询示例&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
-&lt;h1 id="通用">通用&lt;a class="td-heading-self-link" href="#%e9%80%9a%e7%94%a8" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;strong>多重过滤&lt;/strong>&lt;/p>
+&lt;p>过滤应该首先使用标签匹配器，然后是行过滤器，最后使用标签过滤器：&lt;/p>
+&lt;pre tabindex="0">&lt;code class="language-logql" data-lang="logql">{cluster=&amp;#34;ops-tools1&amp;#34;, namespace=&amp;#34;loki-dev&amp;#34;, job=&amp;#34;loki-dev/query-frontend&amp;#34;} |= &amp;#34;metrics.go&amp;#34; !=&amp;#34;out of order&amp;#34; | logfmt | duration &amp;gt; 30s or status_code!=&amp;#34;200&amp;#34;
+&lt;/code>&lt;/pre>&lt;p>&lt;strong>多解析器&lt;/strong>&lt;/p>
+&lt;p>比如要提取以下格式日志行的方法和路径：&lt;/p>
+&lt;pre tabindex="0">&lt;code class="language-log" data-lang="log">level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg=&amp;#34;POST /api/prom/api/v1/query_range (200) 1.5s&amp;#34;
+&lt;/code>&lt;/pre>&lt;p>你可以像下面这样使用多个解析器：&lt;/p>
+&lt;pre tabindex="0">&lt;code class="language-logql" data-lang="logql">{job=&amp;#34;loki-ops/query-frontend&amp;#34;} | logfmt | line_format &amp;#34;{{.msg}}&amp;#34;
+| regexp &amp;#34;(?P&amp;lt;method&amp;gt;\\w+) (?P&amp;lt;path&amp;gt;[\\w|/]+) \\((?P&amp;lt;status&amp;gt;\\d+?)\\) (?P&amp;lt;duration&amp;gt;.*)&amp;#34;
+&lt;/code>&lt;/pre>&lt;p>Notes: 其实这种 regexp 语法在新版已经可以用 pattern 代替了&lt;/p>
+&lt;pre tabindex="0">&lt;code>pattern `&amp;lt;method&amp;gt; &amp;lt;path&amp;gt; (&amp;lt;status&amp;gt;) &amp;lt;duration&amp;gt;`
+&lt;/code>&lt;/pre>&lt;p>首先通过 &lt;code>logfmt&lt;/code> 解析器提取日志中的数据，然后使用 &lt;code>| line_format&lt;/code> 重新将日志格式化为 &lt;code>POST /api/prom/api/v1/query_range (200) 1.5s&lt;/code>，然后紧接着就是用 &lt;code>regexp&lt;/code> 解析器通过正则表达式来匹配提前标签了。&lt;/p>
+&lt;h2 id="格式化">格式化&lt;a class="td-heading-self-link" href="#%e6%a0%bc%e5%bc%8f%e5%8c%96" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>下面的查询显示了如何重新格式化日志行，使其更容易阅读。&lt;/p>
+&lt;pre tabindex="0">&lt;code class="language-logql" data-lang="logql">{cluster=&amp;#34;ops-tools1&amp;#34;, name=&amp;#34;querier&amp;#34;, namespace=&amp;#34;loki-dev&amp;#34;}
+|= &amp;#34;metrics.go&amp;#34; != &amp;#34;loki-canary&amp;#34;
+| logfmt
+| query != &amp;#34;&amp;#34;
+| label_format query=&amp;#34;{{ Replace .query \&amp;#34;\\n\&amp;#34; \&amp;#34;\&amp;#34; -1 }}&amp;#34;
+| line_format &amp;#34;{{ .ts}}\t{{.duration}}\ttraceID = {{.traceID}}\t{{ printf \&amp;#34;%-100.100s\&amp;#34; .query }} &amp;#34;
+&lt;/code>&lt;/pre>&lt;p>其中的 &lt;code>label_format&lt;/code> 用于格式化查询，而 &lt;code>line_format&lt;/code> 则用于减少信息量并创建一个表格化的输出。比如对于下面的日志行数据：&lt;/p>
+&lt;pre tabindex="0">&lt;code class="language-log" data-lang="log">level=info ts=2020-10-23T20:32:18.094668233Z caller=metrics.go:81 org_id=29 traceID=1980d41501b57b68 latency=fast query=&amp;#34;{cluster=\&amp;#34;ops-tools1\&amp;#34;, job=\&amp;#34;loki-ops/query-frontend\&amp;#34;} |= \&amp;#34;query_range\&amp;#34;&amp;#34; query_type=filter range_type=range length=15m0s step=7s duration=650.22401ms status=200 throughput_mb=1.529717 total_bytes_mb=0.994659
+level=info ts=2020-10-23T20:32:18.068866235Z caller=metrics.go:81 org_id=29 traceID=1980d41501b57b68 latency=fast query=&amp;#34;{cluster=\&amp;#34;ops-tools1\&amp;#34;, job=\&amp;#34;loki-ops/query-frontend\&amp;#34;} |= \&amp;#34;query_range\&amp;#34;&amp;#34; query_type=filter range_type=range length=15m0s step=7s duration=624.008132ms status=200 throughput_mb=0.693449 total_bytes_mb=0.432718
+&lt;/code>&lt;/pre>&lt;p>经过上面的查询过后可以得到如下所示的结果：&lt;/p>
+&lt;pre tabindex="0">&lt;code class="language-log" data-lang="log">2020-10-23T20:32:18.094668233Z 650.22401ms traceID = 1980d41501b57b68 {cluster=&amp;#34;ops-tools1&amp;#34;, job=&amp;#34;loki-ops/query-frontend&amp;#34;} |= &amp;#34;query_range&amp;#34;
+2020-10-23T20:32:18.068866235Z 624.008132ms traceID = 1980d41501b57b68 {cluster=&amp;#34;ops-tools1&amp;#34;, job=&amp;#34;loki-ops/query-frontend&amp;#34;} |= &amp;#34;query_range&amp;#34;
+&lt;/code>&lt;/pre>&lt;h1 id="通用">通用&lt;a class="td-heading-self-link" href="#%e9%80%9a%e7%94%a8" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;h2 id="无数据时返回-0-值">无数据时返回 0 值&lt;a class="td-heading-self-link" href="#%e6%97%a0%e6%95%b0%e6%8d%ae%e6%97%b6%e8%bf%94%e5%9b%9e-0-%e5%80%bc" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>&lt;a href="https://community.grafana.com/t/how-can-i-turn-no-data-to-zero-in-loki/40694/14?u=lchddn0905">https://community.grafana.com/t/how-can-i-turn-no-data-to-zero-in-loki/40694/14?u=lchddn0905&lt;/a>&lt;/p>
 &lt;p>修改 Grafana 面板配置 Standard options - No value 设置为 0&lt;/p>
@@ -26,6 +52,10 @@
 &lt;/blockquote>
 &lt;p>标签设计最佳实践: &lt;a href="https://grafana.com/docs/loki/latest/get-started/labels/bp-labels/">https://grafana.com/docs/loki/latest/get-started/labels/bp-labels/&lt;/a>&lt;/p>
 &lt;h1 id="待整理性能优化">待整理：性能优化&lt;a class="td-heading-self-link" href="#%e5%be%85%e6%95%b4%e7%90%86%e6%80%a7%e8%83%bd%e4%bc%98%e5%8c%96" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>原文：&lt;a href="https://mp.weixin.qq.com/s/Weh50_VAeazUSZdumfiOSQ">公众号 - 云原生小白，Loki中的标签简明指南（译）&lt;/a>&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://grafana.com/blog/2020/08/27/the-concise-guide-to-labels-in-loki/">https://grafana.com/blog/2020/08/27/the-concise-guide-to-labels-in-loki/&lt;/a>&lt;/li>
+&lt;/ul>
 &lt;p>最近很多同学的 Loki 在上线过程中经常遇见丢日志的情况，一查 Loki 日志的发现是日志流的时序问题导致的。这也从侧方面反映出大家对 Loki 的日志流和标签之间的关系还是明确清楚。几个月前，偶然看见博客上原作者对 Loki 标签有过简明指南，深感有责任翻译给大家，用于理解这部分概念。由于原文写于 Loki1.x 时代，译文对于部分于差异的部分进行了相关删减，如小伙伴们要阅读原文，点击文末【阅读原文】即可&lt;/p>
 &lt;p>作为 Loki 的用户或操作员，我们的目标应该是使用尽可能少的标签来存储你的日志。&lt;/p>
 &lt;p>这意味着，&lt;code>更少的标签带来更小的索引，从而导致更好的性能&lt;/code> 再重复一遍 &lt;code>更少的标签=更好的性能&lt;/code>&lt;/p>
