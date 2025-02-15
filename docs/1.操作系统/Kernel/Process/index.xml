@@ -434,7 +434,31 @@
 &lt;li>&lt;strong>vsize&lt;/strong> # Virtual memory size in bytes.&lt;/li>
 &lt;li>&lt;strong>rss&lt;/strong> # Resident Set Size. 进程在实内存中拥有的页数。 这只是计入文本、数据或堆栈空间的页面。 这不包括尚未按需加载或换出的页面。 该值不准确；请参阅下面的 /proc/PID/statm。&lt;/li>
 &lt;/ol>
-&lt;h2 id="status---以人类可读形式呈现的进程状态">./status - 以人类可读形式呈现的进程状态&lt;a class="td-heading-self-link" href="#status---%e4%bb%a5%e4%ba%ba%e7%b1%bb%e5%8f%af%e8%af%bb%e5%bd%a2%e5%bc%8f%e5%91%88%e7%8e%b0%e7%9a%84%e8%bf%9b%e7%a8%8b%e7%8a%b6%e6%80%81" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>计算进程启动时间的脚本&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">#!/bin/bash
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 获取进程的 PID&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">pid&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#000">$1&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 获取进程的 starttime（以时钟周期表示）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">starttime&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>cat /proc/&lt;span style="color:#000">$pid&lt;/span>/stat &lt;span style="color:#000;font-weight:bold">|&lt;/span> awk &lt;span style="color:#4e9a06">&amp;#39;{print $22}&amp;#39;&lt;/span>&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 获取系统的时钟频率（CLK_TCK）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">clk_tck&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>getconf CLK_TCK&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 获取系统的启动时间（btime）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">btime&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>cat /proc/stat &lt;span style="color:#000;font-weight:bold">|&lt;/span> grep btime &lt;span style="color:#000;font-weight:bold">|&lt;/span> awk &lt;span style="color:#4e9a06">&amp;#39;{print $2}&amp;#39;&lt;/span>&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 计算进程的启动时间（Unix 时间戳）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">starttime_seconds&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>&lt;span style="color:#204a87">echo&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;&lt;/span>&lt;span style="color:#000">$starttime&lt;/span>&lt;span style="color:#4e9a06"> / &lt;/span>&lt;span style="color:#000">$clk_tck&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> bc&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000">process_start_time&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>&lt;span style="color:#204a87">echo&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;&lt;/span>&lt;span style="color:#000">$btime&lt;/span>&lt;span style="color:#4e9a06"> + &lt;/span>&lt;span style="color:#000">$starttime_seconds&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;&lt;/span> &lt;span style="color:#000;font-weight:bold">|&lt;/span> bc&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 输出进程的启动时间（Unix 时间戳）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">echo&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;Process start time (Unix timestamp): &lt;/span>&lt;span style="color:#000">$process_start_time&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 如果需要转换为可读的时间格式，可以使用 date 命令&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#204a87">echo&lt;/span> &lt;span style="color:#4e9a06">&amp;#34;Process start time (readable format): &lt;/span>&lt;span style="color:#204a87;font-weight:bold">$(&lt;/span>date -d @&lt;span style="color:#000">$process_start_time&lt;/span>&lt;span style="color:#204a87;font-weight:bold">)&lt;/span>&lt;span style="color:#4e9a06">&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="status---以人类可读形式呈现的进程状态">./status - 以人类可读形式呈现的进程状态&lt;a class="td-heading-self-link" href="#status---%e4%bb%a5%e4%ba%ba%e7%b1%bb%e5%8f%af%e8%af%bb%e5%bd%a2%e5%bc%8f%e5%91%88%e7%8e%b0%e7%9a%84%e8%bf%9b%e7%a8%8b%e7%8a%b6%e6%80%81" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>&lt;a href="https://man7.org/linux/man-pages/man5/proc_pid_status.5.html">https://man7.org/linux/man-pages/man5/proc_pid_status.5.html&lt;/a>&lt;/p>
 &lt;p>包括但不限于 PID、该进程 CPU 与 Memory 的使用情况、等等。在这个文件中，包含了 ./stat 和 ./statm 文件中的许多信息。&lt;/p>
 &lt;ul>
