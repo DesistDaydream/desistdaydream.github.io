@@ -349,7 +349,10 @@
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>该目录通过 chroot(2) 系统调用设置。&lt;/p>
 &lt;p>该目录常被用来查看容器内的文件系统。与容器的 Merged 不同，该目录会包含所有挂载，这些挂载信息，来源于 /proc/PID/mountinfo 文件。&lt;/p>
 &lt;h2 id="smaps---每个进程的内存映射的使用信息">./smaps - 每个进程的内存映射的使用信息&lt;a class="td-heading-self-link" href="#smaps---%e6%af%8f%e4%b8%aa%e8%bf%9b%e7%a8%8b%e7%9a%84%e5%86%85%e5%ad%98%e6%98%a0%e5%b0%84%e7%9a%84%e4%bd%bf%e7%94%a8%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>仅当内核选项 CONFIG_PROC_PAGE_MONITOR 配置了之后，才存在该文件。&lt;code>pmap&lt;/code> 命令会读取该文件，并以人类易读的形式显示信息。&lt;/p>
+&lt;blockquote>
+&lt;p>[!Note]
+仅当内核选项 CONFIG_PROC_PAGE_MONITOR 配置了之后，才存在该文件。&lt;code>pmap&lt;/code> 命令会读取该文件，并以人类易读的形式显示信息。&lt;/p>
+&lt;/blockquote>
 &lt;p>进程的每一个映射，都有其对应的信息，文件格式如下：&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>00400000-00aa4000 r-xp &lt;span style="color:#0000cf;font-weight:bold">00000000&lt;/span> fc:01 &lt;span style="color:#0000cf;font-weight:bold">1710957&lt;/span> /bin/node_exporter
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Size: &lt;span style="color:#0000cf;font-weight:bold">6800&lt;/span> kB
@@ -413,15 +416,49 @@
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@hw-cloud-xngy-jump-server-linux-2 /proc/1185&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># cat smaps_rollup&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>00400000-7ffc50bfa000 ---p &lt;span style="color:#0000cf;font-weight:bold">00000000&lt;/span> 00:00 &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> &lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>rollup&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Rss: &lt;span style="color:#0000cf;font-weight:bold">21304&lt;/span> kB
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="statm---进程的内存使用情况信息">./statm - 进程的内存使用情况信息&lt;a class="td-heading-self-link" href="#statm---%e8%bf%9b%e7%a8%8b%e7%9a%84%e5%86%85%e5%ad%98%e4%bd%bf%e7%94%a8%e6%83%85%e5%86%b5%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>该文件中只有一行，每列信息以空格分割，共 7 列&lt;/p>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="statm---进程的内存状态信息">./statm - 进程的内存状态信息&lt;a class="td-heading-self-link" href="#statm---%e8%bf%9b%e7%a8%8b%e7%9a%84%e5%86%85%e5%ad%98%e7%8a%b6%e6%80%81%e4%bf%a1%e6%81%af" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>&lt;a href="https://man7.org/linux/man-pages/man5/proc_pid_statm.5.html">https://man7.org/linux/man-pages/man5/proc_pid_statm.5.html&lt;/a>&lt;/p>
+&lt;blockquote>
+&lt;p>Tips: 由于内核内部可伸缩性优化，文件中的一些值并绝对不准确，如果需要准确的值，可以查看 smaps 和 smaps_rollup 文件。&lt;/p>
+&lt;/blockquote>
+&lt;p>该文件中只有一行，每列信息以空格分隔，共 7 列&lt;/p>
 &lt;ul>
-&lt;li>size # 进程使用的内存。等同于 status 文件中的 VmSize，man 手册里这个描述与实际不符&lt;/li>
-&lt;li>resident # 进程的 RSS。等同于 status 文件中的 VmRSS，man 手册里这个描述与实际不符&lt;/li>
-&lt;li>shared # 与其他进程共享的内存。等同于 status 文件中的 RssFile + RssShmem，man 手册里这个描述与实际不符&lt;/li>
+&lt;li>&lt;strong>size&lt;/strong> # Virtual memory size(虚拟内存大小，简称 vms)。statm 文件中该字段是进程在虚拟内存拥有的 &lt;strong>页数&lt;/strong>。
+&lt;ul>
+&lt;li>该值与系统 PageSize(页容量) 相乘的计算结果是 status 文件中 VmSize 的值&lt;/li>
 &lt;/ul>
-&lt;p>由于内核内部可伸缩性优化，文件中的一些值并不准确，如果需要准确的值，可以查看 smaps 和 smaps_rollup 文件。&lt;/p>
-&lt;h2 id="stat---进程的状态">./stat - 进程的状态&lt;a class="td-heading-self-link" href="#stat---%e8%bf%9b%e7%a8%8b%e7%9a%84%e7%8a%b6%e6%80%81" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;/li>
+&lt;li>&lt;strong>resident&lt;/strong> # Resident Set Size(常驻集大小，简称 rss)。statm 文件中的该字段表示的是进程在实内存中拥有的 &lt;strong>页数&lt;/strong>，i.e. rss 页数。
+&lt;ul>
+&lt;li>该值与系统 PageSize(页容量) 相乘的计算结果是 status 文件中 VmRSS 的值&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>shared&lt;/strong> # 与其他进程共享的内存。&lt;/li>
+&lt;li>&lt;strong>trs&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>lrs&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>drs&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>dt&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># PID=10000&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># echo $(($(cat /proc/$PID/statm | awk &amp;#39;{print $1}&amp;#39;) * $(getconf PAGE_SIZE) / 1024)); grep VmSize /proc/$PID/status&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">2083364&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>VmSize: &lt;span style="color:#0000cf;font-weight:bold">2083364&lt;/span> kB
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># echo $(($(cat /proc/$PID/statm | awk &amp;#39;{print $2}&amp;#39;) * $(getconf PAGE_SIZE) / 1024)); grep VmRSS /proc/$PID/status&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">126876&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>VmRSS: &lt;span style="color:#0000cf;font-weight:bold">126876&lt;/span> kB
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过如下方式，可以启动一个申请了 1 MiB 内存的进程，以便验证各种信息&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>python3 -c &lt;span style="color:#4e9a06">&amp;#39;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">import time
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">import os
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06"># 申请1 MiB的内存
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">data = bytearray(1024 * 1024)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">print(f&amp;#34;进程ID: {os.getpid()}&amp;#34;)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">print(f&amp;#34;已分配1 MiB内存&amp;#34;)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">print(f&amp;#34;按Ctrl+C结束进程&amp;#34;)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">while True:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06"> time.sleep(1)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#4e9a06">&amp;#39;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="stat---进程的状态">./stat - 进程的状态&lt;a class="td-heading-self-link" href="#stat---%e8%bf%9b%e7%a8%8b%e7%9a%84%e7%8a%b6%e6%80%81" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>&lt;a href="https://man7.org/linux/man-pages/man5/proc_pid_stat.5.html">https://man7.org/linux/man-pages/man5/proc_pid_stat.5.html&lt;/a>&lt;/p>
 &lt;p>&lt;a href="https://stackoverflow.com/questions/39066998/what-are-the-meaning-of-values-at-proc-pid-stat">https://stackoverflow.com/questions/39066998/what-are-the-meaning-of-values-at-proc-pid-stat&lt;/a>&lt;/p>
 &lt;ol start="22">
@@ -431,8 +468,8 @@
 &lt;p>starttime 除以 时钟频率（&lt;code>getconf -a | grep CLK_TCK&lt;/code>），加上系统启动时间（&lt;code>cat /proc/stat | grep btime&lt;/code>）。可以计算出进程的启动时间（Unix 时间戳格式）&lt;/p>
 &lt;/blockquote>
 &lt;ol start="23">
-&lt;li>&lt;strong>vsize&lt;/strong> # Virtual memory size in bytes.&lt;/li>
-&lt;li>&lt;strong>rss&lt;/strong> # Resident Set Size. 进程在实内存中拥有的页数。 这只是计入文本、数据或堆栈空间的页面。 这不包括尚未按需加载或换出的页面。 该值不准确；请参阅下面的 /proc/PID/statm。&lt;/li>
+&lt;li>&lt;strong>vsize&lt;/strong> # 该值的单位是 Bytes，该值除以 &lt;code>$(getconf PAGE_SIZE)&lt;/code> 的结果与 /proc/PID/statm 文件中第一字段 size 的值相同&lt;/li>
+&lt;li>&lt;strong>rss&lt;/strong> # 与 /proc/PID/statm 文件中第二字段 resident 的值相同&lt;/li>
 &lt;/ol>
 &lt;p>计算进程启动时间的脚本&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic">#!/bin/bash
@@ -462,10 +499,10 @@
 &lt;p>&lt;a href="https://man7.org/linux/man-pages/man5/proc_pid_status.5.html">https://man7.org/linux/man-pages/man5/proc_pid_status.5.html&lt;/a>&lt;/p>
 &lt;p>包括但不限于 PID、该进程 CPU 与 Memory 的使用情况、等等。在这个文件中，包含了 ./stat 和 ./statm 文件中的许多信息。&lt;/p>
 &lt;ul>
-&lt;li>Name # 进程名称&lt;/li>
-&lt;li>State # 进程状况&lt;/li>
-&lt;li>VmSize # 进程申请的总内存。与 statm 文件中第一个字段的值相同&lt;/li>
-&lt;li>VmRSS # 也就是进程当前时刻占用的物理内存。与 statm 文件中第二个字段的值相同&lt;/li>
+&lt;li>&lt;strong>Name&lt;/strong> # 进程名称&lt;/li>
+&lt;li>&lt;strong>State&lt;/strong> # 进程状况&lt;/li>
+&lt;li>&lt;strong>VmSize&lt;/strong> # 进程申请的总内存。结果与 statm 文件中第一个字段的值相关&lt;/li>
+&lt;li>&lt;strong>VmRSS&lt;/strong> # 进程当前时刻占用的物理内存。结果与 statm 文件中第二个字段的值相关&lt;/li>
 &lt;li>etc.&lt;/li>
 &lt;/ul>
 &lt;h2 id="tasktid---进程的线程信息目录">./task/TID/ - 进程的线程信息目录&lt;a class="td-heading-self-link" href="#tasktid---%e8%bf%9b%e7%a8%8b%e7%9a%84%e7%ba%bf%e7%a8%8b%e4%bf%a1%e6%81%af%e7%9b%ae%e5%bd%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>

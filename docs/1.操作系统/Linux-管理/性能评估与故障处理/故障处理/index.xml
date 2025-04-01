@@ -128,11 +128,11 @@
 &lt;p>如图所示，物理介质上的数据帧到达后首先由NIC（网络适配器）读取，写入设备内部缓冲区Ring Buffer中，再由中断处理程序触发Softirq从中消费，Ring Buffer的大小因网卡设备而异。当网络数据包到达（生产）的速率快于内核处理（消费）的速率时，Ring Buffer很快会被填满，新来的数据包将被丢弃；&lt;/p>
 &lt;p>查看：&lt;/p>
 &lt;p>通过ethtool或/proc/net/dev可以查看因Ring Buffer满而丢弃的包统计，在统计项中以fifo标识：&lt;/p>
-&lt;p>$ ethtool -S eth0|grep rx_fifo&lt;br>
-rx_fifo_errors: 0&lt;br>
-$ cat /proc/net/dev&lt;br>
-Inter-|Receive | Transmitface |bytes packets errs drop fifo frame compressed&lt;br>
-multicast|bytes packets errs drop fifo colls carrier compressed&lt;br>
+&lt;p>$ ethtool -S eth0|grep rx_fifo
+rx_fifo_errors: 0
+$ cat /proc/net/dev
+Inter-|Receive | Transmitface |bytes packets errs drop fifo frame compressed
+multicast|bytes packets errs drop fifo colls carrier compressed
 eth0: 17253386680731 42839525880 0 0 0 0 0 244182022 14879545018057 41657801805 0 0 0 0 0 0&lt;/p>
 &lt;p># 查看eth0网卡Ring Buffer最大值和当前设置&lt;/p>
 &lt;p>$ ethtool -g eth0&lt;/p>
@@ -156,8 +156,8 @@ eth0: 17253386680731 42839525880 0 0 0 0 0 244182022 14879545018057 41657801805 
 &lt;p>2 .查看网络流控配置：ethtool -a eth1&lt;/p>
 &lt;p>&lt;img src="https://mmbiz.qpic.cn/sz_mmbiz_jpg/8pECVbqIO0wf4MEvQSRT3JhRrXHLiaELp8BibppkXUpwverDFkF6ibdgBFoDk38ApWHTuxw2dnWZ3sMBgHK7MrM6A/640?wx_fmt=jpeg&amp;amp;wxfrom=5&amp;amp;wx_lazy=1&amp;amp;wx_co=1" alt="">&lt;/p>
 &lt;p>解决方案：关闭网卡流控&lt;/p>
-&lt;p>ethtool -A ethx autoneg off //自协商关闭&lt;br>
-ethtool -A ethx tx off //发送模块关闭&lt;br>
+&lt;p>ethtool -A ethx autoneg off //自协商关闭
+ethtool -A ethx tx off //发送模块关闭
 ethtool -A ethx rx off //接收模块关闭&lt;/p>
 &lt;p>报文mac地址丢包&lt;/p>
 &lt;hr>
@@ -218,11 +218,11 @@ ethtool -A ethx rx off //接收模块关闭&lt;/p>
 &lt;p>调整：ethtool -X ethx xxxx；&lt;/p>
 &lt;p>2.看一下网卡中断配置是否均衡 cat /proc/interrupts&lt;/p>
 &lt;p>调整：&lt;/p>
-&lt;p>1） irqbalance 调整；&lt;br>
-# 查看当前运行情况&lt;br>
-service irqbalance status&lt;br>
-# 终止服务&lt;br>
-service irqbalance stop&lt;br>
+&lt;p>1） irqbalance 调整；
+# 查看当前运行情况
+service irqbalance status
+# 终止服务
+service irqbalance stop
 2） 中断绑CPU核 echo mask &amp;gt; /proc/irq/xxx/smp_affinity&lt;/p>
 &lt;p>3.根据CPU和网卡队列个数调整网卡多队列和RPS配置&lt;/p>
 &lt;p>-CPU大于网卡队列个数：&lt;/p>
@@ -239,28 +239,28 @@ service irqbalance stop&lt;br>
 &lt;p>上面中断和RPS设置里面mask需要重新按numa CPU分配重新设置;&lt;/p>
 &lt;p>5.可以试着开启中断聚合（看网卡是否支持）&lt;/p>
 &lt;p>查看 :&lt;/p>
-&lt;p>ethtool -c ethx&lt;br>
-Coalesce parameters for eth1:&lt;br>
-Adaptive RX: on TX: on&lt;br>
-stats-block-usecs: 0&lt;br>
-sample-interval: 0&lt;br>
-pkt-rate-low: 0&lt;br>
+&lt;p>ethtool -c ethx
+Coalesce parameters for eth1:
+Adaptive RX: on TX: on
+stats-block-usecs: 0
+sample-interval: 0
+pkt-rate-low: 0
 pkt-rate-high: 0&lt;/p>
-&lt;p>rx-usecs: 25&lt;br>
-rx-frames: 0&lt;br>
-rx-usecs-irq: 0&lt;br>
+&lt;p>rx-usecs: 25
+rx-frames: 0
+rx-usecs-irq: 0
 rx-frames-irq: 256&lt;/p>
-&lt;p>tx-usecs: 25&lt;br>
-tx-frames: 0&lt;br>
-tx-usecs-irq: 0&lt;br>
+&lt;p>tx-usecs: 25
+tx-frames: 0
+tx-usecs-irq: 0
 tx-frames-irq: 256&lt;/p>
-&lt;p>rx-usecs-low: 0&lt;br>
-rx-frame-low: 0&lt;br>
-tx-usecs-low: 0&lt;br>
+&lt;p>rx-usecs-low: 0
+rx-frame-low: 0
+tx-usecs-low: 0
 tx-frame-low: 0&lt;/p>
-&lt;p>rx-usecs-high: 0&lt;br>
-rx-frame-high: 0&lt;br>
-tx-usecs-high: 0&lt;br>
+&lt;p>rx-usecs-high: 0
+rx-frame-high: 0
+tx-usecs-high: 0
 tx-frame-high: 0&lt;/p>
 &lt;p>调整：&lt;/p>
 &lt;p>ethtool -C ethx adaptive-rx on&lt;/p>
@@ -288,8 +288,8 @@ tx-frame-high: 0&lt;/p>
 &lt;p>sysctl -a | grep arp_filter&lt;/p>
 &lt;p>&lt;img src="https://mmbiz.qpic.cn/sz_mmbiz_png/8pECVbqIO0wf4MEvQSRT3JhRrXHLiaELpazDq9OJaviaMLPdr86IQcwXnRIichKyVQUzlVia5u9mmXAZR4QtEOMSeA/640?wx_fmt=png&amp;amp;wxfrom=5&amp;amp;wx_lazy=1&amp;amp;wx_co=1" alt="">&lt;/p>
 &lt;p>解决方案：&lt;/p>
-&lt;p>根据实际场景设置对应的值，一般默认是关掉此过滤规则，特殊情况可以打开；&lt;br>
-0：默认值，表示回应arp请求的时候不检查接口情况；&lt;br>
+&lt;p>根据实际场景设置对应的值，一般默认是关掉此过滤规则，特殊情况可以打开；
+0：默认值，表示回应arp请求的时候不检查接口情况；
 1：表示回应arp请求时会检查接口是否和接收请求接口一致，不一致就不回应；&lt;/p>
 &lt;p>arp表满导致丢包&lt;/p>
 &lt;p>比如下面这种情况，由于突发arp表项很多 超过协议栈默认配置，发送报文的时候部分arp创建失败，导致发送失败，从而丢包：&lt;/p>
@@ -304,22 +304,22 @@ tx-frame-high: 0&lt;/p>
 &lt;/li>
 &lt;/ul>
 &lt;p>&lt;img src="https://mmbiz.qpic.cn/sz_mmbiz_png/8pECVbqIO0wf4MEvQSRT3JhRrXHLiaELpEibxTls4twtb9WyQ5kAfNt2rKcgH17QIaeDfDypjBlQmsTZxg29QpSg/640?wx_fmt=png&amp;amp;wxfrom=5&amp;amp;wx_lazy=1&amp;amp;wx_co=1" alt="">&lt;/p>
-&lt;p>dmesg|grep neighbour&lt;br>
+&lt;p>dmesg|grep neighbour
 neighbour: arp_cache: neighbor table overflow!&lt;/p>
 &lt;ul>
 &lt;li>查看当前arp表大小：ip n|wc -l&lt;/li>
 &lt;/ul>
 &lt;p>查看系统配额：&lt;/p>
-&lt;p>sysctl -a |grep net.ipv4.neigh.default.gc_thresh&lt;br>
+&lt;p>sysctl -a |grep net.ipv4.neigh.default.gc_thresh
 gc_thresh1：存在于ARP高速缓存中的最少层数，如果少于这个数，垃圾收集器将不会运行。缺省值是128。&lt;/p>
-&lt;p>gc_thresh2 ：保存在 ARP 高速缓存中的最多的记录软限制。垃圾收集器在开始收集前，允许记录数超过这个数字 5 秒。缺省值是 512。&lt;br>
+&lt;p>gc_thresh2 ：保存在 ARP 高速缓存中的最多的记录软限制。垃圾收集器在开始收集前，允许记录数超过这个数字 5 秒。缺省值是 512。
 gc_thresh3 ：保存在 ARP 高速缓存中的最多记录的硬限制，一旦高速缓存中的数目高于此，垃圾收集器将马上运行。缺省值是1024。&lt;/p>
 &lt;p>一般在内存足够情况下，可以认为gc_thresh3 值是arp 表总大小；&lt;/p>
 &lt;p>&lt;img src="https://mmbiz.qpic.cn/sz_mmbiz_png/8pECVbqIO0wf4MEvQSRT3JhRrXHLiaELpC1icjGwAGxhoH02AgNPSmJgyDrlvibic3dLAZpEOCKAfs7NqR6Y1AuZBA/640?wx_fmt=png&amp;amp;wxfrom=5&amp;amp;wx_lazy=1&amp;amp;wx_co=1" alt="">&lt;/p>
 &lt;p>解决方案：根据实际arp最大值情况（比如访问其他子机最大个数），调整arp表大小&lt;/p>
-&lt;p>$ sudo sysctl -w net.ipv4.neigh.default.gc_thresh1=1024&lt;br>
-$ sudo sysctl -w net.ipv4.neigh.default.gc_thresh2=2048&lt;br>
-$ sudo sysctl -w net.ipv4.neigh.default.gc_thresh3=4096&lt;br>
+&lt;p>$ sudo sysctl -w net.ipv4.neigh.default.gc_thresh1=1024
+$ sudo sysctl -w net.ipv4.neigh.default.gc_thresh2=2048
+$ sudo sysctl -w net.ipv4.neigh.default.gc_thresh3=4096
 $ sudo sysctl -p&lt;/p>
 &lt;p>arp请求缓存队列溢出丢包&lt;/p>
 &lt;p>查看：&lt;/p>
@@ -362,7 +362,7 @@ $ sudo sysctl -p&lt;/p>
 &lt;p>从原理来看这个机制工作在网络层，因此，如果客户端能够Ping通服务器，就能够排除这个因素了。&lt;/p>
 &lt;p>解决方案：&lt;/p>
 &lt;p>根据实际网络环境将rp_filter设置为0或2：&lt;/p>
-&lt;p>$ sysctl -w net.ipv4.conf.all.rp_filter=2或&lt;br>
+&lt;p>$ sysctl -w net.ipv4.conf.all.rp_filter=2或
 $ sysctl -w net.ipv4.conf.eth0.rp_filter=2&lt;/p>
 &lt;p>防火墙丢包&lt;/p>
 &lt;hr>
@@ -376,11 +376,11 @@ $ sysctl -w net.ipv4.conf.eth0.rp_filter=2&lt;/p>
 &lt;p>查看当前连接跟踪数 :&lt;/p>
 &lt;p>cat /proc/sys/net/netfilter/nf_conntrack_max&lt;/p>
 &lt;p>解决方案：&lt;/p>
-&lt;p>增大跟踪的最大条数&lt;br>
-net.netfilter.nf_conntrack_max = 3276800&lt;br>
-减少跟踪连接的最大有效时间&lt;br>
-net.netfilter.nf_conntrack_tcp_timeout_established = 1200&lt;br>
-net.netfilter.nf_conntrack_udp_timeout_stream = 180&lt;br>
+&lt;p>增大跟踪的最大条数
+net.netfilter.nf_conntrack_max = 3276800
+减少跟踪连接的最大有效时间
+net.netfilter.nf_conntrack_tcp_timeout_established = 1200
+net.netfilter.nf_conntrack_udp_timeout_stream = 180
 net.netfilter.nf_conntrack_icmp_timeout = 30&lt;/p>
 &lt;p>ct创建冲突失导致丢包&lt;/p>
 &lt;hr>
@@ -395,11 +395,11 @@ net.netfilter.nf_conntrack_icmp_timeout = 30&lt;/p>
 &lt;p>0：开启; 所有不在tcp窗口中的包都被标志为无效；&lt;/p>
 &lt;p>查看：&lt;/p>
 &lt;p>查看配置 ：&lt;/p>
-&lt;p>sysctl -a|grep nf_conntrack_tcp_be_liberal&lt;br>
+&lt;p>sysctl -a|grep nf_conntrack_tcp_be_liberal
 net.netfilter.nf_conntrack_tcp_be_liberal = 1&lt;/p>
 &lt;p>查看log：&lt;/p>
 &lt;p>一般情况下netfiler模块默认没有加载log，需要手动加载;&lt;/p>
-&lt;p>modprobe ipt_LOG11&lt;br>
+&lt;p>modprobe ipt_LOG11
 sysctl -w net.netfilter.nf_log.2=ipt_LOG&lt;/p>
 &lt;p>然后发包后在查看syslog；&lt;/p>
 &lt;p>解决方案：根据实际抓包分析情况判断是不是此机制导致的丢包，可以试着关闭试一下；&lt;/p>
@@ -407,21 +407,21 @@ sysctl -w net.netfilter.nf_log.2=ipt_LOG&lt;/p>
 &lt;hr>
 &lt;p>情况总结：超时&lt;/p>
 &lt;p>查看：&lt;/p>
-&lt;p>netstat -s|grep timeout&lt;br>
+&lt;p>netstat -s|grep timeout
 601 fragments dropped after timeout&lt;/p>
 &lt;p>解决方法：调整超时时间&lt;/p>
-&lt;p>net.ipv4.ipfrag_time = 30&lt;br>
+&lt;p>net.ipv4.ipfrag_time = 30
 sysctl -w net.ipv4.ipfrag_time=60&lt;/p>
 &lt;p>frag_high_thresh, 分片的内存超过一定阈值会导致系统安全检查丢包&lt;/p>
 &lt;p>查看：&lt;/p>
-&lt;p>netstat -s|grep reassembles&lt;br>
+&lt;p>netstat -s|grep reassembles
 8094 packet reassembles failed&lt;/p>
 &lt;p>解决方案：调整大小&lt;/p>
-&lt;p>net.ipv4.ipfrag_high_thresh&lt;br>
+&lt;p>net.ipv4.ipfrag_high_thresh
 net.ipv4.ipfrag_low_thresh&lt;/p>
 &lt;p>分片安全距检查离丢包&lt;/p>
 &lt;p>查看：&lt;/p>
-&lt;p>netstat -s|grep reassembles&lt;br>
+&lt;p>netstat -s|grep reassembles
 8094 packet reassembles failed&lt;/p>
 &lt;p>解决方案： 把ipfrag_max_dist设置为0，就关掉此安全检查&lt;/p>
 &lt;p>&lt;img src="https://mmbiz.qpic.cn/sz_mmbiz_png/8pECVbqIO0wf4MEvQSRT3JhRrXHLiaELp7SzcxFlaHb7b1tt84QbicibF39bXgAofFcAEqo0j21y7t3ItzB6v3Cicg/640?wx_fmt=png&amp;amp;wxfrom=5&amp;amp;wx_lazy=1&amp;amp;wx_co=1" alt="">&lt;/p>
@@ -430,27 +430,27 @@ net.ipv4.ipfrag_low_thresh&lt;/p>
 &lt;p>2.发送端的并发度很高，同时SMP架构，导致很容易造成这种乱序情况；&lt;/p>
 &lt;p>分片hash bucket冲突链太长超过系统默认值128&lt;/p>
 &lt;p>查看：&lt;/p>
-&lt;p>dmesg|grep “Dropping fragment”&lt;br>
+&lt;p>dmesg|grep “Dropping fragment”
 inet_frag_find: Fragment hash bucket 128 list length grew over limit. Dropping fragment.&lt;/p>
 &lt;p>解决方案：热补丁调整hash大小；&lt;/p>
 &lt;p>系统内存不足，创建新分片队列失败&lt;/p>
 &lt;p>查看方法：&lt;/p>
-&lt;p>netstat -s|grep reassembles&lt;br>
+&lt;p>netstat -s|grep reassembles
 8094 packet reassembles failed&lt;/p>
 &lt;p>dropwatch查看丢包位置 ：&lt;/p>
 &lt;p>&lt;img src="https://mmbiz.qpic.cn/sz_mmbiz_jpg/8pECVbqIO0wf4MEvQSRT3JhRrXHLiaELp83LWyjXXv7hA3NnalsUQrP4qicl3PYiaR6JL3132MAg6fcJYbYj3kdwA/640?wx_fmt=jpeg&amp;amp;wxfrom=5&amp;amp;wx_lazy=1&amp;amp;wx_co=1" alt="">&lt;/p>
 &lt;p>解决方案：&lt;/p>
 &lt;p>a.增大系统网络内存：&lt;/p>
-&lt;p>net.core.rmem_default&lt;br>
-net.core.rmem_max&lt;br>
+&lt;p>net.core.rmem_default
+net.core.rmem_max
 net.core.wmem_default&lt;/p>
 &lt;p>b.系统回收内存：&lt;/p>
 &lt;p>紧急情况下，可以用 /proc/sys/vm/drop_caches, 去释放一下虚拟内存；&lt;/p>
-&lt;p>To free pagecache:&lt;br>
-# echo 1 &amp;gt; /proc/sys/vm/drop_caches&lt;br>
-To free dentries and inodes:&lt;br>
-# echo 2 &amp;gt; /proc/sys/vm/drop_caches&lt;br>
-To free pagecache, dentries and inodes:&lt;br>
+&lt;p>To free pagecache:
+# echo 1 &amp;gt; /proc/sys/vm/drop_caches
+To free dentries and inodes:
+# echo 2 &amp;gt; /proc/sys/vm/drop_caches
+To free pagecache, dentries and inodes:
 echo 3 &amp;gt; /proc/sys/vm/drop_caches&lt;/p>
 &lt;p>MTU丢包&lt;/p>
 &lt;hr>
@@ -461,11 +461,11 @@ echo 3 &amp;gt; /proc/sys/vm/drop_caches&lt;/p>
 &lt;p>解决方案：&lt;/p>
 &lt;p>1. 根据实际情况，设置正确MTU值；&lt;/p>
 &lt;p>2. 设置合理的tcp mss，启用TCP MTU Probe:&lt;/p>
-&lt;p>cat /proc/sys/net/ipv4/tcp_mtu_probing:&lt;br>
-tcp_mtu_probing - INTEGER Controls TCP Packetization-Layer Path MTU Discovery.&lt;br>
-Takes three values:&lt;br>
-0 - Disabled&lt;br>
-1 - Disabled by default, enabled when an ICMP black hole detected&lt;br>
+&lt;p>cat /proc/sys/net/ipv4/tcp_mtu_probing:
+tcp_mtu_probing - INTEGER Controls TCP Packetization-Layer Path MTU Discovery.
+Takes three values:
+0 - Disabled
+1 - Disabled by default, enabled when an ICMP black hole detected
 2 - Always enabled, use initial MSS of tcp_base_mss.&lt;/p>
 &lt;p>tcp层丢包&lt;/p>
 &lt;hr>
@@ -473,10 +473,10 @@ Takes three values:&lt;br>
 &lt;p>大量TIMEWAIT出现，并且需要解决的场景，在高并发短连接的TCP服务器上，当服务器处理完请求后立刻按照主动正常关闭连接。。。这个场景下，会出现大量socket处于TIMEWAIT状态。如果客户端的并发量持续很高，此时部分客户端就会显示连接不上；&lt;/p>
 &lt;p>查看：&lt;/p>
 &lt;p>查看系统log ：&lt;/p>
-&lt;p>dmsg&lt;br>
+&lt;p>dmsg
 TCP: time wait bucket table overflow；&lt;/p>
 &lt;p>查看系统配置：&lt;/p>
-&lt;p>sysctl -a|grep tcp_max_tw_buckets&lt;br>
+&lt;p>sysctl -a|grep tcp_max_tw_buckets
 net.ipv4.tcp_max_tw_buckets = 16384&lt;/p>
 &lt;p>解决方案：&lt;/p>
 &lt;p>1. tw_reuse，tw_recycle 必须在客户端和服务端timestamps 开启时才管用（默认打开）&lt;/p>
@@ -503,7 +503,7 @@ net.ipv4.tcp_max_tw_buckets = 16384&lt;/p>
 &lt;p>第三次握手时，当server接收到ACK 报之后， 会进入一个新的叫 accept 的队列，该队列的长度为 min(backlog, somaxconn)，默认情况下，somaxconn 的值为 128，表示最多有 129 的 ESTAB 的连接等待 accept()，而 backlog 的值则应该是由 int listen(int sockfd, int backlog) 中的第二个参数指定，listen 里面的 backlog 可以有我们的应用程序去定义的;&lt;/p>
 &lt;p>查看：&lt;/p>
 &lt;p>连接建立失败,syn丢包：&lt;/p>
-&lt;p>netstat -s |grep -i listen&lt;br>
+&lt;p>netstat -s |grep -i listen
 SYNs to LISTEN sockets dropped&lt;/p>
 &lt;p>也会受到连接满丢包影响&lt;/p>
 &lt;p>解决方案： 增加大小 tcp_max_syn_backlog&lt;/p>
@@ -554,15 +554,15 @@ SYNs to LISTEN sockets dropped&lt;/p>
 &lt;p>PAWS机制丢包&lt;/p>
 &lt;p>原理：PAWS(Protect Against Wrapped Sequence numbers)，高带宽下，TCP序列号可能在较短的时间内就被重复使用(recycle/wrapped) 就可能导致同一条TCP流在短时间内出现序号一样的两个合法的数据包及其确认包。&lt;/p>
 &lt;p>查看：&lt;/p>
-&lt;p>$netstat -s |grep -e &amp;ldquo;passive connections rejected because of time&lt;br>
-stamp&amp;rdquo; -e &amp;ldquo;packets rejects in established connections because of&lt;br>
-timestamp”&lt;br>
-387158 passive connections rejected because of time stamp&lt;br>
+&lt;p>$netstat -s |grep -e &amp;ldquo;passive connections rejected because of time
+stamp&amp;rdquo; -e &amp;ldquo;packets rejects in established connections because of
+timestamp”
+387158 passive connections rejected because of time stamp
 825313 packets rejects in established connections because of timestamp&lt;/p>
 &lt;p>通过sysctl查看是否启用了tcp_tw_recycle及tcp_timestamp:&lt;/p>
-&lt;p>$ sysctl net.ipv4.tcp_tw_recycle&lt;br>
-net.ipv4.tcp_tw_recycle = 1&lt;br>
-$ sysctl net.ipv4.tcp_timestamps&lt;br>
+&lt;p>$ sysctl net.ipv4.tcp_tw_recycle
+net.ipv4.tcp_tw_recycle = 1
+$ sysctl net.ipv4.tcp_timestamps
 net.ipv4.tcp_timestamps = 1&lt;/p>
 &lt;p>1. tcp_tw_recycle参数。它用来快速回收TIME_WAIT连接，不过如果在NAT环境下会引发问题;&lt;/p>
 &lt;p>2. 当多个客户端通过NAT方式联网并与服务端交互时，服务端看到的是同一个IP，也就是说对服务端而言这些客户端实际上等同于一个，可惜由于这些客户端的时间戳可能存在差异，于是乎从服务端的视角看，便可能出现时间戳错乱的现象，进而直接导致时间戳小的数据包被丢弃。如果发生了此类问题，具体的表现通常是是客户端明明发送的SYN，但服务端就是不响应ACK。&lt;/p>
@@ -587,28 +587,28 @@ net.ipv4.tcp_timestamps = 1&lt;/p>
 &lt;p>查看log：&lt;/p>
 &lt;p>dmesg|grep “out of memory”&lt;/p>
 &lt;p>查看系统配置：&lt;/p>
-&lt;p>cat /proc/sys/net/ipv4/tcp_mem&lt;br>
-cat /proc/sys/net/ipv4/tcp_rmem&lt;br>
+&lt;p>cat /proc/sys/net/ipv4/tcp_mem
+cat /proc/sys/net/ipv4/tcp_rmem
 cat /proc/sys/net/ipv4/tcp_wmem&lt;/p>
 &lt;p>解决方案：&lt;/p>
 &lt;p>根据TCP业务并发流量，调整系统参数，一般试着增大2倍或者其他倍数来看是否缓解；&lt;/p>
-&lt;p>sysclt -w net.ipv4.tcp_mem=&lt;br>
-sysclt -w net.ipv4.tcp_wmem=&lt;br>
-sysclt -w net.ipv4.tcp_rmem=&lt;br>
+&lt;p>sysclt -w net.ipv4.tcp_mem=
+sysclt -w net.ipv4.tcp_wmem=
+sysclt -w net.ipv4.tcp_rmem=
 sysctl -p&lt;/p>
 &lt;p>TCP超时丢包&lt;/p>
 &lt;p>查看：&lt;/p>
 &lt;p>抓包分析一下网络RTT：&lt;/p>
 &lt;p>&lt;img src="https://mmbiz.qpic.cn/sz_mmbiz_png/8pECVbqIO0wf4MEvQSRT3JhRrXHLiaELpezYtbPYsd4m5R8Yeka5wLgMF5qmfSL7hSZ6Oeiarv0YoLpqXliaom0XA/640?wx_fmt=png&amp;amp;wxfrom=5&amp;amp;wx_lazy=1&amp;amp;wx_co=1" alt="">&lt;/p>
 &lt;p>用其他工具测试一下当前端到端网络质量（hping等）；&lt;/p>
-&lt;p># hping -S 9.199.10.104 -A&lt;br>
-HPING 9.199.10.104 (bond1 9.199.10.104): SA set, 40 headers + 0 data bytes&lt;br>
-len=46 ip=9.199.10.104 ttl=53 DF id=47617 sport=0 flags=R seq=0 win=0 rtt=38.3 ms&lt;br>
-len=46 ip=9.199.10.104 ttl=53 DF id=47658 sport=0 flags=R seq=1 win=0 rtt=38.3 ms&lt;br>
-len=46 ip=9.199.10.104 ttl=53 DF id=47739 sport=0 flags=R seq=2 win=0 rtt=30.4 ms&lt;br>
-len=46 ip=9.199.10.104 ttl=53 DF id=47842 sport=0 flags=R seq=3 win=0 rtt=30.4 ms&lt;br>
-len=46 ip=9.199.10.104 ttl=53 DF id=48485 sport=0 flags=R seq=4 win=0 rtt=38.7 ms&lt;br>
-len=46 ip=9.199.10.104 ttl=53 DF id=49274 sport=0 flags=R seq=5 win=0 rtt=34.1 ms&lt;br>
+&lt;p># hping -S 9.199.10.104 -A
+HPING 9.199.10.104 (bond1 9.199.10.104): SA set, 40 headers + 0 data bytes
+len=46 ip=9.199.10.104 ttl=53 DF id=47617 sport=0 flags=R seq=0 win=0 rtt=38.3 ms
+len=46 ip=9.199.10.104 ttl=53 DF id=47658 sport=0 flags=R seq=1 win=0 rtt=38.3 ms
+len=46 ip=9.199.10.104 ttl=53 DF id=47739 sport=0 flags=R seq=2 win=0 rtt=30.4 ms
+len=46 ip=9.199.10.104 ttl=53 DF id=47842 sport=0 flags=R seq=3 win=0 rtt=30.4 ms
+len=46 ip=9.199.10.104 ttl=53 DF id=48485 sport=0 flags=R seq=4 win=0 rtt=38.7 ms
+len=46 ip=9.199.10.104 ttl=53 DF id=49274 sport=0 flags=R seq=5 win=0 rtt=34.1 ms
 len=46 ip=9.199.10.104 ttl=53 DF id=49491 sport=0 flags=R seq=6 win=0 rtt=30.3 ms&lt;/p>
 &lt;p>解决方案：&lt;/p>
 &lt;ul>
@@ -660,8 +660,8 @@ len=46 ip=9.199.10.104 ttl=53 DF id=49491 sport=0 flags=R seq=6 win=0 rtt=30.3 m
 &lt;p>按峰值在来，增大buffer缓存区大小：&lt;/p>
 &lt;/li>
 &lt;/ol>
-&lt;p>net.ipv4.udp_mem = xxx&lt;br>
-net.ipv4.udp_rmem_min = xxx&lt;br>
+&lt;p>net.ipv4.udp_mem = xxx
+net.ipv4.udp_rmem_min = xxx
 net.ipv4.udp_wmem_min = xxx&lt;/p>
 &lt;p>3. 调整应用设计：&lt;/p>
 &lt;ul>
@@ -690,10 +690,10 @@ net.ipv4.udp_wmem_min = xxx&lt;/p>
 &lt;p>netstat -s|grep &amp;ldquo;packet receive errors&amp;rdquo;&lt;/p>
 &lt;p>解决方案：&lt;/p>
 &lt;p>调整socket缓冲区大小：&lt;/p>
-&lt;p>socket配置（所有协议socket）：&lt;br>
-# Default Socket Receive Buffer&lt;br>
-net.core.rmem_default = 31457280&lt;br>
-# Maximum Socket Receive Buffer&lt;br>
+&lt;p>socket配置（所有协议socket）：
+# Default Socket Receive Buffer
+net.core.rmem_default = 31457280
+# Maximum Socket Receive Buffer
 net.core.rmem_max = 67108864&lt;/p>
 &lt;p>具体大小调整原理：&lt;/p>
 &lt;p>缓冲区大小没有任何设置值是最佳的，因为最佳大小随具体情况而不同&lt;/p>
@@ -722,7 +722,7 @@ net.core.rmem_max = 67108864&lt;/p>
 &lt;ul>
 &lt;li>调整系统socket缓冲区大小：&lt;/li>
 &lt;/ul>
-&lt;p># Default Socket Send Buffer&lt;br>
+&lt;p># Default Socket Send Buffer
 net.core.wmem_default = 31457280&lt;/p>
 &lt;h1 id="maximum-socket-send-buffer">Maximum Socket Send Buffer&lt;a class="td-heading-self-link" href="#maximum-socket-send-buffer" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>net.core.wmem_max = 33554432&lt;/p>

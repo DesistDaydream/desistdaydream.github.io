@@ -1,4 +1,63 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – Kubernetes 扩展</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/</link><description>Recent content in Kubernetes 扩展 on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Operator 模式</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Operator-%E6%A8%A1%E5%BC%8F/</link><pubDate>Wed, 13 May 2020 22:41:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Operator-%E6%A8%A1%E5%BC%8F/</guid><description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – Kubernetes 扩展</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/</link><description>Recent content in Kubernetes 扩展 on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Kubernetes 扩展</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Kubernetes-%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Kubernetes-%E6%89%A9%E5%B1%95/</guid><description>
+&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;blockquote>
+&lt;p>参考：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/extend-kubernetes/extend-cluster/">官方文档，概念 - 扩展 Kubernetes - 扩展集群&lt;/a>&lt;/li>
+&lt;li>概念：&lt;/li>
+&lt;li>任务：&lt;a href="https://kubernetes.io/docs/tasks/extend-kubernetes/">https://kubernetes.io/docs/tasks/extend-kubernetes/&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;/blockquote>
+&lt;p>这里引用张磊大佬的一张图来开篇&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eo9qpz/1619144340194-3bfc699a-f6ca-4732-b4f2-0d49c7512b1a.jpeg" alt="">&lt;/p>
+&lt;p>Kubernetes 是高度可配置和可扩展的。因此，极少需要分发或提交补丁代码给 Kubernetes 项目。通过对 Kubernetes 的扩展，可以将中间狭窄的部分扩大。&lt;/p>
+&lt;p>本文档介绍自定义 Kubernetes 集群的方式。本文档的目标读者包括希望了解如何使 Kubernetes 集群满足其业务环境需求的 &lt;a href="https://kubernetes.io/zh/docs/reference/glossary/?all=true#term-cluster-operator">集群运维人员&lt;/a>、 Kubernetes 项目的&lt;a href="https://kubernetes.io/zh/docs/reference/glossary/?all=true#term-contributor">贡献者&lt;/a>。 或潜在的&lt;a href="https://kubernetes.io/zh/docs/reference/glossary/?all=true#term-platform-developer">平台开发人员&lt;/a> 也可以从本文找到有用的信息，如对已存在扩展点和模式的介绍，以及它们的权衡和限制。&lt;/p>
+&lt;p>自定义方法可以大致分为两类&lt;/p>
+&lt;ol>
+&lt;li>Configuration (配置) # 配置只涉及更改标志参数、本地配置文件或 API 资源；&lt;/li>
+&lt;li>Extension (扩展) # 扩展涉及运行额外的程序或服务。&lt;/li>
+&lt;/ol>
+&lt;p>扩展的实现依赖于某些特殊配置，这些配置可能在某些 k8s 发行版中并不自带。需要自行修改程序参数来让集群支撑某些扩展方式。&lt;/p>
+&lt;h2 id="配置-kubernetes-集群">配置 Kubernetes 集群&lt;a class="td-heading-self-link" href="#%e9%85%8d%e7%bd%ae-kubernetes-%e9%9b%86%e7%be%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>关于 配置文件 和 标志 的说明文档位于在线文档的&amp;quot;参考&amp;quot;部分，按照可执行文件组织：&lt;/p>
+&lt;ul>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kubelet/">kubelet&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kube-apiserver/">kube-apiserver&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kube-controller-manager/">kube-controller-manager&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kube-scheduler/">kube-scheduler&lt;/a>.&lt;/li>
+&lt;/ul>
+&lt;p>在托管的 Kubernetes 服务或受控安装的 Kubernetes 版本中，标志和配置文件可能并不总是可以更改的。而且当它们可以进行更改时，它们通常只能由集群管理员进行更改。此外，标志和配置文件在未来的 Kubernetes 版本中可能会发生变化，并且更改设置后它们可能需要重新启动进程。出于这些原因，只有在没有其他选择的情况下才使用它们。&lt;/p>
+&lt;p>内置策略 API ，例如 &lt;a href="https://kubernetes.io/zh/docs/concepts/policy/resource-quotas/">ResourceQuota&lt;/a>、 &lt;a href="https://kubernetes.io/zh/docs/concepts/policy/pod-security-policy/">PodSecurityPolicy&lt;/a>、 &lt;a href="https://kubernetes.io/zh/docs/concepts/services-networking/network-policies/">NetworkPolicy&lt;/a> 和基于角色的权限控制 (&lt;a href="https://kubernetes.io/zh/docs/reference/access-authn-authz/rbac/">RBAC&lt;/a>)， 是内置的 Kubernetes API。API 通常与托管的 Kubernetes 服务和受控的 Kubernetes 安装一起使用。 它们是声明性的，并使用与其他 Kubernetes 资源（如 Pod ）相同的约定，所以新的集群配置可以重复使用， 并以与应用程序相同的方式进行管理。 而且，当它们变稳定后，也遵循和其他 Kubernetes API 一样的 &lt;a href="https://kubernetes.io/docs/reference/using-api/deprecation-policy/">支持政策&lt;/a>。 出于这些原因，在合适的情况下它们优先于 配置文件 和 标志 被使用。&lt;/p>
+&lt;h2 id="扩展-kubernetes-集群">扩展 Kubernetes 集群&lt;a class="td-heading-self-link" href="#%e6%89%a9%e5%b1%95-kubernetes-%e9%9b%86%e7%be%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>Kubernetes 的设计是通过编写客户端程序来实现自动化的。 任何读和（或）写 Kubernetes API 的程序都可以提供有用的自动化工作。 自动化 程序可以运行在集群之中或之外。按照本文档的指导，你可以编写出高可用的和健壮的自动化程序。 自动化程序通常适用于任何 Kubernetes 集群，包括托管集群和受管理安装的集群。&lt;/p>
+&lt;p>控制器（Controller） 模式是编写适合 Kubernetes 的客户端程序的一种特定模式。 控制器通常读取一个对象的 .spec 字段，可能做出一些处理，然后更新对象的 .status 字段。&lt;/p>
+&lt;p>一个控制器是 Kubernetes 的一个客户端。 当 Kubernetes 作为客户端调用远程服务时，它被称为 Webhook ， 远程服务称为 Webhook 后端。 和控制器类似，Webhooks 增加了一个失败点。&lt;/p>
+&lt;p>在 webhook 模型里，Kubernetes 向远程服务发送一个网络请求。 在 可执行文件插件 模型里，Kubernetes 执行一个可执行文件（程序）。 可执行文件插件被 kubelet（如 &lt;a href="https://github.com/kubernetes/community/blob/master/contributors/devel/flexvolume.md">Flex 卷插件&lt;/a>和 &lt;a href="https://kubernetes.io/zh/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/">网络插件&lt;/a>和 kubectl 所使用。&lt;/p>
+&lt;h1 id="扩展-kubernetes-集群的方式">扩展 Kubernetes 集群的方式&lt;a class="td-heading-self-link" href="#%e6%89%a9%e5%b1%95-kubernetes-%e9%9b%86%e7%be%a4%e7%9a%84%e6%96%b9%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="kubernetes-api-扩展">Kubernetes API 扩展&lt;a class="td-heading-self-link" href="#kubernetes-api-%e6%89%a9%e5%b1%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;ol>
+&lt;li>&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes%20%E6%89%A9%E5%B1%95/Custom%20Resource%20Definitions(CRD).md">Custom Resource Definitions(自定义资源定义)&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes%20%E6%89%A9%E5%B1%95/API%20Aggregation(%E8%81%9A%E5%90%88)%20Layer.md">API Aggregation(聚合) Layer&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes%20%E6%89%A9%E5%B1%95/Operator%20%E6%A8%A1%E5%BC%8F.md">Operator 模式&lt;/a>&lt;/li>
+&lt;/ol>
+&lt;h2 id="计算存储网络扩展">计算、存储、网络扩展&lt;a class="td-heading-self-link" href="#%e8%ae%a1%e7%ae%97%e5%ad%98%e5%82%a8%e7%bd%91%e7%bb%9c%e6%89%a9%e5%b1%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h2 id="service-catalog-服务目录详见service-catalog-服务目录">Service Catalog 服务目录。详见：Service Catalog 服务目录&lt;a class="td-heading-self-link" href="#service-catalog-%e6%9c%8d%e5%8a%a1%e7%9b%ae%e5%bd%95%e8%af%a6%e8%a7%81service-catalog-%e6%9c%8d%e5%8a%a1%e7%9b%ae%e5%bd%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;h1 id="扩展点">扩展点&lt;a class="td-heading-self-link" href="#%e6%89%a9%e5%b1%95%e7%82%b9" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>扩展点的意思就是在 kubernetes 可以实现扩展的位置。“点” 这个字的意思类似与这种语境(我下面要说的几点注意事项。某件事物的触发点。兴奋点。G 点哈哈囧)&lt;/p>
+&lt;p>下图显示了各种扩展点如何与 Kubernetes 控制平面进行交互。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eo9qpz/1619144357206-5faf80b1-f5f1-4daa-bc39-26ab29976d5e.jpeg" alt="">&lt;/p>
+&lt;p>下图显示了 Kubernetes 系统的扩展点。&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eo9qpz/1619144364591-352e19a9-91b8-4a9d-a257-13dc02b6008e.jpeg" alt="">&lt;/p>
+&lt;ol>
+&lt;li>用户通常使用 kubectl 与 Kubernetes API 进行交互。 &lt;a href="https://kubernetes.io/zh/docs/tasks/extend-kubectl/kubectl-plugins/">kubectl 插件&lt;/a>扩展了 kubectl 可执行文件。 它们只影响个人用户的本地环境，因此不能执行站点范围的策略。&lt;/li>
+&lt;li>API 服务器处理所有请求。API 服务器中的几种类型的扩展点允许对请求进行身份认证或根据其内容对其进行阻止、 编辑内容以及处理删除操作。这些内容在 &lt;a href="https://kubernetes.io/zh/docs/concepts/extend-kubernetes/#api-access-extensions">API 访问扩展&lt;/a>小节中描述。&lt;/li>
+&lt;li>API 服务器提供各种 资源（Resource） 。 内置的资源种类（Resource Kinds） ，如 pods， 由 Kubernetes 项目定义，不能更改。你还可以添加你自己定义的资源或其他项目已定义的资源， 称为 自定义资源（Custom Resource），如&lt;a href="https://kubernetes.io/zh/docs/concepts/extend-kubernetes/#user-defined-types">自定义资源&lt;/a> 部分所述。自定义资源通常与 API 访问扩展一起使用。&lt;/li>
+&lt;li>Kubernetes 调度器决定将 Pod 放置到哪个节点。有几种方法可以扩展调度器。 这些内容在&lt;a href="https://kubernetes.io/zh/docs/concepts/extend-kubernetes/#scheduler-extensions">调度器扩展&lt;/a> 小节中描述。&lt;/li>
+&lt;li>Kubernetes 的大部分行为都是由称为控制器（Controllers）的程序实现的，这些程序是 API 服务器的客户端。 控制器通常与自定义资源一起使用。&lt;/li>
+&lt;li>kubelet 在主机上运行，并帮助 Pod 看起来就像在集群网络上拥有自己的 IP 的虚拟服务器。 &lt;a href="https://kubernetes.io/zh/docs/concepts/extend-kubernetes/#network-plugins/">网络插件&lt;/a>让你可以实现不同的 pod 网络。&lt;/li>
+&lt;li>kubelet 也负责为容器挂载和卸载卷。新的存储类型可以通过 &lt;a href="https://kubernetes.io/docs/concepts/extend-kubernetes/#storage-plugins">存储插件&lt;/a>支持。&lt;/li>
+&lt;/ol>
+&lt;p>如果你不确定从哪里开始扩展，下面流程图可以提供一些帮助。请注意，某些解决方案可能涉及多种类型的扩展。&lt;/p></description></item><item><title>Docs: Operator 模式</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Operator-%E6%A8%A1%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Operator-%E6%A8%A1%E5%BC%8F/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -61,7 +120,7 @@
 &lt;li>参考社区测试指南进行业务逻辑的本地测试以及打包和发布格式的本地校验；&lt;/li>
 &lt;li>在完成测试后可以根据规定格式向社区提交 PR，会有专人进行 review；&lt;/li>
 &lt;li>待社区审核通过完成 merge 后，终端用户就可以在 &lt;a href="http://OperatorHub.io">OperatorHub.io&lt;/a> 页面上找到业务对应的 Operator；&lt;/li>
-&lt;li>用户可以在 &lt;a href="http://OperatorHub.io">OperatorHub.io &lt;/a>上找到业务 Operator 对应的说明文档和安装指南，通过简单的命令行操作即可在目标集群上完成 Operator 实例的安装；&lt;/li>
+&lt;li>用户可以在 &lt;a href="http://OperatorHub.io">OperatorHub.io&lt;/a>上找到业务 Operator 对应的说明文档和安装指南，通过简单的命令行操作即可在目标集群上完成 Operator 实例的安装；&lt;/li>
 &lt;li>Operator 实例会根据配置创建所需的业务应用，OLM 和 Operator Metering 等组件可以帮助用户完成业务应用对应的运维和监控采集等管理操作。&lt;/li>
 &lt;/ul>
 &lt;h3 id="总结">总结&lt;a class="td-heading-self-link" href="#%e6%80%bb%e7%bb%93" aria-label="Heading self-link">&lt;/a>&lt;/h3>
@@ -122,7 +181,7 @@
 &lt;li>awesome-operators 中罗列了目前已知的 Operator。&lt;/li>
 &lt;li>借助已有的工具来编写您自己的 Operator，例如：
 &lt;ul>
-&lt;li>&lt;a href="https://kudo.dev/">KUDO &lt;/a>(Kubernetes 通用声明式 Operator)&lt;/li>
+&lt;li>&lt;a href="https://kudo.dev/">KUDO&lt;/a>(Kubernetes 通用声明式 Operator)&lt;/li>
 &lt;li>&lt;a href="https://book.kubebuilder.io/">Kubebuilder&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://metacontroller.app/">Metacontroller&lt;/a>，可与 Webhook 结合使用，以实现自己的功能。&lt;/li>
 &lt;li>&lt;a href="https://github.com/operator-framework/getting-started">Operator Framework&lt;/a>&lt;/li>
@@ -132,66 +191,7 @@
 &lt;li>阅读 &lt;a href="https://coreos.com/blog/introducing-operators.html">CoreOS 原文&lt;/a>，其介绍了 Operator 介绍&lt;/li>
 &lt;li>阅读这篇来自谷歌云的关于构建 Operator 最佳实践的 文章&lt;/li>
 &lt;/ul>
-&lt;p>&lt;a href="https://www.zhihu.com/question/290497164">kubebuilder 与 Operator Framework 的对比&lt;/a>&lt;/p></description></item><item><title>Docs: Kubernetes 扩展</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Kubernetes-%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Kubernetes-%E6%89%A9%E5%B1%95/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://kubernetes.io/docs/concepts/extend-kubernetes/extend-cluster/">官方文档，概念 - 扩展 Kubernetes - 扩展集群&lt;/a>&lt;/li>
-&lt;li>概念：&lt;/li>
-&lt;li>任务：&lt;a href="https://kubernetes.io/docs/tasks/extend-kubernetes/">https://kubernetes.io/docs/tasks/extend-kubernetes/&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>这里引用张磊大佬的一张图来开篇&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eo9qpz/1619144340194-3bfc699a-f6ca-4732-b4f2-0d49c7512b1a.jpeg" alt="">&lt;/p>
-&lt;p>Kubernetes 是高度可配置和可扩展的。因此，极少需要分发或提交补丁代码给 Kubernetes 项目。通过对 Kubernetes 的扩展，可以将中间狭窄的部分扩大。&lt;/p>
-&lt;p>本文档介绍自定义 Kubernetes 集群的方式。本文档的目标读者包括希望了解如何使 Kubernetes 集群满足其业务环境需求的 &lt;a href="https://kubernetes.io/zh/docs/reference/glossary/?all=true#term-cluster-operator">集群运维人员&lt;/a>、 Kubernetes 项目的&lt;a href="https://kubernetes.io/zh/docs/reference/glossary/?all=true#term-contributor">贡献者&lt;/a>。 或潜在的&lt;a href="https://kubernetes.io/zh/docs/reference/glossary/?all=true#term-platform-developer">平台开发人员&lt;/a> 也可以从本文找到有用的信息，如对已存在扩展点和模式的介绍，以及它们的权衡和限制。&lt;/p>
-&lt;p>自定义方法可以大致分为两类&lt;/p>
-&lt;ol>
-&lt;li>Configuration (配置) # 配置只涉及更改标志参数、本地配置文件或 API 资源；&lt;/li>
-&lt;li>Extension (扩展) # 扩展涉及运行额外的程序或服务。&lt;/li>
-&lt;/ol>
-&lt;p>扩展的实现依赖于某些特殊配置，这些配置可能在某些 k8s 发行版中并不自带。需要自行修改程序参数来让集群支撑某些扩展方式。&lt;/p>
-&lt;h2 id="配置-kubernetes-集群">配置 Kubernetes 集群&lt;a class="td-heading-self-link" href="#%e9%85%8d%e7%bd%ae-kubernetes-%e9%9b%86%e7%be%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>关于 配置文件 和 标志 的说明文档位于在线文档的&amp;quot;参考&amp;quot;部分，按照可执行文件组织：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kubelet/">kubelet&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kube-apiserver/">kube-apiserver&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kube-controller-manager/">kube-controller-manager&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kube-scheduler/">kube-scheduler&lt;/a>.&lt;/li>
-&lt;/ul>
-&lt;p>在托管的 Kubernetes 服务或受控安装的 Kubernetes 版本中，标志和配置文件可能并不总是可以更改的。而且当它们可以进行更改时，它们通常只能由集群管理员进行更改。此外，标志和配置文件在未来的 Kubernetes 版本中可能会发生变化，并且更改设置后它们可能需要重新启动进程。出于这些原因，只有在没有其他选择的情况下才使用它们。&lt;/p>
-&lt;p>内置策略 API ，例如 &lt;a href="https://kubernetes.io/zh/docs/concepts/policy/resource-quotas/">ResourceQuota&lt;/a>、 &lt;a href="https://kubernetes.io/zh/docs/concepts/policy/pod-security-policy/">PodSecurityPolicy&lt;/a>、 &lt;a href="https://kubernetes.io/zh/docs/concepts/services-networking/network-policies/">NetworkPolicy&lt;/a> 和基于角色的权限控制 (&lt;a href="https://kubernetes.io/zh/docs/reference/access-authn-authz/rbac/">RBAC&lt;/a>)， 是内置的 Kubernetes API。API 通常与托管的 Kubernetes 服务和受控的 Kubernetes 安装一起使用。 它们是声明性的，并使用与其他 Kubernetes 资源（如 Pod ）相同的约定，所以新的集群配置可以重复使用， 并以与应用程序相同的方式进行管理。 而且，当它们变稳定后，也遵循和其他 Kubernetes API 一样的 &lt;a href="https://kubernetes.io/docs/reference/using-api/deprecation-policy/">支持政策&lt;/a>。 出于这些原因，在合适的情况下它们优先于 配置文件 和 标志 被使用。&lt;/p>
-&lt;h2 id="扩展-kubernetes-集群">扩展 Kubernetes 集群&lt;a class="td-heading-self-link" href="#%e6%89%a9%e5%b1%95-kubernetes-%e9%9b%86%e7%be%a4" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>Kubernetes 的设计是通过编写客户端程序来实现自动化的。 任何读和（或）写 Kubernetes API 的程序都可以提供有用的自动化工作。 自动化 程序可以运行在集群之中或之外。按照本文档的指导，你可以编写出高可用的和健壮的自动化程序。 自动化程序通常适用于任何 Kubernetes 集群，包括托管集群和受管理安装的集群。&lt;/p>
-&lt;p>控制器（Controller） 模式是编写适合 Kubernetes 的客户端程序的一种特定模式。 控制器通常读取一个对象的 .spec 字段，可能做出一些处理，然后更新对象的 .status 字段。&lt;/p>
-&lt;p>一个控制器是 Kubernetes 的一个客户端。 当 Kubernetes 作为客户端调用远程服务时，它被称为 Webhook ， 远程服务称为 Webhook 后端。 和控制器类似，Webhooks 增加了一个失败点。&lt;/p>
-&lt;p>在 webhook 模型里，Kubernetes 向远程服务发送一个网络请求。 在 可执行文件插件 模型里，Kubernetes 执行一个可执行文件（程序）。 可执行文件插件被 kubelet（如 &lt;a href="https://github.com/kubernetes/community/blob/master/contributors/devel/flexvolume.md">Flex 卷插件&lt;/a>和 &lt;a href="https://kubernetes.io/zh/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/">网络插件&lt;/a>和 kubectl 所使用。&lt;/p>
-&lt;h1 id="扩展-kubernetes-集群的方式">扩展 Kubernetes 集群的方式：&lt;a class="td-heading-self-link" href="#%e6%89%a9%e5%b1%95-kubernetes-%e9%9b%86%e7%be%a4%e7%9a%84%e6%96%b9%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;h2 id="kubernetes-api-扩展">Kubernetes API 扩展&lt;a class="td-heading-self-link" href="#kubernetes-api-%e6%89%a9%e5%b1%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;ol>
-&lt;li>&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes%20%E6%89%A9%E5%B1%95/Custom%20Resource%20Definitions(CRD).md">Custom Resource Definitions(自定义资源定义)&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes%20%E6%89%A9%E5%B1%95/API%20Aggregation(%E8%81%9A%E5%90%88)%20Layer.md">API Aggregation(聚合) Layer&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes%20%E6%89%A9%E5%B1%95/Operator%20%E6%A8%A1%E5%BC%8F.md">Operator 模式&lt;/a>&lt;/li>
-&lt;/ol>
-&lt;h2 id="计算存储网络扩展">计算、存储、网络扩展。&lt;a class="td-heading-self-link" href="#%e8%ae%a1%e7%ae%97%e5%ad%98%e5%82%a8%e7%bd%91%e7%bb%9c%e6%89%a9%e5%b1%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h2 id="service-catalog-服务目录详见service-catalog-服务目录">Service Catalog 服务目录。详见：Service Catalog 服务目录&lt;a class="td-heading-self-link" href="#service-catalog-%e6%9c%8d%e5%8a%a1%e7%9b%ae%e5%bd%95%e8%af%a6%e8%a7%81service-catalog-%e6%9c%8d%e5%8a%a1%e7%9b%ae%e5%bd%95" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h1 id="扩展点">扩展点&lt;a class="td-heading-self-link" href="#%e6%89%a9%e5%b1%95%e7%82%b9" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>扩展点的意思就是在 kubernetes 可以实现扩展的位置。“点” 这个字的意思类似与这种语境(我下面要说的几点注意事项。某件事物的触发点。兴奋点。G 点哈哈囧)&lt;/p>
-&lt;p>下图显示了各种扩展点如何与 Kubernetes 控制平面进行交互。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eo9qpz/1619144357206-5faf80b1-f5f1-4daa-bc39-26ab29976d5e.jpeg" alt="">&lt;/p>
-&lt;p>下图显示了 Kubernetes 系统的扩展点。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eo9qpz/1619144364591-352e19a9-91b8-4a9d-a257-13dc02b6008e.jpeg" alt="">&lt;/p>
-&lt;ol>
-&lt;li>用户通常使用 kubectl 与 Kubernetes API 进行交互。 &lt;a href="https://kubernetes.io/zh/docs/tasks/extend-kubectl/kubectl-plugins/">kubectl 插件&lt;/a>扩展了 kubectl 可执行文件。 它们只影响个人用户的本地环境，因此不能执行站点范围的策略。&lt;/li>
-&lt;li>API 服务器处理所有请求。API 服务器中的几种类型的扩展点允许对请求进行身份认证或根据其内容对其进行阻止、 编辑内容以及处理删除操作。这些内容在 &lt;a href="https://kubernetes.io/zh/docs/concepts/extend-kubernetes/#api-access-extensions">API 访问扩展&lt;/a>小节中描述。&lt;/li>
-&lt;li>API 服务器提供各种 资源（Resource） 。 内置的资源种类（Resource Kinds） ，如 pods， 由 Kubernetes 项目定义，不能更改。你还可以添加你自己定义的资源或其他项目已定义的资源， 称为 自定义资源（Custom Resource），如&lt;a href="https://kubernetes.io/zh/docs/concepts/extend-kubernetes/#user-defined-types">自定义资源&lt;/a> 部分所述。自定义资源通常与 API 访问扩展一起使用。&lt;/li>
-&lt;li>Kubernetes 调度器决定将 Pod 放置到哪个节点。有几种方法可以扩展调度器。 这些内容在&lt;a href="https://kubernetes.io/zh/docs/concepts/extend-kubernetes/#scheduler-extensions">调度器扩展&lt;/a> 小节中描述。&lt;/li>
-&lt;li>Kubernetes 的大部分行为都是由称为控制器（Controllers）的程序实现的，这些程序是 API 服务器的客户端。 控制器通常与自定义资源一起使用。&lt;/li>
-&lt;li>kubelet 在主机上运行，并帮助 Pod 看起来就像在集群网络上拥有自己的 IP 的虚拟服务器。 &lt;a href="https://kubernetes.io/zh/docs/concepts/extend-kubernetes/#network-plugins/">网络插件&lt;/a>让你可以实现不同的 pod 网络。&lt;/li>
-&lt;li>kubelet 也负责为容器挂载和卸载卷。新的存储类型可以通过 &lt;a href="https://kubernetes.io/docs/concepts/extend-kubernetes/#storage-plugins">存储插件&lt;/a>支持。&lt;/li>
-&lt;/ol>
-&lt;p>如果你不确定从哪里开始扩展，下面流程图可以提供一些帮助。请注意，某些解决方案可能涉及多种类型的扩展。&lt;/p></description></item><item><title>Docs: API Aggregation(聚合) Layer</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-Aggregation%E8%81%9A%E5%90%88-Layer/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-Aggregation%E8%81%9A%E5%90%88-Layer/</guid><description>
+&lt;p>&lt;a href="https://www.zhihu.com/question/290497164">kubebuilder 与 Operator Framework 的对比&lt;/a>&lt;/p></description></item><item><title>Docs: API Aggregation(聚合) Layer</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-Aggregation%E8%81%9A%E5%90%88-Layer/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-Aggregation%E8%81%9A%E5%90%88-Layer/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考；&lt;/p>

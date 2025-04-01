@@ -35,170 +35,170 @@
 &lt;ul>
 &lt;li>如果你想读取用户在终端中的输入，可以监听 onData 事件&lt;/li>
 &lt;/ul>
-&lt;p>`term.onData(data =&amp;gt; {&lt;br>
-  console.log(data);&lt;br>
+&lt;p>`term.onData(data =&amp;gt; {
+  console.log(data);
 });&lt;/p>
 &lt;p>以上只是最基础的使用方法。xterm.js 提供了许多其他功能，如主题定制、附加插件（例如 FitAddon 可以自动调整终端大小，WebLinksAddon 可以捕获 URL 并将其变为可点击链接）、设置光标样式、更改字体大小等等。你可以访问 xterm.js 的 GitHub （https://github.com/xtermjs/xterm.js）仓库 或者 文档 来获取更详细的信息。&lt;/p>
 &lt;p>&lt;strong>二&lt;/strong>&lt;/p>
 &lt;p>&lt;strong>使用Gin、client-go的SPDYExecutor来执行远程命令&lt;/strong>&lt;/p>
 &lt;p>``package main&lt;/p>
-&lt;p>import (&lt;br>
- &amp;ldquo;context&amp;rdquo;&lt;br>
- &amp;ldquo;encoding/json&amp;rdquo;&lt;br>
- &amp;ldquo;github.com/gin-gonic/gin&amp;rdquo;&lt;br>
- &amp;ldquo;github.com/gorilla/websocket&amp;rdquo;&lt;br>
- corev1 &amp;ldquo;k8s.io/api/core/v1&amp;rdquo;&lt;br>
- &amp;ldquo;k8s.io/client-go/kubernetes&amp;rdquo;&lt;br>
- &amp;ldquo;k8s.io/client-go/kubernetes/scheme&amp;rdquo;&lt;br>
- &amp;ldquo;k8s.io/client-go/tools/clientcmd&amp;rdquo;&lt;br>
- &amp;ldquo;k8s.io/client-go/tools/remotecommand&amp;rdquo;&lt;br>
- &amp;ldquo;log&amp;rdquo;&lt;br>
- &amp;ldquo;net/http&amp;rdquo;&lt;br>
+&lt;p>import (
+ &amp;ldquo;context&amp;rdquo;
+ &amp;ldquo;encoding/json&amp;rdquo;
+ &amp;ldquo;github.com/gin-gonic/gin&amp;rdquo;
+ &amp;ldquo;github.com/gorilla/websocket&amp;rdquo;
+ corev1 &amp;ldquo;k8s.io/api/core/v1&amp;rdquo;
+ &amp;ldquo;k8s.io/client-go/kubernetes&amp;rdquo;
+ &amp;ldquo;k8s.io/client-go/kubernetes/scheme&amp;rdquo;
+ &amp;ldquo;k8s.io/client-go/tools/clientcmd&amp;rdquo;
+ &amp;ldquo;k8s.io/client-go/tools/remotecommand&amp;rdquo;
+ &amp;ldquo;log&amp;rdquo;
+ &amp;ldquo;net/http&amp;rdquo;
 )&lt;/p>
-&lt;p>// websocket 升级器配置&lt;br>
-var upgrader = websocket.Upgrader{&lt;br>
- CheckOrigin: func(r *http.Request) bool {&lt;br>
-  return true&lt;br>
- },&lt;br>
+&lt;p>// websocket 升级器配置
+var upgrader = websocket.Upgrader{
+ CheckOrigin: func(r *http.Request) bool {
+  return true
+ },
 }&lt;/p>
-&lt;p>// WSClient 结构体，封装了 WebSocket 连接和 resize 通道，用于在 WebSocket 和 remotecommand 之间进行数据交换。&lt;br>
-type WSClient struct {&lt;br>
- // WebSocket 连接对象&lt;br>
- ws *websocket.Conn&lt;br>
- // TerminalSize 类型的通道，用于传输窗口大小调整事件&lt;br>
- resize chan remotecommand.TerminalSize&lt;br>
+&lt;p>// WSClient 结构体，封装了 WebSocket 连接和 resize 通道，用于在 WebSocket 和 remotecommand 之间进行数据交换。
+type WSClient struct {
+ // WebSocket 连接对象
+ ws *websocket.Conn
+ // TerminalSize 类型的通道，用于传输窗口大小调整事件
+ resize chan remotecommand.TerminalSize
 }&lt;/p>
-&lt;p>// MSG 结构体，用于解析从 WebSocket 接收到的消息。&lt;br>
-type MSG struct {&lt;br>
- // 消息类型字段&lt;br>
- MsgType string &lt;code>json:&amp;quot;msg_type&amp;quot;&lt;/code>&lt;br>
- Rows uint16 &lt;code>json:&amp;quot;rows&amp;quot;&lt;/code>&lt;br>
- Cols uint16 &lt;code>json:&amp;quot;cols&amp;quot;&lt;/code>&lt;br>
- // 输入消息的数据字段&lt;br>
- Data string &lt;code>json:&amp;quot;data&amp;quot;&lt;/code>&lt;br>
+&lt;p>// MSG 结构体，用于解析从 WebSocket 接收到的消息。
+type MSG struct {
+ // 消息类型字段
+ MsgType string &lt;code>json:&amp;quot;msg_type&amp;quot;&lt;/code>
+ Rows uint16 &lt;code>json:&amp;quot;rows&amp;quot;&lt;/code>
+ Cols uint16 &lt;code>json:&amp;quot;cols&amp;quot;&lt;/code>
+ // 输入消息的数据字段
+ Data string &lt;code>json:&amp;quot;data&amp;quot;&lt;/code>
 }&lt;/p>
-&lt;p>// WSClient 的 Read 方法，实现了 io.Reader 接口，从 websocket 中读取数据。&lt;br>
-func (c *WSClient) Read(p []byte) (n int, err error) {&lt;br>
- // 从 WebSocket 中读取消息&lt;br>
- _, message, err := c.ws.ReadMessage()&lt;br>
- if err != nil {&lt;br>
-  return 0, err&lt;br>
- }&lt;br>
- var msg MSG&lt;br>
- if err := json.Unmarshal(message, &amp;amp;msg); err != nil {&lt;br>
-  return 0, err&lt;br>
+&lt;p>// WSClient 的 Read 方法，实现了 io.Reader 接口，从 websocket 中读取数据。
+func (c *WSClient) Read(p []byte) (n int, err error) {
+ // 从 WebSocket 中读取消息
+ _, message, err := c.ws.ReadMessage()
+ if err != nil {
+  return 0, err
+ }
+ var msg MSG
+ if err := json.Unmarshal(message, &amp;amp;msg); err != nil {
+  return 0, err
  }&lt;/p>
-&lt;p> // 根据消息类型进行不同的处理&lt;br>
- switch msg.MsgType {&lt;br>
- // 如果是窗口调整消息&lt;br>
- case &amp;ldquo;resize&amp;rdquo;:&lt;br>
-  winSize := remotecommand.TerminalSize{&lt;br>
-   Width: msg.Cols,&lt;br>
-   Height: msg.Rows,&lt;br>
-  }&lt;br>
-  // 将 TerminalSize 对象发送到 resize 通道&lt;br>
-  c.resize &amp;lt;- winSize&lt;br>
-  return 0, nil&lt;br>
- // 如果是输入消息&lt;br>
- case &amp;ldquo;input&amp;rdquo;:&lt;br>
-  copy(p, msg.Data)&lt;br>
-  return len(msg.Data), err&lt;br>
- }&lt;br>
- return 0, nil&lt;br>
+&lt;p> // 根据消息类型进行不同的处理
+ switch msg.MsgType {
+ // 如果是窗口调整消息
+ case &amp;ldquo;resize&amp;rdquo;:
+  winSize := remotecommand.TerminalSize{
+   Width: msg.Cols,
+   Height: msg.Rows,
+  }
+  // 将 TerminalSize 对象发送到 resize 通道
+  c.resize &amp;lt;- winSize
+  return 0, nil
+ // 如果是输入消息
+ case &amp;ldquo;input&amp;rdquo;:
+  copy(p, msg.Data)
+  return len(msg.Data), err
+ }
+ return 0, nil
 }&lt;/p>
-&lt;p>// WSClient 的 Write 方法，实现了 io.Writer 接口，将数据写入 websocket。&lt;br>
-func (c *WSClient) Write(p []byte) (n int, err error) {&lt;br>
- // 将数据作为文本消息写入 WebSocket&lt;br>
- err = c.ws.WriteMessage(websocket.TextMessage, p)&lt;br>
- return len(p), err&lt;br>
+&lt;p>// WSClient 的 Write 方法，实现了 io.Writer 接口，将数据写入 websocket。
+func (c *WSClient) Write(p []byte) (n int, err error) {
+ // 将数据作为文本消息写入 WebSocket
+ err = c.ws.WriteMessage(websocket.TextMessage, p)
+ return len(p), err
 }&lt;/p>
-&lt;p>// Next WSClient 的 Next 方法，用于从 resize 通道获取下一个 TerminalSize 事件。&lt;br>
-func (c *WSClient) Next() *remotecommand.TerminalSize {&lt;br>
- // 从 resize 通道读取 TerminalSize 对象&lt;br>
- size := &amp;lt;-c.resize&lt;br>
- return &amp;amp;size&lt;br>
+&lt;p>// Next WSClient 的 Next 方法，用于从 resize 通道获取下一个 TerminalSize 事件。
+func (c *WSClient) Next()*remotecommand.TerminalSize {
+ // 从 resize 通道读取 TerminalSize 对象
+ size := &amp;lt;-c.resize
+ return &amp;amp;size
 }&lt;/p>
-&lt;p>// podSSH 函数，这是主要的 SSH 功能逻辑，使用 kubernetes client-go 的 SPDY executor 来执行远程命令。&lt;br>
-func podSSH(wsClient *WSClient, q query) {&lt;br>
- // 使用 kubeconfig 文件初始化 kubernetes 客户端配置&lt;br>
- // 请注意，你应该替换 ./config 为你的 kubeconfig 文件路径&lt;br>
- restClientConfig, err := clientcmd.BuildConfigFromFlags(&amp;quot;&amp;quot;, &amp;ldquo;./config&amp;rdquo;)&lt;br>
- if err != nil {&lt;br>
-  log.Fatalf(&amp;ldquo;Failed to build config: %v&amp;rdquo;, err)&lt;br>
+&lt;p>// podSSH 函数，这是主要的 SSH 功能逻辑，使用 kubernetes client-go 的 SPDY executor 来执行远程命令。
+func podSSH(wsClient *WSClient, q query) {
+ // 使用 kubeconfig 文件初始化 kubernetes 客户端配置
+ // 请注意，你应该替换 ./config 为你的 kubeconfig 文件路径
+ restClientConfig, err := clientcmd.BuildConfigFromFlags(&amp;quot;&amp;quot;, &amp;ldquo;./config&amp;rdquo;)
+ if err != nil {
+  log.Fatalf(&amp;ldquo;Failed to build config: %v&amp;rdquo;, err)
  }&lt;/p>
-&lt;p> // 根据配置创建 kubernetes 客户端&lt;br>
- clientSet, err := kubernetes.NewForConfig(restClientConfig)&lt;br>
- if err != nil {&lt;br>
-  log.Fatalf(&amp;ldquo;Failed to create client: %v&amp;rdquo;, err)&lt;br>
- }&lt;br>
- // 构造一个用于执行远程命令的请求&lt;br>
- request := clientSet.CoreV1().RESTClient().Post().&lt;br>
-  Resource(&amp;ldquo;pods&amp;rdquo;).&lt;br>
-  Namespace(q.Namespace).&lt;br>
-  Name(q.PodName).&lt;br>
-  SubResource(&amp;ldquo;exec&amp;rdquo;).&lt;br>
-  VersionedParams(&amp;amp;corev1.PodExecOptions{&lt;br>
-   Container: q.ContainerName,&lt;br>
-   Command: []string{&lt;br>
-    q.Command,&lt;br>
-   },&lt;br>
-   Stdout: true,&lt;br>
-   Stdin:  true,&lt;br>
-   Stderr: true,&lt;br>
-   TTY:    true,&lt;br>
-  }, scheme.ParameterCodec)&lt;br>
- // 创建 SPDY executor，用于后续的 Stream 操作&lt;br>
- exec, err := remotecommand.NewSPDYExecutor(restClientConfig, &amp;ldquo;POST&amp;rdquo;, request.URL())&lt;br>
- if err != nil {&lt;br>
-  log.Fatalf(&amp;ldquo;Failed to initialize executor: %v&amp;rdquo;, err)&lt;br>
+&lt;p> // 根据配置创建 kubernetes 客户端
+ clientSet, err := kubernetes.NewForConfig(restClientConfig)
+ if err != nil {
+  log.Fatalf(&amp;ldquo;Failed to create client: %v&amp;rdquo;, err)
+ }
+ // 构造一个用于执行远程命令的请求
+ request := clientSet.CoreV1().RESTClient().Post().
+  Resource(&amp;ldquo;pods&amp;rdquo;).
+  Namespace(q.Namespace).
+  Name(q.PodName).
+  SubResource(&amp;ldquo;exec&amp;rdquo;).
+  VersionedParams(&amp;amp;corev1.PodExecOptions{
+   Container: q.ContainerName,
+   Command: []string{
+    q.Command,
+   },
+   Stdout: true,
+   Stdin:  true,
+   Stderr: true,
+   TTY:    true,
+  }, scheme.ParameterCodec)
+ // 创建 SPDY executor，用于后续的 Stream 操作
+ exec, err := remotecommand.NewSPDYExecutor(restClientConfig, &amp;ldquo;POST&amp;rdquo;, request.URL())
+ if err != nil {
+  log.Fatalf(&amp;ldquo;Failed to initialize executor: %v&amp;rdquo;, err)
  }&lt;/p>
-&lt;p> // 开始进行 Stream 操作，即通过 websocket 执行命令&lt;br>
- err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{&lt;br>
-  Stderr:            wsClient,&lt;br>
-  Stdout:            wsClient,&lt;br>
-  Stdin:             wsClient,&lt;br>
-  Tty:               true,&lt;br>
-  TerminalSizeQueue: wsClient,&lt;br>
- })&lt;br>
- if err != nil {&lt;br>
-  log.Fatalf(&amp;ldquo;Failed to start stream: %v&amp;rdquo;, err)&lt;br>
- }&lt;br>
+&lt;p> // 开始进行 Stream 操作，即通过 websocket 执行命令
+ err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
+  Stderr:            wsClient,
+  Stdout:            wsClient,
+  Stdin:             wsClient,
+  Tty:               true,
+  TerminalSizeQueue: wsClient,
+ })
+ if err != nil {
+  log.Fatalf(&amp;ldquo;Failed to start stream: %v&amp;rdquo;, err)
+ }
 }&lt;/p>
-&lt;p>// query 结构体，用于解析和验证查询参数&lt;br>
-type query struct {&lt;br>
- Namespace     string &lt;code>form:&amp;quot;namespace&amp;quot; binding:&amp;quot;required&amp;quot;&lt;/code>&lt;br>
- PodName       string &lt;code>form:&amp;quot;pod_name&amp;quot; binding:&amp;quot;required&amp;quot;&lt;/code>&lt;br>
- ContainerName string &lt;code>form:&amp;quot;container_name&amp;quot; binding:&amp;quot;required&amp;quot;&lt;/code>&lt;br>
- Command       string &lt;code>form:&amp;quot;command&amp;quot; binding:&amp;quot;required&amp;quot;&lt;/code>&lt;br>
+&lt;p>// query 结构体，用于解析和验证查询参数
+type query struct {
+ Namespace     string &lt;code>form:&amp;quot;namespace&amp;quot; binding:&amp;quot;required&amp;quot;&lt;/code>
+ PodName       string &lt;code>form:&amp;quot;pod_name&amp;quot; binding:&amp;quot;required&amp;quot;&lt;/code>
+ ContainerName string &lt;code>form:&amp;quot;container_name&amp;quot; binding:&amp;quot;required&amp;quot;&lt;/code>
+ Command       string &lt;code>form:&amp;quot;command&amp;quot; binding:&amp;quot;required&amp;quot;&lt;/code>
 }&lt;/p>
-&lt;p>func main() {&lt;br>
- router := gin.Default()&lt;br>
- router.LoadHTMLGlob(&amp;ldquo;templates/*&amp;rdquo;)&lt;br>
- router.GET(&amp;quot;/&amp;quot;, func(ctx *gin.Context) {&lt;br>
-  ctx.HTML(http.StatusOK, &amp;ldquo;ssh.html&amp;rdquo;, nil)&lt;br>
+&lt;p>func main() {
+ router := gin.Default()
+ router.LoadHTMLGlob(&amp;ldquo;templates/&lt;em>&amp;rdquo;)
+ router.GET(&amp;quot;/&amp;quot;, func(ctx&lt;/em>gin.Context) {
+  ctx.HTML(http.StatusOK, &amp;ldquo;ssh.html&amp;rdquo;, nil)
  })&lt;/p>
-&lt;p> // 设置 /ssh 路由&lt;br>
- router.GET(&amp;quot;/ssh&amp;quot;, func(ctx *gin.Context) {&lt;br>
-  var r query&lt;br>
-  if err := ctx.ShouldBindQuery(&amp;amp;r); err != nil {&lt;br>
-   ctx.JSON(http.StatusBadRequest, gin.H{&lt;br>
-    &amp;ldquo;err&amp;rdquo;: err.Error(),&lt;br>
-   })&lt;br>
-   return&lt;br>
-  }&lt;br>
-  // 将 HTTP 连接升级为 websocket 连接&lt;br>
-  ws, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)&lt;br>
-  if err != nil {&lt;br>
-   log.Printf(&amp;ldquo;Failed to upgrade connection: %v&amp;rdquo;, err)&lt;br>
-   return&lt;br>
-  }&lt;br>
-  // 使用 podSSH 函数处理 websocket 连接&lt;br>
-  podSSH(&amp;amp;WSClient{&lt;br>
-   ws:     ws,&lt;br>
-   resize: make(chan remotecommand.TerminalSize),&lt;br>
-  }, r)&lt;br>
- })&lt;br>
- router.Run(&amp;quot;:9191&amp;quot;)&lt;br>
+&lt;p> // 设置 /ssh 路由
+ router.GET(&amp;quot;/ssh&amp;quot;, func(ctx *gin.Context) {
+  var r query
+  if err := ctx.ShouldBindQuery(&amp;amp;r); err != nil {
+   ctx.JSON(http.StatusBadRequest, gin.H{
+    &amp;ldquo;err&amp;rdquo;: err.Error(),
+   })
+   return
+  }
+  // 将 HTTP 连接升级为 websocket 连接
+  ws, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+  if err != nil {
+   log.Printf(&amp;ldquo;Failed to upgrade connection: %v&amp;rdquo;, err)
+   return
+  }
+  // 使用 podSSH 函数处理 websocket 连接
+  podSSH(&amp;amp;WSClient{
+   ws:     ws,
+   resize: make(chan remotecommand.TerminalSize),
+  }, r)
+ })
+ router.Run(&amp;quot;:9191&amp;quot;)
 }&lt;/p>
 &lt;p>``&lt;/p>
 &lt;ul>

@@ -1,47 +1,68 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – Storage(存储)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/</link><description>Recent content in Storage(存储) on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Storage(存储)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/Storage%E5%AD%98%E5%82%A8/</link><pubDate>Sat, 12 Jun 2021 12:02:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/Storage%E5%AD%98%E5%82%A8/</guid><description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – Storage(存储)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/</link><description>Recent content in Storage(存储) on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: Storage(存储)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/Storage%E5%AD%98%E5%82%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/Storage%E5%AD%98%E5%82%A8/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
 &lt;li>&lt;a href="https://grafana.com/docs/loki/latest/storage/">官方文档，存储&lt;/a>&lt;/li>
 &lt;li>&lt;a href="https://grafana.com/docs/loki/latest/operations/storage/">官方文档，运维 - 存储&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/operations/storage/boltdb-shipper/">官方文档，运维 - 存储 - BoltDB - Shipper&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/blog/2023/12/20/the-concise-guide-to-grafana-loki-everything-you-need-to-know-about-labels/">https://grafana.com/blog/2023/12/20/the-concise-guide-to-grafana-loki-everything-you-need-to-know-about-labels/&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
 &lt;p>与其他日志记录系统不同，Loki 是基于仅索引日志的元数据的想法而构建的。从 [Loki 的数据模型](/docs/6.可观测性/日志系统/Loki/Storage(存储)/Data%20Model(数据模型).md Model(数据模型).md)可知，日志是根据标签进行定位的。 日志数据本身会被压缩成 Chunks，并存储在本地的文件系统中；并且 Loki 还提供了一个 Index 数据，用来根据索引定位日志数据。小索引和高度压缩的 Chunks 简化了操作，并显着降低了 Loki 的成本。&lt;/p>
 &lt;p>所以 Loki 需要存储两种不同类型的数据，当 Loki 收到 Log Stream 时，会存储两类数据：&lt;/p>
 &lt;ul>
-&lt;li>&lt;strong>Chunks(块)&lt;/strong> # &lt;strong>日志流本身的信息&lt;/strong>。每一个 Chunks 都是将一段时间的日志流压缩后形成的一个文件。
+&lt;li>&lt;strong>Chunk(块)&lt;/strong> # &lt;strong>日志流本身的信息&lt;/strong>。每一个 Chunk 都是将一段时间的日志流压缩后形成的一个文件。
 &lt;ul>
 &lt;li>一个 Chunks 就是一个对象，如果是使用本地文件系统存储 Chunks，则可以抽象得将一个 Chunks 文件当做一个对象。在一个 Chunks 文件中一般包含里一段时间的日志流数据。&lt;/li>
 &lt;/ul>
 &lt;/li>
-&lt;li>&lt;strong>Indexes(索引)&lt;/strong> # &lt;strong>日志流索引的信息&lt;/strong>。每一个 Index 都是 键/值 格式的数据库文件，文件中的内容用来关联 日志流的标签 与 Chunks。
+&lt;li>&lt;strong>Index(索引)&lt;/strong> # &lt;strong>日志流索引的信息&lt;/strong>。每一个 Index 都是 键/值 格式的数据库文件，文件中的内容用来关联 日志流的标签 与 Chunks。
 &lt;ul>
 &lt;li>Index 中的 Key 就是日志流的标签，Value 就是 Chunks 文件所在的绝对路径。&lt;/li>
 &lt;/ul>
 &lt;/li>
 &lt;/ul>
-&lt;p>&lt;strong>Chunks 与 Index 的存储方式&lt;/strong>&lt;/p>
-&lt;ul>
-&lt;li>&lt;strong>Chunks&lt;/strong> # 直接以压缩格式的文件形式存储。&lt;/li>
-&lt;li>&lt;strong>Index&lt;/strong> # Loki 自身实现了一个本地的 &lt;strong>Key/Value Database(键值数据库)&lt;/strong>，这个数据库是基于 BoltDB 开发的，称为 &lt;strong>BoltDB-Shipper&lt;/strong>。BoltDB-Shipper 用来存储 Index 数据。
-&lt;ul>
-&lt;li>2.8 版本开始，Loki 可以使用 tsdb 的方式代替了 BoltDB-Shipper 来存储 Index。这种方式极大得优化索引的体积。&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;/ul>
 &lt;blockquote>
-&lt;p>小记：Loki 在 2.0 版本之前，这两类数据是分开存放的，只有 Chunks 数据可以存在对象存储中。直到 2.0 发布，Loki 开发了基于 BoltDB 的 BoltDB-Shipper 数据库用来存储 Index，并且已经可以将 Index 数据也存到对象存储中。&lt;/p>
+&lt;p>[!Tip] History
+Loki 在 2.0 版本之前，这两类数据是分开存放的，只有 Chunk 数据可以存在对象存储中。&lt;/p>
+&lt;p>直到 2.0 发布，Loki 开发了基于 BoltDB 的 BoltDB-Shipper 数据库用来存储 Index，并且已经可以将 Index 数据也存到对象存储中。也就是 &lt;strong>Single stroe(单存储) 架构&lt;/strong>，此时 Chunk 和 Index 都可以同时存在本地文件系统或者同时存在对象存储中。&lt;/p>
+&lt;p>从 2.8 版本开始，Loki 使用 TSDB-Shipper 存储代替了 BoltDB-Shipper 来存储 Index。这种方式极大得优化了索引的体积。&lt;/p>
+&lt;p>逐渐的，可能也就不再从外部主动区分 Chunk 和 Index，而是将这两个抽象的概念统一成 Loki 存储即可。然后 Loki 存储的内部实现具体用不用 Index，或者 Index 的实现方式是什么样的就不用特殊关注了&lt;/p>
+&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/observability/loki/storage/20250326134111466.png" alt="500">&lt;/p>
 &lt;/blockquote>
-&lt;p>同时，Loki 还可以将这些数据，同时存储到 远程存储 中去(比如对象存储)。这些功能都是通过 Ingester 组件实现的。&lt;/p>
-&lt;p>Loki 在不同的 Log Stream(日志流) 中接收日志，其中每个 Stream 的 tenantID(租户 ID) 和 一组标签 是该 Stream 的唯一标识。如果 Loki 以单租户模式运行，则所有块都放在名为 &lt;strong>&lt;code>fake&lt;/code>&lt;/strong> 的文件夹中，这是用于单个租户模式的合成租户名称。&lt;/p>
+&lt;p>Loki 可以将 Index 及其 Chunk 数据保存在多种 Backend(后端)：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Local Storage(本地存储)&lt;/strong> # 通常都是指本地文件系统。这是最简单的 Backend。尽管它也容易因未复制而导致数据丢失，这对于单一二进制使用 Loki 或在项目上进行本地开发的用户来说是很常见的。它在概念上类似于 Prometheus&lt;/li>
+&lt;li>&lt;strong>Remote Storage(远程存储)&lt;/strong> # 远程存储通常都是指 &lt;a href="docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E5%AD%98%E5%82%A8/%E5%AD%98%E5%82%A8%E7%9A%84%E8%83%BD%E5%8A%9B/%E5%AF%B9%E8%B1%A1%E5%AD%98%E5%82%A8/%E5%AF%B9%E8%B1%A1%E5%AD%98%E5%82%A8.md">对象存储&lt;/a>。&lt;/li>
+&lt;/ul>
+&lt;p>Loki 在不同的 Log Stream(日志流) 中接收日志，其中每个 Stream 的 tenantID(租户 ID) 和 一组标签 是该 Stream 的唯一标识。如果 Loki 以单租户模式运行，则所有块都放在名为 &lt;strong>&lt;code>fake/&lt;/code>&lt;/strong> 的目录中，这是用于单个租户模式的合成租户名称。&lt;/p>
 &lt;h2 id="local-storage本地存储">Local Storage(本地存储)&lt;a class="td-heading-self-link" href="#local-storage%e6%9c%ac%e5%9c%b0%e5%ad%98%e5%82%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h3 id="on-disk-layout磁盘上的布局">On-disk Layout(磁盘上的布局)&lt;a class="td-heading-self-link" href="#on-disk-layout%e7%a3%81%e7%9b%98%e4%b8%8a%e7%9a%84%e5%b8%83%e5%b1%80" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>与 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/Storage.md">Prometheus 的存储概念&lt;/a>类似，Loki 也是将日志流数据抽象为一个一个的 Block(块)，只不过，在 Loki 这里，称之为 &lt;a href="#Table(%E8%A1%A8)%20%E6%A6%82%E5%BF%B5">Table(表)&lt;/a>。由于 Loki 需要存储 Index 与 Chunks 两种数据，所以，数据在磁盘上的布局，与 Prometheus 也就不太一样了。&lt;/p>
+&lt;p>与 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/Storage.md">Prometheus 的存储概念&lt;/a>类似，Loki 也是将日志流数据抽象为一个一个的 Block(块)。由于 Loki 需要存储 Index 与 Chunks 两种数据，所以，数据在磁盘上的布局，与 Prometheus 也就不太一样了。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># ll&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total &lt;span style="color:#0000cf;font-weight:bold">0&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#0000cf;font-weight:bold">4&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">77&lt;/span> Oct &lt;span style="color:#0000cf;font-weight:bold">23&lt;/span> 17:50 chunks
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#0000cf;font-weight:bold">4&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">51&lt;/span> Mar &lt;span style="color:#0000cf;font-weight:bold">26&lt;/span> 09:02 compactor
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#0000cf;font-weight:bold">2&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10&lt;/span> Mar &lt;span style="color:#0000cf;font-weight:bold">7&lt;/span> 13:20 rules
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#0000cf;font-weight:bold">7&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">109&lt;/span> Mar &lt;span style="color:#0000cf;font-weight:bold">7&lt;/span> 14:02 tsdb-shipper-active
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#0000cf;font-weight:bold">5&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">79&lt;/span> Mar &lt;span style="color:#0000cf;font-weight:bold">26&lt;/span> 09:02 tsdb-shipper-cache
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x &lt;span style="color:#0000cf;font-weight:bold">4&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">10001&lt;/span> &lt;span style="color:#0000cf;font-weight:bold">112&lt;/span> Mar &lt;span style="color:#0000cf;font-weight:bold">26&lt;/span> 09:07 wal
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;ul>
+&lt;li>&lt;strong>chunks&lt;/strong> # 持久化保存 Chunks 与 Index 数据。&lt;/li>
+&lt;li>&lt;strong>compactor&lt;/strong> # Compactor 组件的工作路径。由 compactor.working_directory 配置设置&lt;/li>
+&lt;li>&lt;strong>rules&lt;/strong>&lt;/li>
+&lt;li>&lt;strong>tsdb-shipper-active&lt;/strong> # TODO: 好像是 Index 数据临时中专的地方，最后会移动到 chunks/index/ 目录下&lt;/li>
+&lt;li>&lt;strong>tsdb-shipper-cache&lt;/strong> # 查询时的缓存。若没有查询则该目录不会出现内容&lt;/li>
+&lt;li>&lt;strong>wal&lt;/strong> # 顾名思义，保存 WAL 数据的。&lt;/li>
+&lt;/ul>
 &lt;h3 id="index">Index&lt;a class="td-heading-self-link" href="#index" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;p>目录组织结构如下：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@nfs-1 loki&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># tree boltdb-shipper-active/index_18766/&lt;/span>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># tree tsdb-shipper-active/multitenant/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>tsdb-shipper-active/multitenant/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── index_20173
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> └── 1742967017-localhost.localdomain-1729669818509348421.tsdb
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8f5902;font-style:italic"># 下面是曾经 boltdb 时代记录的&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># tree boltdb-shipper-active/index_18766/&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>boltdb-shipper-active/index_18766/
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#0000cf;font-weight:bold">1621413900&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── 1621413900.snapshot
@@ -49,62 +70,64 @@
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── 1621414800.snapshot
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> directories, &lt;span style="color:#0000cf;font-weight:bold">4&lt;/span> files
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@nfs-1 loki&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># tree boltdb-shipper-active/index_18766/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># tree boltdb-shipper-active/index_18766/&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>boltdb-shipper-active/index_18766/
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#0000cf;font-weight:bold">1621414800&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── 1621414800.snapshot
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> directories, &lt;span style="color:#0000cf;font-weight:bold">2&lt;/span> files
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@nfs-1 loki&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># tree boltdb-shipper-active/index_18766/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># tree boltdb-shipper-active/index_18766/&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>boltdb-shipper-active/index_18766/
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#0000cf;font-weight:bold">1621414800&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── 1621414800.snapshot
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#0000cf;font-weight:bold">1621415700&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── 1621415700.snapshot
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#0000cf;font-weight:bold">0&lt;/span> directories, &lt;span style="color:#0000cf;font-weight:bold">4&lt;/span> files
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Loki 将 Index 数据根据 &lt;code>schema_config.configs.index.period&lt;/code> 这个配置，按照时间时间期间进行分组，莫认为 168h，也就是 7 天。&lt;/p>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Loki 将 Index 数据根据 &lt;code>schema_config.configs.index.period&lt;/code> 配置，按照时间时间期间进行分组，默认为 168h，也就是 7 天。&lt;/p>
 &lt;p>如果将 &lt;code>schema_config.configs.index.period&lt;/code> 设置为 24h，那么对于 BoltDB-Shipper，一个表就是一个目录，表由许多较小的 BoltDB 文件组成(也就是说目录中有很多 BoltDB 文件)，每个文件仅存储 15 分钟的索引值。每天创建的表名称由 &lt;strong>prefix + period-number-since-epoch&lt;/strong> 组成。&lt;/p>
 &lt;ul>
 &lt;li>&lt;strong>prefix&lt;/strong> # 是 &lt;code>schema_config.configs.index.period&lt;/code> 配置的值。&lt;/li>
 &lt;li>&lt;strong>period-number-since-epoch&lt;/strong># 是从 &lt;a href="https://en.wikipedia.org/wiki/Unix_time">Epoch 时间&lt;/a>以来，到开始存储数据时刻的天数。&lt;/li>
 &lt;/ul>
-&lt;p>假如 &lt;code>schema_config.configs.index.period&lt;/code> 的值为 &lt;code>loki_index_&lt;/code>，当前时间是 2021 年 5 月 19 日，此时 Loki 收到了日志数据，则 Ingester 会创建一个 名为 &lt;strong>loki_index_18766&lt;/strong> 的目录，并且当收到日志流时，会在这个目录中创建以时间戳为名字的文件，这个文件中就是 Index 数据。&lt;/p>
+&lt;p>假如 &lt;code>schema_config.configs.index.period&lt;/code> 的值为 &lt;code>loki_index_&lt;/code>，当前时间是 2021 年 5 月 19 日。此时 Loki 收到了日志数据，则 Ingester 会创建一个 名为 &lt;strong>loki_index_18766&lt;/strong> 的目录，并且当收到日志流时，会在这个目录中创建以时间戳为名字的文件，这个文件中就是 Index 数据。&lt;/p>
 &lt;blockquote>
 &lt;p>自 Epoch 时间(1970 年 1 月 1 日) 至今为止，已经过了 18765 天，而我此时处于第 18766 天。那么这个目录名字中的数字就是 18766&lt;/p>
 &lt;/blockquote>
 &lt;p>上述 Index 数据将会根据 &lt;code>storage_config.boltdb_shipper&lt;/code> 中的 &lt;code>active_index_directory&lt;/code> 配置的存储路径存储在本地文件系统的目录内，如果还配置了 &lt;code>shared_store&lt;/code> 的值为非 filesystem，那么还会将这些数据上传到指定的对象存储中。&lt;/p>
 &lt;p>在这里，我们为什么不会看到每隔 15 分钟就产生一个文件呢，那是因为 Compactor 这个组件的作用。Compactor 会将每个表中的 Index 数据进行合并，并删除其中的重复数据。你想啊~每隔 15 分钟产生一个文件，那一天 24 小时就有 96 个文件，积累起来是非常多的，在使用查询时也不够方便。&lt;/p>
 &lt;p>所以，每隔 15 分钟，Compactor 会将旧的 Index 数据压缩到新的 Index 文件中，就像上面的目录结构中展现的，在 1621413900 和 1621414800 存在两个 Index，Compactor 会将 1621413900 中的数据合并到 1621414800 中，并去重，然后留下了唯一一个文件，当下个 15 分钟，又会生成名为 1621415700 的文件，Compactor 又会重复之前的动作，将数据合并到 1621415700 中，最终，在一天结束时，只会留下唯一一个文件。然后，今天的文件，又会被合并到明天的 Index 文件中，最终的最终，只会留下唯一一个 Index 文件。&lt;/p>
-&lt;p>特别说明：Loki 与 Etcd 都是使用的 BoltDB 实现的，Index 到最后也会只有一个文件，这个文件就跟 etcd 的 db 文件一样，这个文件中是被压缩的很多很多的键/值对信息&lt;/p>
-&lt;p>每天的结束，会将这个文件压缩为 .gz 的格式，并发送到 Chunks 数据存储目录中的 index 目录下。&lt;/p>
+&lt;blockquote>
+&lt;p>Tips: Loki 使用 BoltDb 时，与 Etcd 一样，Index 到最后也会只有一个文件，这个文件就跟 etcd 的 db 文件一样，这个文件中是被压缩的很多很多的键/值对信息&lt;/p>
+&lt;/blockquote>
+&lt;p>每天的结束，会将这个文件压缩为 .gz 的格式，并发送到 Chunks 数据存储目录中的 &lt;code>index/&lt;/code> 目录下。&lt;/p>
 &lt;h3 id="chunks">Chunks&lt;a class="td-heading-self-link" href="#chunks" aria-label="Heading self-link">&lt;/a>&lt;/h3>
 &lt;p>Chunks 数据的目录结构就很简单了&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ce5c00;font-weight:bold">[&lt;/span>root@nfs-1 chunks&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># tree |more&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>~&lt;span style="color:#ce5c00;font-weight:bold">]&lt;/span>&lt;span style="color:#8f5902;font-style:italic"># tree chunks/&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>chunks/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── fake
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── 123e004b6a42face
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   │   ├── &lt;span style="color:#000">MTk1M2MyNDE5YjY6MTk1M2MyNDIyMjg6YThiNmRmZjU&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   │   ├── ......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   │   └── &lt;span style="color:#000">MTk1YWMzZmVhYTQ6MTk1YWMzZmVlNTc6NDc0ZGIwMTk&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── ......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   └── feb6db45141b0877
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── index
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── index_18738
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ └── compactor-1619056534.gz
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ ├── index_18739
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│ │ └── compactor-1619142934.gz
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>......省略
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   └── index_18766
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── compactor-1621432533.gz
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   └── loki-bj-net-0-1615528533442739252-1621431900.gz
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── ZmFrZS80MDgzM2JkNDYxNWM0MWIzOjE3OGZmOTgxM2NmOjE3OGZmOTgxM2QwOjUyN2VlY2Yy
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── ZmFrZS80MDgzM2JkNDYxNWM0MWIzOjE3OTdhM2JlOTUxOjE3OTdhM2JlOTUyOjI3NDZlMDdj
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── &lt;span style="color:#000">ZmFrZS80MDIwYTRmN2I2MzVmZGIyOjE3OGY3MDYwZTIwOjE3OGY3MDYxZTE3OmFhMzZhNzg&lt;/span>&lt;span style="color:#ce5c00;font-weight:bold">=&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── ZmFrZS80MDIwYTRmN2I2MzVmZGIyOjE3OGY5NzU4MzI3OjE3OGY5NzVkZTNiOmIxOTIzNWY4
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>├── ZmFrZS80MDIwYTRmN2I2MzVmZGIyOjE3OGZjYWZkZTA1OjE3OGZjYWZkZjE1OjIzNWIzMjVi
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>.......省略
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>那些一长串的字符文件，就是一个 Chunks。并且，Index 的数据压缩后，也会在 Chunks 目录中生成对应的文件。&lt;/p>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── index_20170
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   │   └── fake
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   │   └── 1742781768295831640-compactor-1742680944642-1742781341986-644ffb8.tsdb.gz
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   ├── ......
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   └── index_20173
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>└── loki_cluster_seed.json
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>日志数据集中在 fake/ 目录下，每个 &lt;code>MTk1M2MyNDE5YjY6MTk1M2MyNDIyMjg6YThiNmRmZjU=&lt;/code> 这类的字符文件，就是一个 Chunk。并且，Index 的数据压缩后，也会在 Chunks 目录中生成对应的文件。&lt;/p>
 &lt;h2 id="remote-storage远程存储">Remote Storage(远程存储)&lt;a class="td-heading-self-link" href="#remote-storage%e8%bf%9c%e7%a8%8b%e5%ad%98%e5%82%a8" aria-label="Heading self-link">&lt;/a>&lt;/h2>
+&lt;p>TODO: 需要更新该部分内容&lt;/p>
 &lt;p>远程存储非常简单，从本地存储的模式可以看出来，Index 和 Chunks 本质上就是一个个的文件，并且互相具有关联关系，所以，Ingester 组件还可以将这些数据，发送到远程存储中。&lt;/p>
 &lt;p>现阶段：&lt;/p>
 &lt;ul>
 &lt;li>Chunks 支持以下远程存储
 &lt;ul>
 &lt;li>&lt;strong>Cassandra&lt;/strong>&lt;/li>
-&lt;li>&lt;strong>S3&lt;/strong> # 任何实现 S3 接口的服务都可以用来存储 Chunks 数据，比如开源的 [MinIO](/docs/5.数据存储/1.存储/存储的基础设施架构/Distributed%20Storage(分布式存储)/MinIO.md Storage(分布式存储)/MinIO.md)。&lt;/li>
+&lt;li>&lt;strong>S3&lt;/strong> # 任何实现 S3 接口的服务都可以用来存储 Chunks 数据，比如开源的 &lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E5%AD%98%E5%82%A8/%E5%AD%98%E5%82%A8%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD%E6%9E%B6%E6%9E%84/%E5%88%86%E5%B8%83%E5%BC%8F%E5%AD%98%E5%82%A8/MinIO/MinIO.md">MinIO&lt;/a>。&lt;/li>
 &lt;li>&amp;hellip;&amp;hellip;等等，详见官方文档&lt;/li>
 &lt;/ul>
 &lt;/li>
@@ -136,46 +159,6 @@
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   │   └── wal
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>│   │   └── &lt;span style="color:#0000cf;font-weight:bold">00000000&lt;/span>
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="chunks-1">Chunks&lt;a class="td-heading-self-link" href="#chunks-1" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;h2 id="chunk-格式">Chunk 格式&lt;a class="td-heading-self-link" href="#chunk-%e6%a0%bc%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-text" data-lang="text">&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| | |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| MagicNumber(4b) | version(1b) |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| | |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| block-1 bytes | checksum (4b) |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| block-2 bytes | checksum (4b) |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| block-n bytes | checksum (4b) |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| # blocks (uvarint) |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| #entries(uvarint) | mint, maxt (varint) | offset, len (uvarint) |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| #entries(uvarint) | mint, maxt (varint) | offset, len (uvarint) |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| #entries(uvarint) | mint, maxt (varint) | offset, len (uvarint) |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| #entries(uvarint) | mint, maxt (varint) | offset, len (uvarint) |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| checksum(from # blocks) |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| metasOffset - offset to the point with # blocks |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>mint&lt;/code> 和 &lt;code>maxt&lt;/code>分别描述了最小和最大的 Unix 纳秒时间戳。&lt;/p>
-&lt;h3 id="block-格式">Block 格式&lt;a class="td-heading-self-link" href="#block-%e6%a0%bc%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>一个 block 由一系列日志 entries 组成，每个 entry 都是一个单独的日志行。
-请注意，一个 block 的字节是用 Gzip 压缩存储的。以下是它们未压缩时的形式。&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-text" data-lang="text">&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| ts (varint) | len (uvarint) | log-1 bytes |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| ts (varint) | len (uvarint) | log-2 bytes |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| ts (varint) | len (uvarint) | log-3 bytes |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| ts (varint) | len (uvarint) | log-n bytes |
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>ts&lt;/code> 是日志的 Unix 纳秒时间戳，而 len 是日志条目的字节长度。&lt;/p>
 &lt;h1 id="schema模式-概念">Schema(模式) 概念&lt;a class="td-heading-self-link" href="#schema%e6%a8%a1%e5%bc%8f-%e6%a6%82%e5%bf%b5" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
@@ -206,8 +189,12 @@
 &lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这个配置表示 Loki 现在可以通过两种 Schema 存储数据，在第一个 Period(期间)(2019 年 7 月 1 日 ~ 2020 年 7 月 1 号)，使用 v10 模式；在第二个 Period(期间)(2020 年 7 月 1 日 ~ 至今)，则使用 v11 模式。这种运行方式，显著简化了升级，让用户不再担心升级时如果存储模式发生变化而产生的影响。就算不是升级 Loki，当用户想要切换所使用的存储时，同样可以通过这种方式来平滑过度。&lt;/p>
 &lt;p>基于此，Loki 可以根据不同的 Schema 配置，将不同时间段的数据存放在不同类型的存储中。&lt;/p>
 &lt;ul>
-&lt;li>比如现在有这么一种场景，公司本来将数据存放在本地，但是随着业务规模扩大，数据存储方式想改变了，这时候如何丝滑的迁移数据呢？&lt;/li>
+&lt;li>比如现在有这么一种场景，公司本来将数据存放在本地，但是随着业务规模扩大，数据存储方式想改变了，这时候如何丝滑的迁移数据呢？
+&lt;ul>
 &lt;li>通过 schema_config 字段的配置，2019-10-16 到 2020-11-16，使用本地存放数据；然后我买了公有云的存储产品，从 2020-11-16 到 2021-11-16，使用公有云存放数据。Loki 根据这种配置直到，当 2020-11-16 日开始，就会将数据存放在公有云数据库中了，而老的数据还可以不受影响。然后根据下文提到的 &lt;a href="#Log%20Retention(%E6%97%A5%E5%BF%97%E4%BF%9D%E7%95%99)">Retention&lt;/a> 功能，逐步将老数据删除，这种升级过度是非常丝滑的。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>甚至当 Loki 的存储能力随着开发迭代有新的方式时，也可以通过配置让 Loki 升级更加无缝，升级后从某个时间段开始，使用新的存储方式。&lt;/li>
 &lt;/ul>
 &lt;h2 id="在-schema-中配置储存数据所使用的存储类型">在 Schema 中配置储存数据所使用的存储类型&lt;a class="td-heading-self-link" href="#%e5%9c%a8-schema-%e4%b8%ad%e9%85%8d%e7%bd%ae%e5%82%a8%e5%ad%98%e6%95%b0%e6%8d%ae%e6%89%80%e4%bd%bf%e7%94%a8%e7%9a%84%e5%ad%98%e5%82%a8%e7%b1%bb%e5%9e%8b" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>并且，在 Schema 配置中，还可以通过 &lt;code>schema_config.configs.store&lt;/code> 与 &lt;code>schema_config.configs.object_store&lt;/code> 两个字段指定 Loki 储存 Index 和 Chunk 数据所使用的存储类型，比如上面这个例子中，对于 2020 年 7 月 1 日之前的数据，使用 boltdb-shipper 存储 Index 数据、filesystem 存储 Chunk 数据；2020 年 7 月 1 日之后的存储方式与之前一样。然后再通过 &lt;code>storage_config&lt;/code> 字段来配置 boltdb-shipper 和 filesystem 这两类存储的具体使用方式，比如指定认证信息、指定存储路径等等。&lt;/p>
@@ -218,14 +205,27 @@
 &lt;blockquote>
 &lt;p>注意：这一段内容会基于对 Loki 的存储概念已经有了详细了解后，才能看懂。&lt;/p>
 &lt;/blockquote>
-&lt;h1 id="tsdb">TSDB&lt;a class="td-heading-self-link" href="#tsdb" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h1 id="single-store">Single Store&lt;a class="td-heading-self-link" href="#single-store" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;h2 id="tsdb">TSDB&lt;a class="td-heading-self-link" href="#tsdb" aria-label="Heading self-link">&lt;/a>&lt;/h2>
 &lt;p>&lt;a href="https://lokidex.com/posts/tsdb/">https://lokidex.com/posts/tsdb/&lt;/a>&lt;/p>
-&lt;p>从 Loki v2.8 开始，TSDB 是推荐的 Loki 索引。它很大程度上受到 Prometheus 的 TSDB 子项目的启发。如需更深入的解释，您可以阅读 Loki 维护者 Owen 的博客文章。简而言之，这个新索引更高效、更快且更具可扩展性。它也驻留在对象存储中，就像它前面的 &lt;a href="#BoltDB-Shipper%20%E8%BF%90%E8%A1%8C%E7%BB%86%E8%8A%82">BoltDB-Shipper&lt;/a> 索引一样。&lt;/p>
+&lt;p>从 Loki v2.8 开始，TSDB 是推荐的 Loki 索引。它很大程度上受到 Prometheus 的 TSDB 子项目的启发。Loki 维护者 &lt;a href="https://lokidex.com/posts/tsdb/">Owen 的博客文章&lt;/a>中，有更多介绍。简而言之，这个新索引更高效、更快且更具可扩展性。它也驻留在对象存储中，就像它前面的 BoltDB-Shipper 索引一样。&lt;/p>
+&lt;p>TSDB 索引存储的工作原理可以分为 uploadsManager 和 downloadsManager 两部分：&lt;/p>
+&lt;ul>
+&lt;li>uploadsManager # 负责上传 &lt;code>active_index_directory&lt;/code>(默认 tsdb-shipper-active/ 目录) 内的索引分片到配置的共享存储中，同时负责定期清理工作&lt;/li>
+&lt;li>downloadsManager # 负责从共享存储下载索引到本地缓存目录 &lt;code>cache_location&lt;/code>(默认 &lt;code>tsdb-shipper-cache/&lt;/code> 目录)，同时负责定期同步和清理工作&lt;/li>
+&lt;/ul>
+&lt;h1 id="log-retention日志保留">Log Retention(日志保留)&lt;a class="td-heading-self-link" href="#log-retention%e6%97%a5%e5%bf%97%e4%bf%9d%e7%95%99" aria-label="Heading self-link">&lt;/a>&lt;/h1>
+&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/operations/storage/retention/">https://grafana.com/docs/loki/latest/operations/storage/retention/&lt;/a>&lt;/p>
+&lt;blockquote>
+&lt;p>[!tip] 在 Loki 早期（版本 &amp;lt;= 2.7），Log Retention 能力是通过 Table manager 实现。从 2.8 版本开始，由于使用了 TSDB 存储模式，Retention 的行为可以由 Compactor 组件实现。&lt;/p>
+&lt;/blockquote>
+&lt;hr>
+&lt;h1 id="下面的待弃用">下面的待弃用&lt;a class="td-heading-self-link" href="#%e4%b8%8b%e9%9d%a2%e7%9a%84%e5%be%85%e5%bc%83%e7%94%a8" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;h1 id="chunk-存储">Chunk 存储&lt;a class="td-heading-self-link" href="#chunk-%e5%ad%98%e5%82%a8" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;p>Chunk 存储是 Loki 的长期数据存储，旨在支持交互式查询和持续写入，不需要后台维护任务。它由以下部分组成:&lt;/p>
 &lt;ul>
-&lt;li>一个 chunks 索引，这个索引可以通过以下方式支持：Amazon DynamoDB、Google Bigtable、Apache Cassandra。&lt;/li>
-&lt;li>一个用于 chunk 数据本身的键值（KV）存储，可以是：Amazon DynamoDB、Google Bigtable、Apache Cassandra、Amazon S3、Google Cloud Storage。&lt;/li>
+&lt;li>一个 chunks 索引。这个索引可以通过以下方式支持：Amazon DynamoDB、Google Bigtable、Apache Cassandra。&lt;/li>
+&lt;li>一个用于 chunk 数据本身的键值（KV）存储。可以是：Amazon DynamoDB、Google Bigtable、Apache Cassandra、Amazon S3、Google Cloud Storage。&lt;/li>
 &lt;/ul>
 &lt;blockquote>
 &lt;p>与 Loki 的其他核心组件不同，块存储不是一个单独的服务、任务或进程，而是嵌入到需要访问 Loki 数据的 &lt;code>ingester&lt;/code> 和 &lt;code>querier&lt;/code> 服务中的一个库。&lt;/p>
@@ -241,18 +241,53 @@
 &lt;li>对于 &lt;code>Bigtable&lt;/code> 和 &lt;code>Cassandra&lt;/code>，索引条目被建模为单个列值。哈希键成为行键，范围键成为列键。&lt;/li>
 &lt;/ul>
 &lt;p>一组模式集合被用来将读取和写入块存储时使用的匹配器和标签集映射到索引上的操作。随着 Loki 的发展，Schemas 模式也被添加进来，主要是为了更好地平衡写操作和提高查询性能。&lt;/p>
-&lt;h1 id="log-retention日志保留">Log Retention(日志保留)&lt;a class="td-heading-self-link" href="#log-retention%e6%97%a5%e5%bf%97%e4%bf%9d%e7%95%99" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>&lt;a href="https://grafana.com/docs/loki/latest/operations/storage/retention/">https://grafana.com/docs/loki/latest/operations/storage/retention/&lt;/a>&lt;/p>
-&lt;blockquote>
-&lt;p>[!tip] 在 Loki 早期（版本 &amp;lt;= 2.7），Log Retention 能力是通过 Table manager 实现。从 2.8 版本开始，由于使用了 TSDB 存储模式，Retention 的行为可以由 Compactor 组件实现。&lt;/p>
-&lt;/blockquote></description></item><item><title>Docs: Data Model(数据模型)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</link><pubDate>Fri, 22 Oct 2021 22:05:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</guid><description>
+&lt;h3 id="chunk-格式">Chunk 格式&lt;a class="td-heading-self-link" href="#chunk-%e6%a0%bc%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-text" data-lang="text">&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| | |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| MagicNumber(4b) | version(1b) |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| | |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| block-1 bytes | checksum (4b) |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| block-2 bytes | checksum (4b) |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| block-n bytes | checksum (4b) |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| # blocks (uvarint) |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| #entries(uvarint) | mint, maxt (varint) | offset, len (uvarint) |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| #entries(uvarint) | mint, maxt (varint) | offset, len (uvarint) |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| #entries(uvarint) | mint, maxt (varint) | offset, len (uvarint) |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| #entries(uvarint) | mint, maxt (varint) | offset, len (uvarint) |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| checksum(from # blocks) |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| metasOffset - offset to the point with # blocks |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>mint&lt;/code> 和 &lt;code>maxt&lt;/code>分别描述了最小和最大的 Unix 纳秒时间戳。&lt;/p>
+&lt;h4 id="block-格式">Block 格式&lt;a class="td-heading-self-link" href="#block-%e6%a0%bc%e5%bc%8f" aria-label="Heading self-link">&lt;/a>&lt;/h4>
+&lt;p>一个 block 由一系列日志 entries 组成，每个 entry 都是一个单独的日志行。&lt;/p>
+&lt;p>请注意，一个 block 的字节是用 Gzip 压缩存储的。以下是它们未压缩时的形式。&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-text" data-lang="text">&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| ts (varint) | len (uvarint) | log-1 bytes |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| ts (varint) | len (uvarint) | log-2 bytes |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| ts (varint) | len (uvarint) | log-3 bytes |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| ts (varint) | len (uvarint) | log-n bytes |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;code>ts&lt;/code> 是日志的 Unix 纳秒时间戳，而 len 是日志条目的字节长度。&lt;/p></description></item><item><title>Docs: Data Model(数据模型)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Storage%E5%AD%98%E5%82%A8/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</guid><description>
 &lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
 &lt;blockquote>
 &lt;p>参考：&lt;/p>
 &lt;ul>
 &lt;li>官方文档没有专门讲 Log Stream 的章节，Stream 的概念都是在其他章节提到的&lt;/li>
-&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/getting-started/labels/">官方文档，入门-标签&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/operations/storage/">官方文档，运维-存储&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/getting-started/labels/">官方文档，入门 - 标签&lt;/a>&lt;/li>
+&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/operations/storage/">官方文档，运维 - 存储&lt;/a>&lt;/li>
 &lt;/ul>
 &lt;/blockquote>
 &lt;h1 id="log-stream日志流-概念">Log Stream(日志流) 概念&lt;a class="td-heading-self-link" href="#log-stream%e6%97%a5%e5%bf%97%e6%b5%81-%e6%a6%82%e5%bf%b5" aria-label="Heading self-link">&lt;/a>&lt;/h1>
