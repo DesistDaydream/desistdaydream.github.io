@@ -1,173 +1,29 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>断念梦的站点 – Loki 管理</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/</link><description>Recent content in Loki 管理 on 断念梦的站点</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Docs: LokiQL 常见查询语句</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/LokiQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/LokiQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://grafana.com/docs/loki/latest/query/query_examples/">官方文档，查询 - 查询示例&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;p>&lt;strong>多重过滤&lt;/strong>&lt;/p>
-&lt;p>过滤应该首先使用标签匹配器，然后是行过滤器，最后使用标签过滤器：&lt;/p>
-&lt;pre tabindex="0">&lt;code class="language-logql" data-lang="logql">{cluster=&amp;#34;ops-tools1&amp;#34;, namespace=&amp;#34;loki-dev&amp;#34;, job=&amp;#34;loki-dev/query-frontend&amp;#34;} |= &amp;#34;metrics.go&amp;#34; !=&amp;#34;out of order&amp;#34; | logfmt | duration &amp;gt; 30s or status_code!=&amp;#34;200&amp;#34;
-&lt;/code>&lt;/pre>&lt;p>&lt;strong>多解析器&lt;/strong>&lt;/p>
-&lt;p>比如要提取以下格式日志行的方法和路径：&lt;/p>
-&lt;pre tabindex="0">&lt;code class="language-log" data-lang="log">level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg=&amp;#34;POST /api/prom/api/v1/query_range (200) 1.5s&amp;#34;
-&lt;/code>&lt;/pre>&lt;p>你可以像下面这样使用多个解析器：&lt;/p>
-&lt;pre tabindex="0">&lt;code class="language-logql" data-lang="logql">{job=&amp;#34;loki-ops/query-frontend&amp;#34;} | logfmt | line_format &amp;#34;{{.msg}}&amp;#34;
-| regexp &amp;#34;(?P&amp;lt;method&amp;gt;\\w+) (?P&amp;lt;path&amp;gt;[\\w|/]+) \\((?P&amp;lt;status&amp;gt;\\d+?)\\) (?P&amp;lt;duration&amp;gt;.*)&amp;#34;
-&lt;/code>&lt;/pre>&lt;p>Notes: 其实这种 regexp 语法在新版已经可以用 pattern 代替了&lt;/p>
-&lt;pre tabindex="0">&lt;code>pattern `&amp;lt;method&amp;gt; &amp;lt;path&amp;gt; (&amp;lt;status&amp;gt;) &amp;lt;duration&amp;gt;`
-&lt;/code>&lt;/pre>&lt;p>首先通过 &lt;code>logfmt&lt;/code> 解析器提取日志中的数据，然后使用 &lt;code>| line_format&lt;/code> 重新将日志格式化为 &lt;code>POST /api/prom/api/v1/query_range (200) 1.5s&lt;/code>，然后紧接着就是用 &lt;code>regexp&lt;/code> 解析器通过正则表达式来匹配提前标签了。&lt;/p>
-&lt;h2 id="格式化">格式化&lt;a class="td-heading-self-link" href="#%e6%a0%bc%e5%bc%8f%e5%8c%96" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>下面的查询显示了如何重新格式化日志行，使其更容易阅读。&lt;/p>
-&lt;pre tabindex="0">&lt;code class="language-logql" data-lang="logql">{cluster=&amp;#34;ops-tools1&amp;#34;, name=&amp;#34;querier&amp;#34;, namespace=&amp;#34;loki-dev&amp;#34;}
-|= &amp;#34;metrics.go&amp;#34; != &amp;#34;loki-canary&amp;#34;
-| logfmt
-| query != &amp;#34;&amp;#34;
-| label_format query=&amp;#34;{{ Replace .query \&amp;#34;\\n\&amp;#34; \&amp;#34;\&amp;#34; -1 }}&amp;#34;
-| line_format &amp;#34;{{ .ts}}\t{{.duration}}\ttraceID = {{.traceID}}\t{{ printf \&amp;#34;%-100.100s\&amp;#34; .query }} &amp;#34;
-&lt;/code>&lt;/pre>&lt;p>其中的 &lt;code>label_format&lt;/code> 用于格式化查询，而 &lt;code>line_format&lt;/code> 则用于减少信息量并创建一个表格化的输出。比如对于下面的日志行数据：&lt;/p>
-&lt;pre tabindex="0">&lt;code class="language-log" data-lang="log">level=info ts=2020-10-23T20:32:18.094668233Z caller=metrics.go:81 org_id=29 traceID=1980d41501b57b68 latency=fast query=&amp;#34;{cluster=\&amp;#34;ops-tools1\&amp;#34;, job=\&amp;#34;loki-ops/query-frontend\&amp;#34;} |= \&amp;#34;query_range\&amp;#34;&amp;#34; query_type=filter range_type=range length=15m0s step=7s duration=650.22401ms status=200 throughput_mb=1.529717 total_bytes_mb=0.994659
-level=info ts=2020-10-23T20:32:18.068866235Z caller=metrics.go:81 org_id=29 traceID=1980d41501b57b68 latency=fast query=&amp;#34;{cluster=\&amp;#34;ops-tools1\&amp;#34;, job=\&amp;#34;loki-ops/query-frontend\&amp;#34;} |= \&amp;#34;query_range\&amp;#34;&amp;#34; query_type=filter range_type=range length=15m0s step=7s duration=624.008132ms status=200 throughput_mb=0.693449 total_bytes_mb=0.432718
-&lt;/code>&lt;/pre>&lt;p>经过上面的查询过后可以得到如下所示的结果：&lt;/p>
-&lt;pre tabindex="0">&lt;code class="language-log" data-lang="log">2020-10-23T20:32:18.094668233Z 650.22401ms traceID = 1980d41501b57b68 {cluster=&amp;#34;ops-tools1&amp;#34;, job=&amp;#34;loki-ops/query-frontend&amp;#34;} |= &amp;#34;query_range&amp;#34;
-2020-10-23T20:32:18.068866235Z 624.008132ms traceID = 1980d41501b57b68 {cluster=&amp;#34;ops-tools1&amp;#34;, job=&amp;#34;loki-ops/query-frontend&amp;#34;} |= &amp;#34;query_range&amp;#34;
-&lt;/code>&lt;/pre>&lt;h1 id="通用">通用&lt;a class="td-heading-self-link" href="#%e9%80%9a%e7%94%a8" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;h2 id="无数据时返回-0-值">无数据时返回 0 值&lt;a class="td-heading-self-link" href="#%e6%97%a0%e6%95%b0%e6%8d%ae%e6%97%b6%e8%bf%94%e5%9b%9e-0-%e5%80%bc" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>&lt;a href="https://community.grafana.com/t/how-can-i-turn-no-data-to-zero-in-loki/40694/14?u=lchddn0905">https://community.grafana.com/t/how-can-i-turn-no-data-to-zero-in-loki/40694/14?u=lchddn0905&lt;/a>&lt;/p>
-&lt;p>修改 Grafana 面板配置 Standard options - No value 设置为 0&lt;/p>
-&lt;h2 id="对字符串的长度进行比较">对字符串的长度进行比较&lt;a class="td-heading-self-link" href="#%e5%af%b9%e5%ad%97%e7%ac%a6%e4%b8%b2%e7%9a%84%e9%95%bf%e5%ba%a6%e8%bf%9b%e8%a1%8c%e6%af%94%e8%be%83" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;p>利用 label_format 通过模板字符串将某个字符串类型的 Label 的长度做作为一个新 Label，添加到日志行上；然后利用行过滤表达式，根据字符串长度筛选日志&lt;/p>
-&lt;pre tabindex="0">&lt;code class="language-logql" data-lang="logql">{job=&amp;#34;my_job&amp;#34;} |= &amp;#34;mouldId&amp;#34; |= &amp;#34;msgId&amp;#34;
-| pattern `[&amp;lt;_&amp;gt;] [&amp;lt;_&amp;gt;] [&amp;lt;level&amp;gt;] - &amp;lt;_&amp;gt; - &amp;lt;vendor&amp;gt;msgId:&amp;lt;msg_id&amp;gt;=[&amp;lt;_&amp;gt;(commandId=&amp;lt;command_id&amp;gt;, mouldId=&amp;lt;mould_id&amp;gt;, dbId=&amp;lt;db_id&amp;gt;)]`
-| label_format mouldlen = &amp;#34;{{ .mould_id | len }}&amp;#34;
-| mouldlen &amp;gt; 20
-&lt;/code>&lt;/pre></description></item><item><title>Docs: 最佳实践</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;/blockquote>
-&lt;p>标签设计最佳实践: &lt;a href="https://grafana.com/docs/loki/latest/get-started/labels/bp-labels/">https://grafana.com/docs/loki/latest/get-started/labels/bp-labels/&lt;/a>&lt;/p>
-&lt;h1 id="待整理性能优化">待整理：性能优化&lt;a class="td-heading-self-link" href="#%e5%be%85%e6%95%b4%e7%90%86%e6%80%a7%e8%83%bd%e4%bc%98%e5%8c%96" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;p>原文：&lt;a href="https://mp.weixin.qq.com/s/Weh50_VAeazUSZdumfiOSQ">公众号 - 云原生小白，Loki中的标签简明指南（译）&lt;/a>&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://grafana.com/blog/2020/08/27/the-concise-guide-to-labels-in-loki/">https://grafana.com/blog/2020/08/27/the-concise-guide-to-labels-in-loki/&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;p>最近很多同学的 Loki 在上线过程中经常遇见丢日志的情况，一查 Loki 日志的发现是日志流的时序问题导致的。这也从侧方面反映出大家对 Loki 的日志流和标签之间的关系还是明确清楚。几个月前，偶然看见博客上原作者对 Loki 标签有过简明指南，深感有责任翻译给大家，用于理解这部分概念。由于原文写于 Loki1.x 时代，译文对于部分于差异的部分进行了相关删减，如小伙伴们要阅读原文，点击文末【阅读原文】即可&lt;/p>
-&lt;p>作为 Loki 的用户或操作员，我们的目标应该是使用尽可能少的标签来存储你的日志。&lt;/p>
-&lt;p>这意味着，&lt;code>更少的标签带来更小的索引，从而导致更好的性能&lt;/code> 再重复一遍 &lt;code>更少的标签=更好的性能&lt;/code>&lt;/p>
-&lt;p>这可能听起来有悖直觉。大部分数据库的管理经验告诉我们，如果你想让查询更加快速，我们通常通过需要建立更多的索引。但是，Loki 是以完全相反的方式构建和优化的。我们围绕 Loki 的设计初衷是为了保持运营成本和复杂性低，这是通过保持一个非常小的索引和利用硬件能力和并行化运算来实现的。&lt;/p>
-&lt;p>因此，作为 Loki 的用户或操作者，我们在添加标签之前&lt;code>一定要三思而行&lt;/code>。&lt;/p>
-&lt;p>我举个例子：&lt;/p>
-&lt;pre tabindex="0">&lt;code>ts=2020-08-25T16:55:42.986960888Z caller=spanlogger.go:53 org_id=29 traceID=2612c3ff044b7d02 method=Store.lookupIdsByMetricNameMatcher level=debug matcher=&amp;#34;pod=&amp;#34;loki-canary-25f2k/&amp;#34;&amp;#34; queries=16
-&lt;/code>&lt;/pre>&lt;blockquote>
-&lt;p>我们应该通过 TraceID 查询所有日志？&lt;/p>
-&lt;/blockquote>
-&lt;p>你可能会想，&amp;ldquo;我应该提取 traceID 作为标签&amp;rdquo;，然后我可以这样查询。&lt;/p>
-&lt;pre tabindex="0">&lt;code>{cluster=&amp;#34;ops-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;, traceID=”2612c3ff044b7d02”}
-&lt;/code>&lt;/pre>&lt;p>&lt;code>千万不要这样做!&lt;/code> 我们要避免将日志中的内容提取成标签！如果你想在你的日志中找到高基的数据，可以使用下面这样的过滤表达式。&lt;/p>
-&lt;pre tabindex="0">&lt;code>{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;} |= &amp;#34;traceID=2612c3ff044b7d02&amp;#34;
-&lt;/code>&lt;/pre>&lt;blockquote>
-&lt;p>但是如果标签是一个较低的基数怎么办？如果把日志级别提取到标签中，而我们的日志级别只有五个值，怎么办？&lt;/p>
-&lt;/blockquote>
-&lt;pre tabindex="0">&lt;code>{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;, level=&amp;#34;debug&amp;#34;}
-&lt;/code>&lt;/pre>&lt;p>在这里要小心！&lt;code>记住标签对索引和存储有多重的, 增加一个标签，那么对Loki的索引和存储有倍增的效应。&lt;/code>一开始是我们是一个日志流，现在变成了多达五个流（按照日志级别）。然后我们考虑是否添加另一个标签？但是不幸的是，即使它只有几个值，事情也会很快失控。&lt;/p>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ud2er6/1616127770354-bbf3be6d-d077-4877-82a7-6e344be86df1.png" alt="">&lt;/p>
-&lt;p>相反，我们应该按照过滤表达式如下编写 LogQL 语法：&lt;/p>
-&lt;pre tabindex="0">&lt;code>{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;} |= &amp;#34;level=debug&amp;#34; |= &amp;#34;status=200&amp;#34; |= &amp;#34;path=/api/v1/query&amp;#34;
-&lt;/code>&lt;/pre>&lt;p>&lt;strong>是否可以将日志内容提取为标签？&lt;/strong>&lt;/p>
-&lt;p>是的，我们可以这么做，不过在这样做之前应该仔细考虑下，新增的标签是否是用于描述日志，以帮助你缩小搜索范围，如果是那你应当慎重。或者说，我们在 Loki 使用标签，主要是它们描述了我们的应用运行在各种环境、服务器等物理的拓扑结构，通过他们来描述日志的来源。&lt;/p>
-&lt;p>这是 Loki 目前一个艰难的用例，我们正在努力&lt;code>消除对有序条目的限制，但这是一个棘手的问题&lt;/code>。目前，这种环境将需要对你的&lt;code>代码的并行性进行限制&lt;/code>。或者可以采取另一种变通方法，即把你的程序日志发送到一个可以做提取时间戳的服务上做好聚合后再发送给 Loki。&lt;/p>
-&lt;p>这是 Loki 需要改进的地方，我们正在积极努力。&lt;/p>
-&lt;h3 id="总结">总结&lt;a class="td-heading-self-link" href="#%e6%80%bb%e7%bb%93" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>Loki 利用水平缩放和查询器的蛮力来查找数据。这和完全索引的解决方案一样快吗？不，它可能不会! 但它的运行（其实非常快）却容易得多！让我们看看一个从 Grafana Lab 上 Loki 集群的一些实际数据。在过去的七天里，它摄入了 14TB 的数据。该时间段对应的索引使用量约为 500MB。&lt;code>14TB日志的索引可以装进一个树莓派的内存中。&lt;/code>&lt;/p>
-&lt;p>这就是为什么我们注重保持标签集小的原因。也许你的标签只能将搜索范围缩小到 100GB 的日志数据。&lt;/p>
-&lt;p>不用担心! 运行 20 个查询器，它们可以以 30GB/s 的速度并行搜索这 100GB 的数据，这比维护一个 14TB 的索引要便宜得多，因为 Loki 可以告诉你到底在哪里查找，特别是当你考虑到你可以在查询完成后将查询器关闭，从成本上来看它非常划算！&lt;/p>
-&lt;p>最后，再一次重申，&lt;strong>&lt;code>更少的标签 = 更好的性能。&lt;/code>&lt;/strong>&lt;/p></description></item><item><title>Docs: logcli 命令行工具</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/logcli-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/logcli-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;/blockquote>
-&lt;p>export LOKI_ADDR=http://localhost:3100&lt;/p>
-&lt;p>在 &lt;a href="https://github.com/grafana/loki/releases">https://github.com/grafana/loki/releases&lt;/a> 该界面下载 logcli 工具的二进制文件，并放到系统 $PATH 下。&lt;/p>
-&lt;p>二进制文件有了之后，配置一下 logcli 所需要的环境变量 export LOKI_ADDR=http://localhost:3100 然后就可以使用了&lt;/p>
-&lt;p>下面是一些命令使用示例&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yaml" data-lang="yaml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#000;font-weight:bold">[&lt;/span>&lt;span style="color:#000">root@master-1 bin]# logcli labels job&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">http://172.38.40.212:31000/loki/api/v1/label/job/values?end=1600402177427090944&amp;amp;start=1600398577427090944&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">varlogs&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000;font-weight:bold">[&lt;/span>&lt;span style="color:#000">root@master-1 bin]# logcli query &amp;#39;{job=&amp;#34;varlogs&amp;#34;}&amp;#39; | more&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">http://172.38.40.212:31000/loki/api/v1/query_range?direction=BACKWARD&amp;amp;end=1600402187037107678&amp;amp;limit=30&amp;amp;query=%7Bjob%3D%22varlogs%22%7D&amp;amp;start=1600398587037107678&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">Common labels&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>{&lt;span style="color:#000">job=&amp;#34;varlogs&amp;#34;}&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">2020-09-18T11:48:50&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">+08&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#0000cf;font-weight:bold">00&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>{&lt;span style="color:#000">filename=&amp;#34;/var/log/host/messages&amp;#34;} Sep 18 11:48:50 master-1 kubelet: W0918 11:48:50.468511 30889 container.go:526] Failed to update stats for container &amp;#34;/system&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">.slice/docker-f326688c0b9b38fb8190bba72eb12d55e2017a9624889948ac118e6b9eb1199b.scope&amp;#34;: unable to determine device info for dir: /var/lib/docker/overlay2/51f0b901d76af9efd801abb473d0b7d5b27a193ccb990&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#204a87;font-weight:bold">d3db1cac1799a2a0432/diff: stat failed on /var/lib/docker/overlay2/51f0b901d76af9efd801abb473d0b7d5b27a193ccb990d3db1cac1799a2a0432/diff with error&lt;/span>&lt;span style="color:#000;font-weight:bold">:&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#204a87;font-weight:bold">no&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline"> &lt;/span>&lt;span style="color:#000">such file or directory, continuing to push stat&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">s&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f8f8f8;text-decoration:underline">&lt;/span>&lt;span style="color:#000">...&lt;/span>&lt;span style="color:#000">...&lt;/span>&lt;span style="color:#f8f8f8;text-decoration:underline">
-&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div></description></item><item><title>Docs: 故障处理</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/</guid><description>
-&lt;h1 id="概述">概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link">&lt;/a>&lt;/h1>
-&lt;blockquote>
-&lt;p>参考：&lt;/p>
-&lt;ul>
-&lt;li>&lt;a href="https://mp.weixin.qq.com/s/zfXNEkdDC9Vqd9lh1ptC1g">公众号-k8s 技术圈，Grafana Loki 学习之踩坑记&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;/blockquote>
-&lt;h2 id="踩过的坑">踩过的坑&lt;a class="td-heading-self-link" href="#%e8%b8%a9%e8%bf%87%e7%9a%84%e5%9d%91" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;h3 id="loki-启动时提示-panic-invalid-page-type-1110">LOKI 启动时提示 panic: invalid page type: 11:10&lt;a class="td-heading-self-link" href="#loki-%e5%90%af%e5%8a%a8%e6%97%b6%e6%8f%90%e7%a4%ba-panic-invalid-page-type-1110" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>原因: 对应的 index table 文件已经损坏&lt;/p>
-&lt;p>解决: 删除相应的 index 文件即可解决&lt;/p>
-&lt;h3 id="日志的-label-不对">日志的 label 不对&lt;a class="td-heading-self-link" href="#%e6%97%a5%e5%bf%97%e7%9a%84-label-%e4%b8%8d%e5%af%b9" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>原因: promtail 中的 scrape_config 存在问题.&lt;/p>
-&lt;p>参考: &lt;a href="https://izsk.me/2022/05/15/Loki-log-with-wrong-labels/">https://izsk.me/2022/05/15/Loki-log-with-wrong-labels/&lt;/a>&lt;/p>
-&lt;h3 id="grafana-中开启实时日志时提示-query-error">grafana 中开启实时日志时提示 Query error&lt;a class="td-heading-self-link" href="#grafana-%e4%b8%ad%e5%bc%80%e5%90%af%e5%ae%9e%e6%97%b6%e6%97%a5%e5%bf%97%e6%97%b6%e6%8f%90%e7%a4%ba-query-error" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/db512b9b-c1da-45ba-899d-25fe2642c5b9/640" alt="">&lt;/p>
-&lt;p>原因: 官方的解释是 Note that live tailing relies on two websocket connections: one between the browser and the Grafana server, and another between the Grafana server and the Loki server. If you run any reverse proxies, please configure them accordingly.&lt;/p>
-&lt;p>也就是说，如果在 web 与 grafana,grafana 与 loki 之间存在如 nginx 类的 proxy, 则需要开启 websocket 特性，恰好作者的 grafana 是在 nginx 后的&lt;/p>
-&lt;p>解决: nginx 添加 websocket 配置, [详见] &lt;code>https://www.nginx.com/blog/websocket-nginx/&lt;/code>&lt;/p>
-&lt;p>参考: &lt;a href="https://github.com/grafana/grafana/blob/b5d8cb25e18fc73f37b3546246363464c9298684/docs/sources/features/datasources/loki.md">https://github.com/grafana/grafana/blob/b5d8cb25e18fc73f37b3546246363464c9298684/docs/sources/features/datasources/loki.md&lt;/a>&lt;/p>
-&lt;h3 id="loki-file-size-too-smallnerror-creating-index-client">Loki: file size too small\nerror creating index client&lt;a class="td-heading-self-link" href="#loki-file-size-too-smallnerror-creating-index-client" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>解决: 删除 loki 的持久化目录下的 boltdb-shipper-active/index_18xxx 目录&lt;/p>
-&lt;p>参考: &lt;a href="https://github.com/grafana/loki/issues/3219">https://github.com/grafana/loki/issues/3219&lt;/a>&lt;/p>
-&lt;h3 id="protail-context-deadline-exceeded">protail: context deadline exceeded&lt;a class="td-heading-self-link" href="#protail-context-deadline-exceeded" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/db512b9b-c1da-45ba-899d-25fe2642c5b9/640" alt="">&lt;/p>
-&lt;p>原因: promtail 无法连接 loki 所致&lt;/p>
-&lt;h3 id="promtail-cpu-使用过高">promtail cpu 使用过高&lt;a class="td-heading-self-link" href="#promtail-cpu-%e4%bd%bf%e7%94%a8%e8%bf%87%e9%ab%98" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>原因: 由于集群中存在大量的 job 类 pod，这会对 loki 的服务发现会有很大的压力，需要调整 promtail 的配置，查看官方的 issue，后续可能会将 ds 由 promtail 转到服务端来做，promtail 需要调整的配置主要为&lt;/p>
-&lt;p>&lt;code>target_config:   sync_period: 30s positions:   filename: /run/promtail/positions.yaml   sync_period: 30s&lt;/code>&lt;/p>
-&lt;p>将 sync_period 由默认的 10s 换成 30s&lt;/p>
-&lt;p>可以使用以下的命令获取到 pprof 文件分析性能&lt;/p>
-&lt;p>&lt;code>curl localhost:3100/debug/pprof/profile\?seconds\=20&lt;/code>&lt;/p>
-&lt;p>参考: &lt;a href="https://github.com/grafana/loki/issues/1315">https://github.com/grafana/loki/issues/1315&lt;/a>&lt;/p>
-&lt;h3 id="maximum-active-stream-limit-exceeded">Maximum active stream limit exceeded&lt;a class="td-heading-self-link" href="#maximum-active-stream-limit-exceeded" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/db512b9b-c1da-45ba-899d-25fe2642c5b9/640" alt="">&lt;/p>
-&lt;p>原因：同下，需要调整 limit config 中的 max_streams_per_user， 设置为 0 即可&lt;/p>
-&lt;h3 id="server-returned-http-status-429-too-many-requests">server returned HTTP status 429 Too Many Requests&lt;a class="td-heading-self-link" href="#server-returned-http-status-429-too-many-requests" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/db512b9b-c1da-45ba-899d-25fe2642c5b9/640" alt="">&lt;/p>
-&lt;p>原因: limit config 中的参数: &lt;code>ingestion_burst_size&lt;/code> 默认值太小，调整即可&lt;/p>
-&lt;p>参考: &lt;a href="https://github.com/grafana/loki/issues/1923">https://github.com/grafana/loki/issues/1923&lt;/a>&lt;/p>
-&lt;h3 id="please-verify-permissions">Please verify permissions&lt;a class="td-heading-self-link" href="#please-verify-permissions" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/db512b9b-c1da-45ba-899d-25fe2642c5b9/640" alt="">&lt;/p>
-&lt;p>原因: 这条其实是 warn, 不影响 promtail 的正常工作，如果调整过日志的路径的话要确认 promtail 挂载的路径是否正常&lt;/p>
-&lt;h3 id="loki-invalid-schema-config">loki: invalid schema config&lt;a class="td-heading-self-link" href="#loki-invalid-schema-config" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>原因: loki 的配置文件格式错误.&lt;/p>
-&lt;h3 id="promtail-too-many-open-files">promtail: too many open files&lt;a class="td-heading-self-link" href="#promtail-too-many-open-files" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/db512b9b-c1da-45ba-899d-25fe2642c5b9/640" alt="">&lt;/p>
-&lt;p>原因: &lt;code>/var/log/pods&lt;/code> 下面的文件数量太多，导致超过内核参数 (&lt;code>fs.inotify.max_user_instances&lt;/code>) 设置配置.&lt;/p>
-&lt;p>解决&lt;/p>
-&lt;p>&lt;code># 先查看当前机器设置的配置 cat /proc/sys/fs/inotify/max_user_instances # 再查看 promtail 启动时 watch 的文件数 cat /run/promtail/positions.yaml | wc -l # 如果这个值比 max_user_instances 要大，则会出现上面的错误，可以通过修改内核参数进行调整 sysctl -w fs.inotify.max_user_instances=1024 # 生效 sysctl -p&lt;/code>&lt;/p>
-&lt;p>参考: &lt;a href="https://github.com/grafana/loki/issues/1153">https://github.com/grafana/loki/issues/1153&lt;/a>&lt;/p>
-&lt;h3 id="promtail-no-such-file-ro-directory">promtail: no such file ro directory&lt;a class="td-heading-self-link" href="#promtail-no-such-file-ro-directory" aria-label="Heading self-link">&lt;/a>&lt;/h3>
-&lt;p>&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/db512b9b-c1da-45ba-899d-25fe2642c5b9/640" alt="">&lt;/p>
-&lt;p>原因：promtail daemonset 启动时会自动挂载好几个 hostpath, 如果 docker containers 的配置调整过，则需要 volume 跟 volumemount 都需要对应上。&lt;/p>
-&lt;h2 id="参考文章">参考文章&lt;a class="td-heading-self-link" href="#%e5%8f%82%e8%80%83%e6%96%87%e7%ab%a0" aria-label="Heading self-link">&lt;/a>&lt;/h2>
-&lt;ul>
-&lt;li>&lt;a href="https://github.com/grafana/loki/issues/429">https://github.com/grafana/loki/issues/429&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://github.com/grafana/loki/issues/3219">https://github.com/grafana/loki/issues/3219&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://github.com/grafana/loki/issues/1153">https://github.com/grafana/loki/issues/1153&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://github.com/grafana/loki/issues/1923">https://github.com/grafana/loki/issues/1923&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://blog.csdn.net/weixin_44997607/article/details/108419144">https://blog.csdn.net/weixin_44997607/article/details/108419144&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://github.com/grafana/loki/issues/1315">https://github.com/grafana/loki/issues/1315&lt;/a>&lt;/li>
-&lt;li>&lt;a href="https://www.nginx.com/blog/websocket-nginx/">https://www.nginx.com/blog/websocket-nginx/&lt;/a>&lt;/li>
-&lt;/ul>
-&lt;blockquote>
-&lt;p>原文地址：&lt;a href="https://izsk.me/2022/05/15/Loki-Prombles">https://izsk.me/2022/05/15/Loki-Prombles&lt;/a> &amp;gt; &lt;a href="https://mp.weixin.qq.com/s/zfXNEkdDC9Vqd9lh1ptC1g">https://mp.weixin.qq.com/s/zfXNEkdDC9Vqd9lh1ptC1g&lt;/a>&lt;/p>
-&lt;/blockquote></description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Loki 管理 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/</link><description>Recent content in Loki 管理 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>LokiQL 常见查询语句</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/LokiQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/LokiQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</guid><description>概述 参考：
+官方文档，查询 - 查询示例 多重过滤
+过滤应该首先使用标签匹配器，然后是行过滤器，最后使用标签过滤器：
+{cluster=&amp;#34;ops-tools1&amp;#34;, namespace=&amp;#34;loki-dev&amp;#34;, job=&amp;#34;loki-dev/query-frontend&amp;#34;} |= &amp;#34;metrics.go&amp;#34; !=&amp;#34;out of order&amp;#34; | logfmt | duration &amp;gt; 30s or status_code!=&amp;#34;200&amp;#34; 多解析器
+比如要提取以下格式日志行的方法和路径：
+level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg=&amp;#34;POST /api/prom/api/v1/query_range (200) 1.5s&amp;#34; 你可以像下面这样使用多个解析器：
+{job=&amp;#34;loki-ops/query-frontend&amp;#34;} | logfmt | line_format &amp;#34;{{.msg}}&amp;#34; | regexp &amp;#34;(?P&amp;lt;method&amp;gt;\\w+) (?P&amp;lt;path&amp;gt;[\\w|/]+) \\((?P&amp;lt;status&amp;gt;\\d+?)\\) (?P&amp;lt;duration&amp;gt;.*)&amp;#34; Notes: 其实这种 regexp 语法在新版已经可以用 pattern 代替了
+pattern `&amp;lt;method&amp;gt; &amp;lt;path&amp;gt; (&amp;lt;status&amp;gt;) &amp;lt;duration&amp;gt;` 首先通过 logfmt 解析器提取日志中的数据，然后使用 | line_format 重新将日志格式化为 POST /api/prom/api/v1/query_range (200) 1.5s，然后紧接着就是用 regexp 解析器通过正则表达式来匹配提前标签了。
+格式化 下面的查询显示了如何重新格式化日志行，使其更容易阅读。</description></item><item><title>最佳实践</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>概述 参考：
+标签设计最佳实践: https://grafana.com/docs/loki/latest/get-started/labels/bp-labels/
+待整理：性能优化 原文：公众号 - 云原生小白，Loki中的标签简明指南（译）
+https://grafana.com/blog/2020/08/27/the-concise-guide-to-labels-in-loki/ 最近很多同学的 Loki 在上线过程中经常遇见丢日志的情况，一查 Loki 日志的发现是日志流的时序问题导致的。这也从侧方面反映出大家对 Loki 的日志流和标签之间的关系还是明确清楚。几个月前，偶然看见博客上原作者对 Loki 标签有过简明指南，深感有责任翻译给大家，用于理解这部分概念。由于原文写于 Loki1.x 时代，译文对于部分于差异的部分进行了相关删减，如小伙伴们要阅读原文，点击文末【阅读原文】即可
+作为 Loki 的用户或操作员，我们的目标应该是使用尽可能少的标签来存储你的日志。
+这意味着，更少的标签带来更小的索引，从而导致更好的性能 再重复一遍 更少的标签=更好的性能
+这可能听起来有悖直觉。大部分数据库的管理经验告诉我们，如果你想让查询更加快速，我们通常通过需要建立更多的索引。但是，Loki 是以完全相反的方式构建和优化的。我们围绕 Loki 的设计初衷是为了保持运营成本和复杂性低，这是通过保持一个非常小的索引和利用硬件能力和并行化运算来实现的。
+因此，作为 Loki 的用户或操作者，我们在添加标签之前一定要三思而行。
+我举个例子：
+ts=2020-08-25T16:55:42.986960888Z caller=spanlogger.go:53 org_id=29 traceID=2612c3ff044b7d02 method=Store.lookupIdsByMetricNameMatcher level=debug matcher=&amp;#34;pod=&amp;#34;loki-canary-25f2k/&amp;#34;&amp;#34; queries=16 我们应该通过 TraceID 查询所有日志？
+你可能会想，&amp;ldquo;我应该提取 traceID 作为标签&amp;rdquo;，然后我可以这样查询。
+{cluster=&amp;#34;ops-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;, traceID=”2612c3ff044b7d02”} 千万不要这样做! 我们要避免将日志中的内容提取成标签！如果你想在你的日志中找到高基的数据，可以使用下面这样的过滤表达式。
+{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;} |= &amp;#34;traceID=2612c3ff044b7d02&amp;#34; 但是如果标签是一个较低的基数怎么办？如果把日志级别提取到标签中，而我们的日志级别只有五个值，怎么办？
+{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;, level=&amp;#34;debug&amp;#34;} 在这里要小心！记住标签对索引和存储有多重的, 增加一个标签，那么对Loki的索引和存储有倍增的效应。一开始是我们是一个日志流，现在变成了多达五个流（按照日志级别）。然后我们考虑是否添加另一个标签？但是不幸的是，即使它只有几个值，事情也会很快失控。
+相反，我们应该按照过滤表达式如下编写 LogQL 语法：
+{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;} |= &amp;#34;level=debug&amp;#34; |= &amp;#34;status=200&amp;#34; |= &amp;#34;path=/api/v1/query&amp;#34; 是否可以将日志内容提取为标签？</description></item><item><title>logcli 命令行工具</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/logcli-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/logcli-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>概述 参考：
+export LOKI_ADDR=http://localhost:3100
+在 https://github.com/grafana/loki/releases 该界面下载 logcli 工具的二进制文件，并放到系统 $PATH 下。
+二进制文件有了之后，配置一下 logcli 所需要的环境变量 export LOKI_ADDR=http://localhost:3100 然后就可以使用了
+下面是一些命令使用示例
+[root@master-1 bin]# logcli labels job http://172.38.40.212:31000/loki/api/v1/label/job/values?end=1600402177427090944&amp;amp;start=1600398577427090944 varlogs [root@master-1 bin]# logcli query &amp;#39;{job=&amp;#34;varlogs&amp;#34;}&amp;#39; | more http://172.38.40.212:31000/loki/api/v1/query_range?direction=BACKWARD&amp;amp;end=1600402187037107678&amp;amp;limit=30&amp;amp;query=%7Bjob%3D%22varlogs%22%7D&amp;amp;start=1600398587037107678 Common labels: {job=&amp;#34;varlogs&amp;#34;} 2020-09-18T11:48:50+08:00 {filename=&amp;#34;/var/log/host/messages&amp;#34;} Sep 18 11:48:50 master-1 kubelet: W0918 11:48:50.468511 30889 container.go:526] Failed to update stats for container &amp;#34;/system .slice/docker-f326688c0b9b38fb8190bba72eb12d55e2017a9624889948ac118e6b9eb1199b.scope&amp;#34;: unable to determine device info for dir: /var/lib/docker/overlay2/51f0b901d76af9efd801abb473d0b7d5b27a193ccb990 d3db1cac1799a2a0432/diff: stat failed on /var/lib/docker/overlay2/51f0b901d76af9efd801abb473d0b7d5b27a193ccb990d3db1cac1799a2a0432/diff with error: no such file or directory, continuing to push stat s .</description></item></channel></rss>
