@@ -8,17 +8,8 @@ PromQL 体验 在 graph 页面，可以在红框位置输入表达式
 Prometheus 通过 MetricsName(指标名称) 及其对应的一组 LabelSet(标签集) 定义唯一的一条时间序列。指标名称反映了监控样本的基本标识，而 label 则在这个基本特征上为采集到的数据提供了多种特征维度。用户可以基于这些特征维度过滤，聚合，统计从而产生新的计算后的一条时间序列。
 PromQL 是 Prometheus 内置的数据查询语言，其提供对时间序列数据丰富的查询，聚合以及逻辑运算能力的支持。并且被广泛应用在 Prometheus 的日常应用当中，包括对数据查询、可视化、告警处理当中。可以这么说，PromQL 是 Prometheus 所有应用场景的基础，理解和掌握 PromQL 是 Prometheus 入门的第一课。
 PromQL 基本语法 PromQL 没有绝对通用的语法，在不同场景查询条件下，语法也不同。但是，语法必须要有语句，这种语句就称为 Expression(表达式)，Expression 可以是简单的字符串，也可以是一个指标名称，甚至是一串基于指标的复杂语法。
-在 PromQL 中，任何 Expression(表达式) 或者 subExpression(子表达式) 都可以归为四种类型：</description></item><item><title>Aggregation Operators(聚合运算符)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/Aggregation-Operators%E8%81%9A%E5%90%88%E8%BF%90%E7%AE%97%E7%AC%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/Aggregation-Operators%E8%81%9A%E5%90%88%E8%BF%90%E7%AE%97%E7%AC%A6/</guid><description>概述 参考：
-官方文档，Prometheus - 查询 - 运算符 - 聚合运算符 Prometheus 还提供了下列内置的聚合运算符，这些运算符仅作用于瞬时向量。可以将瞬时表达式返回的样本数据进行聚合，形成一个新的时间序列。
-sum (求和) min (最小值) max (最大值) avg (平均值) stddev (标准差) stdvar (标准差异) count (计数) count_values (对 value 进行计数) bottomk (后 n 条时序) topk (前 n 条时序) quantile (分布统计) Syntax(语法) [AggregationOperators] [without|by (LabelName,&amp;hellip;.)] ([Parameter,&amp;hellip;] VectorExpression)
-Aggregation Operators # 聚合运算符 without|by (LabelName,&amp;hellip;) # 若不指定该选项，则聚合全部数据的值。如果指定了，则按照指定的 LabelName 进行聚合。通过 without 和 by 可以按照样本的问题对数据进行聚合。该用法的示例图详见文末 by # 聚合 by 后面指定的 LabelName 样本数据，并将聚合以外的标签的移除 without # 与 by 相反，聚合 without 后面没有指定的 LabelName 样本数据。并将聚合以外的标签的移除 Parameter # 参数，其中只有 count_values, quantile, topk, bottomk 支持 VectorExpression # 向量表达式。详见 PromQL 章节 sum, min, max, avg 详解 count 与 count_values 详解 EXAMPLE</description></item><item><title>PromQL Functions</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/PromQL-Functions/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/PromQL-Functions/</guid><description>概述 参考：
-官方文档，Prometheus - 查询 - 函数 fuckcloudnative.io 公众号 - k8s 技术圈，PromQL 查询之 rate 函数的使用 Prometheus Extrapolation 原理解析，delta、increase 函数的解析 Prometheus 提供了其它大量的内置函数，可以对时序数据进行丰富的处理。在代码 promql/functions.go 中可以看到当前所有可用的 PromQL 函数。
-函数的语法 某些函数有默认的参数，例如：year(v=vector(time()) instant-vector)。这是一个标准的函数结构 函数名(形参 形参的类型)
-instant-vector # 表示参数类型，该类型表示一个瞬时向量表达式 range-vector 表示一个范围向量表达式 v # 表示这是 year 函数中，instant-vector 类型的形参 vector(time()) # 表示参数 v 的默认值。 比如 absent(up) 这个表达式中，up 就是传递给参数 v 的值，是一个瞬时向量表达式。absent 表示该函数的功能。
-Prometheus 内置函数 absent() - 判断表达式是否可以获取到序列 absent(v instant-vector) 返回值有两种
-空向量 # 如果传递给它的向量参数具有样本数据，返回空向量，就是不返回任何时间序列的意思。 1 # 如果传递的向量参数没有样本数据，则返回不带度量指标名称且带有标签的时间序列，且样本值为 1。 效果如下：
-absent() 函数特别适用于告警，用于判断单条时间序列（给定 Name 与 Label 组合成的 Metrics）是否存在。</description></item><item><title>PromQL Operators(运算符)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/PromQL-Operators%E8%BF%90%E7%AE%97%E7%AC%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/PromQL-Operators%E8%BF%90%E7%AE%97%E7%AC%A6/</guid><description>概述 参考：
-官方文档，Prometheus-查询-运算符 Binary Operators(二元运算符) PromQL 支持基本的 逻辑 和 算术 运算符。 对于两个即时向量之间的运算，可以修改匹配行为。
+在 PromQL 中，任何 Expression(表达式) 或者 subExpression(子表达式) 都可以归为四种类型：</description></item><item><title>PromQL Operators(运算符)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/PromQL-Operators%E8%BF%90%E7%AE%97%E7%AC%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/PromQL-Operators%E8%BF%90%E7%AE%97%E7%AC%A6/</guid><description>概述 参考：
+官方文档，Prometheus - 查询 - 运算符 Binary Operators(二元运算符) PromQL 支持基本的 逻辑 和 算术 运算符。 对于两个即时向量之间的运算，可以修改匹配行为。
 使用 PromQL 除了能够方便的按照查询和过滤时间序列以外，PromQL 还支持丰富的运算符，用户可以使用这些运算符对进一步的对事件序列进行二次加工。这些运算符包括：数学运算符，逻辑运算符，布尔运算符等等。
 详见《Binary Operators(二元运算符)》章节
 Vector Matching(向量匹配) 向量与向量之间进行运算操作时会基于默认的匹配规则：
@@ -35,8 +26,17 @@ method_code:http_errors:rate5m{method=&amp;#34;get&amp;#34;, code=&amp;#34;500&a
 官方文档中，将时间序列中的标签称为 element(元素)
 Arithmetic(算术) 二元运算符 PromQL 支持以下算术二元运算符：
 (加法) (减法) (乘法) / (除法) % (求余) ^ (幂运算) 算术二元运算符可以实现如下三种类型的运算：
-Between two scalars(标量与标量) Between an instant vector and a scalar(即时向量与标量) Between two instant vectors(即时向量与即时向量) Between two scalars(标量与标量) 就是普通的数学运算，类似于 1+1、2*3 等等，直接获取一个标量结果
+Between two scalars(标量与标量) Between an instant vector and a scalar(即时向量与标量) Between two instant vectors(即时向量与即时向量) Between two scalars(标量与标量) 就是普通的数学运算，类似于 $1+1$、$2*3$ 等等，直接获取一个标量结果
 Between an instant vector and a scalar(即时向量与标量) 当瞬时向量与标量之间进行数学运算时，数学运算符会依次作用域瞬时向量中的每一个样本值，从而得到一组新的时间序列。
 与 标量之间 的二元运算一样，只不过将即时向量表达式获取到的所有时间序列的值与标量进行运算，效果如下：
 经过运算后：
-Between two instant vectors(即时向量与即时向量) 如果是即时向量与即时向量之间进行数学运算时，过程会相对复杂一点。 例如，如果我们想根据 node_disk_bytes_written 和 node_disk_bytes_read 获取主机磁盘 IO 的总量，可以使用如下表达式：</description></item></channel></rss>
+Between two instant vectors(即时向量与即时向量) 如果是即时向量与即时向量之间进行数学运算时，过程会相对复杂一点。 例如，如果我们想根据 node_disk_bytes_written 和 node_disk_bytes_read 获取主机磁盘 IO 的总量，可以使用如下表达式：</description></item><item><title>Aggregation Operators(聚合运算符)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/Aggregation-Operators%E8%81%9A%E5%90%88%E8%BF%90%E7%AE%97%E7%AC%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/Aggregation-Operators%E8%81%9A%E5%90%88%E8%BF%90%E7%AE%97%E7%AC%A6/</guid><description>概述 参考：
+官方文档，Prometheus - 查询 - 运算符 - 聚合运算符 Prometheus 还提供了下列内置的聚合运算符，这些运算符仅作用于瞬时向量。可以将瞬时表达式返回的样本数据进行聚合，形成一个新的时间序列。
+sum (求和) min (最小值) max (最大值) avg (平均值) stddev (标准差) stdvar (标准差异) count (计数) count_values (对 value 进行计数) bottomk (后 n 条时序) topk (前 n 条时序) quantile (分布统计) Syntax(语法) [AggregationOperators] [without|by (LabelName,&amp;hellip;.)] ([Parameter,&amp;hellip;] VectorExpression)
+Aggregation Operators # 聚合运算符 without|by (LabelName,&amp;hellip;) # 若不指定该选项，则聚合全部数据的值。如果指定了，则按照指定的 LabelName 进行聚合。通过 without 和 by 可以按照样本的问题对数据进行聚合。该用法的示例图详见文末 by # 聚合 by 后面指定的 LabelName 样本数据，并将聚合以外的标签的移除 without # 与 by 相反，聚合 without 后面没有指定的 LabelName 样本数据。并将聚合以外的标签的移除 Parameter # 参数，其中只有 count_values, quantile, topk, bottomk 支持 VectorExpression # 向量表达式。详见 PromQL 章节 sum, min, max, avg 详解 count 与 count_values 详解 EXAMPLE</description></item><item><title>PromQL Functions</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/PromQL-Functions/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/PromQL-Functions/</guid><description>概述 参考：
+官方文档，Prometheus - 查询 - 函数 fuckcloudnative.io 公众号 - k8s 技术圈，PromQL 查询之 rate 函数的使用 Prometheus Extrapolation 原理解析，delta、increase 函数的解析 Prometheus 提供了其它大量的内置函数，可以对时序数据进行丰富的处理。在代码 promql/functions.go 中可以看到当前所有可用的 PromQL 函数。
+函数的语法 某些函数有默认的参数，例如：year(v=vector(time()) instant-vector)。这是一个标准的函数结构 函数名(形参 形参的类型)
+instant-vector # 表示参数类型，该类型表示一个瞬时向量表达式 range-vector 表示一个范围向量表达式 v # 表示这是 year 函数中，instant-vector 类型的形参 vector(time()) # 表示参数 v 的默认值。 比如 absent(up) 这个表达式中，up 就是传递给参数 v 的值，是一个瞬时向量表达式。absent 表示该函数的功能。
+Prometheus 内置函数 absent() - 判断表达式是否可以获取到序列 absent(v instant-vector) 返回值有两种
+空向量 # 如果传递给它的向量参数具有样本数据，返回空向量，就是不返回任何时间序列的意思。 1 # 如果传递的向量参数没有样本数据，则返回不带度量指标名称且带有标签的时间序列，且样本值为 1。 效果如下：
+absent() 函数特别适用于告警，用于判断单条时间序列（给定 Name 与 Label 组合成的 Metrics）是否存在。</description></item></channel></rss>
