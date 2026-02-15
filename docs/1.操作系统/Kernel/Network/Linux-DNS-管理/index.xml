@@ -4,15 +4,12 @@ Reslover(解析器) 是 Linux libc 库 中用于提供 DNS 接口的程序集（
 Note：并不是所有程序都会使用 Linux Reslover。比如想要测试 resolv.conf 文件，不要使用 dig, host, nslook 这类工具，因为他们并没有调用 Resolver 的库(i.e. resolv.conf 文件中的 option 内的设置不会生效)。可以使用 getent 来测试。一般情况下正常的应用程序，都会调用 resolver，并使用 resolv.conf 文件(比如 ping 程序)。
 Reslover 库定义了下面这些函数
 #include &amp;lt;netinet/in.h&amp;gt; #include &amp;lt;arpa/nameser.h&amp;gt; #include &amp;lt;resolv.h&amp;gt; struct __res_state; typedef struct __res_state *res_state; int res_ninit(res_state statep); void res_nclose(res_state statep); int res_nquery(res_state statep, const char *dname, int class, int type, unsigned char answer[.</description></item><item><title>systemd-resolved.service</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-DNS-%E7%AE%A1%E7%90%86/systemd-resolved.service/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-DNS-%E7%AE%A1%E7%90%86/systemd-resolved.service/</guid><description>概述 参考：
-Manual(手册)，systemd-resolved.service(8) 金步国-system 中文手册，systemd-resolved.service systemd-resolved.service 是一个类似于 DNSmasq 的域名解析服务，只不过这个服务只适用于 Linux 中，且被 systemd 所管理。
+Linux man pages，systemd-resolved.service(8) 金步国 - system 中文手册，systemd-resolved.service systemd-resolved.service 是一个类似于 DNSmasq 的域名解析服务，只不过这个服务只适用于 Linux 中，且被 systemd 所管理。
 systemd-resolved 是一个为本地应用程序提供网络名称解析的系统服务。它实现了一个缓存和验证 DNS/DNSSEC 存根解析器，以及一个 LLMNR 和 MulticastDNS 解析器和响应器。
-关联文件与配置 /etc/systemd/resolved.conf # 运行时配置文件。
-/run/systemd/resolve/ # /etc/resolv.conf 文件将会软链接到此目录下的某个文件。通常默认链接到 stub-resolv.conf 文件。
-./stub-resolv.conf # 通常只包含一个本地地址(127.0.0.53)，指向 systemd-resolved.service 提供的 DNS Stub Listener。 ./resolv.conf # 包含了系统实际使用的 DNS 服务器和搜索域的列表。systemd-resolved.service 的 DNS Stub Listener 将会读取该文件中的 DNS Server /usr/lib/systemd/resolv.conf # 代替 /etc/resolv.conf 文件
-命令行工具 resolvectl 参考：
-Manual(手册)，resolvectl(1) Syntax(语法) resolvectl [OPTIONS] COMMAND [NAME&amp;hellip;]
-COMMAND
-query HOSTNAME | ADDRESS # 解析域名以及 IPv4 和 IPv6 地址。当与 &amp;ndash;type= 或 &amp;ndash;class= （见下文）结合使用时，解析低级 DNS 资源记录。 EXAMPLE</description></item><item><title>配置详解</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-DNS-%E7%AE%A1%E7%90%86/%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-DNS-%E7%AE%A1%E7%90%86/%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>概述 参考：
+关联文件与配置 resolved.conf # 运行时配置文件。
+程序会从如下位置逐一加载，并且只使用找到的第一个文件 /etc/systemd/resolved.conf /run/systemd/resolved.conf /usr/local/lib/systemd/resolved.conf /usr/lib/systemd/resolved.conf 除了主配置文件之外，还会从下面的目录读取可替换的配置片段。这些可替换的配置片段优先级更高，会覆盖主配置文件。resolved.conf.d/ 配置子目录中的文件会按文件名字典顺序排序，而不管它们位于哪个子目录中。当多个文件指定相同的选项时，对于只接受单个值的选项，排序在最后一个文件中的条目优先级最高；对于接受值列表的选项，则会按照排序后的文件顺序收集条目。 /usr/lib/systemd/resolved.conf.d/*.conf /usr/local/lib/systemd/resolved.conf.d/*.conf /run/systemd/resolved.conf.d/*.conf /etc/systemd/resolved.conf.d/*.conf resolv.conf # TODO: systemd-resolved 对于 resolve.conf 的文件好像有比较繁琐的规则，而且我能在多个目录下找到多个名为 resolv.conf 的文件。需要梳理
+TODO: 好像是，systemd-resolved 根据 resolved.conf 文件的配置生成 resolv.conf 文件 /run/systemd/resolve/ # /etc/resolv.conf 文件将会软链接到此目录下的某个文件。通常默认链接到 stub-resolv.conf 文件。
+./stub-resolv.conf # 通常只包含一个本地地址(127.0.0.53)，指向 systemd-resolved.service 提供的 DNS Stub Listener。 .</description></item><item><title>配置详解</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-DNS-%E7%AE%A1%E7%90%86/%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-DNS-%E7%AE%A1%E7%90%86/%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>概述 参考：
 Manual(手册)，resolv.conf Manual(手册)，nsswitch.conf 公众号，重新夺回 /etc/resolv.conf 的控制权 /etc/resolv.conf 详解 该文件可以手动管理，或者由某个应用程序(e.g.NetworkManager)来管理。如果由应用程序管理，则会在文件开头以 # 进行备注
 配置文件格式：每行以一个关键字开头，后面接一个或多个由空格隔开的参数。
 下面是一个最简单的配置文件示例
