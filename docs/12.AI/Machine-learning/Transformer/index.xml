@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Transformer on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/12.AI/Machine-learning/Transformer/</link><description>Recent content in Transformer on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><lastBuildDate>Wed, 29 Apr 2026 17:25:16 +0800</lastBuildDate><atom:link href="https://desistdaydream.github.io/docs/12.AI/Machine-learning/Transformer/index.xml" rel="self" type="application/rss+xml"/><item><title>Transformer</title><link>https://desistdaydream.github.io/docs/12.AI/Machine-learning/Transformer/Transformer/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/12.AI/Machine-learning/Transformer/Transformer/</guid><description>概述 参考：
+GitHub 项目，huggingface/transformers Wiki, Transformer_(machine_learning_model) Hugging Face 创始人亲述：一个 GitHub 史上增长最快的 AI 项目 官方文档 Transformer 架构由 Google 在 2017 年发表的论文 《Attention is All You Need》首次提出，它使用 Self-Attention(自注意力) 机制取代了之前在 NLP 任务中常用的 RNN(循环神经网络)，使其成为训练语言模型的代表架构。
+Hugging Face 开源了 Transformer 库，提供了便于快速下载和使用的 API，让我们可以把预训练模型用在自己的数据集上微调然后通过 model hub 与社区共享。同时，每个 Python 模块完全独立，方便修改和快速研究实验。
+Transformers 支持三个最热门的深度学习库： Jax, PyTorch 以及 TensorFlow，并与之无缝整合。我们可以直接使用一个框架训练模型然后用另一个加载和推理。
+架构 一个可以提供 Inference(推理)/Training(训练) 服务的架构，通常由下面几部分组成：
+权重文件 # 这是狭义上的 Model，也可以称为”模型文件“。那些动辄几个 G 的文件就是这个权重文件。 处理代码 # 数据处理 与 权重计算 的代码。 配置文件 # 一组配置文件，数据处理、权重计算、etc. 的依据。 推理输出给用户的是推理结果的 字符串，训练输出给用户的是 权重文件与配置文件。</description></item><item><title>Transformer training</title><link>https://desistdaydream.github.io/docs/12.AI/Machine-learning/Transformer/Transformer-training/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/12.AI/Machine-learning/Transformer/Transformer-training/</guid><description>概述 参考：
+NLP 训练流程 NLP 训练的关联文件与配置 [!Quote] 参考 Transformer 中的 模型的关联文件与配置，不同架构的模型配置文件有细微差别
+TODO1 model.forward(**inputs) 在做什么 model 是 Qwen3ForCausalLM，forward() 是它的前向传播方法。
+**inputs 展开后大概包含：
+input_ids — token id 序列 attention_mask — 哪些位置是真实 token，哪些是 padding labels — 监督信号，告诉模型&amp;quot;正确答案是什么&amp;quot; 模型拿到这些输入后，做的事情是：
+input_ids → Embedding层 → 多层Transformer → logits（每个位置上词表的得分） 得到 logits 后，因为 labels 存在，模型内部会自动计算 Cross-Entropy Loss：
+loss = CrossEntropy(logits, labels) 具体逻辑是把 logits[0..n-1] 和 labels[1..n] 对齐（即&amp;quot;用前一个 token 预测下一个 token&amp;quot;），计算平均负对数似然。
+res[&amp;quot;loss&amp;quot;] 是什么 res 是一个 CausalLMOutputWithPast 对象，支持按 key 访问，包含：
+key 内容 loss 标量，当前 batch 的平均交叉熵损失 logits shape [batch, seq_len, vocab_size] 的得分矩阵 past_key_values KV cache，推理时用 res[&amp;quot;loss&amp;quot;] 就是取出那个标量 loss，后续：</description></item><item><title>Transformer inference</title><link>https://desistdaydream.github.io/docs/12.AI/Machine-learning/Transformer/Transformer-inference/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/12.AI/Machine-learning/Transformer/Transformer-inference/</guid><description>概述 参考：
+NLP 推理的关联文件与配置 [!Quote] 参考 Transformer 中的 模型的关联文件与配置，不同架构的模型配置文件有细微差别
+NLP 推理流程 参考：
+Transformers 文档，与模型聊天 - 聊天基础知识 [!Note] 我们在 Hugging Face 的模型仓库中，通常可以看到除了代码之外的其他所有文件。至于代码，其实就是 transformers 依赖库。
+还有人用 Model Packeage, Model Artifact, Model Repository, etc. 称呼这一整套完整的内容。
+[!Note] 下面的演示基于 Qwen3-0.6B 模型
+聊天模型接受消息列表（聊天记录）作为输入。每条消息都是一个字典，包含 role 和 content 键。要发起聊天，只需添加一条 role 为 user 消息即可。
+还可以选择添加一条 system 消息，为模型提供行为指令。e.g. {&amp;quot;role&amp;quot;: &amp;quot;system&amp;quot;, &amp;quot;content&amp;quot;: &amp;quot;你是一位乐于助人的助手。&amp;quot;},
+chat = [ {&amp;#34;role&amp;#34;: &amp;#34;user&amp;#34;, &amp;#34;content&amp;#34;: &amp;#34;你好！&amp;#34;} ] 经过 Transfromer 处理（e.g. 分词、etc.）后，传给 Model。
+Model 模型推理完成后，我们会看到模型的回复。像这样：
+[ { &amp;#34;generated_text&amp;#34;: [ {&amp;#34;role&amp;#34;: &amp;#34;user&amp;#34;, &amp;#34;content&amp;#34;: &amp;#34;你好！&amp;#34;}, {&amp;#34;role&amp;#34;: &amp;#34;assistant&amp;#34;, &amp;#34;content&amp;#34;: &amp;#34;你好！有什么可以帮助你的吗？&amp;#34;} ] } ] 如果想继续对话，需要将模型的回复更新到 chat 中。可以通过两种方式更新：</description></item></channel></rss>
