@@ -1,37 +1,132 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Filesystem on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/</link><description>Recent content in Filesystem on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/index.xml" rel="self" type="application/rss+xml"/><item><title>Filesystem</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/Filesystem/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/Filesystem/</guid><description>概述 参考：
-Wiki - Category，Computer file systems Linux 性能优化实践 - 文件系统 公众号，小林 coding - 一口气搞懂「文件系统」，就靠这 25 张图了 图片来源: https://www.thomas-krenn.com/en/wiki/Linux_Storage_Stack_Diagram
-从上面的结构可以看到，文件系统的作用就是用来接收用户的操作，并将数据保存到物理硬盘的。可以想见，如果没有文件系统帮助用户操作，那么人们又怎么能将数据保存到存储设备上呢~
-File System(文件系统，简称 FS) 是一种对存储设备上的数据，进行组织管理的机制。组织方式的不同，就会形成不同的文件系统。
-如果没有文件系统，放置在存储介质中的数据将是一个庞大的数据主体，无法分辨一个数据在哪里停止以及下一个数据在哪里开始。通过将数据分成多个部分并给每个部分命名，可以轻松地隔离和识别数据。每组数据称为 File(文件)。所以，用于管理这些文件及其名称的结构和逻辑规则，称为 File System(文件系统)。
-什么是 File(文件) 详见《文件管理》章节
-文件组织结构 文件管理详解见 文件管理
-为了方便管理，Linux 的文件系统为每个文件都分配了两个数据结构。
-index node(索引节点，简称 inode) # 记录文件的元数据。inode 编号、文件大小、访问权限、修改日期、数据的位置等。 inode 和文件一一对应，它跟文件内容一样，都会被持久化到存储的磁盘中。所以inode 同样占用磁盘空间。 inode 包含文件的元数据，具体来说有以下内容： 文件的字节数 文件拥有者的 User ID 文件的 Group ID 文件的读、写、执行权限 文件的时间戳，共有三个：ctime 指 inode 上一次变动的时间，mtime 指文件内容上一次变动的时间，atime 指文件上一次打开的时间。 链接数，即有多少文件名指向这个 inode 文件数据 block 的位置 directory entry(目录项，简称 dentry) # 记录文件的名字、inode 指针、与其他目录项的关联关系。 多个关联的目录项，就构成了文件系统的目录结构(一个层次化的树形结构)。不过，不同于 inode，目录项是由内核维护的一个内存数据结构，所以通常也被叫做 dentries(目录项缓存)。 这个层次化的树形结构就像下图一样：</description></item><item><title>Mount(挂载)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/Mount%E6%8C%82%E8%BD%BD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/Mount%E6%8C%82%E8%BD%BD/</guid><description>概述 参考：
-Manual(手册),fstab(5) Manual(手册),mount(8) 注意：
-mount 命令无法列出 bind 类型的挂载(比如 Docker 和 Containerd 的 bind 类型挂载，不知道如何列出)。
-不过 findmnt 命令可以列出使用 mount --bind XX XX 挂载的目录，效果如下
-~]# findmnt TARGET SOURCE FSTYPE OPTIONS / /dev/vda3 ext4 rw,relatime ...... └─/mnt/cdrom /dev/vda3[/root/downloads/webvirtcloud] ext4 rw,relatime 关联文件与配置 /etc/fstab # 包含各种 file systems 的描述性信息。系统启动时，根据该文件配置挂载分区到指定路径。
-/etc/mtab # 是一个软连接，连接到 /proc/self/mounts
-XXX.mount # 以 .mount 为后缀的 unit 文件，是由 systemd 管理的文件系统描述信息。systemd 将根据这些 unit 文件，将指定的文件系统挂载到系统中。
-fstab 文件详解 File System Table(文件系统表，简称 fstab) 是一个关于文件系统的静态信息文件。默认路径为 /etc/fstab
-fstab 包含操作系统中可以挂载的文件系统的描述性信息。每个描述信息占用单独一行，每行的各个字段由制表符或空格分隔。fsck、mount、umount 命令在执行某些操作时将会顺序读取该文件的每一行。</description></item><item><title>FHS(文件系统层次标准)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/FHS%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E5%B1%82%E6%AC%A1%E6%A0%87%E5%87%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/FHS%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E5%B1%82%E6%AC%A1%E6%A0%87%E5%87%86/</guid><description>概述 参考：
-Linux 基金会参考标准,文件系统层次标准 Wiki, FHS Filesystem Hierarchy Standard(文件系统层次标准，简称 FHS) 为文件系统的每个区域指定指导原则，指定所需的最少文件和目录
-该标准使：
-用于预测已安装文件和目录位置的软件 用户预测已安装文件和目录的位置。 我们这样做：
-为文件系统的每个区域指定指导原则， 指定所需的最少文件和目录， 列举原则的例外情况，以及 列举发生历史冲突的具体案例。 FHS 文件用于：
-独立软件供应商创建符合 FHS 的应用程序，并与符合 FHS 的发行版合作， 操作系统创建者提供符合 FHS 的系统，以及 用户了解并维护系统的 FHS 合规性。 FHS 文件的范围有限：
-本地文件的本地放置是本地问题，因此 FHS 不会试图篡夺系统管理员。 FHS 解决了需要在多方（例如本地站点、发行版、应用程序、文档等）之间协调文件放置的问题。 Unix 目录结构的来历 Unix（包含 Linux）的初学者，常常会很困惑，不明白目录结构的含义何在。 举例来说，根目录下面有一个子目录 /bin，用于存放二进制程序。但是，/usr 子目录下面还有 /usr/bin，以及 /usr/local/bin，也用于存放二进制程序；某些系统甚至还有 /opt/bin。它们有何区别？
-长久以来，我也感到很费解，不明白为什么这样设计。像大多数人一样，我只是根据《Unix 文件系统结构标准》（Filesystem Hierarchy Standard），死记硬背不同目录的区别。
-昨天，我读到了 Rob Landley 的，这才恍然大悟，原来 Unix 目录结构是历史造成的。
-话说 1969 年，Ken Thompson 和 Dennis Ritchie 在小型机 PDP-7 上发明了 Unix。1971 年，他们将主机升级到了 PDP-11。</description></item><item><title>DMA 与 零拷贝</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/DMA-%E4%B8%8E-%E9%9B%B6%E6%8B%B7%E8%B4%9D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/DMA-%E4%B8%8E-%E9%9B%B6%E6%8B%B7%E8%B4%9D/</guid><description>概述 参考：
-公众号，原来 8 张图，就可以搞懂「零拷贝」了 前言 磁盘可以说是计算机系统最慢的硬件之一，读写速度相差内存 10 倍以上，所以针对优化磁盘的技术非常的多，比如零拷贝、直接 I/O、异步 I/O 等等，这些优化的目的就是为了提高系统的吞吐量，另外操作系统内核中的磁盘高速缓存区，可以有效的减少磁盘的访问次数。
-这次，我们就以「文件传输」作为切入点，来分析 I/O 工作方式，以及如何优化传输文件的性能。
-正文 为什么要有 DMA 技术? 在没有 DMA 技术前，I/O 的过程是这样的：
-CPU 发出对应的指令给磁盘控制器，然后返回； 磁盘控制器收到指令后，于是就开始准备数据，会把数据放入到磁盘控制器的内部缓冲区中，然后产生一个中断； CPU 收到中断信号后，停下手头的工作，接着把磁盘控制器的缓冲区的数据一次一个字节地读进自己的寄存器，然后再把寄存器里的数据写入到内存，而在数据传输的期间 CPU 是无法执行其他任务的。 为了方便你理解，我画了一副图：
-可以看到，整个数据的传输过程，都要需要 CPU 亲自参与搬运数据的过程，而且这个过程，CPU 是不能做其他事情的。
-简单的搬运几个字符数据那没问题，但是如果我们用千兆网卡或者硬盘传输大量数据的时候，都用 CPU 来搬运的话，肯定忙不过来。
-计算机科学家们发现了事情的严重性后，于是就发明了 DMA 技术，也就是 Direct Memory Access(直接内存访问，简称 DMA) 技术。
-什么是 DMA 技术？简单理解就是，在进行 I/O 设备和内存的数据传输的时候，数据搬运的工作全部交给 DMA 控制器，而 CPU 不再参与任何与数据搬运相关的事情，这样 CPU 就可以去处理别的事务。
-那使用 DMA 控制器进行数据传输的过程究竟是什么样的呢？下面我们来具体看看。
-具体过程：
-用户进程调用 read 方法，向操作系统发出 I/O 请求，请求读取数据到自己的内存缓冲区中，进程进入阻塞状态； 操作系统收到请求后，进一步将 I/O 请求发送 DMA，然后让 CPU 执行其他任务； DMA 进一步将 I/O 请求发送给磁盘； 磁盘收到 DMA 的 I/O 请求，把数据从磁盘读取到磁盘控制器的缓冲区中，当磁盘控制器的缓冲区被读满后，向 DMA 发起中断信号，告知自己缓冲区已满； DMA 收到磁盘的信号，将磁盘控制器缓冲区中的数据拷贝到内核缓冲区中，此时不占用 CPU，CPU 可以执行其他任务； 当 DMA 读取了足够多的数据，就会发送中断信号给 CPU； CPU 收到 DMA 的信号，知道数据已经准备好，于是将数据从内核拷贝到用户空间，系统调用返回； 可以看到， 整个数据传输的过程，CPU 不再参与数据搬运的工作，而是全程由 DMA 完成，但是 CPU 在这个过程中也是必不可少的，因为传输什么数据，从哪里传输到哪里，都需要 CPU 来告诉 DMA 控制器。</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Filesystem on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/</link><description>Recent content in Filesystem on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/index.xml" rel="self" type="application/rss+xml"/><item><title>Filesystem</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/Filesystem/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/Filesystem/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://en.wikipedia.org/wiki/Category:Computer_file_systems"&gt;Wiki - Category，Computer file systems&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://time.geekbang.org/column/article/76876"&gt;Linux 性能优化实践 - 文件系统&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/qJdoXTv_XS_4ts9YuzMNIw"&gt;公众号，小林 coding - 一口气搞懂「文件系统」，就靠这 25 张图了&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/filesystem/the_linux_storage_stack_diagram_1.png" alt=""&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;图片来源: &lt;a href="https://www.thomas-krenn.com/en/wiki/Linux_Storage_Stack_Diagram"&gt;https://www.thomas-krenn.com/en/wiki/Linux_Storage_Stack_Diagram&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;从上面的结构可以看到，文件系统的作用就是用来接收用户的操作，并将数据保存到物理硬盘的。可以想见，如果没有文件系统帮助用户操作，那么人们又怎么能将数据保存到存储设备上呢~&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;File System(文件系统，简称 FS)&lt;/strong&gt; 是一种对存储设备上的数据，进行组织管理的机制。组织方式的不同，就会形成不同的文件系统。&lt;/p&gt;
+&lt;p&gt;如果没有文件系统，放置在存储介质中的数据将是一个庞大的数据主体，无法分辨一个数据在哪里停止以及下一个数据在哪里开始。通过将数据分成多个部分并给每个部分命名，可以轻松地隔离和识别数据。每组数据称为 &lt;strong&gt;File(文件)&lt;/strong&gt;。所以，用于管理这些文件及其名称的&lt;strong&gt;结构和逻辑规则&lt;/strong&gt;，称为 &lt;strong&gt;File System(文件系统)&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id="什么是-file文件"&gt;什么是 File(文件)&lt;a class="td-heading-self-link" href="#%e4%bb%80%e4%b9%88%e6%98%af-file%e6%96%87%e4%bb%b6" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;详见《&lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/"&gt;文件管理&lt;/a&gt;》章节&lt;/p&gt;
+&lt;h1 id="文件组织结构"&gt;文件组织结构&lt;a class="td-heading-self-link" href="#%e6%96%87%e4%bb%b6%e7%bb%84%e7%bb%87%e7%bb%93%e6%9e%84" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;文件管理详解见 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86/"&gt;文件管理&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;为了方便管理，Linux 的文件系统为每个文件都分配了两个数据结构。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;index node(索引节点，简称 inode)&lt;/strong&gt; # 记录文件的元数据。inode 编号、文件大小、访问权限、修改日期、数据的位置等。
+&lt;ul&gt;
+&lt;li&gt;inode 和文件一一对应，它跟文件内容一样，都会被持久化到存储的磁盘中。所以&lt;strong&gt;inode 同样占用磁盘空间&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;inode 包含文件的元数据，具体来说有以下内容：
+&lt;ul&gt;
+&lt;li&gt;文件的字节数&lt;/li&gt;
+&lt;li&gt;文件拥有者的 User ID&lt;/li&gt;
+&lt;li&gt;文件的 Group ID&lt;/li&gt;
+&lt;li&gt;文件的读、写、执行权限&lt;/li&gt;
+&lt;li&gt;文件的时间戳，共有三个：ctime 指 inode 上一次变动的时间，mtime 指文件内容上一次变动的时间，atime 指文件上一次打开的时间。&lt;/li&gt;
+&lt;li&gt;链接数，即有多少文件名指向这个 inode&lt;/li&gt;
+&lt;li&gt;文件数据 block 的位置&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;directory entry(目录项，简称 dentry)&lt;/strong&gt; # 记录文件的名字、inode 指针、与其他目录项的关联关系。
+&lt;ul&gt;
+&lt;li&gt;多个关联的目录项，就构成了文件系统的目录结构(&lt;strong&gt;一个层次化的树形结构&lt;/strong&gt;)。不过，不同于 inode，目录项是由内核维护的一个内存数据结构，所以通常也被叫做 &lt;strong&gt;dentries(目录项缓存)。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这个层次化的树形结构就像下图一样：&lt;/p&gt;</description></item><item><title>Mount(挂载)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/Mount%E6%8C%82%E8%BD%BD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/Mount%E6%8C%82%E8%BD%BD/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://man7.org/linux/man-pages/man5/fstab.5.html"&gt;Manual(手册),fstab(5)&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://man7.org/linux/man-pages/man8/mount.8.html"&gt;Manual(手册),mount(8)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;注意：&lt;/p&gt;
+&lt;p&gt;mount 命令无法列出 bind 类型的挂载(比如 Docker 和 Containerd 的 bind 类型挂载，不知道如何列出)。&lt;/p&gt;
+&lt;p&gt;不过 findmnt 命令可以列出使用 &lt;code&gt;mount --bind XX XX&lt;/code&gt; 挂载的目录，效果如下&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# findmnt&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;TARGET SOURCE FSTYPE OPTIONS
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;/ /dev/vda3 ext4 rw,relatime
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;......
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;└─/mnt/cdrom /dev/vda3&lt;span style="color:#ce5c00;font-weight:bold"&gt;[&lt;/span&gt;/root/downloads/webvirtcloud&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt; ext4 rw,relatime
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h1 id="关联文件与配置"&gt;关联文件与配置&lt;a class="td-heading-self-link" href="#%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6%e4%b8%8e%e9%85%8d%e7%bd%ae" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;/etc/fstab # 包含各种 file systems 的描述性信息。系统启动时，根据该文件配置挂载分区到指定路径。&lt;/p&gt;
+&lt;p&gt;/etc/mtab # 是一个软连接，连接到 /proc/self/mounts&lt;/p&gt;
+&lt;p&gt;XXX.mount # 以 .mount 为后缀的 unit 文件，是由 systemd 管理的文件系统描述信息。systemd 将根据这些 unit 文件，将指定的文件系统挂载到系统中。&lt;/p&gt;
+&lt;h2 id="fstab-文件详解"&gt;fstab 文件详解&lt;a class="td-heading-self-link" href="#fstab-%e6%96%87%e4%bb%b6%e8%af%a6%e8%a7%a3" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;File System Table(文件系统表，简称 fstab)&lt;/strong&gt; 是一个关于文件系统的静态信息文件。默认路径为 &lt;strong&gt;/etc/fstab&lt;/strong&gt;&lt;/p&gt;</description></item><item><title>FHS(文件系统层次标准)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/FHS%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E5%B1%82%E6%AC%A1%E6%A0%87%E5%87%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/FHS%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E5%B1%82%E6%AC%A1%E6%A0%87%E5%87%86/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://refspecs.linuxfoundation.org/fhs.shtml"&gt;Linux 基金会参考标准,文件系统层次标准&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://en.wikipedia.org/wiki/Filesystem_Hierarchy_Standard"&gt;Wiki, FHS&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Filesystem Hierarchy Standard(文件系统层次标准，简称 FHS)&lt;/strong&gt; 为文件系统的每个区域指定指导原则，指定所需的最少文件和目录&lt;/p&gt;
+&lt;p&gt;该标准使：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用于预测已安装文件和目录位置的软件&lt;/li&gt;
+&lt;li&gt;用户预测已安装文件和目录的位置。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;我们这样做：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;为文件系统的每个区域指定指导原则，&lt;/li&gt;
+&lt;li&gt;指定所需的最少文件和目录，&lt;/li&gt;
+&lt;li&gt;列举原则的例外情况，以及&lt;/li&gt;
+&lt;li&gt;列举发生历史冲突的具体案例。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;FHS 文件用于：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;独立软件供应商创建符合 FHS 的应用程序，并与符合 FHS 的发行版合作，&lt;/li&gt;
+&lt;li&gt;操作系统创建者提供符合 FHS 的系统，以及&lt;/li&gt;
+&lt;li&gt;用户了解并维护系统的 FHS 合规性。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;FHS 文件的范围有限：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;本地文件的本地放置是本地问题，因此 FHS 不会试图篡夺系统管理员。&lt;/li&gt;
+&lt;li&gt;FHS 解决了需要在多方（例如本地站点、发行版、应用程序、文档等）之间协调文件放置的问题。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="unix-目录结构的来历"&gt;Unix 目录结构的来历&lt;a class="td-heading-self-link" href="#unix-%e7%9b%ae%e5%bd%95%e7%bb%93%e6%9e%84%e7%9a%84%e6%9d%a5%e5%8e%86" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;Unix（包含 Linux）的初学者，常常会很困惑，不明白目录结构的含义何在。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/cbem3o/1616167692312-d409e171-1b36-486c-8ab8-369fb7496328.jpeg" alt=""&gt;
+举例来说，根目录下面有一个子目录 /bin，用于存放二进制程序。但是，/usr 子目录下面还有 /usr/bin，以及 /usr/local/bin，也用于存放二进制程序；某些系统甚至还有 /opt/bin。它们有何区别？&lt;/p&gt;
+&lt;p&gt;长久以来，我也感到很费解，不明白为什么这样设计。像大多数人一样，我只是根据《Unix 文件系统结构标准》（Filesystem Hierarchy Standard），死记硬背不同目录的区别。&lt;/p&gt;
+&lt;p&gt;昨天，我读到了 Rob Landley 的，这才恍然大悟，原来 Unix 目录结构是历史造成的。&lt;/p&gt;
+&lt;p&gt;话说 1969 年，Ken Thompson 和 Dennis Ritchie 在小型机 PDP-7 上发明了 Unix。1971 年，他们将主机升级到了 PDP-11。&lt;/p&gt;</description></item><item><title>DMA 与 零拷贝</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/DMA-%E4%B8%8E-%E9%9B%B6%E6%8B%B7%E8%B4%9D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/DMA-%E4%B8%8E-%E9%9B%B6%E6%8B%B7%E8%B4%9D/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/P0IP6c_qFhuebwdwD8HM7w"&gt;公众号，原来 8 张图，就可以搞懂「零拷贝」了&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="前言"&gt;前言&lt;a class="td-heading-self-link" href="#%e5%89%8d%e8%a8%80" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;磁盘可以说是计算机系统最慢的硬件之一，读写速度相差内存 10 倍以上，所以针对优化磁盘的技术非常的多，比如零拷贝、直接 I/O、异步 I/O 等等，这些优化的目的就是为了提高系统的吞吐量，另外操作系统内核中的磁盘高速缓存区，可以有效的减少磁盘的访问次数。&lt;/p&gt;
+&lt;p&gt;这次，我们就以「文件传输」作为切入点，来分析 I/O 工作方式，以及如何优化传输文件的性能。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id="正文"&gt;正文&lt;a class="td-heading-self-link" href="#%e6%ad%a3%e6%96%87" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;h3 id="为什么要有-dma-技术"&gt;为什么要有 DMA 技术?&lt;a class="td-heading-self-link" href="#%e4%b8%ba%e4%bb%80%e4%b9%88%e8%a6%81%e6%9c%89-dma-%e6%8a%80%e6%9c%af" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;在没有 DMA 技术前，I/O 的过程是这样的：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;CPU 发出对应的指令给磁盘控制器，然后返回；&lt;/li&gt;
+&lt;li&gt;磁盘控制器收到指令后，于是就开始准备数据，会把数据放入到磁盘控制器的内部缓冲区中，然后产生一个&lt;strong&gt;中断&lt;/strong&gt;；&lt;/li&gt;
+&lt;li&gt;CPU 收到中断信号后，停下手头的工作，接着把磁盘控制器的缓冲区的数据一次一个字节地读进自己的寄存器，然后再把寄存器里的数据写入到内存，而在数据传输的期间 CPU 是无法执行其他任务的。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;为了方便你理解，我画了一副图：&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581747-833fd3d8-b587-44e5-a4d7-2118e13b1b44.png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;可以看到，整个数据的传输过程，都要需要 CPU 亲自参与搬运数据的过程，而且这个过程，CPU 是不能做其他事情的。&lt;/p&gt;
+&lt;p&gt;简单的搬运几个字符数据那没问题，但是如果我们用千兆网卡或者硬盘传输大量数据的时候，都用 CPU 来搬运的话，肯定忙不过来。&lt;/p&gt;
+&lt;p&gt;计算机科学家们发现了事情的严重性后，于是就发明了 DMA 技术，也就是 &lt;strong&gt;Direct Memory Access(直接内存访问，简称 DMA)&lt;/strong&gt; 技术。&lt;/p&gt;
+&lt;p&gt;什么是 DMA 技术？简单理解就是，&lt;strong&gt;在进行 I/O 设备和内存的数据传输的时候，数据搬运的工作全部交给 DMA 控制器，而 CPU 不再参与任何与数据搬运相关的事情，这样 CPU 就可以去处理别的事务&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;那使用 DMA 控制器进行数据传输的过程究竟是什么样的呢？下面我们来具体看看。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/zl0fv1/1616167581757-ef21d29d-7f2b-4cd1-a747-98b242f710cf.png" alt=""&gt;&lt;/p&gt;</description></item></channel></rss>

@@ -1,6 +1,76 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>ELK _ EFK on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/ELK-_-EFK/</link><description>Recent content in ELK _ EFK on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/ELK-_-EFK/index.xml" rel="self" type="application/rss+xml"/><item><title>EFK 部署</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/ELK-_-EFK/EFK-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/ELK-_-EFK/EFK-%E9%83%A8%E7%BD%B2/</guid><description>在 Kubernetes 中部署 EFK 套件 官方 addons：https://github.com/kubernetes/kubernetes/tree/release-1.18/cluster/addons/fluentd-elasticsearch
-官方 addons 问题：https://github.com/kubernetes/kubernetes/issues/94429
-参考：https://www.qikqiak.com/post/install-efk-stack-on-k8s/
-es-service.yaml
-kind: Service apiVersion: v1 metadata: name: elasticsearch namespace: logging labels: app: elasticsearch spec: selector: app: elasticsearch clusterIP: None ports: - port: 9200 name: rest - port: 9300 name: inter-node es-statefulset.yaml
-apiVersion: apps/v1 kind: StatefulSet metadata: name: es namespace: logging spec: serviceName: elasticsearch replicas: 3 selector: matchLabels: app: elasticsearch template: metadata: labels: app: elasticsearch spec: containers: - name: elasticsearch image: docker.</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>ELK _ EFK on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/ELK-_-EFK/</link><description>Recent content in ELK _ EFK on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/ELK-_-EFK/index.xml" rel="self" type="application/rss+xml"/><item><title>EFK 部署</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/ELK-_-EFK/EFK-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/ELK-_-EFK/EFK-%E9%83%A8%E7%BD%B2/</guid><description>&lt;h1 id="在-kubernetes-中部署-efk-套件"&gt;在 Kubernetes 中部署 EFK 套件&lt;a class="td-heading-self-link" href="#%e5%9c%a8-kubernetes-%e4%b8%ad%e9%83%a8%e7%bd%b2-efk-%e5%a5%97%e4%bb%b6" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;官方 addons：&lt;a href="https://github.com/kubernetes/kubernetes/tree/release-1.18/cluster/addons/fluentd-elasticsearch"&gt;https://github.com/kubernetes/kubernetes/tree/release-1.18/cluster/addons/fluentd-elasticsearch&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;官方 addons 问题：&lt;a href="https://github.com/kubernetes/kubernetes/issues/94429"&gt;https://github.com/kubernetes/kubernetes/issues/94429&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;参考：&lt;a href="https://www.qikqiak.com/post/install-efk-stack-on-k8s/"&gt;https://www.qikqiak.com/post/install-efk-stack-on-k8s/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;es-service.yaml&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;kind: Service
+apiVersion: v1
+metadata:
+ name: elasticsearch
+ namespace: logging
+ labels:
+ app: elasticsearch
+spec:
+ selector:
+ app: elasticsearch
+ clusterIP: None
+ ports:
+ - port: 9200
+ name: rest
+ - port: 9300
+ name: inter-node
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;es-statefulset.yaml&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+ name: es
+ namespace: logging
+spec:
+ serviceName: elasticsearch
+ replicas: 3
+ selector:
+ matchLabels:
+ app: elasticsearch
+ template:
+ metadata:
+ labels:
+ app: elasticsearch
+ spec:
+ containers:
+ - name: elasticsearch
+ image: docker.elastic.co/elasticsearch/elasticsearch:7.6.2
+ ports:
+ - name: rest
+ containerPort: 9200
+ - name: inter
+ containerPort: 9300
+ resources:
+ limits:
+ cpu: 1000m
+ requests:
+ cpu: 1000m
+ volumeMounts:
+ - name: data
+ mountPath: /usr/share/elasticsearch/data
+ env:
+ - name: cluster.name
+ value: k8s-logs
+ - name: node.name
+ valueFrom:
+ fieldRef:
+ fieldPath: metadata.name
+ - name: cluster.initial_master_nodes
+ value: &amp;quot;es-0,es-1,es-2&amp;quot;
+ - name: discovery.zen.minimum_master_nodes
+ value: &amp;quot;2&amp;quot;
+ - name: discovery.seed_hosts
+ value: &amp;quot;elasticsearch&amp;quot;
+ - name: ES_JAVA_OPTS
+ value: &amp;quot;-Xms512m -Xmx512m&amp;quot;
+ - name: network.host
+ value: &amp;quot;0.0.0.0&amp;quot;
+ volumes:
+ - name: data
+ emptyDir: {}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;fluentd-configmap.yaml&lt;/p&gt;</description></item></channel></rss>

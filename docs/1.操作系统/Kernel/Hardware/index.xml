@@ -1,16 +1,81 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Hardware on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/</link><description>Recent content in Hardware on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/index.xml" rel="self" type="application/rss+xml"/><item><title>Block</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Block/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Block/</guid><description>概述 参考：
-内核管理的 Block(块) 设备指的是 Disk, etc. 硬件设备。
-Block 设备包含的信息常见于如下几处
-Sysfs 中的磁盘信息 Proc 中的磁盘信息 I/O 时间 https://www.kernel.org/doc/Documentation/iostats.txt, https://www.kernel.org/doc/Documentation/block/stat.txt https://www.kernel.org/doc/Documentation/ABI/testing/procfs-diskstats I/O 时间 指 Block(块设备、磁盘、硬盘、etc.) 在执行 I/O 操作上花费的时间。
-在 /sys/block/&amp;lt;DEV&amp;gt;/stat 文件中，io_ticks 字段记录了毫秒级的 磁盘 I/O 时间。如果磁盘在 1 秒内持续执行 I/O 操作，那么在 1 秒钟后，io_ticks 的值是 1000；如果 1 秒内磁盘一直空闲，那么 io_ticks 的值是 0。也就是说，io_ticks 的值每秒最多增加 1000。
-一般情况下，io_ticks 的值可以当作磁盘的使用率，比如计算某区间时间中，io_ticks 每秒的变化率（基于上面的逻辑，这个变化率一定是 0 到 1 之间的小数）。比如我们统计 1 分钟时间 io_ticks 增加了 60000，那说明这一分钟的时间中，磁盘一直在执行 I/O，i.e. 使用率是 100%
-io_ticks 与 cpu 中 wa 的区别 Claude AI 回答：</description></item><item><title>Driver</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Driver/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Driver/</guid><description>概述 参考：
-Linux 中的 Driver(驱动) 管理。
-部分 BUS_TYPE 可以在 /sys/bus/${BUS_TYPE}/drivers/ 可以找到各类型总线下的驱动。e.g. PCI 设备、USB 设备、etc. 。
-Tip: 并不是所有的 BUS_TYPE 都有驱动，e.g. /sys/bus/memory/drivers/ 目录是空的
-PCI /sys/bus/pci/drivers/${DRIVER}/ 目录是某个具体驱动下关联的设备的 PCI Addr 以及驱动相关操作
-./${PCI_ADDR} # 使用了本驱动的设备的 PCI Addr 软链接，指向 /sys/devices/pciXXX/XXX/... 某个目录 ./bind # 向该文件写入 PCI Addr 将会让设备与内核绑定 ./unbind # 向该文件写入 PCI Addr 将会让设备从内核解绑 最佳实践 网卡的绑定与解绑 我这里用网卡演示绑定和解绑的过程
-可以通过 lspci 命令查看该设备在内核中可以使用的驱动。
-~]# lspci -s 0000:21:00.1 -v 21:00.1 Ethernet controller: Intel Corporation Ethernet Controller X710 for 10GbE SFP+ (rev 02) Subsystem: Intel Corporation Ethernet Converged Network Adapter X710 .</description></item><item><title>PCI</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/PCI/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/PCI/</guid><description>概述 参考:
-GitHub 项目，torvalds/linux - 通过 sysfs 访问 PCI 设备资源 GitHub 项目，torvalds/linux - 如何编写 PCI 驱动 博客园，如何编写Linux PCI驱动程序 https://www.makelinux.net/ldd3/ - 12.1. The PCI Interface PCI device resources(PCI 设备资源) 由 Kernel 注册在 sysfs 的 /sys/devices/pci${DOMAIN:BUS}/ 目录。每个 PCI 设备资源在该目录下都有一个以 唯一标识符（有的时候也称为 PCI Address） 命名的目录，格式为: DOMAIN:BUS:SLOT.FUNC（e.g. 0000:17:00.0）
-DOMAIN(域) # 表示 PCI 域编号。用于识别主机系统中的不同 PCI 主机桥。在较早期的系统中，只有一个域编号为 0。随着系统规模扩大，可能存在多个 PCI 域。 BUS(总线) # 表示 PCI 总线编号（16 进制）。一个 PCI 域中可能包含多条 PCI 总线，每条总线都有一个唯一编号。 SLOT(插槽) # 表示 PCI 插槽编号。每条 PCI 总线上可以连接多个 PCI 设备，每个设备对应一个插槽编号。 有的源码中也描述为 DEVICE。比如这里 FUNC(功能) # 表示 PCI 功能编号。一些 PCI 设备可能包含多个独立的功能，每个功能都有一个编号,用于区分和访问。对于单功能设备,该编号通常为 0。 有的源码中也描述为 FUNCTION 通常来说，目录可能是像这样的:</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Hardware on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/</link><description>Recent content in Hardware on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/index.xml" rel="self" type="application/rss+xml"/><item><title>Block</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Block/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Block/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;内核管理的 &lt;strong&gt;Block(块)&lt;/strong&gt; 设备指的是 &lt;a href="https://desistdaydream.github.io/docs/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/Disk/Disk/"&gt;Disk&lt;/a&gt;, etc. 硬件设备。&lt;/p&gt;
+&lt;p&gt;Block 设备包含的信息常见于如下几处&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Block/#Sysfs%20%e4%b8%ad%e7%9a%84%e7%a3%81%e7%9b%98%e4%bf%a1%e6%81%af"&gt;Sysfs 中的磁盘信息&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Block/#Proc%20%e4%b8%ad%e7%9a%84%e7%a3%81%e7%9b%98%e4%bf%a1%e6%81%af"&gt;Proc 中的磁盘信息&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="io-时间"&gt;I/O 时间&lt;a class="td-heading-self-link" href="#io-%e6%97%b6%e9%97%b4" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.kernel.org/doc/Documentation/iostats.txt"&gt;https://www.kernel.org/doc/Documentation/iostats.txt&lt;/a&gt;,&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.kernel.org/doc/Documentation/block/stat.txt"&gt;https://www.kernel.org/doc/Documentation/block/stat.txt&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.kernel.org/doc/Documentation/ABI/testing/procfs-diskstats"&gt;https://www.kernel.org/doc/Documentation/ABI/testing/procfs-diskstats&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;I/O 时间&lt;/strong&gt; 指 Block(块设备、磁盘、硬盘、etc.) 在执行 &lt;a href="https://desistdaydream.github.io/docs/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/I_O/"&gt;I/O&lt;/a&gt; 操作上花费的时间。&lt;/p&gt;
+&lt;p&gt;在 &lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/block/stat.rst"&gt;&lt;code&gt;/sys/block/&amp;lt;DEV&amp;gt;/stat&lt;/code&gt;&lt;/a&gt; 文件中，io_ticks 字段记录了毫秒级的 磁盘 I/O 时间。如果磁盘在 1 秒内持续执行 I/O 操作，那么在 1 秒钟后，io_ticks 的值是 1000；如果 1 秒内磁盘一直空闲，那么 io_ticks 的值是 0。也就是说，io_ticks 的值每秒最多增加 1000。&lt;/p&gt;
+&lt;p&gt;一般情况下，io_ticks 的值可以当作磁盘的使用率，比如计算某区间时间中，io_ticks 每秒的变化率（基于上面的逻辑，这个变化率一定是 0 到 1 之间的小数）。比如我们统计 1 分钟时间 io_ticks 增加了 60000，那说明这一分钟的时间中，磁盘一直在执行 I/O，i.e. 使用率是 100%&lt;/p&gt;
+&lt;h3 id="io_ticks-与-cpu-中-wa-的区别"&gt;io_ticks 与 cpu 中 wa 的区别&lt;a class="td-heading-self-link" href="#io_ticks-%e4%b8%8e-cpu-%e4%b8%ad-wa-%e7%9a%84%e5%8c%ba%e5%88%ab" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;Claude AI 回答：&lt;/p&gt;</description></item><item><title>Driver</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Driver/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Driver/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Linux 中的 &lt;strong&gt;Driver(驱动)&lt;/strong&gt; 管理。&lt;/p&gt;
+&lt;p&gt;部分 BUS_TYPE 可以在 &lt;code&gt;/sys/bus/${BUS_TYPE}/drivers/&lt;/code&gt; 可以找到各类型总线下的驱动。e.g. &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/PCI/"&gt;PCI&lt;/a&gt; 设备、USB 设备、etc. 。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Tip: 并不是所有的 BUS_TYPE 都有驱动，e.g. &lt;code&gt;/sys/bus/memory/drivers/&lt;/code&gt; 目录是空的&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="pci"&gt;PCI&lt;a class="td-heading-self-link" href="#pci" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;code&gt;/sys/bus/pci/drivers/${DRIVER}/&lt;/code&gt; 目录是某个具体驱动下关联的设备的 PCI Addr 以及驱动相关操作&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;./${PCI_ADDR}&lt;/strong&gt; # 使用了本驱动的设备的 PCI Addr 软链接，指向 &lt;code&gt;/sys/devices/pciXXX/XXX/...&lt;/code&gt; 某个目录&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;./bind&lt;/strong&gt; # 向该文件写入 PCI Addr 将会让设备与内核绑定&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;./unbind&lt;/strong&gt; # 向该文件写入 PCI Addr 将会让设备从内核解绑&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="最佳实践"&gt;最佳实践&lt;a class="td-heading-self-link" href="#%e6%9c%80%e4%bd%b3%e5%ae%9e%e8%b7%b5" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;h2 id="网卡的绑定与解绑"&gt;网卡的绑定与解绑&lt;a class="td-heading-self-link" href="#%e7%bd%91%e5%8d%a1%e7%9a%84%e7%bb%91%e5%ae%9a%e4%b8%8e%e8%a7%a3%e7%bb%91" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;我这里用网卡演示绑定和解绑的过程&lt;/p&gt;
+&lt;p&gt;可以通过 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/Linux-%E7%A1%AC%E4%BB%B6%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/lspci/"&gt;lspci&lt;/a&gt; 命令查看该设备在内核中可以使用的驱动。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# lspci -s 0000:21:00.1 -v&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;21:00.1 Ethernet controller: Intel Corporation Ethernet Controller X710 &lt;span style="color:#204a87;font-weight:bold"&gt;for&lt;/span&gt; 10GbE SFP+ &lt;span style="color:#ce5c00;font-weight:bold"&gt;(&lt;/span&gt;rev 02&lt;span style="color:#ce5c00;font-weight:bold"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; Subsystem: Intel Corporation Ethernet Converged Network Adapter X710
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; ......略
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; Kernel driver in use: i40e
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; Kernel modules: i40e
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Kernel driver in use 表示当前设备使用的驱动；Kernel modules 表示当前设备使用的内核模块在。我们想要为某个 PCI 设备加载驱动时，可以参考 Kernel modules 的值。&lt;/p&gt;</description></item><item><title>PCI</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/PCI/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/PCI/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/PCI/sysfs-pci.rst"&gt;GitHub 项目，torvalds/linux - 通过 sysfs 访问 PCI 设备资源&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/PCI/pci.rst"&gt;GitHub 项目，torvalds/linux - 如何编写 PCI 驱动&lt;/a&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.cnblogs.com/wanglouxiaozi/p/15525726.html"&gt;博客园，如何编写Linux PCI驱动程序&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.makelinux.net/ldd3/"&gt;https://www.makelinux.net/ldd3/&lt;/a&gt; - &lt;a href="https://www.makelinux.net/ldd3/chp-12-sect-1.shtml"&gt;12.1. The PCI Interface&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;&lt;a href="https://desistdaydream.github.io/docs/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/Motherboard/PCI/"&gt;PCI&lt;/a&gt; device resources(PCI 设备资源)&lt;/strong&gt; 由 Kernel 注册在 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/%E7%89%B9%E6%AE%8A%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/sysfs/"&gt;sysfs&lt;/a&gt; 的 &lt;code&gt;/sys/devices/pci${DOMAIN:BUS}/&lt;/code&gt; 目录。每个 PCI 设备资源在该目录下都有一个以 &lt;strong&gt;唯一标识符（有的时候也称为 PCI Address）&lt;/strong&gt; 命名的目录，格式为: &lt;strong&gt;&lt;code&gt;DOMAIN:BUS:SLOT.FUNC&lt;/code&gt;&lt;/strong&gt;（e.g. 0000:17:00.0）&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;DOMAIN(域)&lt;/strong&gt; # 表示 PCI 域编号。用于识别主机系统中的不同 PCI 主机桥。在较早期的系统中，只有一个域编号为 0。随着系统规模扩大，可能存在多个 PCI 域。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;BUS(总线)&lt;/strong&gt; # 表示 PCI 总线编号（16 进制）。一个 PCI 域中可能包含多条 PCI 总线，每条总线都有一个唯一编号。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;SLOT(插槽)&lt;/strong&gt; # 表示 PCI 插槽编号。每条 PCI 总线上可以连接多个 PCI 设备，每个设备对应一个插槽编号。
+&lt;ul&gt;
+&lt;li&gt;有的源码中也描述为 DEVICE。比如&lt;a href="https://github.com/torvalds/linux/blob/master/Documentation/PCI/pci-iov-howto.rst"&gt;这里&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;FUNC(功能)&lt;/strong&gt; # 表示 PCI 功能编号。一些 PCI 设备可能包含多个独立的功能，每个功能都有一个编号,用于区分和访问。对于单功能设备,该编号通常为 0。
+&lt;ul&gt;
+&lt;li&gt;有的源码中也描述为 FUNCTION&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;通常来说，目录可能是像这样的:&lt;/p&gt;</description></item></channel></rss>

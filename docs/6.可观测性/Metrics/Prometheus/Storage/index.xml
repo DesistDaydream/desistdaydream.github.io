@@ -1,17 +1,49 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Storage on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/</link><description>Recent content in Storage on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/index.xml" rel="self" type="application/rss+xml"/><item><title>Storage</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/Storage/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/Storage/</guid><description>概述 参考：
-官方文档，存储 GitHub 项目 prometheus/prometheus，tsdb GitHub 文档，TSDB format 简书，Prometheus 存储机制 公众号，Prometheus 存储流向 以下所有内容均基于 Prometheus 2.27+ 版本 Prometheus 自身就包含一个 Time Series Database(时间序列数据库)，所以 Prometheus 采集完指标数据后，可以保存在本地，由 Prometheus 自身来管理这些数据。当然，Prometheus 也可以通过一种称为 Remote Write 的技术，将数据存储到 Remote Storage Systems(远程存储系统)。
-本地存储限制了 Prometheus 的可扩展性，带来了数据持久化、高科用等一系列的问题。为了解决单节点存储的限制，Prometheus 没有自己实现集群存储，而是提供了远程读写的接口，让用户自己选择合适的时序数据库来实现 Prometheus 的扩展性。
-Local Storage(本地存储) 注意： Prometheus 的本地存储不支持不兼容 POSIX 的文件系统，因为可能会发生不可恢复的损坏。不支持 NFS 文件系统（包括 AWS 的 EFS）。NFS 可能符合 POSIX，但大多数实现均不符合。强烈建议使用本地文件系统以提高可靠性。Prometheus 启动时会有如下 warn：
-并且，经过实践，在数据量足够多时，当 Prometheus 压缩数据时，有不小的概率会丢失某个 Block 中的 meta.json 文件。进而导致压缩失败，并频繁产生告警，详见故障：compaction failed
-Prometheus 的本地时间序列数据库将数据以自定义的高效格式存储在本地存储上。也就是说，Prometheus 采集到的指标数据，以文件的形式直接保存在操作系统的文件系统中。On-disk Layout 章节将会详细介绍这些数据在本地存储中布局。
-On-disk Layout(磁盘上的布局) 本地存储的目录看起来应该是下面这个样子：</description></item><item><title>Data Model(数据模型)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</guid><description>概述 参考：
-官方文档，概念 - 数据模型 yunlzheng 文档 Prometheus 从根本上将所有数据存储为 时间序列数据：属于同一度量标准和同一组标注维度的带有时间戳的值流。除了存储的时间序列外，Prometheus 可能会生成临时派生的时间序列作为查询的结果。
-Time-Series Data(时间序列数据) 概念 参考：
-Wiki, Time series InfluxDB 对时间序列数据的定义 这是论文 Time Series(时间序列) 是一组按照时间发生先后顺序进行排列的数据点序列。通常一组时间序列的时间间隔为一恒定值（如 1 秒，5 分钟，12 小时，7 天，1 年），因此时间序列可以作为离散时间数据进行分析处理。时间序列广泛应用于数理统计、信号处理、模式识别、计量经济学、数学金融、天气预报、地震预测、脑电图、控制工程、航空学、通信工程以及绝大多数涉及到时间数据测量的应用科学与工程学。
-Time Series Data(时间序列数据，简称 series) 是在一段时间内通过重复 Measurement(测量) 而获得的观测值的集合；可以将这些观测值绘制于图形之上，它会有一个数据轴和一个时间轴。
-从另一个角度看，时间序列数据是在不同时间上收集到的数据，用于所描述现象随时间变化的情况。这类数据反映了某一事物、现象等随时间的变化状态或程度。
-Prometheus 中时间序列数据的组成 时间序列(Time Series,简称 series) 有序列、系列的意思。比如有这么几种描述：一系列的书、这一系列操作、等等。可以通过这种语境来理解 series(比如可以这么描述：这一系列数据)。
-与传统意义上定义的时序数据一样，由两部分组成：
-Metrics(指标) # 用来描述要采集的数据指标，是时序数据的唯一标识符。例如：检测各个城市的风力、系统内存已使用的字节数 等等。相当于关系型数据库中的表。 Sample(样本) # 针对监测对象的某项指标(由 Metric 和 Tag 定义)按特定时间间隔采集到的每个 Metric 值就是一个 Sample(样本)。类似关系型数据库中的一行。 首先需要明确一个概念：
-Vector(向量)(也称为欧几里得向量、几何向量、矢量)，指具有大小和方向的 Magnitude(量)。它可以形象化地表示为带箭头的线段。箭头所指：代表向量的方向；线段长度：代表向量的大小。与向量对应的量叫做数量（物理学中称标量），数量（或标量）只有大小，没有方向。
-Prometheus 会将所有采集到的样本数据以 TimeSeries(时间序列) 的方式保存在内存数据库中，并且定时保存到硬盘上。TimeSeriesData 是按照时间戳和值的序列顺序存放的一条不规则有方向的线段，我们称之为 Vector(向量)。每条 TimeSeriesData 通过 MetricsName(指标名称) 和一组 LabelSet(标签集) 作为唯一标识符。如下所示，可以将 TimeSeries 理解为一个以时间为 x 轴、值为 y 轴的数字矩阵；而这个矩阵中的每一个点都是一个 Sample(样本)，相同 MetricName 和 LabelSet 的多个样本之间连成的线段就是时间序列数据。</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Storage on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/</link><description>Recent content in Storage on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/index.xml" rel="self" type="application/rss+xml"/><item><title>Storage</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/Storage/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/Storage/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/prometheus/latest/storage/"&gt;官方文档，存储&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://github.com/prometheus/prometheus/tree/main/tsdb"&gt;GitHub 项目 prometheus/prometheus，tsdb&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://github.com/prometheus/prometheus/blob/main/tsdb/docs/format/README.md"&gt;GitHub 文档，TSDB format&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.jianshu.com/p/ef9879dfb9ef"&gt;简书，Prometheus 存储机制&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/J3oK0idEFbvErOwBEBrNSg"&gt;公众号，Prometheus 存储流向&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;以下所有内容均基于 Prometheus 2.27+ 版本&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Prometheus 自身就包含一个 &lt;strong&gt;Time Series Database(时间序列数据库)&lt;/strong&gt;，所以 Prometheus 采集完指标数据后，可以保存在本地，由 Prometheus 自身来管理这些数据。当然，Prometheus 也可以通过一种称为 &lt;strong&gt;Remote Write&lt;/strong&gt; 的技术，将数据存储到 &lt;strong&gt;Remote Storage Systems(远程存储系统)&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;本地存储限制了 Prometheus 的可扩展性，带来了数据持久化、高科用等一系列的问题。为了解决单节点存储的限制，Prometheus 没有自己实现集群存储，而是提供了远程读写的接口，让用户自己选择合适的时序数据库来实现 Prometheus 的扩展性。&lt;/p&gt;
+&lt;h1 id="local-storage本地存储"&gt;Local Storage(本地存储)&lt;a class="td-heading-self-link" href="#local-storage%e6%9c%ac%e5%9c%b0%e5%ad%98%e5%82%a8" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt; Prometheus 的本地存储不支持不兼容 POSIX 的文件系统，因为可能会发生不可恢复的损坏。不支持 NFS 文件系统（包括 AWS 的 EFS）。NFS 可能符合 POSIX，但大多数实现均不符合。强烈建议使用本地文件系统以提高可靠性。Prometheus 启动时会有如下 warn：&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/prometheus/storage/1623820971678-3d263b32-2760-4e77-9a22-b2c438bc62d5.png" alt="image.png"&gt;&lt;/p&gt;
+&lt;p&gt;并且，经过实践，在数据量足够多时，当 Prometheus 压缩数据时，有不小的概率会丢失某个 Block 中的 meta.json 文件。进而导致压缩失败，并频繁产生告警，详见故障：&lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/#compaction%20failed"&gt;compaction failed&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;Prometheus 的本地时间序列数据库将数据以自定义的高效格式存储在本地存储上。也就是说，Prometheus 采集到的指标数据，以文件的形式直接保存在操作系统的文件系统中。On-disk Layout 章节将会详细介绍这些数据在本地存储中布局。&lt;/p&gt;</description></item><item><title>Data Model(数据模型)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Storage/Data-Model%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/concepts/data_model/"&gt;官方文档，概念 - 数据模型&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://yunlzheng.gitbook.io/prometheus-book/parti-prometheus-ji-chu/promql"&gt;yunlzheng 文档&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Prometheus 从根本上将所有数据存储为 &lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/"&gt;时间序列数据&lt;/a&gt;：属于同一度量标准和同一组标注维度的带有时间戳的值流。除了存储的时间序列外，Prometheus 可能会生成临时派生的时间序列作为查询的结果。&lt;/p&gt;
+&lt;h2 id="time-series-data时间序列数据-概念"&gt;Time-Series Data(时间序列数据) 概念&lt;a class="td-heading-self-link" href="#time-series-data%e6%97%b6%e9%97%b4%e5%ba%8f%e5%88%97%e6%95%b0%e6%8d%ae-%e6%a6%82%e5%bf%b5" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://en.wikipedia.org/wiki/Time_series"&gt;Wiki, Time series&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.influxdata.com/what-is-time-series-data/"&gt;InfluxDB 对时间序列数据的定义&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="http://get.influxdata.com/rs/972-GDU-533/images/why%20time%20series.pdf"&gt;这是论文&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Time Series(时间序列)&lt;/strong&gt; 是一组按照时间发生先后顺序进行排列的数据点序列。通常一组时间序列的时间间隔为一恒定值（如 1 秒，5 分钟，12 小时，7 天，1 年），因此时间序列可以作为离散时间数据进行分析处理。时间序列广泛应用于数理统计、信号处理、模式识别、计量经济学、数学金融、天气预报、地震预测、脑电图、控制工程、航空学、通信工程以及绝大多数涉及到时间数据测量的应用科学与工程学。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;&lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/"&gt;Time Series Data&lt;/a&gt;(时间序列数据，简称 series)&lt;/strong&gt; 是在一段时间内通过重复 Measurement(测量) 而获得的观测值的集合；可以将这些观测值绘制于图形之上，它会有一个数据轴和一个时间轴。&lt;/p&gt;
+&lt;p&gt;从另一个角度看，时间序列数据是在不同时间上收集到的数据，用于所描述现象随时间变化的情况。这类数据反映了某一事物、现象等随时间的变化状态或程度。&lt;/p&gt;
+&lt;h2 id="prometheus-中时间序列数据的组成"&gt;Prometheus 中时间序列数据的组成&lt;a class="td-heading-self-link" href="#prometheus-%e4%b8%ad%e6%97%b6%e9%97%b4%e5%ba%8f%e5%88%97%e6%95%b0%e6%8d%ae%e7%9a%84%e7%bb%84%e6%88%90" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;时间序列(Time Series,简称 series) 有序列、系列的意思&lt;/strong&gt;。比如有这么几种描述：一系列的书、这一系列操作、等等。可以通过这种语境来理解 series(比如可以这么描述：这一系列数据)。&lt;/p&gt;
+&lt;p&gt;与传统意义上定义的时序数据一样，由两部分组成：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Metrics(指标)&lt;/strong&gt; # 用来描述要采集的数据指标，是时序数据的唯一标识符。例如：检测各个城市的风力、系统内存已使用的字节数 等等。相当于关系型数据库中的表。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Sample(样本)&lt;/strong&gt; # 针对监测对象的某项指标(由 Metric 和 Tag 定义)按特定时间间隔采集到的每个 Metric 值就是一个 Sample(样本)。类似关系型数据库中的一行。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;首先需要明确一个概念：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Vector(向量)(也称为欧几里得向量、几何向量、矢量)&lt;/strong&gt;，指具有大小和方向的 &lt;strong&gt;Magnitude(量)&lt;/strong&gt;。它可以形象化地表示为带箭头的线段。箭头所指：代表向量的方向；线段长度：代表向量的大小。与向量对应的量叫做数量（物理学中称&lt;a href="https://baike.baidu.com/item/%E6%A0%87%E9%87%8F/1530843"&gt;标量&lt;/a&gt;），数量（或标量）只有大小，没有方向。&lt;/p&gt;
+&lt;p&gt;Prometheus 会将所有采集到的样本数据以 &lt;strong&gt;TimeSeries(时间序列)&lt;/strong&gt; 的方式保存在内存数据库中，并且定时保存到硬盘上。TimeSeriesData 是按照&lt;strong&gt;时间戳&lt;/strong&gt;和&lt;strong&gt;值&lt;/strong&gt;的序列顺序存放的一条不规则有方向的线段，我们称之为 &lt;strong&gt;Vector(向量)&lt;/strong&gt;。每条 TimeSeriesData 通过 &lt;strong&gt;MetricsName(指标名称)&lt;/strong&gt; 和一组 &lt;strong&gt;LabelSet(标签集)&lt;/strong&gt; 作为唯一标识符。如下所示，可以将 TimeSeries 理解为一个以时间为 x 轴、值为 y 轴的数字矩阵；而这个矩阵中的每一个点都是一个 &lt;strong&gt;Sample(样本)&lt;/strong&gt;，相同 MetricName 和 LabelSet 的多个样本之间连成的线段就是时间序列数据。&lt;/p&gt;</description></item></channel></rss>

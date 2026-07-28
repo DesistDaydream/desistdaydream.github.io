@@ -1,26 +1,77 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubelet 特性 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/</link><description>Recent content in Kubelet 特性 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/index.xml" rel="self" type="application/rss+xml"/><item><title>10.1.bootstrap 认证配置步骤介绍</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/10.1.bootstrap-%E8%AE%A4%E8%AF%81%E9%85%8D%E7%BD%AE%E6%AD%A5%E9%AA%A4%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/10.1.bootstrap-%E8%AE%A4%E8%AF%81%E9%85%8D%E7%BD%AE%E6%AD%A5%E9%AA%A4%E4%BB%8B%E7%BB%8D/</guid><description>kubelet 授权 kube-apiserver 的一些操作 exec run logs 等
-RBAC 只需创建一次就可以
-kubectl create clusterrolebinding kube-apiserver:kubelet-apis --clusterrole=system:kubelet-api-admin --user kubernetes
-创建 bootstrap kubeconfig 文件
-注意: token 生效时间为 1day , 超过时间未创建自动失效，需要重新创建 token
-kubeadm token create --description kubelet-bootstrap-token --groups system:bootstrappers:kubernetes-clientgroup --kubeconfig ~/.kube/config
-查看生成的 token
-kubeadm token list --kubeconfig ~/.kube/config TOKEN TTL EXPIRES USAGES DESCRIPTION EXTRA GROUPS ** 2kcmsb.hyl5s4g0l1mkff9z** **23h** 2018-11-16T11:08:00+08:00 authentication,signing kubelet-bootstrap-token system:bootstrappers:kubernetes-clientgroup 配置集群参数，生成 kubernetes-clientgroup-bootstrap.kubeconfig
-kubectl config set-cluster kubernetes \ --certificate-authority=/etc/kubernetes/ssl/ca.pem \ --embed-certs=true \ --server=https://192.168.1.7:6443 \ #master节点ip --kubeconfig=kubernetes-clientgroup-bootstrap.</description></item><item><title>Garbage Collection(垃圾回收)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/Garbage-Collection%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/Garbage-Collection%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6/</guid><description>kubelet Garbage Collection 介绍 参考：
-官方文档：https://kubernetes.io/docs/concepts/cluster-administration/kubelet-garbage-collection/ 垃圾回收是 kubelet 的一个有用功能，它将清理未使用的镜像和容器。 Kubelet 将每分钟对容器执行一次垃圾回收，每五分钟对镜像执行一次垃圾回收。
-注意！！不建议使用外部垃圾收集工具，因为这些工具可能会删除原本期望存在的容器进而破坏 kubelet 的行为。
-比如： 使用 docker container prune -f 命令，清理了节点上不再使用的容器，这时候，在 /var/log/pods/ContainerNAME/* 目录下的日志软链接是不会清除的，因为这个软连接由 kubelet 管理，并且只有在日志关联的容器被 kubelet 清理时，才会清理该软链接。所以容器没了，软连接 kubelet 也就不管了~
-解决办法： find -L /var/log/pods -type l -delete 直接直接该命令即可
-代码路径：./pkg/kubelet/kuberuntime/kuberuntime_gc
-镜像回收 Kubernetes 借助于 cadvisor 通过 imageManager 来管理所有镜像的生命周期。
-镜像垃圾回收策略只考虑两个因素：HighThresholdPercent 和 LowThresholdPercent。 磁盘使用率超过上限阈值（HighThresholdPercent）将触发垃圾回收。 垃圾回收将删除最近最少使用的镜像，直到磁盘使用率满足下限阈值（LowThresholdPercent）。
-容器回收 容器垃圾回收策略考虑三个用户定义变量。 MinAge 是容器可以被执行垃圾回收的最小生命周期。 MaxPerPodContainer 是每个 pod 内允许存在的死亡容器的最大数量。 MaxContainers 是全部死亡容器的最大数量。 可以分别独立地通过将 MinAge 设置为 0，以及将 MaxPerPodContainer 和 MaxContainers 设置为小于 0 来禁用这些变量。</description></item><item><title>Node 资源预留与 Pod 驱逐</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/Node-%E8%B5%84%E6%BA%90%E9%A2%84%E7%95%99%E4%B8%8E-Pod-%E9%A9%B1%E9%80%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/Node-%E8%B5%84%E6%BA%90%E9%A2%84%E7%95%99%E4%B8%8E-Pod-%E9%A9%B1%E9%80%90/</guid><description>概述 参考：
-原文：SegmentFault(思否)，k8s 节点资源预留与 pod 驱逐 节点资源管理 为什么 K8S 的节点上的资源会被 pod 和系统进程所使用，如果默认什么都不配置，那么节点上的全部资源都是可以分配给 pod 使用的，系统进程本身没有保障，这样做很危险：
-集群雪崩：如果节点上调度了大量 pod，且 pod 没有合理的 limit 限制，节点资源将被耗尽，sshd、kubelet 等进程 OOM，节点变成 not ready 状态，pod 重新继续调度到其他节点，新节点也被打挂，引起集群雪崩。 系统进程异常：就算 pod 设置了 limit，但如果机器遇到资源不足，系统进程如 docker 没有资源保障，会频繁 OOM，或者进程 hang 住无响应，虽然能运行，但容器会反复出问题 节点资源主要分为两类：
-可压缩资源：如 CPU，即使 cpu 超配，也可以划分时间片运行，只是运行变慢，进程不会挂。 不可压缩资源：Memory/Storage，内存不同于 CPU，系统内存不足时，会触发 OOM 杀死进程，按照 oom score 来确定先 kill 谁，oom_score_adj 值越高，被 kill 的优先级越高。 oom 分数： 所以，OOM 的优先级如下：
-BestEffort Pod &amp;gt; Burstable Pod &amp;gt; 其它进程 &amp;gt; Guaranteed Pod &amp;gt; kubelet/docker 等 &amp;gt; sshd 等进程 因此需要对节点的内存等资源进行配置，以保证节点核心进程运行正常。</description></item><item><title>PLEG</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/PLEG/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/PLEG/</guid><description>概述 参考：
-公众号,运维开发故事-PLEG is not healthy？幕后黑手居然是它！ 公众号,云原生实验室-Kubelet 中的 “PLEG is not healthy” 到底是个什么鬼？ https://developers.redhat.com/blog/2019/11/13/pod-lifecycle-event-generator-understanding-the-pleg-is-not-healthy-issue-in-kubernetes# https://mp.weixin.qq.com/s/lPYd9tNQyjidJ-sLt2sDLg
-问题描述 环境 ：ubuntu18.04，自建集群 k8s 1.18 ，容器运行时 docker。
-现象：某个 Node 频繁 NotReady，kubectl describe 该 Node，出现如下报错日志：
-PLEG is not healthy: pleg was last seen active 3m46.752815514s ago; threshold is 3m0s 频率在 5-10 分钟就会出现一次。
-我们首先要明白 PLEG 是什么？ Pod Lifecycle Event Generator(Pod 生命周期事件生成器，简称 PLEG) 是 Kubelet 中的一个模块，主要职责就是通过每个匹配的 Pod 级别事件来调整容器运行时的状态，并将调整的结果写入缓存，使 Pod 的缓存保持最新状态。先来聊聊 PLEG 的出现背景。在 Kubernetes 中，每个节点上都运行着一个守护进程 Kubelet 来管理节点上的容器，调整容器的实际状态以匹配 spec 中定义的状态。具体来说，Kubelet 需要对两个地方的更改做出及时的回应：</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubelet 特性 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/</link><description>Recent content in Kubelet 特性 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/index.xml" rel="self" type="application/rss+xml"/><item><title>10.1.bootstrap 认证配置步骤介绍</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/10.1.bootstrap-%E8%AE%A4%E8%AF%81%E9%85%8D%E7%BD%AE%E6%AD%A5%E9%AA%A4%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/10.1.bootstrap-%E8%AE%A4%E8%AF%81%E9%85%8D%E7%BD%AE%E6%AD%A5%E9%AA%A4%E4%BB%8B%E7%BB%8D/</guid><description>&lt;p&gt;kubelet 授权 kube-apiserver 的一些操作 exec run logs 等&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;RBAC 只需创建一次就可以&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;kubectl create clusterrolebinding kube-apiserver:kubelet-apis --clusterrole=system:kubelet-api-admin --user kubernetes&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;创建 bootstrap kubeconfig 文件&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;注意: token 生效时间为 1day , 超过时间未创建自动失效，需要重新创建 token&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;kubeadm token create --description kubelet-bootstrap-token --groups system:bootstrappers:kubernetes-clientgroup --kubeconfig ~/.kube/config&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;查看生成的 token&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;kubeadm token list --kubeconfig ~/.kube/config
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;TOKEN TTL EXPIRES USAGES DESCRIPTION EXTRA GROUPS
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;** 2kcmsb.hyl5s4g0l1mkff9z** **23h** 2018-11-16T11:08:00+08:00 authentication,signing kubelet-bootstrap-token system:bootstrappers:kubernetes-clientgroup
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;配置集群参数，生成 kubernetes-clientgroup-bootstrap.kubeconfig&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;kubectl config set-cluster kubernetes &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; --certificate-authority&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;/etc/kubernetes/ssl/ca.pem &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; --embed-certs&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#204a87"&gt;true&lt;/span&gt; &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; --server&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;https://192.168.1.7:6443 &lt;span style="color:#4e9a06"&gt;\ &lt;/span&gt; &lt;span style="color:#8f5902;font-style:italic"&gt;#master节点ip&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; --kubeconfig&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;kubernetes-clientgroup-bootstrap.kubeconfig
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;配置客户端认证&lt;/p&gt;</description></item><item><title>Garbage Collection(垃圾回收)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/Garbage-Collection%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/Garbage-Collection%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6/</guid><description>&lt;h1 id="kubelet-garbage-collection-介绍"&gt;kubelet Garbage Collection 介绍&lt;a class="td-heading-self-link" href="#kubelet-garbage-collection-%e4%bb%8b%e7%bb%8d" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;官方文档：&lt;a href="https://kubernetes.io/docs/concepts/cluster-administration/kubelet-garbage-collection/"&gt;https://kubernetes.io/docs/concepts/cluster-administration/kubelet-garbage-collection/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;垃圾回收是 kubelet 的一个有用功能，它将清理未使用的镜像和容器。 Kubelet 将每分钟对容器执行一次垃圾回收，每五分钟对镜像执行一次垃圾回收。&lt;/p&gt;
+&lt;p&gt;注意！！不建议使用外部垃圾收集工具，因为这些工具可能会删除原本期望存在的容器进而破坏 kubelet 的行为。&lt;/p&gt;
+&lt;p&gt;比如：
+使用 docker container prune -f 命令，清理了节点上不再使用的容器，这时候，在 /var/log/pods/ContainerNAME/* 目录下的日志软链接是不会清除的，因为这个软连接由 kubelet 管理，并且只有在日志关联的容器被 kubelet 清理时，才会清理该软链接。所以容器没了，软连接 kubelet 也就不管了~&lt;/p&gt;
+&lt;p&gt;解决办法：
+find -L /var/log/pods -type l -delete 直接直接该命令即可&lt;/p&gt;
+&lt;p&gt;代码路径：./pkg/kubelet/kuberuntime/kuberuntime_gc&lt;/p&gt;
+&lt;h2 id="镜像回收"&gt;镜像回收&lt;a class="td-heading-self-link" href="#%e9%95%9c%e5%83%8f%e5%9b%9e%e6%94%b6" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;Kubernetes 借助于 cadvisor 通过 imageManager 来管理所有镜像的生命周期。&lt;/p&gt;
+&lt;p&gt;镜像垃圾回收策略只考虑两个因素：HighThresholdPercent 和 LowThresholdPercent。 磁盘使用率超过上限阈值（HighThresholdPercent）将触发垃圾回收。 垃圾回收将删除最近最少使用的镜像，直到磁盘使用率满足下限阈值（LowThresholdPercent）。&lt;/p&gt;
+&lt;h2 id="容器回收"&gt;容器回收&lt;a class="td-heading-self-link" href="#%e5%ae%b9%e5%99%a8%e5%9b%9e%e6%94%b6" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;容器垃圾回收策略考虑三个用户定义变量。 MinAge 是容器可以被执行垃圾回收的最小生命周期。 MaxPerPodContainer 是每个 pod 内允许存在的死亡容器的最大数量。 MaxContainers 是全部死亡容器的最大数量。 可以分别独立地通过将 MinAge 设置为 0，以及将 MaxPerPodContainer 和 MaxContainers 设置为小于 0 来禁用这些变量。&lt;/p&gt;</description></item><item><title>Node 资源预留与 Pod 驱逐</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/Node-%E8%B5%84%E6%BA%90%E9%A2%84%E7%95%99%E4%B8%8E-Pod-%E9%A9%B1%E9%80%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/Node-%E8%B5%84%E6%BA%90%E9%A2%84%E7%95%99%E4%B8%8E-Pod-%E9%A9%B1%E9%80%90/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;原文：&lt;a href="https://segmentfault.com/a/1190000021402192"&gt;SegmentFault(思否)，k8s 节点资源预留与 pod 驱逐&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="节点资源管理"&gt;节点资源管理&lt;a class="td-heading-self-link" href="#%e8%8a%82%e7%82%b9%e8%b5%84%e6%ba%90%e7%ae%a1%e7%90%86" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;h2 id="为什么"&gt;为什么&lt;a class="td-heading-self-link" href="#%e4%b8%ba%e4%bb%80%e4%b9%88" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;K8S 的节点上的资源会被 pod 和系统进程所使用，如果默认什么都不配置，那么节点上的全部资源都是可以分配给 pod 使用的，系统进程本身没有保障，这样做很危险：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;集群雪崩：如果节点上调度了大量 pod，且 pod 没有合理的 limit 限制，节点资源将被耗尽，sshd、kubelet 等进程 OOM，节点变成 not ready 状态，pod 重新继续调度到其他节点，新节点也被打挂，引起集群雪崩。&lt;/li&gt;
+&lt;li&gt;系统进程异常：就算 pod 设置了 limit，但如果机器遇到资源不足，系统进程如 docker 没有资源保障，会频繁 OOM，或者进程 hang 住无响应，虽然能运行，但容器会反复出问题&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;节点资源主要分为两类：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;可压缩资源：如 CPU，即使 cpu 超配，也可以划分时间片运行，只是运行变慢，进程不会挂。&lt;/li&gt;
+&lt;li&gt;不可压缩资源：Memory/Storage，内存不同于 CPU，系统内存不足时，会触发 OOM 杀死进程，按照 oom score 来确定先 kill 谁，oom_score_adj 值越高，被 kill 的优先级越高。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;oom 分数：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/251afead-3706-4ed7-9dbe-ed79c2f36290/1460000021402196" alt=""&gt;
+所以，OOM 的优先级如下：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;BestEffort Pod &amp;gt; Burstable Pod &amp;gt; 其它进程 &amp;gt; Guaranteed Pod &amp;gt; kubelet/docker 等 &amp;gt; sshd 等进程
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;因此需要对节点的内存等资源进行配置，以保证节点核心进程运行正常。&lt;/p&gt;</description></item><item><title>PLEG</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/PLEG/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubelet/Kubelet-%E7%89%B9%E6%80%A7/PLEG/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/lPYd9tNQyjidJ-sLt2sDLg"&gt;公众号,运维开发故事-PLEG is not healthy？幕后黑手居然是它！&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/t7H2MQ2429LQB9XfrB23YA"&gt;公众号,云原生实验室-Kubelet 中的 “PLEG is not healthy” 到底是个什么鬼？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://developers.redhat.com/blog/2019/11/13/pod-lifecycle-event-generator-understanding-the-pleg-is-not-healthy-issue-in-kubernetes"&gt;https://developers.redhat.com/blog/2019/11/13/pod-lifecycle-event-generator-understanding-the-pleg-is-not-healthy-issue-in-kubernetes#&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;a href="https://mp.weixin.qq.com/s/lPYd9tNQyjidJ-sLt2sDLg"&gt;https://mp.weixin.qq.com/s/lPYd9tNQyjidJ-sLt2sDLg&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="问题描述"&gt;问题描述&lt;a class="td-heading-self-link" href="#%e9%97%ae%e9%a2%98%e6%8f%8f%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;环境 ：ubuntu18.04，自建集群 k8s 1.18 ，容器运行时 docker。&lt;/p&gt;
+&lt;p&gt;现象：某个 Node 频繁 NotReady，kubectl describe 该 Node，出现如下报错日志：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;PLEG is not healthy: pleg was last seen active 3m46.752815514s ago&lt;span style="color:#000;font-weight:bold"&gt;;&lt;/span&gt; threshold is 3m0s
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;频率在 5-10 分钟就会出现一次。&lt;/p&gt;
+&lt;h2 id="我们首先要明白-pleg-是什么"&gt;我们首先要明白 PLEG 是什么？&lt;a class="td-heading-self-link" href="#%e6%88%91%e4%bb%ac%e9%a6%96%e5%85%88%e8%a6%81%e6%98%8e%e7%99%bd-pleg-%e6%98%af%e4%bb%80%e4%b9%88" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;Pod Lifecycle Event Generator(Pod 生命周期事件生成器，简称 PLEG)&lt;/strong&gt; 是 Kubelet 中的一个模块，主要职责就是通过每个匹配的 Pod 级别事件来调整容器运行时的状态，并将调整的结果写入缓存，使 Pod 的缓存保持最新状态。先来聊聊 PLEG 的出现背景。在 Kubernetes 中，每个节点上都运行着一个守护进程 Kubelet 来管理节点上的容器，调整容器的实际状态以匹配 spec 中定义的状态。具体来说，Kubelet 需要对两个地方的更改做出及时的回应：&lt;/p&gt;</description></item></channel></rss>

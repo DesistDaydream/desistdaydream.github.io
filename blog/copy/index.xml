@@ -1,73 +1,132 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>摘抄 on 断念梦的站点</title><link>https://desistdaydream.github.io/blog/copy/</link><description>Recent content in 摘抄 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/blog/copy/index.xml" rel="self" type="application/rss+xml"/><item><title>硬核致敬Linux ！30岁生日快乐！</title><link>https://desistdaydream.github.io/blog/copy/cE4x63tYxoqrDinifeWqeg/</link><pubDate>Thu, 26 Aug 2021 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/blog/copy/cE4x63tYxoqrDinifeWqeg/</guid><description>原文链接：https://mp.weixin.qq.com/s/cE4x63tYxoqrDinifeWqeg
-1991年8月25日，21岁的Linus Torvalds（以下简称Linus）做了一个免费的操作系统“Linux”，并在这一天向外界公布这个由“业余爱好”主导的个人项目；如今，全球超级计算机500强和超过70%的智能手机都在运行Linux，因此，8月25日也被许多Linux的爱好者视为Linux真正的诞生日期。
-你好 30 年前，Linus Torvalds 首次发布 Linux 内核时还是赫尔辛基大学的一名 21 岁学生。他的声明是这样开始的，“我正在做一个（免费的）操作系统（只是一个爱好，不会很大和专业&amp;hellip;&amp;hellip;）”。三十年后，排名前 500 的超级计算机都在运行 Linux，所有智能手机的 70% 以上都是如此。Linux 显然既庞大又专业。
-三十年来，Linus Torvalds 领导了 Linux 内核开发，激励了无数其他开发人员和开源项目。2005 年，Linus 还创建了 Git来帮助管理内核开发过程，此后它成为最受欢迎的版本控制系统，受到无数开源和专有项目的信赖。
-Linux历史 OS史前历史
-Linux的历史
-Linux系统 Linux系统软件架构
-Linux系统由硬件、kernel、系统调用、shell、c库、应用程序组成，架构层次分明，Linux内的各种层功能独立，程序在用户空间和内核空间之间的分离，能支持更多应用。
-| 用户模态 | 用户应用 | 例如：Bash，LibreOffice，GIMP，Blender，0 A.D.，Mozilla Firefox等 | | 低层系统构件 | 系统守护进程： systemd，runit，logind，networkd，PulseAudio等 | 窗口系统： X11，Wayland，SurfaceFlinger(Android) | 其他库： GTK+, Qt, EFL, SDL, SFML, FLTK, GNUstep等 | 图形： Mesa，AMD Catalyst等 | | C标准库 | open()，exec()，sbrk()，socket()，fopen()，calloc()，&amp;hellip; (直到2000个子例程) glibc目标为POSIX/SUS兼容，musl和uClibc目标为嵌入式系统，bionic为Android而写等 | | 内核模态 | Linux内核 | stat, splice, dup, read, open, ioctl, write, mmap, close, exit等（大约380个系统调用） Linux内核系统调用接口（SCI，目标为POSIX/SUS兼容） | | 进程调度子系统 | IPC子系统 | 内存管理子系统 | 虚拟文件子系统 | 网络子系统 | | 其他构件：ALSA，DRI，evdev，LVM，device mapper，Linux Network Scheduler，Netfilter Linux安全模块：SELinux，TOMOYO，AppArmor, Smack | | 硬件（CPU，内存，数据存储设备等。） |</description></item><item><title>ext 文件系统机制原理剖析</title><link>https://desistdaydream.github.io/blog/copy/ext_filesystem/</link><pubDate>Sun, 25 Oct 2020 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/blog/copy/ext_filesystem/</guid><description>原文链接：https://www.junmajinlong.com/linux/ext_filesystem/
-回到 Linux 基础系列文章大纲 回到 Shell 系列文章大纲
-将磁盘进行分区，分区是将磁盘按柱面进行物理上的划分。划分好分区后还要进行格式化，然后再挂载才能使用 (不考虑其他方法)。格式化分区的过程其实就是创建文件系统。
-文件系统的类型有很多种，如 CentOS 5 和 CentOS 6 上默认使用的 ext2/ext3/ext4，CentOS 7 上默认使用的 xfs，windows 上的 NTFS，光盘类的文件系统 ISO9660，MAC 上的混合文件系统 HFS，网络文件系统 NFS，Oracle 研发的 btrfs，还有老式的 FAT/FAT32 等。
-本文将非常全面且详细地介绍 ext 家族的文件系统，中间还非常详细地介绍了 inode、软链接、硬链接、数据存储方式以及操作文件的理论，基本上看完本文，对文件系统的宏观理解将再无疑惑。ext 家族的文件系统有 ext2/ext3/ext4，ext3 是有日志的 ext2 改进版，ext4 对相比 ext3 做了非常多的改进。虽然 xfs/btrfs 等文件系统有所不同，但它们只是在实现方式上不太同，再加上属于自己的特性而已。
-block 的出现 硬盘最底层的读写 IO 一次是一个扇区 512 字节，如果要读写大量文件，以扇区为单位肯定很慢很消耗性能，所以硬盘使用了一个称作逻辑块的概念。逻辑块是逻辑的，由磁盘驱动器负责维护和操作，它并非是像扇区一样物理划分的。一个逻辑块的大小可能包含一个或多个扇区，每个逻辑块都有唯一的地址，称为 LBA。有了逻辑块之后，磁盘控制器对数据的操作就以逻辑块为单位，一次读写一个逻辑块，磁盘控制器知道如何将逻辑块翻译成对应的扇区并读写数据。
-到了 Linux 操作系统层次，通过文件系统提供了一个也称为块的读写单元，文件系统数据块的大小一般为 1024bytes (1K) 或 2048bytes (2K) 或 4096bytes (4K)。文件系统数据块也是逻辑概念，是文件系统层次维护的，而磁盘上的逻辑数据块是由磁盘控制器维护的，文件系统的 IO 管理器知道如何将它的数据块翻译成磁盘维护的数据块地址 LBA。对于使用文件系统的 IO 操作来说，比如读写文件，这些 IO 的基本单元是文件系统上的数据块，一次读写一个文件系统数据块。比如需要读一个或多个块时，文件系统的 IO 管理器首先计算这些文件系统块对应在哪些磁盘数据块，也就是计算出 LBA，然后通知磁盘控制器要读取哪些块的数据，硬盘控制器将这些块翻译成扇区地址，然后从扇区中读取数据，再通过硬盘控制器将这些扇区数据重组写入到内存中去。</description></item><item><title>Linux Torvalds 采访</title><link>https://desistdaydream.github.io/blog/copy/mVo3S_F0RoxCToawrTCnlA/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/blog/copy/mVo3S_F0RoxCToawrTCnlA/</guid><description>https://mp.weixin.qq.com/s/mVo3S_F0RoxCToawrTCnlA
-作者丨 Jeremy Andrews
-译者丨屠灵
-策划丨蔡芳芳
-Linux 诞生于 1991 年，距今已经 30 年了。虽然它一开始只是 Linus 的一个个人项目，而非出于要开发一个新操作系统的伟大梦想，但如今的 Linux 早已无处不在。
-30 年前，当 Linus Torvalds 第一次发布 Linux 内核时，他还是赫尔辛基大学的一名 21 岁的学生。他宣布说：“我正在开发一个（免费的）操作系统（这只是个爱好，不会做得很大，也不会很专业……）”。30 年后，500 强超级计算机和 70% 以上的智能手机都在运行 Linux。很显然，Linux 不仅大，而且很专业。
-30 年来，Linus Torvalds 一直在领导着 Linux 内核的开发，启发了无数开发者和开源项目。2005 年，Linus 开发了 Git，用来管理内核开发过程。Git 现在已经成为最流行的版本控制系统，受到无数开源和私有项目的信任。
-正值 Linux 诞生 30 周年之际，Linus Torvalds 通过电子邮件回复了 Tag 1 咨询公司的创始合伙人 / 首席执行官 Jeremy Andrews 的访谈问题（《An Interview With Linus Torvalds: Linux and Git - Part 1》），回顾并总结了过去这些年他在领导大型开源项目过程中得到的真知灼见。本文着重介绍 Linux 内核开发和 Git。InfoQ 对访谈内容进行了翻译，以飨读者。</description></item><item><title>程序员的酒后真言</title><link>https://desistdaydream.github.io/blog/copy/s_QacAHM9ELc9_jkrxL2cw/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/blog/copy/s_QacAHM9ELc9_jkrxL2cw/</guid><description>原文链接：https://mp.weixin.qq.com/s/s_QacAHM9ELc9_jkrxL2cw
-美国最大的论坛 Reddit，最近有一个热帖[1]。 一个程序员说自己喝醉了，软件工程师已经当了 10 年，心里有好多话想说，“我可能会后悔今天说了这些话。”
-他洋洋洒洒写了一大堆，获得 9700 多个赞。内容很有意思，值得一读，下面是节选。 （1）职业发展的最好方法是换公司。
-（2）技术栈不重要。技术领域有大约 10-20 条核心原则，重要的是这些原则，技术栈只是落实它们的方法。你如果不熟悉某个技术栈，不需要过度担心。
-（3）工作和人际关系是两回事。有一些公司，我交到了好朋友，但是工作得并不开心；另一些公司，我没有与任何同事建立友谊，但是工作得很开心。
-（4）我总是对经理实话实说。怕什么？他开除我？我会在两周内找到一份新工作。
-（5）如果一家公司的工程师超过 100 人，它的期权可能在未来十年内变得很有价值。对于工程师人数很少的公司，期权一般都是毫无价值。
-（6）好的代码是初级工程师可以理解的代码。伟大的代码可以被第一年的 CS 专业的新生理解。
-（7）作为一名工程师，最被低估的技能是记录。说真的，如果有人可以教我怎么写文档，我会付钱，也许是 1000 美元。
-（8）网上的口水战，几乎都无关紧要，别去参与。
-（9）如果我发现自己是公司里面最厉害的工程师，那就该离开了。
-（10）我们应该雇佣更多的实习生，他们很棒。那些精力充沛的小家伙用他们的想法乱搞。如果他们公开质疑或批评某事，那就更好了。我喜欢实习生。
-（11）技术栈很重要。如果你使用 Python 或 C++ 语言，就会忍不住想做一些非常不同的事情。因为某些工具确实擅长某些工作。
-（12）如果你不确定自己想做什么东西，请使用 Java。这是一种糟糕的编程语言，但几乎无所不能。
-（13）对于初学者来说，最赚钱的编程语言是 SQL，干翻所有其他语言。你只了解 SQL 而不会做其他事情，照样赚钱。人力资源专家的年薪？也许 5 万美元。懂 SQL 的人力资源专家？9 万美元。
-（14）测试很重要，但 TDD （测试驱动的开发）几乎变成了一个邪教。
-（15） 政府单位很轻松，但并不像人们说的那样好。对于职业生涯早期到中期的工程师，12 万美元的年薪 + 各种福利 + 养老金听起来不错，但是你将被禁锢在深奥的专用工具里面，离开政府单位以后，这些知识就没用了。我非常尊重政府工作人员，但说真的，这些地方的工程师，年龄中位数在 50 岁以上是有原因的。
-（16）再倒一杯酒。
-（17）大多数头衔都无关紧要，随便什么公司都可以有首席工程师。
-（18）手腕和背部的健康问题可不是开玩笑的，好的设备值得花钱。
-（19）当一个软件工程师，最好的事情是什么？你可以结识很多想法相同的人，大家互相交流，不一定有相同的兴趣，但是对方会用跟你相同的方式思考问题，这很酷。
-（20）有些技术太流行，我不得不用它。我心里就会很讨厌这种技术，但会把它推荐给客户，比如我恨 Jenkins，但把它推荐给新客户，我不觉得做错了。
-（21）成为一名优秀的工程师意味着了解最佳实践，成为高级工程师意味着知道何时打破最佳实践。
-（22）发生事故时，如果周围的人试图将责任归咎于外部错误或底层服务中断，那么是时候离开这家公司，继续前进了。
-（23）我遇到的最好的领导，同意我的一部分观点，同时耐心跟我解释，为什么不同意我的另一部分观点。我正在努力成为像他们一样的人。
-（24）算法和数据结构确实重要，但不应该无限夸大，尤其是面试的时候。我没见过药剂师面试时，还要测试有机化学的细节。这个行业的面试过程有时候很糟糕。
-（25）做自己喜欢的事情并不重要，不要让我做讨厌的事情更重要。
-（26）越接近产品，就越接近推动收入增长。无论工作的技术性如何，只要它接近产品，我都感到越有价值。
-（27）即使我平时用 Windows 工作，Linux 也很重要。为什么？因为服务器是 Linux 系统，你最终在 Linux 系统上工作。</description></item><item><title>二十年老程序员的二十条心得：面试几乎没用，警惕很久没写过代码的“大牛”</title><link>https://desistdaydream.github.io/blog/copy/bHdkIkWCNZPmO-Hz-HQreQ/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/blog/copy/bHdkIkWCNZPmO-Hz-HQreQ/</guid><description>原文链接：https://mp.weixin.qq.com/s/bHdkIkWCNZPmO-Hz-HQreQ
-作者 | Justin Etheredge
-译者 | 核子可乐
-务必警惕那些已经很久没写过代码、也没设计过系统的所谓“大牛”。
-站在巨人的肩膀上当然更容易成功，所以我们才会希望行业前辈能给出一些有意义的建议。今天这些建议来自一位有二十年行业经验的软件工程师，他的总结在 Hacker News 上引发了大量的讨论，帖子多天来一直占据“热榜”第一。
-Justin Etheredge 最初在各类小型和初创企业中担任软件工程师，之后进入了咨询行业并开始为大型企业服务。Justin Etheredge 表示过去二十年以来的经历塑造了他对于软件的理解，并产生出一些坚定的信念。他把这些信念整理成一份明确的清单，希望能为大家带来一点帮助与启发。
-引起网友激烈讨论的二十条建议：
-我懂的并不多 “你怎么会不知道什么是 BGP？”“你难道没听说过 Rust？”
-类似的问题可能每天都会出现在我们面前。没错，投身于软件行业的很多人之所以热爱这份工作，就是因为它敦促着我们终身学习。
-在软件领域，无论我们朝哪个方向前进，都有着广阔的知识空间不断延伸而且每一天都有所变化。换句话说，这是一份能够承载我们度过几十年的职业生涯，而两位在类似岗位上分别工作了几十年的人之间也 很可能存在巨大的知识差距。我们越早意识到这一点，就能越快摆脱“冒充者综合症”，成为一个乐于向他人学习、也乐于教导他人的积极分子。
-软件里最难的部分，是构建正确的东西 我知道这种话大家肯定听过无数遍了，但大多数软件工程师仍拒不承认，理由是这种说法似乎在贬低他们的工作成果。我个人觉得这样的心态大可不必，这类表达其实是在突出软件开发环境中的复杂性与非理性因素，而这些都会加剧我们面临的挑战。我们当然可以设计出在技术上最令人印象深刻的东西，但却没人愿意用——这类困境随时都会出现。
-软件设计主要是一种聆听活动，开发者往往身兼软件工程师、通灵师乃至人类学家等多重角色。而我们对这种设计能力的每一点投资，无论是引入专业的用户体验师还是接受更进一步的自我教育，都能给开发成果带来巨大提升。毕竟与打磨设计能力相比，开发一款“没人用”的软件成本还是太高了、太高太高。
-顶尖软件工程师会像设计师那样思考 伟大的软件工程师会深入思考代码成果的用户体验。虽然使用的术语或者切入点不同，但无论是对于外部 API、编程 API、用户界面、协议还是其他接口，优秀的工程师都会考虑由谁来使用、为什么要使用、如何使用以及对用户来说哪些因素真正重要等。总之，牢记用户需求才是实现良好体验的核心所在。
-最好的代码就是没有代码，或者说不需要维护的代码 “程序员就是管编程的”，而且跟其他专业人士一样，我们也会在自己最擅长的方面犯错。这是人的本性，没办法。大多数软件工程师编写出的代码总是有点错误，而且往往无法用非技术方案来解决。
-另外有一种很神奇的现象，越是有大量相当成熟的解决方案存在，工程团队就越是想“重新发明轮子”。想表达自我、加快专业成长当然是好事，但还请大家分清场合与需求，过度泛滥的发明欲望恐怕不利于编写出无需维护的代码。
-软件是达成目的的手段 任何一位软件工程师的主要工作都是交付价值。但我发现大部分软件开发者并不理解这一点，能够将这个理念内化进日常工作的开发者就更少了。但只要能够完成内化，我们解决问题的方式、看待工具的角度都会有所变化。如果您真心相信软件要服从于结果，那就一定能找到“真正适合工作的工具”，而这种工具也许压根就不是软件。
-有时候，你压根没时间磨刀 都说“磨刀不误砍柴工”，但刀磨久了反而让人心浮气躁、难以投入真正的工作。代码编写也是一样，研究多了容易让人陷入“分析瘫痪”。
-一旦出现这种状况，请马上给自己设定一个截止日期，之后再探索解决方案。在着手解决问题时，我们很快就能找到思路与线索、引导自己一步步迭代向更好的产出。
-如果没法理解所有可能性，就设计不出优秀的系统 这也是我个人一直在努力解决的问题。我的职责变化导致自己距离常规软件工程任务越来越远，我发现跟上开发者生态的发展速度越来越难，有时候自己甚至不理解哪些趋势真正重要。总之，如果不能理解特定生态当中的那些可行性与可用选项，那么我们根本没办法为所有问题找到合理的解决方案。
-总而言之，务必警惕那些已经很久没写过代码、也没设计过系统的所谓“大牛”。
-每套系统最终都很差劲，要勇于接受这一点 Bjarne Stroustrup 有句名言，“世界上只有两种语言，人们抱怨的语言和没人用的语言。”大型系统也是同理。并不存在“正确”的架构，我们永远无法偿还所有技术债务、设计不出完美的界面、也不可能永远拥有迅如闪电的测试速度。但做不到不代表什么都不做，这只是一种参考视角。优雅和完美本身就是种终极目标，我们当下的任务就是不断改进并创造一个更友好的系统环境，保证团队至少还用得下去、并以可持续的方式交付价值。
-通于探索，不断追问 相信大家都听过“我们向来这么处理”之类的鬼话。这时候请关注那些新加入的成员，看看他们在哪里遇到了问题、又提出了哪些质疑。这些质疑中，是否存在某种有意义的功能诉求？请保证您明确理解他们提出的目标，以及驱动这种功能诉求的原因。如果得不到明确答案，就不断追问下去、直到弄明白为止。
-相比于寻找 10 倍程序员，最好是消除 0.1 倍程序员 10 倍程序员就是个愚蠢的笑话。
-没有任何一个人能在一天之内搞定另一位同样有能力、工作态度端正而且经验丰富的程序员需要两个礼拜才能做完的工作。我只见过 10 倍代码量程序员，他们写出来的 bug 也是 10 倍。或者说，10 倍程序员唯一的存在可能性，就是身边有个 0.1 倍程序员——就是那种浪费时间、不关注反馈、不测试代码也不考虑极端情况的家伙……所以相较于寻找神话中的 10 倍程序员，及时清除团队中的 0.1 倍程序员才是正道。</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>摘抄 on 断念梦的站点</title><link>https://desistdaydream.github.io/blog/copy/</link><description>Recent content in 摘抄 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/blog/copy/index.xml" rel="self" type="application/rss+xml"/><item><title>硬核致敬Linux ！30岁生日快乐！</title><link>https://desistdaydream.github.io/blog/copy/cE4x63tYxoqrDinifeWqeg/</link><pubDate>Thu, 26 Aug 2021 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/blog/copy/cE4x63tYxoqrDinifeWqeg/</guid><description>&lt;p&gt;原文链接：&lt;a href="https://mp.weixin.qq.com/s/cE4x63tYxoqrDinifeWqeg"&gt;https://mp.weixin.qq.com/s/cE4x63tYxoqrDinifeWqeg&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/Pn4Sm0RsAuhH4SOtTAkhF5RQnT4PAWdG2NT9Smu9eqEV5PAwKq3PbC6iagpqsfWz47RFLIZibibcIDAn3IyVS0ahw/640?wx_fmt=png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;1991年8月25日，21岁的Linus Torvalds（以下简称Linus）做了一个免费的操作系统“Linux”，并在这一天向外界公布这个由“业余爱好”主导的个人项目；如今，全球超级计算机500强和超过70%的智能手机都在运行Linux，因此，8月25日也被许多Linux的爱好者视为Linux真正的诞生日期。&lt;/p&gt;
+&lt;h1 id="你好"&gt;你好&lt;a class="td-heading-self-link" href="#%e4%bd%a0%e5%a5%bd" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/cYSwmJQric6nhH4RQfgaJfjrfmLsALibgH5rcBjAWV0lF8QBtlXSJgRrJqBP90P2rfTd8WpVRAtyzqxhbXd6QnNg/640?wx_fmt=png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;30 年前，Linus Torvalds 首次发布 Linux 内核时还是赫尔辛基大学的一名 21 岁学生。他的声明是这样开始的，“我正在做一个（免费的）操作系统（只是一个爱好，不会很大和专业&amp;hellip;&amp;hellip;）”。三十年后，排名前 500 的超级计算机都在运行 Linux，所有智能手机的 70% 以上都是如此。Linux 显然既庞大又专业。&lt;/p&gt;
+&lt;p&gt;三十年来，Linus Torvalds 领导了 Linux 内核开发，激励了无数其他开发人员和开源项目。2005 年，Linus 还创建了 Git来帮助管理内核开发过程，此后它成为最受欢迎的版本控制系统，受到无数开源和专有项目的信赖。&lt;/p&gt;
+&lt;h3 id="linux历史"&gt;Linux历史&lt;a class="td-heading-self-link" href="#linux%e5%8e%86%e5%8f%b2" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;&lt;strong&gt;OS史前历史&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/cYSwmJQric6nhH4RQfgaJfjrfmLsALibgHE70XibBtS3DT8Nf3r5k48PGFo8ON6CPEsuyBOxIia8eLIQOuuz6JV1aA/640?wx_fmt=png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Linux的历史&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/cYSwmJQric6nhH4RQfgaJfjrfmLsALibgHRicpx9aScqDmIdIib1M2UdibnVGVHJoTR5j94qiaCosHsT4G1XlPL1vYzA/640?wx_fmt=png" alt=""&gt;&lt;/p&gt;
+&lt;h3 id="linux系统"&gt;Linux系统&lt;a class="td-heading-self-link" href="#linux%e7%b3%bb%e7%bb%9f" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;&lt;strong&gt;Linux系统软件架构&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_jpg/cYSwmJQric6nhH4RQfgaJfjrfmLsALibgH1QmL07tiarw5K00x2LuwJEaRFCR4eev2O1DI1uEd6rZPOKnNZHzv5Eg/640?wx_fmt=jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;Linux系统由硬件、kernel、系统调用、shell、c库、应用程序组成，架构层次分明，Linux内的各种层功能独立，程序在用户空间和内核空间之间的分离，能支持更多应用。&lt;/p&gt;
+&lt;p&gt;| 用户模态 | &lt;strong&gt;用户应用&lt;/strong&gt; | 例如：Bash，LibreOffice，GIMP，Blender，0 A.D.，Mozilla Firefox等 |
+| 低层系统构件 | &lt;strong&gt;系统守护进程&lt;/strong&gt;：
+systemd，runit，logind，networkd，PulseAudio等 | &lt;strong&gt;窗口系统&lt;/strong&gt;：
+X11，Wayland，SurfaceFlinger(Android) | &lt;strong&gt;其他库&lt;/strong&gt;：
+GTK+, Qt, EFL, SDL, SFML, FLTK, GNUstep等 | &lt;strong&gt;图形&lt;/strong&gt;：
+Mesa，AMD Catalyst等 |
+| &lt;strong&gt;C标准库&lt;/strong&gt; | open()，exec()，sbrk()，socket()，fopen()，calloc()，&amp;hellip; (直到2000个子例程)
+glibc目标为POSIX/SUS兼容，musl和uClibc目标为嵌入式系统，bionic为Android而写等 |
+| 内核模态 | &lt;strong&gt;Linux内核&lt;/strong&gt; | stat, splice, dup, read, open, ioctl, write, mmap, close, exit等（大约380个系统调用）
+Linux内核系统调用接口（SCI，目标为POSIX/SUS兼容） |
+| 进程调度子系统 | IPC子系统 | 内存管理子系统 | 虚拟文件子系统 | 网络子系统 |
+| 其他构件：ALSA，DRI，evdev，LVM，device mapper，Linux Network Scheduler，Netfilter
+Linux安全模块：SELinux，TOMOYO，AppArmor, Smack |
+| 硬件（CPU，内存，数据存储设备等。） |&lt;/p&gt;</description></item><item><title>ext 文件系统机制原理剖析</title><link>https://desistdaydream.github.io/blog/copy/ext_filesystem/</link><pubDate>Sun, 25 Oct 2020 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/blog/copy/ext_filesystem/</guid><description>&lt;p&gt;原文链接：&lt;a href="https://www.junmajinlong.com/linux/ext_filesystem/"&gt;https://www.junmajinlong.com/linux/ext_filesystem/&lt;/a&gt;&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;&lt;strong&gt;&lt;a href="https://www.junmajinlong.com/linux/index"&gt;回到 Linux 基础系列文章大纲&lt;/a&gt;&lt;/strong&gt;
+&lt;strong&gt;&lt;a href="https://www.junmajinlong.com/shell/index"&gt;回到 Shell 系列文章大纲&lt;/a&gt;&lt;/strong&gt;&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;将磁盘进行分区，分区是将磁盘按柱面进行物理上的划分。划分好分区后还要进行格式化，然后再挂载才能使用 (不考虑其他方法)。格式化分区的过程其实就是创建文件系统。&lt;/p&gt;
+&lt;p&gt;文件系统的类型有很多种，如 CentOS 5 和 CentOS 6 上默认使用的 ext2/ext3/ext4，CentOS 7 上默认使用的 xfs，windows 上的 NTFS，光盘类的文件系统 ISO9660，MAC 上的混合文件系统 HFS，网络文件系统 NFS，Oracle 研发的 btrfs，还有老式的 FAT/FAT32 等。&lt;/p&gt;
+&lt;p&gt;本文将非常全面且详细地介绍 ext 家族的文件系统，中间还非常详细地介绍了 inode、软链接、硬链接、数据存储方式以及操作文件的理论，基本上看完本文，对文件系统的宏观理解将再无疑惑。ext 家族的文件系统有 ext2/ext3/ext4，ext3 是有日志的 ext2 改进版，ext4 对相比 ext3 做了非常多的改进。虽然 xfs/btrfs 等文件系统有所不同，但它们只是在实现方式上不太同，再加上属于自己的特性而已。&lt;/p&gt;
+&lt;h2 id="block-的出现"&gt;&lt;a href="https://desistdaydream.github.io/blog/copy/ext_filesystem/#block%e7%9a%84%e5%87%ba%e7%8e%b0" title="block的出现"&gt;&lt;/a&gt;block 的出现&lt;a class="td-heading-self-link" href="#block-%e7%9a%84%e5%87%ba%e7%8e%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;硬盘最底层的读写 IO 一次是一个扇区 512 字节，如果要读写大量文件，以扇区为单位肯定很慢很消耗性能，所以硬盘使用了一个称作逻辑块的概念。逻辑块是逻辑的，由磁盘驱动器负责维护和操作，它并非是像扇区一样物理划分的。一个逻辑块的大小可能包含一个或多个扇区，每个逻辑块都有唯一的地址，称为 LBA。有了逻辑块之后，磁盘控制器对数据的操作就以逻辑块为单位，一次读写一个逻辑块，磁盘控制器知道如何将逻辑块翻译成对应的扇区并读写数据。&lt;/p&gt;
+&lt;p&gt;到了 Linux 操作系统层次，通过文件系统提供了一个也称为块的读写单元，文件系统数据块的大小一般为 1024bytes (1K) 或 2048bytes (2K) 或 4096bytes (4K)。文件系统数据块也是逻辑概念，是文件系统层次维护的，而磁盘上的逻辑数据块是由磁盘控制器维护的，文件系统的 IO 管理器知道如何将它的数据块翻译成磁盘维护的数据块地址 LBA。对于使用文件系统的 IO 操作来说，比如读写文件，这些 IO 的基本单元是文件系统上的数据块，一次读写一个文件系统数据块。比如需要读一个或多个块时，文件系统的 IO 管理器首先计算这些文件系统块对应在哪些磁盘数据块，也就是计算出 LBA，然后通知磁盘控制器要读取哪些块的数据，硬盘控制器将这些块翻译成扇区地址，然后从扇区中读取数据，再通过硬盘控制器将这些扇区数据重组写入到内存中去。&lt;/p&gt;</description></item><item><title>Linux Torvalds 采访</title><link>https://desistdaydream.github.io/blog/copy/mVo3S_F0RoxCToawrTCnlA/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/blog/copy/mVo3S_F0RoxCToawrTCnlA/</guid><description>&lt;p&gt;&lt;a href="https://mp.weixin.qq.com/s/mVo3S_F0RoxCToawrTCnlA"&gt;https://mp.weixin.qq.com/s/mVo3S_F0RoxCToawrTCnlA&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;作者丨 Jeremy Andrews&lt;/p&gt;
+&lt;p&gt;译者丨屠灵&lt;/p&gt;
+&lt;p&gt;策划丨蔡芳芳&lt;/p&gt;
+&lt;p&gt;Linux 诞生于 1991 年，距今已经 30 年了。虽然它一开始只是 Linus 的一个个人项目，而非出于要开发一个新操作系统的伟大梦想，但如今的 Linux 早已无处不在。&lt;/p&gt;
+&lt;p&gt;30 年前，当 Linus Torvalds 第一次发布 Linux 内核时，他还是赫尔辛基大学的一名 21 岁的学生。他宣布说：“我正在开发一个（免费的）操作系统（这只是个爱好，不会做得很大，也不会很专业……）”。30 年后，500 强超级计算机和 70% 以上的智能手机都在运行 Linux。很显然，Linux 不仅大，而且很专业。&lt;/p&gt;
+&lt;p&gt;30 年来，Linus Torvalds 一直在领导着 Linux 内核的开发，启发了无数开发者和开源项目。2005 年，Linus 开发了 Git，用来管理内核开发过程。Git 现在已经成为最流行的版本控制系统，受到无数开源和私有项目的信任。&lt;/p&gt;
+&lt;p&gt;正值 Linux 诞生 30 周年之际，Linus Torvalds 通过电子邮件回复了 Tag 1 咨询公司的创始合伙人 / 首席执行官 Jeremy Andrews 的访谈问题（《An Interview With Linus Torvalds: Linux and Git - Part 1》），回顾并总结了过去这些年他在领导大型开源项目过程中得到的真知灼见。本文着重介绍 Linux 内核开发和 Git。InfoQ 对访谈内容进行了翻译，以飨读者。&lt;/p&gt;</description></item><item><title>程序员的酒后真言</title><link>https://desistdaydream.github.io/blog/copy/s_QacAHM9ELc9_jkrxL2cw/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/blog/copy/s_QacAHM9ELc9_jkrxL2cw/</guid><description>&lt;p&gt;原文链接：&lt;a href="https://mp.weixin.qq.com/s/s_QacAHM9ELc9_jkrxL2cw"&gt;https://mp.weixin.qq.com/s/s_QacAHM9ELc9_jkrxL2cw&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;美国最大的论坛 Reddit，最近有一个热帖[1]。
+一个程序员说自己喝醉了，软件工程师已经当了 10 年，心里有好多话想说，“我可能会后悔今天说了这些话。”&lt;/p&gt;
+&lt;p&gt;他洋洋洒洒写了一大堆，获得 9700 多个赞。内容很有意思，值得一读，下面是节选。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/po3xhu/1627796096008-fc438234-b89d-4142-aa9a-75b0994b2a5a.png" alt="image.png"&gt;&lt;/p&gt;
+&lt;p&gt;（1）职业发展的最好方法是换公司。&lt;/p&gt;
+&lt;p&gt;（2）技术栈不重要。技术领域有大约 10-20 条核心原则，重要的是这些原则，技术栈只是落实它们的方法。你如果不熟悉某个技术栈，不需要过度担心。&lt;/p&gt;
+&lt;p&gt;（3）工作和人际关系是两回事。有一些公司，我交到了好朋友，但是工作得并不开心；另一些公司，我没有与任何同事建立友谊，但是工作得很开心。&lt;/p&gt;
+&lt;p&gt;（4）我总是对经理实话实说。怕什么？他开除我？我会在两周内找到一份新工作。&lt;/p&gt;
+&lt;p&gt;（5）如果一家公司的工程师超过 100 人，它的期权可能在未来十年内变得很有价值。对于工程师人数很少的公司，期权一般都是毫无价值。&lt;/p&gt;
+&lt;p&gt;（6）好的代码是初级工程师可以理解的代码。伟大的代码可以被第一年的 CS 专业的新生理解。&lt;/p&gt;
+&lt;p&gt;（7）作为一名工程师，最被低估的技能是记录。说真的，如果有人可以教我怎么写文档，我会付钱，也许是 1000 美元。&lt;/p&gt;
+&lt;p&gt;（8）网上的口水战，几乎都无关紧要，别去参与。&lt;/p&gt;
+&lt;p&gt;（9）如果我发现自己是公司里面最厉害的工程师，那就该离开了。&lt;/p&gt;
+&lt;p&gt;（10）我们应该雇佣更多的实习生，他们很棒。那些精力充沛的小家伙用他们的想法乱搞。如果他们公开质疑或批评某事，那就更好了。我喜欢实习生。&lt;/p&gt;
+&lt;p&gt;（11）技术栈很重要。如果你使用 Python 或 C++ 语言，就会忍不住想做一些非常不同的事情。因为某些工具确实擅长某些工作。&lt;/p&gt;
+&lt;p&gt;（12）如果你不确定自己想做什么东西，请使用 Java。这是一种糟糕的编程语言，但几乎无所不能。&lt;/p&gt;
+&lt;p&gt;（13）对于初学者来说，最赚钱的编程语言是 SQL，干翻所有其他语言。你只了解 SQL 而不会做其他事情，照样赚钱。人力资源专家的年薪？也许 5 万美元。懂 SQL 的人力资源专家？9 万美元。&lt;/p&gt;
+&lt;p&gt;（14）测试很重要，但 TDD （测试驱动的开发）几乎变成了一个邪教。&lt;/p&gt;
+&lt;p&gt;（15） 政府单位很轻松，但并不像人们说的那样好。对于职业生涯早期到中期的工程师，12 万美元的年薪 + 各种福利 + 养老金听起来不错，但是你将被禁锢在深奥的专用工具里面，离开政府单位以后，这些知识就没用了。我非常尊重政府工作人员，但说真的，这些地方的工程师，年龄中位数在 50 岁以上是有原因的。&lt;/p&gt;
+&lt;p&gt;（16）再倒一杯酒。&lt;/p&gt;
+&lt;p&gt;（17）大多数头衔都无关紧要，随便什么公司都可以有首席工程师。&lt;/p&gt;
+&lt;p&gt;（18）手腕和背部的健康问题可不是开玩笑的，好的设备值得花钱。&lt;/p&gt;
+&lt;p&gt;（19）当一个软件工程师，最好的事情是什么？你可以结识很多想法相同的人，大家互相交流，不一定有相同的兴趣，但是对方会用跟你相同的方式思考问题，这很酷。&lt;/p&gt;
+&lt;p&gt;（20）有些技术太流行，我不得不用它。我心里就会很讨厌这种技术，但会把它推荐给客户，比如我恨 Jenkins，但把它推荐给新客户，我不觉得做错了。&lt;/p&gt;
+&lt;p&gt;（21）成为一名优秀的工程师意味着了解最佳实践，成为高级工程师意味着知道何时打破最佳实践。&lt;/p&gt;
+&lt;p&gt;（22）发生事故时，如果周围的人试图将责任归咎于外部错误或底层服务中断，那么是时候离开这家公司，继续前进了。&lt;/p&gt;
+&lt;p&gt;（23）我遇到的最好的领导，同意我的一部分观点，同时耐心跟我解释，为什么不同意我的另一部分观点。我正在努力成为像他们一样的人。&lt;/p&gt;
+&lt;p&gt;（24）算法和数据结构确实重要，但不应该无限夸大，尤其是面试的时候。我没见过药剂师面试时，还要测试有机化学的细节。这个行业的面试过程有时候很糟糕。&lt;/p&gt;
+&lt;p&gt;（25）做自己喜欢的事情并不重要，不要让我做讨厌的事情更重要。&lt;/p&gt;
+&lt;p&gt;（26）越接近产品，就越接近推动收入增长。无论工作的技术性如何，只要它接近产品，我都感到越有价值。&lt;/p&gt;
+&lt;p&gt;（27）即使我平时用 Windows 工作，Linux 也很重要。为什么？因为服务器是 Linux 系统，你最终在 Linux 系统上工作。&lt;/p&gt;</description></item><item><title>二十年老程序员的二十条心得：面试几乎没用，警惕很久没写过代码的“大牛”</title><link>https://desistdaydream.github.io/blog/copy/bHdkIkWCNZPmO-Hz-HQreQ/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/blog/copy/bHdkIkWCNZPmO-Hz-HQreQ/</guid><description>&lt;p&gt;原文链接：&lt;a href="https://mp.weixin.qq.com/s/bHdkIkWCNZPmO-Hz-HQreQ"&gt;https://mp.weixin.qq.com/s/bHdkIkWCNZPmO-Hz-HQreQ&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;作者 | Justin Etheredge&lt;/p&gt;
+&lt;p&gt;译者 | 核子可乐&lt;/p&gt;
+&lt;p&gt;务必警惕那些已经很久没写过代码、也没设计过系统的所谓“大牛”。&lt;/p&gt;
+&lt;p&gt;站在巨人的肩膀上当然更容易成功，所以我们才会希望行业前辈能给出一些有意义的建议。今天这些建议来自一位有二十年行业经验的软件工程师，他的总结在 Hacker News 上引发了大量的讨论，帖子多天来一直占据“热榜”第一。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/YriaiaJPb26VN3rGjM1ScFFyKk2sD3tY1oOnkJia2khSNfO6BlgBQPsOAQqnGfrhl7ia9qhyFcRLzAPic22w6icnXlYQ/640?wx_fmt=png&amp;amp;wxfrom=5&amp;amp;wx_lazy=1&amp;amp;wx_co=1" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;Justin Etheredge 最初在各类小型和初创企业中担任软件工程师，之后进入了咨询行业并开始为大型企业服务。Justin Etheredge 表示过去二十年以来的经历塑造了他对于软件的理解，并产生出一些坚定的信念。他把这些信念整理成一份明确的清单，希望能为大家带来一点帮助与启发。&lt;/p&gt;
+&lt;p&gt;引起网友激烈讨论的二十条建议：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;我懂的并不多&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;“你怎么会不知道什么是 BGP？”“你难道没听说过 Rust？”&lt;/p&gt;
+&lt;p&gt;类似的问题可能每天都会出现在我们面前。没错，投身于软件行业的很多人之所以热爱这份工作，就是因为它敦促着我们终身学习。&lt;/p&gt;
+&lt;p&gt;在软件领域，无论我们朝哪个方向前进，都有着广阔的知识空间不断延伸而且每一天都有所变化。换句话说，这是一份能够承载我们度过几十年的职业生涯，而两位在类似岗位上分别工作了几十年的人之间也 &lt;strong&gt;很可能存在巨大的知识差距&lt;/strong&gt;。我们越早意识到这一点，就能越快摆脱“冒充者综合症”，成为一个乐于向他人学习、也乐于教导他人的积极分子。&lt;/p&gt;
+&lt;ol start="2"&gt;
+&lt;li&gt;软件里最难的部分，是构建正确的东西&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;我知道这种话大家肯定听过无数遍了，但大多数软件工程师仍拒不承认，理由是这种说法似乎在贬低他们的工作成果。我个人觉得这样的心态大可不必，这类表达其实是在突出软件开发环境中的复杂性与非理性因素，而这些都会加剧我们面临的挑战。我们当然可以设计出在技术上最令人印象深刻的东西，但却没人愿意用——这类困境随时都会出现。&lt;/p&gt;
+&lt;p&gt;软件设计主要是一种聆听活动，开发者往往身兼软件工程师、通灵师乃至人类学家等多重角色。而我们对这种设计能力的每一点投资，无论是引入专业的用户体验师还是接受更进一步的自我教育，都能给开发成果带来巨大提升。毕竟与打磨设计能力相比，开发一款“没人用”的软件成本还是太高了、太高太高。&lt;/p&gt;
+&lt;ol start="3"&gt;
+&lt;li&gt;顶尖软件工程师会像设计师那样思考&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;伟大的软件工程师会深入思考代码成果的用户体验。虽然使用的术语或者切入点不同，但无论是对于外部 API、编程 API、用户界面、协议还是其他接口，优秀的工程师都会考虑由谁来使用、为什么要使用、如何使用以及对用户来说哪些因素真正重要等。总之，牢记用户需求才是实现良好体验的核心所在。&lt;/p&gt;
+&lt;ol start="4"&gt;
+&lt;li&gt;最好的代码就是没有代码，或者说不需要维护的代码&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;“程序员就是管编程的”，而且跟其他专业人士一样，我们也会在自己最擅长的方面犯错。这是人的本性，没办法。大多数软件工程师编写出的代码总是有点错误，而且往往无法用非技术方案来解决。&lt;/p&gt;
+&lt;p&gt;另外有一种很神奇的现象，&lt;strong&gt;越是有大量相当成熟的解决方案存在，工程团队就越是想“重新发明轮子”&lt;/strong&gt;。想表达自我、加快专业成长当然是好事，但还请大家分清场合与需求，过度泛滥的发明欲望恐怕不利于编写出无需维护的代码。&lt;/p&gt;
+&lt;ol start="5"&gt;
+&lt;li&gt;软件是达成目的的手段&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;任何一位软件工程师的主要工作都是交付价值。但我发现大部分软件开发者并不理解这一点，能够将这个理念内化进日常工作的开发者就更少了。但只要能够完成内化，我们解决问题的方式、看待工具的角度都会有所变化。如果您真心相信软件要服从于结果，那就一定能找到“真正适合工作的工具”，而这种工具也许压根就不是软件。&lt;/p&gt;
+&lt;ol start="6"&gt;
+&lt;li&gt;有时候，你压根没时间磨刀&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;都说“磨刀不误砍柴工”，但刀磨久了反而让人心浮气躁、难以投入真正的工作。代码编写也是一样，研究多了容易让人陷入“分析瘫痪”。&lt;/p&gt;
+&lt;p&gt;一旦出现这种状况，请马上给自己设定一个截止日期，之后再探索解决方案。在着手解决问题时，我们很快就能找到思路与线索、引导自己一步步迭代向更好的产出。&lt;/p&gt;
+&lt;ol start="7"&gt;
+&lt;li&gt;如果没法理解所有可能性，就设计不出优秀的系统&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这也是我个人一直在努力解决的问题。我的职责变化导致自己距离常规软件工程任务越来越远，我发现跟上开发者生态的发展速度越来越难，有时候自己甚至不理解哪些趋势真正重要。总之，如果不能理解特定生态当中的那些可行性与可用选项，那么我们根本没办法为所有问题找到合理的解决方案。&lt;/p&gt;
+&lt;p&gt;总而言之，&lt;strong&gt;务必警惕那些已经很久没写过代码、也没设计过系统的所谓“大牛”&lt;/strong&gt;。&lt;/p&gt;
+&lt;ol start="8"&gt;
+&lt;li&gt;每套系统最终都很差劲，要勇于接受这一点&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Bjarne Stroustrup 有句名言，“世界上只有两种语言，人们抱怨的语言和没人用的语言。”大型系统也是同理。并不存在“正确”的架构，我们永远无法偿还所有技术债务、设计不出完美的界面、也不可能永远拥有迅如闪电的测试速度。但做不到不代表什么都不做，这只是一种参考视角。优雅和完美本身就是种终极目标，我们当下的任务就是不断改进并创造一个更友好的系统环境，保证团队至少还用得下去、并以可持续的方式交付价值。&lt;/p&gt;
+&lt;ol start="9"&gt;
+&lt;li&gt;通于探索，不断追问&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;相信大家都听过“我们向来这么处理”之类的鬼话。这时候请关注那些新加入的成员，看看他们在哪里遇到了问题、又提出了哪些质疑。这些质疑中，是否存在某种有意义的功能诉求？请保证您明确理解他们提出的目标，以及驱动这种功能诉求的原因。如果得不到明确答案，就不断追问下去、直到弄明白为止。&lt;/p&gt;
+&lt;ol start="10"&gt;
+&lt;li&gt;相比于寻找 10 倍程序员，最好是消除 0.1 倍程序员&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;10 倍程序员就是个愚蠢的笑话。&lt;/p&gt;
+&lt;p&gt;没有任何一个人能在一天之内搞定另一位同样有能力、工作态度端正而且经验丰富的程序员需要两个礼拜才能做完的工作。我只见过 10 倍代码量程序员，他们写出来的 bug 也是 10 倍。或者说，10 倍程序员唯一的存在可能性，就是身边有个 0.1 倍程序员——就是那种浪费时间、不关注反馈、不测试代码也不考虑极端情况的家伙……所以相较于寻找神话中的 10 倍程序员，及时清除团队中的 0.1 倍程序员才是正道。&lt;/p&gt;</description></item></channel></rss>

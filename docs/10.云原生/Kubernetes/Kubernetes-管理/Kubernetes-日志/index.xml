@@ -1,14 +1,47 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubernetes 日志 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/</link><description>Recent content in Kubernetes 日志 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/index.xml" rel="self" type="application/rss+xml"/><item><title>Kubernetes 日志</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/Kubernetes-%E6%97%A5%E5%BF%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/Kubernetes-%E6%97%A5%E5%BF%97/</guid><description>概述 参考
-官方文档，概念 - 集群管理 - 日志架构 集群级日志架构需要一个单独的后端来存储、分析和查询日志。Kubernetes 不提供日志数据的原生存储解决方案。相反，有许多与 Kubernetes 集成的日志记录解决方案。
-Kubernetes 日志管理机制 在 Kubernetes 中日志也主要有两大类：
-应用 Pod 日志； Kuberntes 集群组件日志； 应用 Pod 日志 Kubernetes Pod 的日志管理是基于 Docker 引擎的，Kubernetes 并不管理日志的轮转策略，日志的存储都是基于 Docker 的日志管理策略。k8s 集群调度的基本单位就是 Pod，而 Pod 是一组容器，所以 k8s 日志管理基于 Docker 引擎这一说法也就不难理解了，最终日志还是要落到一个个容器上面。
-假设 Docker 日志驱动为 json-file，那么在 k8s 每个节点上，kubelet 会为每个容器的日志创建一个软链接，软连接存储路径为：/var/log/containers/，软连接会链接到 /var/log/pods/ 目录下相应 pod 目录的容器日志，被链接的日志文件也是软链接，最终链接到 Docker 容器引擎的日志存储目录：/var/lib/docker/container 下相应容器的日志。另外这些软链接文件名称含有 k8s 相关信息，比如：Pod id，名字空间，容器 ID 等信息，这就为日志收集提供了很大的便利。
-举例：我们跟踪一个容器日志文件，证明上述的说明，跟踪一个 kong Pod 日志，Pod 副本数为 1
-/var/log/containers/kong-kong-d889cf995-2ntwz_kong_kong-432e47df36d0992a3a8d20ef6912112615ffeb30e6a95c484d15614302f8db03.log
-&amp;mdash;&amp;mdash;-&amp;gt;
-/var/log/pods/kong_kong-kong-d889cf995-2ntwz_a6377053-9ca3-48f9-9f73-49856908b94a/kong/0.log
-&amp;mdash;&amp;mdash;-&amp;gt;
-/var/lib/docker/containers/432e47df36d0992a3a8d20ef6912112615ffeb30e6a95c484d15614302f8db03/432e47df36d0992a3a8d20ef6912112615ffeb30e6a95c484d15614302f8db03-json.log</description></item><item><title>Event 资源</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/Event-%E8%B5%84%E6%BA%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/Event-%E8%B5%84%E6%BA%90/</guid><description>概述 参考：
-公众号，张晋涛-彻底搞懂 Kubernetes 中的 Events 之前我写了一篇《更优雅的 Kubernetes 集群事件度量方案》，利用 Jaeger 利用 tracing 的方式来采集 Kubernetes 集群中的 events 并进行展示。最终效果如下：
-写那篇文章的时候，立了个 flag 要详细介绍下其中的原理，鸽了很久，现在年底了，也该发出来了。
-Eents 概览 我们先来做个简单的示例，来看看 Kubernetes 集群中的 events 是什么。 创建一个新的名叫 moelove 的 namespace ，然后在其中创建一个叫做 redis 的 deployment。接下来查看这个 namespace 中的所有 events。 (MoeLove) ➜ kubectl create ns moelove namespace/moelove created (MoeLove) ➜ kubectl -n moelove create deployment redis &amp;ndash;image=ghcr.io/moelove/redis:alpine deployment.apps/redis created (MoeLove) ➜ kubectl -n moelove get deploy NAME READY UP-TO-DATE AVAILABLE AGE redis 1/1 1 1 11s (MoeLove) ➜ kubectl -n moelove get events LAST SEEN TYPE REASON OBJECT MESSAGE 21s Normal Scheduled pod/redis-687967dbc5-27vmr Successfully assigned moelove/redis-687967dbc5-27vmr to kind-worker3 21s Normal Pulling pod/redis-687967dbc5-27vmr Pulling image &amp;ldquo;ghcr.</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubernetes 日志 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/</link><description>Recent content in Kubernetes 日志 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/index.xml" rel="self" type="application/rss+xml"/><item><title>Kubernetes 日志</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/Kubernetes-%E6%97%A5%E5%BF%97/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/Kubernetes-%E6%97%A5%E5%BF%97/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/docs/concepts/cluster-administration/logging/"&gt;官方文档，概念 - 集群管理 - 日志架构&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;集群级日志架构需要一个单独的后端来存储、分析和查询日志。Kubernetes 不提供日志数据的原生存储解决方案。相反，有许多与 Kubernetes 集成的日志记录解决方案。&lt;/p&gt;
+&lt;h1 id="kubernetes-日志管理机制"&gt;Kubernetes 日志管理机制&lt;a class="td-heading-self-link" href="#kubernetes-%e6%97%a5%e5%bf%97%e7%ae%a1%e7%90%86%e6%9c%ba%e5%88%b6" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;在 Kubernetes 中日志也主要有两大类：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;应用 Pod 日志；&lt;/li&gt;
+&lt;li&gt;Kuberntes 集群组件日志；&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="应用-pod-日志"&gt;应用 Pod 日志&lt;a class="td-heading-self-link" href="#%e5%ba%94%e7%94%a8-pod-%e6%97%a5%e5%bf%97" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;Kubernetes Pod 的日志管理是基于 Docker 引擎的，Kubernetes 并不管理日志的轮转策略，日志的存储都是基于 Docker 的日志管理策略。k8s 集群调度的基本单位就是 Pod，而 Pod 是一组容器，所以 k8s 日志管理基于 Docker 引擎这一说法也就不难理解了，最终日志还是要落到一个个容器上面。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dstb2v/1616116985979-e135fbea-a7b9-4da3-81ab-ae6e56dc742b.png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;假设 Docker 日志驱动为 json-file，那么在 k8s 每个节点上，kubelet 会为每个容器的日志创建一个软链接，软连接存储路径为：/var/log/containers/，软连接会链接到 /var/log/pods/ 目录下相应 pod 目录的容器日志，被链接的日志文件也是软链接，最终链接到 Docker 容器引擎的日志存储目录：/var/lib/docker/container 下相应容器的日志。另外这些软链接文件名称含有 k8s 相关信息，比如：Pod id，名字空间，容器 ID 等信息，这就为日志收集提供了很大的便利。&lt;/p&gt;
+&lt;p&gt;举例：我们跟踪一个容器日志文件，证明上述的说明，跟踪一个 kong Pod 日志，Pod 副本数为 1&lt;/p&gt;</description></item><item><title>Event 资源</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/Event-%E8%B5%84%E6%BA%90/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/Kubernetes-%E6%97%A5%E5%BF%97/Event-%E8%B5%84%E6%BA%90/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/lOM5BnvYixOnWFR7Axky8Q"&gt;公众号，张晋涛-彻底搞懂 Kubernetes 中的 Events&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;之前我写了一篇&lt;a href="http://mp.weixin.qq.com/s?__biz=MzI2ODAwMzUwNA==&amp;amp;mid=2649296276&amp;amp;idx=1&amp;amp;sn=e4832b819db454fb13af5b052a3158d9&amp;amp;chksm=f2eb9c4bc59c155d24a253981db7ff39c50c38ea40f6c87a9f0f04ce5a0f3012627a3d7ccde0&amp;amp;scene=21#wechat_redirect"&gt;《更优雅的 Kubernetes 集群事件度量方案》&lt;/a&gt;，利用 Jaeger 利用 tracing 的方式来采集 Kubernetes 集群中的 events 并进行展示。最终效果如下：&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ho6kqg/1641358554427-b25ce8b8-3629-4659-9064-70b089ab1ead.webp" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;写那篇文章的时候，立了个 flag 要详细介绍下其中的原理，鸽了很久，现在年底了，也该发出来了。&lt;/p&gt;
+&lt;h1 id="eents-概览"&gt;Eents 概览&lt;a class="td-heading-self-link" href="#eents-%e6%a6%82%e8%a7%88" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;我们先来做个简单的示例，来看看 Kubernetes 集群中的 events 是什么。
+创建一个新的名叫 moelove 的 namespace ，然后在其中创建一个叫做 redis 的 deployment。接下来查看这个 namespace 中的所有 events。
+(MoeLove) ➜ kubectl create ns moelove
+namespace/moelove created
+(MoeLove) ➜ kubectl -n moelove create deployment redis &amp;ndash;image=ghcr.io/moelove/redis:alpine
+deployment.apps/redis created
+(MoeLove) ➜ kubectl -n moelove get deploy
+NAME    READY   UP-TO-DATE   AVAILABLE   AGE
+redis   1/1     1            1           11s
+(MoeLove) ➜ kubectl -n moelove get events
+LAST SEEN   TYPE     REASON              OBJECT                        MESSAGE
+21s         Normal   Scheduled           pod/redis-687967dbc5-27vmr    Successfully assigned moelove/redis-687967dbc5-27vmr to kind-worker3
+21s         Normal   Pulling             pod/redis-687967dbc5-27vmr    Pulling image &amp;ldquo;ghcr.io/moelove/redis:alpine&amp;rdquo;
+15s         Normal   Pulled              pod/redis-687967dbc5-27vmr    Successfully pulled image &amp;ldquo;ghcr.io/moelove/redis:alpine&amp;rdquo; in 6.814310968s
+14s         Normal   Created             pod/redis-687967dbc5-27vmr    Created container redis
+14s         Normal   Started             pod/redis-687967dbc5-27vmr    Started container redis
+22s         Normal   SuccessfulCreate    replicaset/redis-687967dbc5   Created pod: redis-687967dbc5-27vmr
+22s         Normal   ScalingReplicaSet   deployment/redis              Scaled up replica set redis-687967dbc5 to 1&lt;/p&gt;</description></item></channel></rss>

@@ -1,34 +1,75 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>I/O on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/</link><description>Recent content in I/O on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/index.xml" rel="self" type="application/rss+xml"/><item><title>I_O</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/I_O/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/I_O/</guid><description>概述 参考：
-公众号 - 码农的荒岛求生，读取文件时，程序经历了什么？ 极客时间 - Linux 性能优化实战，24 | 基础篇：Linux 磁盘I/O是怎么工作的（上） 极客时间 - Linux 性能优化实战，25 | 基础篇：Linux 磁盘I/O是怎么工作的（下） 承接上文《看完这篇还不懂高并发中的线程与线程池你来打我》，这是高性能、高并发系列的第二篇文章，在这里我们来到了 I/O 这一话题。
-你有没有想过当我们执行 I/O 操作时计算机底层都发生了些什么？
-在回答这个问题之前，我们先来看下为什么对于计算机来说 I/O 是极其重要的。
-不能执行 I/O 的计算机是什么？ 相信对于程序员来说 I/O 操作是最为熟悉不过的了：
-当我们使用 C 语言中的 printf、C++中的&amp;quot;&amp;laquo;&amp;quot;，Python 中的 print，Java 中的 System.out.println 等时，这是 I/O；当我们使用各种语言读写文件时，这也是 I/O；当我们通过 TCP/IP 进行网络通信时，这同样是 I/O;当我们使用鼠标龙飞凤舞时，当我们扛起键盘在评论区里指点江山亦或是埋头苦干努力制造 bug 时、当我们能看到屏幕上的漂亮的图形界面时等等，这一切都是 I/O。
-想一想，如果没有 I/O 计算机该是一种多么枯燥的设备，不能看电影、不能玩游戏，也不能上网，这样的计算机最多就是一个大号的计算器。
-既然 I/O 这么重要，那么到底什么才是 I/O 呢？详见 I/O 中的 “什么是 I/O”
-I/O 与 CPU 本文主要说的是 Disk(磁盘) 的 I/O，更多关于磁盘 I/O 的基础概念详见 Block</description></item><item><title>I/O Multiplexing(输入/输出多路复用)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/I_O-Multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/I_O-Multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</guid><description>概述 参考：
-原文链接 知乎问答 这是高性能、高并发系列的第三篇，承接上文《读取文件时程序经历了什么》
-背景 文件描述符太多了怎么办 经过了这么多的铺垫，终于到高性能、高并发这一主题了。
-从前几节我们知道，所有 I/O 操作都可以通过文件样的概念来进行，这当然包括网络通信。
-如果你是一个 web 服务器，当三次握手成功以后，我们通过调用 accept 同样会得到一个文件描述符，只不过这个文件描述符是用来进行网络通信的，通过读写该文件描述符你就可以同客户端通信。在这里为了概念上好理解，我们称之为链接描述符，通过这个描述符我们就可以读写客户端的数据了。
-int conn_fd = accept(...); server 的处理逻辑通常是读取客户端请求数据，然后执行某些特定逻辑：
-if(read(conn_fd, request_buff) &amp;gt; 0) { do_something(request_buff); } 是不是非常简单，然而世界终归是复杂的，也不是这么简单的。
-接下来就是比较复杂的了。
-既然我们的主题是高并发，那么 server 端就不可能只和一个客户端通信，而是成千上万个客户端。这时你需要处理不再是一个描述符这么简单，而是有可能要处理成千上万个描述符。
-为了不让问题一上来就过于复杂，我们先简单化，假设只同时处理两个客户端的请求。
-有的同学可能会说，这还不简单，这样写不就行了：
-if(read(socket_fd1, buff) &amp;gt; 0) { // 处理第一个 do_something(); } if(read(socket_fd2, buff) &amp;gt; 0) { do_something(); 在本篇第二节中我们讨论过这是非常典型的阻塞式 I/O，如果读取第一个请求进程被阻塞而暂停运行，那么这时我们就无法处理第二个请求了，即使第二个请求的数据已经就位，这也就意味着所有其它客户端必须等待，而且通常情况下也不会只有两个客户端而是成千上万个，上万个连接也要这样串行处理吗。
-聪明的你一定会想到使用多线程，为每个请求开启一个线程，这样一个线程被阻塞不会影响到其它线程了，注意，既然是高并发，那么我们要为成千上万个请求开启成千上万个线程吗，大量创建销毁线程会严重影响系统性能。
-那么这个问题该怎么解决呢？
-这里的关键点在于在进行 I/O 时，我们并不知道该文件描述对应的 I/O 设备是否是可读的、是否是可写的，在外设的不可读或不可写的状态下进行 I/O 只会导致进程阻塞被暂停运行。
-因此要优雅的解决这个问题，就要从其它角度来思考这个问题了。
-不要打电话给我，有需要我会打给你 大家生活中肯定会接到过推销电话，而且不止一个，一天下来接上十个八个推销电话你的身体会被掏空的。
-这个场景的关键点在于打电话的人并不知道你是不是要买东西，只能来一遍遍问你，因此一种更好的策略是不要让他们打电话给你，记下他们的电话，有需要的话打给他们。
-也就是不要打电话给我，有需要我会打给你。
-在这个例子中，你，就好比内核，推销者就好比应用程序，电话号码就好比文件描述符，和你用电话沟通就好比 I/O。
-现在你应该明白了吧，处理多个文件描述符的更好方法其实就存在于推销电话中。</description></item><item><title>这次答应我，一举拿下 I/O 多路复用！</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/%E8%BF%99%E6%AC%A1%E7%AD%94%E5%BA%94%E6%88%91%E4%B8%80%E4%B8%BE%E6%8B%BF%E4%B8%8B-I_O-%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/%E8%BF%99%E6%AC%A1%E7%AD%94%E5%BA%94%E6%88%91%E4%B8%80%E4%B8%BE%E6%8B%BF%E4%B8%8B-I_O-%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</guid><description>参考：原文链接
-这次，我们以最简单 socket 网络模型，一步一步的过度到 I/O 多路复用。
-最基本的 Socket 模型 要想客户端和服务器能在网络中通信，那必须得使用 Socket 编程，它是进程间通信里比较特别的方式，特别之处在于它是可以跨主机间通信。 Socket 的中文名叫作插口，咋一看还挺迷惑的。事实上，双方要进行网络通信前，各自得创建一个 Socket，这相当于客户端和服务器都开了一个“口子”，双方读取和发送数据的时候，都通过这个“口子”。这样一看，是不是觉得很像弄了一根网线，一头插在客户端，一头插在服务端，然后进行通信。 创建 Socket 的时候，可以指定网络层使用的是 IPv4 还是 IPv6，传输层使用的是 TCP 还是 UDP。 UDP 的 Socket 编程相对简单些，这里我们只介绍基于 TCP 的 Socket 编程。 服务器的程序要先跑起来，然后等待客户端的连接和数据，我们先来看看服务端的 Socket 编程过程是怎样的。 服务端首先调用 socket() 函数，创建网络协议为 IPv4，以及传输协议为 TCP 的 Socket ，接着调用 bind() 函数，给这个 Socket 绑定一个 IP 地址和端口，绑定这两个的目的是什么？
-绑定端口的目的：当内核收到 TCP 报文，通过 TCP 头里面的端口号，来找到我们的应用程序，然后把数据传递给我们。
-绑定 IP 地址的目的：一台机器是可以有多个网卡的，每个网卡都有对应的 IP 地址，当绑定一个网卡时，内核在收到该网卡上的包，才会发给我们；
-绑定完 IP 地址和端口后，就可以调用 listen() 函数进行监听，此时对应 TCP 状态图中的 listen，如果我们要判定服务器中一个网络程序有没有启动，可以通过 netstate 命令查看对应的端口号是否有被监听。 服务端进入了监听状态后，通过调用 accept() 函数，来从内核获取客户端的连接，如果没有客户端连接，则会阻塞等待客户端连接的到来。 那客户端是怎么发起连接的呢？客户端在创建好 Socket 后，调用 connect() 函数发起连接，该函数的参数要指明服务端的 IP 地址和端口号，然后万众期待的 TCP 三次握手就开始了。 在 TCP 连接的过程中，服务器的内核实际上为每个 Socket 维护了两个队列：</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>I/O on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/</link><description>Recent content in I/O on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/index.xml" rel="self" type="application/rss+xml"/><item><title>I_O</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/I_O/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/I_O/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/EYc7PcxukBKOx8U5X8Sh8w"&gt;公众号 - 码农的荒岛求生，读取文件时，程序经历了什么？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://time.geekbang.org/column/article/77010"&gt;极客时间 - Linux 性能优化实战，24 | 基础篇：Linux 磁盘I/O是怎么工作的（上）&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://time.geekbang.org/column/article/77511"&gt;极客时间 - Linux 性能优化实战，25 | 基础篇：Linux 磁盘I/O是怎么工作的（下）&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;承接上文《看完这篇还不懂高并发中的线程与线程池你来打我》，这是高性能、高并发系列的第二篇文章，在这里我们来到了 I/O 这一话题。&lt;/p&gt;
+&lt;p&gt;你有没有想过当我们执行 I/O 操作时计算机底层都发生了些什么？&lt;/p&gt;
+&lt;p&gt;在回答这个问题之前，我们先来看下为什么对于计算机来说 I/O 是极其重要的。&lt;/p&gt;
+&lt;h2 id="不能执行-io-的计算机是什么"&gt;不能执行 I/O 的计算机是什么？&lt;a class="td-heading-self-link" href="#%e4%b8%8d%e8%83%bd%e6%89%a7%e8%a1%8c-io-%e7%9a%84%e8%ae%a1%e7%ae%97%e6%9c%ba%e6%98%af%e4%bb%80%e4%b9%88" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;相信对于程序员来说 I/O 操作是最为熟悉不过的了：&lt;/p&gt;
+&lt;p&gt;当我们使用 C 语言中的 printf、C++中的&amp;quot;&amp;laquo;&amp;quot;，Python 中的 print，Java 中的 System.out.println 等时，这是 I/O；当我们使用各种语言读写文件时，这也是 I/O；当我们通过 TCP/IP 进行网络通信时，这同样是 I/O;当我们使用鼠标龙飞凤舞时，当我们扛起键盘在评论区里指点江山亦或是埋头苦干努力制造 bug 时、当我们能看到屏幕上的漂亮的图形界面时等等，这一切都是 I/O。&lt;/p&gt;
+&lt;p&gt;想一想，如果没有 I/O 计算机该是一种多么枯燥的设备，不能看电影、不能玩游戏，也不能上网，这样的计算机最多就是一个大号的计算器。&lt;/p&gt;
+&lt;p&gt;既然 I/O 这么重要，那么到底什么才是 I/O 呢？详见 &lt;a href="https://desistdaydream.github.io/docs/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/I_O/"&gt;I/O&lt;/a&gt; 中的 “什么是 I/O”&lt;/p&gt;
+&lt;h2 id="io-与-cpu"&gt;I/O 与 CPU&lt;a class="td-heading-self-link" href="#io-%e4%b8%8e-cpu" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;本文主要说的是 &lt;a href="https://desistdaydream.github.io/docs/0.%E8%AE%A1%E7%AE%97%E6%9C%BA/Disk/Disk/"&gt;Disk&lt;/a&gt;(磁盘) 的 I/O，更多关于磁盘 I/O 的基础概念详见 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Hardware/Block/"&gt;Block&lt;/a&gt;&lt;/p&gt;</description></item><item><title>I/O Multiplexing(输入/输出多路复用)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/I_O-Multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/I_O-Multiplexing%E8%BE%93%E5%85%A5_%E8%BE%93%E5%87%BA%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/tXEfsLqdePjcPS6FKa-qzg"&gt;原文链接&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.zhihu.com/question/28594409"&gt;知乎问答&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这是高性能、高并发系列的第三篇，承接上文&lt;a href="https://mp.weixin.qq.com/s/maTzszO4Y2dyxgm7g2YdXw"&gt;《读取文件时程序经历了什么》&lt;/a&gt;&lt;/p&gt;
+&lt;h1 id="背景"&gt;背景&lt;a class="td-heading-self-link" href="#%e8%83%8c%e6%99%af" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;h2 id="文件描述符太多了怎么办"&gt;文件描述符太多了怎么办&lt;a class="td-heading-self-link" href="#%e6%96%87%e4%bb%b6%e6%8f%8f%e8%bf%b0%e7%ac%a6%e5%a4%aa%e5%a4%9a%e4%ba%86%e6%80%8e%e4%b9%88%e5%8a%9e" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;经过了这么多的铺垫，终于到高性能、高并发这一主题了。&lt;/p&gt;
+&lt;p&gt;从前几节我们知道，所有 I/O 操作都可以通过文件样的概念来进行，这当然包括网络通信。&lt;/p&gt;
+&lt;p&gt;如果你是一个 web 服务器，当三次握手成功以后，我们通过调用 accept 同样会得到一个文件描述符，只不过这个文件描述符是用来进行网络通信的，通过读写该文件描述符你就可以同客户端通信。在这里为了概念上好理解，我们称之为链接描述符，通过这个描述符我们就可以读写客户端的数据了。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;int conn_fd = accept(...);
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;server 的处理逻辑通常是读取客户端请求数据，然后执行某些特定逻辑：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;if(read(conn_fd, request_buff) &amp;gt; 0) {
+ do_something(request_buff);
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;是不是非常简单，然而世界终归是复杂的，也不是这么简单的。&lt;/p&gt;
+&lt;p&gt;接下来就是比较复杂的了。&lt;/p&gt;
+&lt;p&gt;既然我们的主题是高并发，那么 server 端就不可能只和一个客户端通信，而是成千上万个客户端。这时你需要处理不再是一个描述符这么简单，而是有可能要处理成千上万个描述符。&lt;/p&gt;
+&lt;p&gt;为了不让问题一上来就过于复杂，我们先简单化，假设只同时处理两个客户端的请求。&lt;/p&gt;
+&lt;p&gt;有的同学可能会说，这还不简单，这样写不就行了：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;if(read(socket_fd1, buff) &amp;gt; 0) { // 处理第一个
+ do_something();
+}
+if(read(socket_fd2, buff) &amp;gt; 0) {
+ do_something();
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;在本篇第二节中我们讨论过这是非常典型的阻塞式 I/O，如果读取第一个请求进程被阻塞而暂停运行，那么这时我们就无法处理第二个请求了，即使第二个请求的数据已经就位，这也就意味着所有其它客户端必须等待，而且通常情况下也不会只有两个客户端而是成千上万个，上万个连接也要这样串行处理吗。&lt;/p&gt;
+&lt;p&gt;聪明的你一定会想到使用多线程，为每个请求开启一个线程，这样一个线程被阻塞不会影响到其它线程了，注意，既然是高并发，那么我们要为成千上万个请求开启成千上万个线程吗，大量创建销毁线程会严重影响系统性能。&lt;/p&gt;
+&lt;p&gt;那么这个问题该怎么解决呢？&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;这里的关键点在于在进行 I/O 时，我们并不知道该文件描述对应的 I/O 设备是否是可读的、是否是可写的&lt;/strong&gt;，在外设的不可读或不可写的状态下进行 I/O 只会导致进程阻塞被暂停运行。&lt;/p&gt;</description></item><item><title>这次答应我，一举拿下 I/O 多路复用！</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/%E8%BF%99%E6%AC%A1%E7%AD%94%E5%BA%94%E6%88%91%E4%B8%80%E4%B8%BE%E6%8B%BF%E4%B8%8B-I_O-%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Filesystem/I_O/%E8%BF%99%E6%AC%A1%E7%AD%94%E5%BA%94%E6%88%91%E4%B8%80%E4%B8%BE%E6%8B%BF%E4%B8%8B-I_O-%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/</guid><description>&lt;p&gt;参考：&lt;a href="https://mp.weixin.qq.com/s/Qpa0qXxuIM8jrBqDaXmVNA"&gt;原文链接&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;这次，我们以最简单 socket 网络模型，一步一步的过度到 I/O 多路复用。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h3 id="最基本的-socket-模型"&gt;最基本的 Socket 模型&lt;a class="td-heading-self-link" href="#%e6%9c%80%e5%9f%ba%e6%9c%ac%e7%9a%84-socket-%e6%a8%a1%e5%9e%8b" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;要想客户端和服务器能在网络中通信，那必须得使用 Socket   编程，它是进程间通信里比较特别的方式，特别之处在于它是可以跨主机间通信。
+Socket   的中文名叫作插口，咋一看还挺迷惑的。事实上，双方要进行网络通信前，各自得创建一个 Socket，这相当于客户端和服务器都开了一个“口子”，双方读取和发送数据的时候，都通过这个“口子”。这样一看，是不是觉得很像弄了一根网线，一头插在客户端，一头插在服务端，然后进行通信。
+创建 Socket 的时候，可以指定网络层使用的是 IPv4 还是 IPv6，传输层使用的是 TCP 还是 UDP。
+UDP 的 Socket 编程相对简单些，这里我们只介绍基于 TCP 的 Socket 编程。
+服务器的程序要先跑起来，然后等待客户端的连接和数据，我们先来看看服务端的 Socket 编程过程是怎样的。
+服务端首先调用 &lt;code&gt;socket()&lt;/code&gt; 函数，创建网络协议为 IPv4，以及传输协议为 TCP 的 Socket ，接着调用 &lt;code&gt;bind()&lt;/code&gt; 函数，给这个 Socket 绑定一个 &lt;strong&gt;IP 地址和端口&lt;/strong&gt;，绑定这两个的目的是什么？&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;绑定端口的目的：当内核收到 TCP 报文，通过 TCP 头里面的端口号，来找到我们的应用程序，然后把数据传递给我们。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;绑定 IP 地址的目的：一台机器是可以有多个网卡的，每个网卡都有对应的 IP 地址，当绑定一个网卡时，内核在收到该网卡上的包，才会发给我们；&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;绑定完 IP 地址和端口后，就可以调用 &lt;code&gt;listen()&lt;/code&gt; 函数进行监听，此时对应 TCP 状态图中的 &lt;code&gt;listen&lt;/code&gt;，如果我们要判定服务器中一个网络程序有没有启动，可以通过 &lt;code&gt;netstate&lt;/code&gt; 命令查看对应的端口号是否有被监听。
+服务端进入了监听状态后，通过调用 &lt;code&gt;accept()&lt;/code&gt; 函数，来从内核获取客户端的连接，如果没有客户端连接，则会阻塞等待客户端连接的到来。
+那客户端是怎么发起连接的呢？客户端在创建好 Socket 后，调用 &lt;code&gt;connect()&lt;/code&gt; 函数发起连接，该函数的参数要指明服务端的 IP 地址和端口号，然后万众期待的 TCP 三次握手就开始了。
+在  TCP 连接的过程中，服务器的内核实际上为每个 Socket 维护了两个队列：&lt;/p&gt;</description></item></channel></rss>

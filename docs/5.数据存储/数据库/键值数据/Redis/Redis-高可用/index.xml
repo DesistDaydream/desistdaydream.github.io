@@ -1,34 +1,165 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Redis 高可用 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/</link><description>Recent content in Redis 高可用 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Redis 高可用</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/</guid><description>概述 参考：
-原文 知乎 微信公众号 Redis 支持三种高可用方案
-Replication(复制) 模式 实际上，该模式并不是绝对的高可用，仅仅保证了数据的不丢失 Sentinel(哨兵) 模式 Cluster(集群) 模式 Cluster(集群) http://www.redis.cn/topics/cluster-tutorial.html
-https://redis.io/topics/cluster-tutorial
-客户端操作原理(请求路由原理) 请求重定向 在集群模式下，Redis 接收任何键相关命令时首先计算键对应的槽，再根据槽找出所对应的节点，如果节点是自身，则处理键命令；否则回复 MOVED 重定向错误，通知客户端请求正确的节点。这个过程称为 MOVED 重定向。
-# 如果key经过计算后，其分配的slot就在当前节点，那么可以请求成功，否则，回复重定向消息 [root@node01 redis]# redis-cli -h 10.0.0.100 -p 6379 10.0.0.100:6379&amp;gt; set name tom OK 10.0.0.100:6379&amp;gt; set age 20 (error) MOVED 741 10.0.0.101:6379 重定向信息包含了键所对应的槽以及负责该槽的节点地址，根据这些信息客户端就可以向正确的节点发起请求。在 10.0.0.101:6379 节点上成功执行之前的命令：
-[root@node02 redis]# redis-cli -h 10.0.0.101 -p 6379 10.0.0.101:6379&amp;gt; set age 20 OK 使用 redis-cli 命令时，可以加入-c 参数支持自动重定向，简化手动发起重定向的操作：
-[root@node01 redis]# redis-cli -c -h 10.</description></item><item><title>Redis 高可用部署</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8%E9%83%A8%E7%BD%B2/</guid><description>Docker 部署 Redis 高可用 Docker 部署 Redis Sentinel 模式
-Sentinel 模式至少需要 3 个节点，所以这里假设有如下三个节点
-172.19.42.231 172.19.42.232 172.19.42.233 创建配置文件与存储所在路径 mkdir -p /opt/redis/config mkdir -p /opt/redis/data chmod 777 /opt/redis/data 启动 Redis master 节点配置
-cat &amp;gt; /opt/redis/config/redis.conf &amp;lt;&amp;lt;EOF save 900 1 maxmemory 1G EOF chmod 666 /opt/redis/config/redis.conf replica 节点配置
-cat &amp;gt; /opt/redis/config/redis.conf &amp;lt;&amp;lt;EOF save 900 1 maxmemory 1G replicaof 172.19.42.231 6379 EOF chmod 666 /opt/redis/config/redis.conf 启动 Redis
-docker run -d --name redis \ --network=host \ -v /opt/redis/config:/etc/redis \ -v /opt/redis/data:/data \ redis:5.</description></item><item><title>Replication(复制) 模式</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Replication%E5%A4%8D%E5%88%B6-%E6%A8%A1%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Replication%E5%A4%8D%E5%88%B6-%E6%A8%A1%E5%BC%8F/</guid><description>概述 参考：
-官方文档 基本原理 主从复制模式中包含 一个主数据库实例(master) 与 一个或多个从数据库实例(slave)，如下图
-客户端可对主数据库进行读写操作，对从数据库进行读操作，主数据库写入的数据会实时自动同步给从数据库。
-具体工作机制为：
-slave 启动后，向 master 发送 SYNC 命令，master 接收到 SYNC 命令后通过 bgsave 保存快照(即上文所介绍的 RDB 持久化)，并使用缓冲区记录保存快照这段时间内执行的写命令
-master 将保存的快照文件发送给 slave，并继续记录执行的写命令
-slave 接收到快照文件后，加载快照文件，载入数据
-master 快照发送完后开始向 slave 发送缓冲区的写命令，slave 接收命令并执行，完成复制初始化
-此后 master 每次执行一个写命令都会同步发送给 slave，保持 master 与 slave 之间数据的一致性
-2. 部署示例
-redis.conf 的主要配置
-###网络相关### # bind 127.0.0.1 # 绑定监听的网卡IP，注释掉或配置成0.0.0.0可使任意IP均可访问 protected-mode no # 关闭保护模式，使用密码访问 port 6379 # 设置监听端口，建议生产环境均使用自定义端口 timeout 30 # 客户端连接空闲多久后断开连接，单位秒，0表示禁用 ###通用配置### daemonize yes # 在后台运行 pidfile /var/run/redis_6379.pid # pid进程文件名 logfile /usr/local/redis/logs/redis.</description></item><item><title>Sentinel 配置详解</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Sentinel-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Sentinel-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>参考：官方文档 1、
-Sentinel 的配置与 Redis 配置用法相同，当使用 &amp;ndash;sentinel 参数启动 redis 时，则 redis 程序加载配置文件时，将只会特定的配置信息
-Sentinel 配置环境 port &amp;lt;INT&amp;gt; # Sentinel 监听的端口，Sentinel 之间使用该端口通讯 sentinel monitor &amp;lt;master-group-name&amp;gt; &amp;lt;IP&amp;gt; &amp;lt;PORT&amp;gt; &amp;lt;QUORUM&amp;gt; # 指定 Sentinel 要监听的 MASTER sentinel montior mymaster 192.168.50.101 6379 1 这个配置意味着，Sentinel 监控的目标 master 节点的 IP 为 192.168.50.101、端口为 6379，最后一个数字表示投票需要的&amp;quot;最少法定人数&amp;quot;。
-最少法定人数的理解：比如有 10 个 sentinal 哨兵都在监控某一个 master 节点，如果需要至少 6 个哨兵发现 master 挂掉后，才认为 master 真正 down 掉，那么这里就配置为 6，最小配置 1 台 master，1 台 slave，在二个机器上都启动 sentinal 的情况下，哨兵数只有 2 个，如果一台机器物理挂掉，只剩一个 sentinal 能发现该问题，所以这里配置成 1。</description></item><item><title>Sentinel(哨兵) 模式</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Sentinel%E5%93%A8%E5%85%B5-%E6%A8%A1%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Sentinel%E5%93%A8%E5%85%B5-%E6%A8%A1%E5%BC%8F/</guid><description>概述 参考：
-官方文档 中文文档 博客园大佬 博客园大佬 2 Redis Sentinel(哨兵) 基于 Redis 的 Replication(复制) 模式，增加了一个名为 Sentinel 的管理程序，用来保存 Redis Replication 模式的架构信息，以及对外提供该信息。同时 sentinel 程序监控多台 Redis 状态，当 Redis 不可用时，Sentinel 将自动下线该 Redis。
-注意：Sentinel(哨兵) 模式必须基于 Replication 模式，否则没有任何意义。
-注意：一套 Sentinel 是可以监听多套 Replication 模式的 Redis 的组合，这样可以有效节省资源，其中每套 Replication 模式的 Redis 会使用一个 master-name 作为一个标识。
-客户端操作 Redis 原理
-client 访问 sentinel 集群，获取 redis 集群 master 的 ip
-client 连接 redis 集群的 master 对数据进行读写操作。
-Redis Sentinel 为 Redis 提供了高可用性。这意味着，可以使用 Sentinel 程序部署 Redis，这种部署可以在无需人工干预的情况下抵抗某些类型的故障。Sentinel 具有以下特性：</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Redis 高可用 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/</link><description>Recent content in Redis 高可用 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/index.xml" rel="self" type="application/rss+xml"/><item><title>Redis 高可用</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="http://blog.jboost.cn/redis-cluster.html"&gt;原文&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://zhuanlan.zhihu.com/p/129640817"&gt;知乎&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s?__biz=MzI3MTI2NzkxMA==&amp;amp;mid=2247492218&amp;amp;idx=1&amp;amp;sn=8e233cf3c3abd0e6821262d1c78b03d1&amp;amp;chksm=eac6c353ddb14a4535ae92f911ae846592066bf9250b9aca4d91287015de8b23347cb56838ce&amp;amp;mpshare=1&amp;amp;scene=1&amp;amp;srcid=1123S90JeR1nwKagOdJBlQTz&amp;amp;sharer_sharetime=1606090661231&amp;amp;sharer_shareid=09464b4a0389b967659ba78076a1ef58&amp;amp;key=48765414c6ece973eab40bd813ac84f36f02f86a2b622e5efcf4fb98864fdb95a49286689ce7513bf3642cc2a2b6d4bd4235c0de418caee7320bf928f76e57b65a7c762b34b8e80ed88a847524e64e1d6e08271ee31db62eb4ff0bce50cdc03f2b4161ba26993d58b1f19972154a004ce4cadfca3a79f41936616473cacfeff7&amp;amp;ascene=1&amp;amp;uin=MTI5NTMzMzA0MQ%3D%3D&amp;amp;devicetype=Windows&amp;#43;10&amp;#43;x64&amp;amp;version=6300002f&amp;amp;lang=zh_CN&amp;amp;exportkey=AanBDsftQoVwZuEgK1A5lo8%3D&amp;amp;pass_ticket=S1%2BMQ7vYsbZSNuJMJOqmLPRlt4Y3dQwyWaD%2FAmp3sq1Yd7omWT6hEhxkL9s%2BaMxR&amp;amp;wx_header=0"&gt;微信公众号&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Redis 支持三种高可用方案&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Replication%E5%A4%8D%E5%88%B6-%E6%A8%A1%E5%BC%8F/"&gt;Replication(复制) 模式&lt;/a&gt;
+&lt;ul&gt;
+&lt;li&gt;实际上，该模式并不是绝对的高可用，仅仅保证了数据的不丢失&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Sentinel%E5%93%A8%E5%85%B5-%E6%A8%A1%E5%BC%8F/"&gt;Sentinel(哨兵) 模式&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;Cluster(集群) 模式&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="cluster集群"&gt;Cluster(集群)&lt;a class="td-heading-self-link" href="#cluster%e9%9b%86%e7%be%a4" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;a href="http://www.redis.cn/topics/cluster-tutorial.html"&gt;http://www.redis.cn/topics/cluster-tutorial.html&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://redis.io/topics/cluster-tutorial"&gt;https://redis.io/topics/cluster-tutorial&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="客户端操作原理请求路由原理"&gt;客户端操作原理(请求路由原理)&lt;a class="td-heading-self-link" href="#%e5%ae%a2%e6%88%b7%e7%ab%af%e6%93%8d%e4%bd%9c%e5%8e%9f%e7%90%86%e8%af%b7%e6%b1%82%e8%b7%af%e7%94%b1%e5%8e%9f%e7%90%86" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gnlint/1616134822977-6bf24d85-a95a-4729-8807-b5c63d74e9a7.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gnlint/1616134822986-56d8d02c-0433-4df5-a829-8e7fb0435fb0.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;请求重定向&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在集群模式下，Redis 接收任何键相关命令时首先计算键对应的槽，再根据槽找出所对应的节点，如果节点是自身，则处理键命令；否则回复 MOVED 重定向错误，通知客户端请求正确的节点。这个过程称为 MOVED 重定向。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;# 如果key经过计算后，其分配的slot就在当前节点，那么可以请求成功，否则，回复重定向消息
+[root@node01 redis]# redis-cli -h 10.0.0.100 -p 6379
+10.0.0.100:6379&amp;gt; set name tom
+OK
+10.0.0.100:6379&amp;gt; set age 20
+(error) MOVED 741 10.0.0.101:6379
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;重定向信息包含了键所对应的槽以及负责该槽的节点地址，根据这些信息客户端就可以向正确的节点发起请求。在 10.0.0.101:6379 节点上成功执行之前的命令：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;[root@node02 redis]# redis-cli -h 10.0.0.101 -p 6379
+10.0.0.101:6379&amp;gt; set age 20
+OK
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;使用 redis-cli 命令时，可以加入-c 参数支持自动重定向，简化手动发起重定向的操作：&lt;/p&gt;</description></item><item><title>Redis 高可用部署</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8%E9%83%A8%E7%BD%B2/</guid><description>&lt;h1 id="docker-部署-redis-高可用"&gt;Docker 部署 Redis 高可用&lt;a class="td-heading-self-link" href="#docker-%e9%83%a8%e7%bd%b2-redis-%e9%ab%98%e5%8f%af%e7%94%a8" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;Docker 部署 Redis Sentinel 模式&lt;/p&gt;
+&lt;p&gt;Sentinel 模式至少需要 3 个节点，所以这里假设有如下三个节点&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;172.19.42.231&lt;/li&gt;
+&lt;li&gt;172.19.42.232&lt;/li&gt;
+&lt;li&gt;172.19.42.233&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="创建配置文件与存储所在路径"&gt;创建配置文件与存储所在路径&lt;a class="td-heading-self-link" href="#%e5%88%9b%e5%bb%ba%e9%85%8d%e7%bd%ae%e6%96%87%e4%bb%b6%e4%b8%8e%e5%ad%98%e5%82%a8%e6%89%80%e5%9c%a8%e8%b7%af%e5%be%84" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;mkdir -p /opt/redis/config
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;mkdir -p /opt/redis/data
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;chmod &lt;span style="color:#0000cf;font-weight:bold"&gt;777&lt;/span&gt; /opt/redis/data
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id="启动-redis"&gt;启动 Redis&lt;a class="td-heading-self-link" href="#%e5%90%af%e5%8a%a8-redis" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;master 节点配置&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cat &amp;gt; /opt/redis/config/redis.conf &lt;span style="color:#4e9a06"&gt;&amp;lt;&amp;lt;EOF
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;save 900 1
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;maxmemory 1G
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;EOF&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;chmod &lt;span style="color:#0000cf;font-weight:bold"&gt;666&lt;/span&gt; /opt/redis/config/redis.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;replica 节点配置&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cat &amp;gt; /opt/redis/config/redis.conf &lt;span style="color:#4e9a06"&gt;&amp;lt;&amp;lt;EOF
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;save 900 1
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;maxmemory 1G
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;replicaof 172.19.42.231 6379
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;EOF&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;chmod &lt;span style="color:#0000cf;font-weight:bold"&gt;666&lt;/span&gt; /opt/redis/config/redis.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;启动 Redis&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;docker run -d --name redis &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; --network&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;host &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; -v /opt/redis/config:/etc/redis &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; -v /opt/redis/data:/data &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; redis:5.0.10-alpine &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; /etc/redis/redis.conf
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id="启动-redis-sentinel"&gt;启动 Redis Sentinel&lt;a class="td-heading-self-link" href="#%e5%90%af%e5%8a%a8-redis-sentinel" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;所有节点配置&lt;/p&gt;</description></item><item><title>Replication(复制) 模式</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Replication%E5%A4%8D%E5%88%B6-%E6%A8%A1%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Replication%E5%A4%8D%E5%88%B6-%E6%A8%A1%E5%BC%8F/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://redis.io/topics/replication"&gt;官方文档&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;ol&gt;
+&lt;li&gt;基本原理&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;主从复制模式中包含 一个主数据库实例(master) 与 一个或多个从数据库实例(slave)，如下图&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/equ0le/1616134781068-8b8f1a94-6405-4bea-98b3-5627a9d8ff17.png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;客户端可对主数据库进行读写操作，对从数据库进行读操作，主数据库写入的数据会实时自动同步给从数据库。&lt;/p&gt;
+&lt;p&gt;具体工作机制为：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;slave 启动后，向 master 发送 SYNC 命令，master 接收到 SYNC 命令后通过 bgsave 保存快照(即上文所介绍的 RDB 持久化)，并使用缓冲区记录保存快照这段时间内执行的写命令&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;master 将保存的快照文件发送给 slave，并继续记录执行的写命令&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;slave 接收到快照文件后，加载快照文件，载入数据&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;master 快照发送完后开始向 slave 发送缓冲区的写命令，slave 接收命令并执行，完成复制初始化&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;此后 master 每次执行一个写命令都会同步发送给 slave，保持 master 与 slave 之间数据的一致性&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;2. 部署示例&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;redis.conf 的主要配置&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;###网络相关###&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# bind 127.0.0.1 # 绑定监听的网卡IP，注释掉或配置成0.0.0.0可使任意IP均可访问&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;protected-mode no &lt;span style="color:#8f5902;font-style:italic"&gt;# 关闭保护模式，使用密码访问&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;port &lt;span style="color:#0000cf;font-weight:bold"&gt;6379&lt;/span&gt; &lt;span style="color:#8f5902;font-style:italic"&gt;# 设置监听端口，建议生产环境均使用自定义端口&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;timeout &lt;span style="color:#0000cf;font-weight:bold"&gt;30&lt;/span&gt; &lt;span style="color:#8f5902;font-style:italic"&gt;# 客户端连接空闲多久后断开连接，单位秒，0表示禁用&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;###通用配置###&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;daemonize yes &lt;span style="color:#8f5902;font-style:italic"&gt;# 在后台运行&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;pidfile /var/run/redis_6379.pid &lt;span style="color:#8f5902;font-style:italic"&gt;# pid进程文件名&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;logfile /usr/local/redis/logs/redis.log &lt;span style="color:#8f5902;font-style:italic"&gt;# 日志文件的位置&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;###RDB持久化配置###&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;save &lt;span style="color:#0000cf;font-weight:bold"&gt;900&lt;/span&gt; &lt;span style="color:#0000cf;font-weight:bold"&gt;1&lt;/span&gt; &lt;span style="color:#8f5902;font-style:italic"&gt;# 900s内至少一次写操作则执行bgsave进行RDB持久化&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;save &lt;span style="color:#0000cf;font-weight:bold"&gt;300&lt;/span&gt; &lt;span style="color:#0000cf;font-weight:bold"&gt;10&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;save &lt;span style="color:#0000cf;font-weight:bold"&gt;60&lt;/span&gt; &lt;span style="color:#0000cf;font-weight:bold"&gt;10000&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# 如果禁用RDB持久化，可在这里添加 save &amp;#34;&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;rdbcompression yes &lt;span style="color:#8f5902;font-style:italic"&gt;#是否对RDB文件进行压缩，建议设置为no，以（磁盘）空间换（CPU）时间&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;dbfilename dump.rdb &lt;span style="color:#8f5902;font-style:italic"&gt;# RDB文件名称&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;dir /usr/local/redis/datas &lt;span style="color:#8f5902;font-style:italic"&gt;# RDB文件保存路径，AOF文件也保存在这里&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;###AOF配置###&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;appendonly yes &lt;span style="color:#8f5902;font-style:italic"&gt;# 默认值是no，表示不使用AOF增量持久化的方式，使用RDB全量持久化的方式&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;appendfsync everysec &lt;span style="color:#8f5902;font-style:italic"&gt;# 可选值 always， everysec，no，建议设置为everysec&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;###设置密码###&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;requirepass &lt;span style="color:#0000cf;font-weight:bold"&gt;123456&lt;/span&gt; &lt;span style="color:#8f5902;font-style:italic"&gt;# 设置复杂一点的密码&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;部署主从复制模式只需稍微调整 slave 的配置，在 redis.conf 中添加&lt;/p&gt;</description></item><item><title>Sentinel 配置详解</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Sentinel-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Sentinel-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>&lt;p&gt;参考：&lt;a href="https://redis.io/topics/sentinel#other-sentinel-options"&gt;官方文档 1&lt;/a&gt;、&lt;/p&gt;
+&lt;p&gt;Sentinel 的配置与 Redis 配置用法相同，当使用 &amp;ndash;sentinel 参数启动 redis 时，则 redis 程序加载配置文件时，将只会特定的配置信息&lt;/p&gt;
+&lt;h1 id="sentinel-配置环境"&gt;Sentinel 配置环境&lt;a class="td-heading-self-link" href="#sentinel-%e9%85%8d%e7%bd%ae%e7%8e%af%e5%a2%83" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;h2 id="port-int--sentinel-监听的端口sentinel-之间使用该端口通讯"&gt;&lt;strong&gt;port &amp;lt;INT&amp;gt;&lt;/strong&gt; # Sentinel 监听的端口，Sentinel 之间使用该端口通讯&lt;a class="td-heading-self-link" href="#port-int--sentinel-%e7%9b%91%e5%90%ac%e7%9a%84%e7%ab%af%e5%8f%a3sentinel-%e4%b9%8b%e9%97%b4%e4%bd%bf%e7%94%a8%e8%af%a5%e7%ab%af%e5%8f%a3%e9%80%9a%e8%ae%af" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;h2 id="sentinel-monitor-master-group-name-ip-port-quorum--指定-sentinel-要监听的-master"&gt;sentinel monitor &amp;lt;master-group-name&amp;gt; &amp;lt;IP&amp;gt; &amp;lt;PORT&amp;gt; &amp;lt;QUORUM&amp;gt; # 指定 Sentinel 要监听的 MASTER&lt;a class="td-heading-self-link" href="#sentinel-monitor-master-group-name-ip-port-quorum--%e6%8c%87%e5%ae%9a-sentinel-%e8%a6%81%e7%9b%91%e5%90%ac%e7%9a%84-master" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;code&gt;sentinel montior mymaster 192.168.50.101 6379 1&lt;/code&gt; 这个配置意味着，Sentinel 监控的目标 master 节点的 IP 为 192.168.50.101、端口为 6379，最后一个数字表示投票需要的&amp;quot;最少法定人数&amp;quot;。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;最少法定人数的理解：比如有 10 个 sentinal 哨兵都在监控某一个 master 节点，如果需要至少 6 个哨兵发现 master 挂掉后，才认为 master 真正 down 掉，那么这里就配置为 6，最小配置 1 台 master，1 台 slave，在二个机器上都启动 sentinal 的情况下，哨兵数只有 2 个，如果一台机器物理挂掉，只剩一个 sentinal 能发现该问题，所以这里配置成 1。&lt;/p&gt;</description></item><item><title>Sentinel(哨兵) 模式</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Sentinel%E5%93%A8%E5%85%B5-%E6%A8%A1%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Redis/Redis-%E9%AB%98%E5%8F%AF%E7%94%A8/Sentinel%E5%93%A8%E5%85%B5-%E6%A8%A1%E5%BC%8F/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://redis.io/topics/sentinel"&gt;官方文档&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="http://www.redis.cn/topics/sentinel.html"&gt;中文文档&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.cnblogs.com/kevingrace/p/9004460.html"&gt;博客园大佬&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.cnblogs.com/biglittleant/p/7770960.html"&gt;博客园大佬 2&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Redis Sentinel(哨兵) 基于 Redis 的 Replication(复制) 模式，增加了一个名为 Sentinel 的管理程序&lt;/strong&gt;，用来保存 Redis Replication 模式的架构信息，以及对外提供该信息。同时 sentinel 程序监控多台 Redis 状态，当 Redis 不可用时，Sentinel 将自动下线该 Redis。&lt;/p&gt;
+&lt;p&gt;注意：Sentinel(哨兵) 模式必须基于 Replication 模式，否则没有任何意义。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ep6g3m/1616134767001-d94ca9de-6764-40ef-977f-4af0f094154f.png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;注意：一套 Sentinel 是可以监听多套 Replication 模式的 Redis 的组合，这样可以有效节省资源，其中每套 Replication 模式的 Redis 会使用一个 master-name 作为一个标识。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;客户端操作 Redis 原理&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;client 访问 sentinel 集群，获取 redis 集群 master 的 ip&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;client 连接 redis 集群的 master 对数据进行读写操作。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Redis Sentinel 为 Redis 提供了高可用性。这意味着，可以使用 Sentinel 程序部署 Redis，这种部署可以在无需人工干预的情况下抵抗某些类型的故障。Sentinel 具有以下特性：&lt;/p&gt;</description></item></channel></rss>

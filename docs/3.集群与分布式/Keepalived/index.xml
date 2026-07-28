@@ -1,22 +1,310 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Keepalived on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/</link><description>Recent content in Keepalived on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/index.xml" rel="self" type="application/rss+xml"/><item><title>Keepalived</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived/</guid><description>概述 参考：
-官网 Keepalived 特点：
-Active/passive 模式 Keepalived 是 vrrp 协议在 Linux 主机上以守护进程方式的实现 能够根据配置文件自动生成 ipvs 规则 对各 RS 做健康状态检测 万字长文带你从 0 学习 Keepalived 负载均衡器（Load Balancer, LB ）是一组能够将 IP 数据流以负载均衡形式转发到多台物理服务器的集成软件。有硬件负载均衡器和软件负载均衡器之分，硬件负载均衡器主要是在访问网络和服务器之间配置物理负载均衡设备，客户端对物理服务器的访问请求首先会抵达负载均衡设备，然后再由负载均衡设备根据一定的负载算法转发到后端服务器。相比而言，软件负载均衡器不需要特定的物理设备，只需在相应的操作系统上部署具有负载均衡功能的软件即可。
-在 Openstack 高可用集群部署中，服务的负载均衡和高可用主要有两种主流的实现方案，即 HAProxy+ Keepalived 和 Pacemaker+HAProxy 方案。由于 OpenStack 服务组件多样，不同服务均需要进行特定的高可用设计，并且从集群资源统一调度和集群稳定性的角度考虑，后一种方案是多数 OpenStack 厂商的高可用部署方案首选，但是选用后一方案并不意味着 Keepalived 在 OpenStack 高可用集群部署中不被使用。由于 Keepalived 的主要作用之一是进行虚拟路由的故障切换，其在 Neutron 的 L3 高可用设计与实现中起着举足轻重的作用。
-1.1 keepalived 及 LVS 概述 Keepalived 的项目实现的主要目标是简化 LVS 项目的配置并增强其稳定性，即 Keepalived 是对 LVS 项目的扩展增强。
-Keepalived 为 Linux 系统和基于 Linux 的架构提供了负载均衡和高可用能力，其负载均衡功能主要源自集成在 Linux 内核中的 LVS 项目模块 IPVS( IP Virtual Server ），基于 IPVS 提供的 4 层 TCP/IP 协议负载均衡， Keepalived 也具备负载均衡的功能，此外， Keepalived 还实现了基于多层 TCP/IP 协议（ 3 层、4 层、5/7 层）的健康检查机制，因此， Keepalived 在 LVS 负载均衡功能的基础上，还提供了 LVS 集群物理服务器池健康检查和故障节点隔离的功能。</description></item><item><title>Keepalived 配置详解</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>概述 参考：
-Keepalived 使用 keepalived 启动流程：
-启动三个进程（主进程、healthcheck 进程、vrrp 进程）之后，先进入 backup 状态，运行一次 vrrp_script 成功后发现没有主，这时候会进入 master 状态，拉起 VIP，完成启动。 切换的流程： 原 keepalived master 节点，运行检查脚本异常，则 keepalived 进入 FAULT 状态，释放 vip，原 backup 的 keepalived 会接管 VIP。 注意事项：VIP 必须在 master 上。为了这个要求，需要在主库上先启动 keepalived。 Keepalived 配置 /etc/sysconfig/keepalived # keepalived 运行时参数配置
-/etc/keepalived/keepalived.conf # keepalived 基本配置文件
-Note：keepalived 配置文件的运行时加载功能，可以通过命令 kill -HUP $(cat /var/run/keepalived.pid) 实现。该功能需要在 1.2.20 及以上版本才能实现
-下面是一个基本的 keepalived.conf 文件的配置示例
-! Configuration File for keepalived global_defs { #全局配置段 notification_email { admin@example. com } notification_email_from noreply@example.</description></item><item><title>Keepalived 配置示例</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived-%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived-%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B/</guid><description>概述 参考：
-满足基本 HA 功能的配置 global_defs { notification_email { root@localhost } notification_email_from Alexandre.Cassen@firewall.loc smtp_server 127.0.0.1 smtp_connect_timeout 30 router_id LVS_DEVEL script_user root } vrrp_script chk_haproxy { script “killall -0 haproxy” interval 1 weight -2 } vrrp_instance VI_1 { state MASTER #备节点改成BACKUP interface ens33 virtual_router_id 51 priority 101 #倍节点改成100 advert_int 1 authentication { auth_type PASS auth_pass 1111 } virtual_ipaddress { 192.168.0.75 } track_script { chk_haproxy } notify_master &amp;quot;/etc/keepalived/notify master&amp;quot; root notify_backup &amp;quot;/etc/keepalived/notify backup&amp;quot; root notify_fault &amp;quot;/etc/keepalived/notify fault&amp;quot; root } include /etc/keepalived/include/* 基本 LVS 的配置</description></item><item><title>keepalived+nginx 配置示例</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/keepalived+nginx-%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/keepalived+nginx-%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B/</guid><description>概述 参考：
-适用于 keepalived 的 node 节点的前端负载均衡的配置 keepalived.conf 主节点配置内容 cat &amp;gt; /etc/keepalived/keepalived.conf &amp;lt;&amp;lt; EOF global_defs { router_id k8s-master-dr script_user root enable_script_security } vrrp_script check_nginx { script &amp;#34;/etc/keepalived/check_nginx.sh&amp;#34; interval 3 weight -2 fall 2 rise 2 } vrrp_instance VI_K8S { state BACKUP interface eth0 virtual_router_id 60 priority 101 nopreempt authentication { auth_type PASS auth_pass 4be37dc3b4c90194d1600c483e10ad1d } virtual_ipaddress { 172.40.0.60 } track_script { check_nginx } } EOF keepalived.conf 备节点配置内容 cat &amp;gt; /etc/keepalived/keepalived.conf &amp;lt;&amp;lt; EOF global_defs { router_id k8s-master-dr script_user root enable_script_security } vrrp_script check_nginx { script &amp;#34;/etc/keepalived/check_nginx.</description></item><item><title>问题实例：Keepalived 非抢占模式 VIP 不漂移</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8BKeepalived-%E9%9D%9E%E6%8A%A2%E5%8D%A0%E6%A8%A1%E5%BC%8F-VIP-%E4%B8%8D%E6%BC%82%E7%A7%BB/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8BKeepalived-%E9%9D%9E%E6%8A%A2%E5%8D%A0%E6%A8%A1%E5%BC%8F-VIP-%E4%B8%8D%E6%BC%82%E7%A7%BB/</guid><description>概述 参考：
-Keepalived 非抢占模式下 VIP 不漂移问题 Keepalived 主要是通过虚拟路由冗余来实现高可用功能。本文将不对 keepalived 的基本原理进行阐述，可参考文章 Keepalived 详细介绍简介、keepalived vip 漂移基本原理及选举算法。本文记录了在实践过程中使用 keepalived 时，在 weight 值变化的情况下 vip 不漂移的问题及解决方法。
-场景
-3 个 keepalived 节点, vip 为 172.31.23.6：
-devops1a-zoocassa0 172.31.23.22
-devops1a-zoocassa1 172.31.23.23
-预期
-两个节点初始都设为 BACKUP，按照优先级（priority）选举 MASTER； 在两个节点上检查 memcached 服务状态，失败则降低优先级； 如果 MASTER(假设为 devops1a-zoocassa0)上检查失败，BACKUP 上检查成功，则优先级高的 BACKUP 节点(假设为 devops1a-zoocassa1)切换为 MASTER 节点； 之前检查失败的 MASTER(devops1a-zoocassa0)上的服务恢复时, 之前的 BACKUP 节点(devops1a-zoocassa1)服务检查也成功，即使 devops1a-zoocassa0 优先级恢复到高于 devops1a-zoocassa1,也不再成为 MASTER(不抢占)。 不成功配置范例 主节点 dr-1 配置
-global_defs { router_id k8s-master-dr } vrrp_script check_nginx { script &amp;#34;pidof nginx&amp;#34; interval 3 weight -2 fall 2 rise 2 } vrrp_instance VI_K8S { state BACKUP interface eth0 virtual_router_id 60 priority 101 nopreempt authentication { auth_type PASS auth_pass 4be37dc3b4c90194d1600c483e10ad1d } virtual_ipaddress { 172.</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Keepalived on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/</link><description>Recent content in Keepalived on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/index.xml" rel="self" type="application/rss+xml"/><item><title>Keepalived</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="http://www.keepalived.org/"&gt;官网&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Keepalived 特点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Active/passive 模式&lt;/li&gt;
+&lt;li&gt;Keepalived 是 vrrp 协议在 Linux 主机上以守护进程方式的实现&lt;/li&gt;
+&lt;li&gt;能够根据配置文件自动生成 ipvs 规则&lt;/li&gt;
+&lt;li&gt;对各 RS 做健康状态检测&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="万字长文带你从-0-学习-keepalived"&gt;万字长文带你从 0 学习 Keepalived&lt;a class="td-heading-self-link" href="#%e4%b8%87%e5%ad%97%e9%95%bf%e6%96%87%e5%b8%a6%e4%bd%a0%e4%bb%8e-0-%e5%ad%a6%e4%b9%a0-keepalived" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;负载均衡器（Load Balancer, LB ）是一组能够将 IP 数据流以负载均衡形式转发到多台物理服务器的集成软件。有硬件负载均衡器和软件负载均衡器之分，硬件负载均衡器主要是在访问网络和服务器之间配置物理负载均衡设备，客户端对物理服务器的访问请求首先会抵达负载均衡设备，然后再由负载均衡设备根据一定的负载算法转发到后端服务器。相比而言，软件负载均衡器不需要特定的物理设备，只需在相应的操作系统上部署具有负载均衡功能的软件即可。&lt;/p&gt;
+&lt;p&gt;在 Openstack 高可用集群部署中，服务的负载均衡和高可用主要有两种主流的实现方案，即 HAProxy+ Keepalived 和 Pacemaker+HAProxy 方案。由于 OpenStack 服务组件多样，不同服务均需要进行特定的高可用设计，并且从集群资源统一调度和集群稳定性的角度考虑，后一种方案是多数 OpenStack 厂商的高可用部署方案首选，但是选用后一方案并不意味着 Keepalived 在 OpenStack 高可用集群部署中不被使用。由于 Keepalived 的主要作用之一是进行虚拟路由的故障切换，其在 Neutron 的 L3 高可用设计与实现中起着举足轻重的作用。&lt;/p&gt;
+&lt;h1 id="11-keepalived-及-lvs-概述"&gt;1.1 keepalived 及 LVS 概述&lt;a class="td-heading-self-link" href="#11-keepalived-%e5%8f%8a-lvs-%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;Keepalived 的项目实现的主要目标是简化 &lt;a href="https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/LVS/LVS/"&gt;LVS&lt;/a&gt; 项目的配置并增强其稳定性，即 Keepalived 是对 LVS 项目的扩展增强。&lt;/p&gt;
+&lt;p&gt;Keepalived 为 Linux 系统和基于 Linux 的架构提供了负载均衡和高可用能力，其负载均衡功能主要源自集成在 Linux 内核中的 LVS 项目模块 IPVS( IP Virtual Server ），基于 IPVS 提供的 4 层 TCP/IP 协议负载均衡， Keepalived 也具备负载均衡的功能，此外， Keepalived 还实现了基于多层 TCP/IP 协议（ 3 层、4 层、5/7 层）的健康检查机制，因此， Keepalived 在 LVS 负载均衡功能的基础上，还提供了 LVS 集群物理服务器池健康检查和故障节点隔离的功能。&lt;/p&gt;</description></item><item><title>Keepalived 配置详解</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="keepalived-使用"&gt;Keepalived 使用&lt;a class="td-heading-self-link" href="#keepalived-%e4%bd%bf%e7%94%a8" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;keepalived 启动流程：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;启动三个进程（主进程、healthcheck 进程、vrrp 进程）之后，先进入 backup 状态，运行一次 vrrp_script 成功后发现没有主，这时候会进入 master 状态，拉起 VIP，完成启动。&lt;/li&gt;
+&lt;li&gt;切换的流程：&lt;/li&gt;
+&lt;li&gt;原 keepalived master 节点，运行检查脚本异常，则 keepalived 进入 FAULT 状态，释放 vip，原 backup 的 keepalived 会接管 VIP。&lt;/li&gt;
+&lt;li&gt;注意事项：VIP 必须在 master 上。为了这个要求，需要在主库上先启动 keepalived。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="keepalived-配置"&gt;Keepalived 配置&lt;a class="td-heading-self-link" href="#keepalived-%e9%85%8d%e7%bd%ae" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;strong&gt;/etc/sysconfig/keepalived&lt;/strong&gt; # keepalived 运行时参数配置&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;/etc/keepalived/keepalived.conf&lt;/strong&gt; # keepalived 基本配置文件&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Note：keepalived 配置文件的运行时加载功能，可以通过命令 kill -HUP $(cat /var/run/keepalived.pid) 实现。该功能需要在 1.2.20 及以上版本才能实现&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;下面是一个基本的 keepalived.conf 文件的配置示例&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code class="language-config" data-lang="config"&gt;! Configuration File for keepalived
+global_defs { #全局配置段
+ notification_email {
+ admin@example. com
+ }
+ notification_email_from noreply@example.com
+ smtp_server 127.0.0.1
+ smtp_connect_timeout 60
+ router_id LVS_DEVEL
+ script_user root
+}
+vrrp_script chk_haproxy {
+ script &amp;#34;killall -0 haproxy&amp;#34;
+ interval 1
+ weight 2
+}
+vrrp_sync_group VG1 { #VRRP组配置段
+ group {
+ VI_1
+ VI_2
+ }
+}
+vrrp_instance VI_1 { #VRRP 实例VI_1配置段
+ state MASTER
+ interface eth0
+ virtual_router_id 50
+ priority 100
+ advert_int 1
+ authentication {
+ auth_type PASS
+ auth_pass password123
+ }
+ virtual_ipaddress {
+ 10.0.0.1
+ }
+ track_script {
+ chk_haproxy
+ }
+}
+vrrp_instance VI_2 { #VRRP 实例VI_2配置段
+ state MASTER
+ interface eth1
+ virtual_router_id 2
+ priority 100
+ advert_int 1
+ authentication{
+ auth_type PASS
+ auth_pass password123
+ }
+ virtual_ipaddress {
+ 192.168.1.1
+ }
+ notify_master &amp;#34;/etc/keepalived/notify.sh master&amp;#34; #定义该节点变为master后执行的脚本
+ notify_backup &amp;#34;/etc/keepalived/notify.sh backup&amp;#34; #定义该节点变为backup后执行的脚本
+ notify_fault &amp;#34;/etc/keepalived/notify.sh fault&amp;#34; #定义该节点变为fault后执行的脚本
+}
+virtual_server 10.0.0.1 80 { #虚拟服务器LVS 配置段
+ delay_loop 6
+ lvs_sched rr
+ lvs_method DR
+ protocol TCP
+ sorry_server 127.0.0.1 80
+ real_server 192.168.1.20 80 { #定义后端服务器1
+ XXX_CHECK {
+ connect timeout 10
+ }
+ }
+ real_server 192.168.1.21 80 { #定义后端服务器2
+ XXX_CHECK {
+ connect timeout 10
+ }
+ }
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;从 Keepalived 配置文件 &lt;code&gt;/etc/keepalived/keepalived.conf&lt;/code&gt; 中的内容可以看到， Keepalived 的配置主要分为三个模块， 即全局配置段、VRRP 定义段、虚拟服务器 LVS 配置段。&lt;/p&gt;</description></item><item><title>Keepalived 配置示例</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived-%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/Keepalived-%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="满足基本-ha-功能的配置"&gt;满足基本 HA 功能的配置&lt;a class="td-heading-self-link" href="#%e6%bb%a1%e8%b6%b3%e5%9f%ba%e6%9c%ac-ha-%e5%8a%9f%e8%83%bd%e7%9a%84%e9%85%8d%e7%bd%ae" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;pre&gt;&lt;code&gt;global_defs {
+ notification_email {
+ root@localhost
+ }
+ notification_email_from Alexandre.Cassen@firewall.loc
+ smtp_server 127.0.0.1
+ smtp_connect_timeout 30
+ router_id LVS_DEVEL
+ script_user root
+}
+vrrp_script chk_haproxy {
+ script “killall -0 haproxy”
+ interval 1
+ weight -2
+}
+vrrp_instance VI_1 {
+ state MASTER #备节点改成BACKUP
+ interface ens33
+ virtual_router_id 51
+ priority 101 #倍节点改成100
+ advert_int 1
+ authentication {
+ auth_type PASS
+ auth_pass 1111
+ }
+ virtual_ipaddress {
+ 192.168.0.75
+ }
+ track_script {
+ chk_haproxy
+ }
+ notify_master &amp;quot;/etc/keepalived/notify master&amp;quot; root
+ notify_backup &amp;quot;/etc/keepalived/notify backup&amp;quot; root
+ notify_fault &amp;quot;/etc/keepalived/notify fault&amp;quot; root
+}
+include /etc/keepalived/include/*
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;基本 LVS 的配置&lt;/p&gt;</description></item><item><title>keepalived+nginx 配置示例</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/keepalived+nginx-%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/keepalived+nginx-%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="适用于-keepalived-的-node-节点的前端负载均衡的配置"&gt;适用于 keepalived 的 node 节点的前端负载均衡的配置&lt;a class="td-heading-self-link" href="#%e9%80%82%e7%94%a8%e4%ba%8e-keepalived-%e7%9a%84-node-%e8%8a%82%e7%82%b9%e7%9a%84%e5%89%8d%e7%ab%af%e8%b4%9f%e8%bd%bd%e5%9d%87%e8%a1%a1%e7%9a%84%e9%85%8d%e7%bd%ae" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;h3 id="keepalivedconf-主节点配置内容"&gt;keepalived.conf 主节点配置内容&lt;a class="td-heading-self-link" href="#keepalivedconf-%e4%b8%bb%e8%8a%82%e7%82%b9%e9%85%8d%e7%bd%ae%e5%86%85%e5%ae%b9" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cat &amp;gt; /etc/keepalived/keepalived.conf &lt;span style="color:#4e9a06"&gt;&amp;lt;&amp;lt; EOF
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;global_defs {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; router_id k8s-master-dr
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; script_user root
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; enable_script_security
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;vrrp_script check_nginx {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; script &amp;#34;/etc/keepalived/check_nginx.sh&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; interval 3
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; weight -2
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; fall 2
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; rise 2
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;vrrp_instance VI_K8S {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; state BACKUP
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; interface eth0
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; virtual_router_id 60
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; priority 101
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; nopreempt
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; authentication {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; auth_type PASS
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; auth_pass 4be37dc3b4c90194d1600c483e10ad1d
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; virtual_ipaddress {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; 172.40.0.60
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; track_script {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; check_nginx
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;EOF&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id="keepalivedconf-备节点配置内容"&gt;keepalived.conf 备节点配置内容&lt;a class="td-heading-self-link" href="#keepalivedconf-%e5%a4%87%e8%8a%82%e7%82%b9%e9%85%8d%e7%bd%ae%e5%86%85%e5%ae%b9" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cat &amp;gt; /etc/keepalived/keepalived.conf &lt;span style="color:#4e9a06"&gt;&amp;lt;&amp;lt; EOF
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;global_defs {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; router_id k8s-master-dr
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; script_user root
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; enable_script_security
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;vrrp_script check_nginx {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; script &amp;#34;/etc/keepalived/check_nginx.sh&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; interval 3
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; weight -2
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; fall 2
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; rise 2
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;vrrp_instance VI_K8S {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; state BACKUP
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; interface eth0
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; virtual_router_id 60
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; priority 100
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; nopreempt
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; authentication {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; auth_type PASS
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; auth_pass 4be37dc3b4c90194d1600c483e10ad1d
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; virtual_ipaddress {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; 172.40.0.60
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; track_script {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; check_nginx
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;EOF&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id="check_nginxsh-配置内容"&gt;check_nginx.sh 配置内容&lt;a class="td-heading-self-link" href="#check_nginxsh-%e9%85%8d%e7%bd%ae%e5%86%85%e5%ae%b9" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cat &amp;gt; /etc/keepalived/check_nginx.sh &lt;span style="color:#4e9a06"&gt;&amp;lt;&amp;lt; \EOF
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;#!/bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;pidof nginx # 检查memcached服务
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;if [[ $? == 0 ]];then # 检查成功
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; /sbin/iptables -S | grep vrrp
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; if [[ $? == 0 ]]; then # 如果iptable中有vrrp的配置，删除它
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; /sbin/iptables -D OUTPUT -p vrrp -j DROP
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; fi
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; exit 0
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;else # 检查失败
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; /sbin/iptables -S | grep vrrp
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; if [[ $? != 0 ]]; then
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; /sbin/iptables -A OUTPUT -p vrrp -j DROP # 如果iptable中没有vrrp的条目，禁止vrrp发出
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; fi
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt; exit 1
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;fi
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;EOF&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;chmod &lt;span style="color:#0000cf;font-weight:bold"&gt;755&lt;/span&gt; /etc/keepalived/check_nginx.sh
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description></item><item><title>问题实例：Keepalived 非抢占模式 VIP 不漂移</title><link>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8BKeepalived-%E9%9D%9E%E6%8A%A2%E5%8D%A0%E6%A8%A1%E5%BC%8F-VIP-%E4%B8%8D%E6%BC%82%E7%A7%BB/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/3.%E9%9B%86%E7%BE%A4%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F/Keepalived/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8BKeepalived-%E9%9D%9E%E6%8A%A2%E5%8D%A0%E6%A8%A1%E5%BC%8F-VIP-%E4%B8%8D%E6%BC%82%E7%A7%BB/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="keepalived-非抢占模式下-vip-不漂移问题"&gt;Keepalived 非抢占模式下 VIP 不漂移问题&lt;a class="td-heading-self-link" href="#keepalived-%e9%9d%9e%e6%8a%a2%e5%8d%a0%e6%a8%a1%e5%bc%8f%e4%b8%8b-vip-%e4%b8%8d%e6%bc%82%e7%a7%bb%e9%97%ae%e9%a2%98" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;Keepalived 主要是通过虚拟路由冗余来实现高可用功能。本文将不对 keepalived 的基本原理进行阐述，可参考文章 Keepalived 详细介绍简介、keepalived vip 漂移基本原理及选举算法。本文记录了在实践过程中使用 keepalived 时，在 weight 值变化的情况下 vip 不漂移的问题及解决方法。&lt;/p&gt;
+&lt;p&gt;场景&lt;/p&gt;
+&lt;p&gt;3 个 keepalived 节点, vip 为 172.31.23.6：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;devops1a-zoocassa0 172.31.23.22&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;devops1a-zoocassa1 172.31.23.23&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;预期&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;两个节点初始都设为 BACKUP，按照优先级（priority）选举 MASTER；&lt;/li&gt;
+&lt;li&gt;在两个节点上检查 memcached 服务状态，失败则降低优先级；&lt;/li&gt;
+&lt;li&gt;如果 MASTER(假设为 devops1a-zoocassa0)上检查失败，BACKUP 上检查成功，则优先级高的 BACKUP 节点(假设为 devops1a-zoocassa1)切换为 MASTER 节点；&lt;/li&gt;
+&lt;li&gt;之前检查失败的 MASTER(devops1a-zoocassa0)上的服务恢复时, 之前的 BACKUP 节点(devops1a-zoocassa1)服务检查也成功，即使 devops1a-zoocassa0 优先级恢复到高于 devops1a-zoocassa1,也不再成为 MASTER(不抢占)。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id="不成功配置范例"&gt;不成功配置范例&lt;a class="td-heading-self-link" href="#%e4%b8%8d%e6%88%90%e5%8a%9f%e9%85%8d%e7%bd%ae%e8%8c%83%e4%be%8b" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;主节点 dr-1 配置&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code class="language-conf" data-lang="conf"&gt;global_defs {
+ router_id k8s-master-dr
+}
+vrrp_script check_nginx {
+ script &amp;#34;pidof nginx&amp;#34;
+ interval 3
+ weight -2
+ fall 2
+ rise 2
+}
+vrrp_instance VI_K8S {
+ state BACKUP
+ interface eth0
+ virtual_router_id 60
+ priority 101
+ nopreempt
+ authentication {
+ auth_type PASS
+ auth_pass 4be37dc3b4c90194d1600c483e10ad1d
+ }
+ virtual_ipaddress {
+ 172.40.0.60
+ }
+ track_script {
+ check_nginx
+ }
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;备节点 dr-2 配置&lt;/p&gt;</description></item></channel></rss>

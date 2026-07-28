@@ -1,20 +1,146 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Prometheus 管理 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/</link><description>Recent content in Prometheus 管理 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/index.xml" rel="self" type="application/rss+xml"/><item><title>Prometheus MGMT</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/Prometheus-MGMT/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/Prometheus-MGMT/</guid><description>概述 参考：
-官方文档，介绍 - FAQ 公众号，Prometheus 性能调优：大模型和智能驾驶可观测的高基数问题
-Prometheus UTS 时区问题 https://prometheus.io/docs/introduction/faq/#can-i-change-the-timezone-why-is-everything-in-utc
-官方表示，为了避免夏令时问题，将 UTS 时区写入代码中，任何外部的配置都无法生效（e.g. 配置 /etc/timezone 无效）。
-更多讨论在 issue 500
-其实这个限制是不影响使用的：
-如果做可视化，Grafana 是可以做时区转换的。 如果是调接口，拿到了数据中的时间戳，想怎么处理都可以。 如果因为 Prometheus 自带的 UI 不是本地时间，看着不舒服，2.16 版本的新版 Web UI 已经引入了 Local Timezone 的选项 如果仍然想改 Prometheus 代码来适应自己的时区，可以参考这篇文章。 对于 Prometheus 生态的程序，e.g. Node Exporter、etc. 也会有 UTS 时区问题，程序的日志时间就是 UTS 时区的，并且无法在程序实例化阶段通过代码修改，因为这些程序引用的是 promlog 库。promlog 在 log.go 中定义了日志的时区。
-// This timestamp format differs from RFC3339Nano by using .000 instead // of .999999999 which changes the timestamp from 9 variable to 3 fixed // decimals (.</description></item><item><title>PromQL 常见查询语句</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/PromQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/PromQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</guid><description>概述 参考：
-GitHub 项目，samber/awesome-prometheus-alerts https://samber.github.io/awesome-prometheus-alerts/ 腾讯云+社区，prometheus 告警指标 对 awesome-prometheus-alerts 的无后续维护的搬运 公众号，云原生小白-监控容器 OOMKill 的正确指标 https://panzhongxian.cn/cn/2023/09/grafana-pannel-skills/ Grafana 常用但难配的图表。一些真实场景的查询语句写法以及对应 Grafana 图标如何用 问题 如何获取范围向量中的第一个和最后一个值。 https://stackoverflow.com/questions/68895729/how-to-get-the-first-and-last-element-of-a-range-vector-in-promql
-MetricsQL 中有 first_over_time() 函数 如何获取范围向量中，指定的值。 https://stackoverflow.com/questions/45213745/prometheus-how-to-calculate-proportion-of-single-value-over-time ，比如 count_over_time(my_metric[1m] != 0)获取 1 分钟内所有值中不为 0 的值
-MetricsQL 中有 count_ne_over_time(my_metric[1h], 0) 函数 SLO/SLI 根据过去一段时间的统计数据监测异常值 参考 Statistics 中的 “检测和处理异常值”，使用 Z-Score 法，通过下面的公式实现
-$$ Z-score = \frac{x - \mu}{\sigma} $$
-x 是当前值 μ 是总体的 mean(平均值) σ 是总体的 standard deviation(标准差)。 Tips: 这里的 population(总体) 的意思对应到 Prometheus 中就是指 范围向量</description></item><item><title>promtool</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/promtool/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/promtool/</guid><description>概述 参考：
-官方文档，命令行工具 - promtool https://blog.51cto.com/u_13236892/5968043 promtool 是 Prometheus 一个命令行工具，用以管理、检查 Promethus，包括 规则配置、etc. 。
-[!Warning] 截至 2024-07-24 还不够完善，有些功能无法添加认证能力，对以添加认证的 Prom 无能为力。
-Syntax(语法) Command Description check 检查资源的有效性。比如配置文件是否正确、etc. query 运行 PromQL 获取查询结果 debug 获取 Debug 信息 push Push to a Prometheus server. test 单元测试 tsdb Run tsdb commands. promql PromQL 格式化与编辑器 [!Notes] 截至 2024-08-01，&amp;ndash;http.config.file 选项的格式在 https://github.com/prometheus/common/blob/v0.55.0/config/http_config.go#L299 ，由 LoadHTTPConfigFile() 函数解析 HTTPClientConfig 结构体。与 prometheus 的 &amp;ndash;web.config.file 配置格式并不一致
-格式像这样：
-basic_auth: username: myusername password: mypassword query instant # 即时向量查询 range # 范围向量查询 range 范围向量查询。默认返回 302 个样本，当前时间为结束时间，当前时间的前 5 分钟是开始时间，每秒 1 个样本。</description></item><item><title>最佳实践</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>概述 参考：
-Vermouth 博客，高可用 Prometheus 问题集锦 几点原则 监控是基础设施，目的是为了解决问题，不要只朝着大而全去做，尤其是不必要的指标采集，浪费人力和存储资源（To B 商业产品例外）。 需要处理的告警才发出来，发出来的告警必须得到处理。 简单的架构就是最好的架构，业务系统都挂了，监控也不能挂。Google Sre 里面也说避免使用 Magic 系统，例如机器学习报警阈值、自动修复之类。这一点见仁见智吧，感觉很多公司都在搞智能 AI 运维。 不要把随机值放在 Label 中 这里强烈建议不要把随机值，或者变化较快的值放在 label 里，如 timestamp，request_args，thread_id 等等，这是因为只要 label 的值一变，就会产生另外一个 Series，而 Prometheus 或者类 Prometheus 的监控系统，都会把近期出现的 Series 信息缓存在内存中，如果短期内出现大量 Series，可能导致系统 OOM。（俗称：高基数问题） 注意：如果想记录一些经常变动的 Label 集合，应该使用日志系统，而不是监控系统 Prometheus 的局限 Prometheus 是基于 Metric 的监控，不适用于日志（Logs）、事件 (Event)、调用链 (Tracing)。 Prometheus 默认是 Pull 模型，合理规划你的网络，尽量不要转发。 对于集群化和水平扩展，官方和社区都没有银弹，需要合理选择 Federate、Cortex、Thanos 等方案。 监控系统一般情况下可用性大于一致性，容忍部分副本数据丢失，保证查询请求成功。这个后面说 Thanos 去重的时候会提到。 Prometheus 不一定保证数据准确，这里的不准确一是指 rate、histogram_quantile 等函数会做统计和推断，产生一些反直觉的结果，这个后面会详细展开。二来查询范围过长要做降采样，势必会造成数据精度丢失，不过这是时序数据的特点，也是不同于日志系统的地方。 Prometheus 容量规划 容量规划除了上边说的内存，还有磁盘存储规划，这和你的 Prometheus 的架构方案有关。
-如果是单机 Prometheus，计算本地磁盘使用量。 如果是 Remote-Write，和已有的 Tsdb 共用即可。 如果是 Thanos 方案，本地磁盘可以忽略（2H)，计算对象存储的大小就行。 Prometheus 每 2 小时将已缓冲在内存中的数据压缩到磁盘上的块中。包括 Chunks、Indexes、Tombstones、Metadata，这些占用了一部分存储空间。一般情况下，Prometheus 中存储的每一个样本大概占用 1-2 字节大小（1.</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Prometheus 管理 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/</link><description>Recent content in Prometheus 管理 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/index.xml" rel="self" type="application/rss+xml"/><item><title>Prometheus MGMT</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/Prometheus-MGMT/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/Prometheus-MGMT/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/introduction/faq/"&gt;官方文档，介绍 - FAQ&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;a href="https://mp.weixin.qq.com/s/Lw03n5-Vvy5OSMaQTPlW-A"&gt;公众号，Prometheus 性能调优：大模型和智能驾驶可观测的高基数问题&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id="prometheus-uts-时区问题"&gt;Prometheus UTS 时区问题&lt;a class="td-heading-self-link" href="#prometheus-uts-%e6%97%b6%e5%8c%ba%e9%97%ae%e9%a2%98" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;a href="https://prometheus.io/docs/introduction/faq/#can-i-change-the-timezone-why-is-everything-in-utc"&gt;https://prometheus.io/docs/introduction/faq/#can-i-change-the-timezone-why-is-everything-in-utc&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;官方表示，为了避免夏令时问题，将 UTS 时区写入代码中，任何外部的配置都无法生效（e.g. 配置 /etc/timezone 无效）。&lt;/p&gt;
+&lt;p&gt;更多讨论在 &lt;a href="https://github.com/prometheus/prometheus/issues/500"&gt;issue 500&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;其实这个限制是不影响使用的：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;如果做可视化，Grafana 是可以做时区转换的。&lt;/li&gt;
+&lt;li&gt;如果是调接口，拿到了数据中的时间戳，想怎么处理都可以。&lt;/li&gt;
+&lt;li&gt;如果因为 Prometheus 自带的 UI 不是本地时间，看着不舒服，&lt;a href="https://github.com/prometheus/prometheus/commit/d996ba20ec9c7f1808823a047ed9d5ce96be3d8f"&gt;2.16 版本&lt;/a&gt;的新版 Web UI 已经引入了 Local Timezone 的选项&lt;/li&gt;
+&lt;li&gt;如果仍然想改 Prometheus 代码来适应自己的时区，可以参考&lt;a href="https://zhangguanzhang.github.io/2019/09/05/prometheus-change-timezone/"&gt;这篇文章&lt;/a&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;对于 Prometheus 生态的程序，e.g. &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Instrumenting/Node-Exporter/"&gt;Node Exporter&lt;/a&gt;、etc. 也会有 UTS 时区问题，程序的日志时间就是 UTS 时区的，并且无法在程序实例化阶段通过代码修改，因为这些程序引用的是 &lt;a href="https://pkg.go.dev/github.com/prometheus/common/promlog"&gt;promlog&lt;/a&gt; 库。promlog 在 &lt;a href="https://github.com/prometheus/common/blob/v0.60.0/promlog/log.go#L33"&gt;log.go&lt;/a&gt; 中定义了日志的时区。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-go" data-lang="go"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;// This timestamp format differs from RFC3339Nano by using .000 instead&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;// of .999999999 which changes the timestamp from 9 variable to 3 fixed&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;// decimals (.130 instead of .130987456).&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000"&gt;timestampFormat&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000"&gt;log&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;.&lt;/span&gt;&lt;span style="color:#000"&gt;TimestampFormat&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;(&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;func&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;()&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000"&gt;time&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;.&lt;/span&gt;&lt;span style="color:#000"&gt;Time&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;{&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;return&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000"&gt;time&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;.&lt;/span&gt;&lt;span style="color:#000"&gt;Now&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;().&lt;/span&gt;&lt;span style="color:#000"&gt;UTC&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;()&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;},&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;2006-01-02T15:04:05.000Z07:00&amp;#34;&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;,&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;)&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;若想使用其他时区，现阶段（2024-10-14）的解决方案是在编译时直接修改 promlog 库中上面的代码，将 &lt;code&gt;.UTC()&lt;/code&gt; 去掉&lt;/p&gt;</description></item><item><title>PromQL 常见查询语句</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/PromQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/PromQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://github.com/samber/awesome-prometheus-alerts"&gt;GitHub 项目，samber/awesome-prometheus-alerts&lt;/a&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://samber.github.io/awesome-prometheus-alerts/"&gt;https://samber.github.io/awesome-prometheus-alerts/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://cloud.tencent.com/developer/article/1758801"&gt;腾讯云+社区，prometheus 告警指标&lt;/a&gt; 对 awesome-prometheus-alerts 的无后续维护的搬运&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/rPxTBYmwG_7HnZRpRXMFuQ"&gt;公众号，云原生小白-监控容器 OOMKill 的正确指标&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://panzhongxian.cn/cn/2023/09/grafana-pannel-skills/"&gt;https://panzhongxian.cn/cn/2023/09/grafana-pannel-skills/&lt;/a&gt; Grafana 常用但难配的图表。一些真实场景的查询语句写法以及对应 Grafana 图标如何用&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="问题"&gt;问题&lt;a class="td-heading-self-link" href="#%e9%97%ae%e9%a2%98" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;如何获取范围向量中的第一个和最后一个值。 &lt;a href="https://stackoverflow.com/questions/68895729/how-to-get-the-first-and-last-element-of-a-range-vector-in-promql"&gt;https://stackoverflow.com/questions/68895729/how-to-get-the-first-and-last-element-of-a-range-vector-in-promql&lt;/a&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;MetricsQL 中有 &lt;code&gt;first_over_time()&lt;/code&gt; 函数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;如何获取范围向量中，指定的值。 &lt;a href="https://stackoverflow.com/questions/45213745/prometheus-how-to-calculate-proportion-of-single-value-over-time"&gt;https://stackoverflow.com/questions/45213745/prometheus-how-to-calculate-proportion-of-single-value-over-time&lt;/a&gt; ，比如 &lt;code&gt;count_over_time(my_metric[1m] != 0)&lt;/code&gt;获取 1 分钟内所有值中不为 0 的值&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;MetricsQL 中有 &lt;code&gt;count_ne_over_time(my_metric[1h], 0)&lt;/code&gt; 函数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="slosli"&gt;SLO/SLI&lt;a class="td-heading-self-link" href="#slosli" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;h2 id="根据过去一段时间的统计数据监测异常值"&gt;根据过去一段时间的统计数据监测异常值&lt;a class="td-heading-self-link" href="#%e6%a0%b9%e6%8d%ae%e8%bf%87%e5%8e%bb%e4%b8%80%e6%ae%b5%e6%97%b6%e9%97%b4%e7%9a%84%e7%bb%9f%e8%ae%a1%e6%95%b0%e6%8d%ae%e7%9b%91%e6%b5%8b%e5%bc%82%e5%b8%b8%e5%80%bc" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;参考 &lt;a href="https://github.com/DesistDaydream/notes-science/blob/main/Math/Statistics.md"&gt;Statistics&lt;/a&gt; 中的 “检测和处理异常值”，使用 &lt;strong&gt;Z-Score&lt;/strong&gt; 法，通过下面的公式实现&lt;/p&gt;
+&lt;p&gt;$$
+Z-score = \frac{x - \mu}{\sigma}
+$$&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;x&lt;/strong&gt; 是当前值&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;μ&lt;/strong&gt; 是总体的 &lt;strong&gt;mean(平均值)&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;σ&lt;/strong&gt; 是总体的 &lt;strong&gt;standard deviation(标准差)&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Tips: 这里的 population(总体) 的意思对应到 Prometheus 中就是指 &lt;strong&gt;范围向量&lt;/strong&gt;&lt;/p&gt;</description></item><item><title>promtool</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/promtool/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/promtool/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/prometheus/latest/command-line/promtool"&gt;官方文档，命令行工具 - promtool&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://blog.51cto.com/u_13236892/5968043"&gt;https://blog.51cto.com/u_13236892/5968043&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;promtool 是 Prometheus 一个命令行工具，用以管理、检查 Promethus，包括 规则配置、etc. 。&lt;/p&gt;
+&lt;div class="td-alert td-alert--md alert alert-warning" role="alert"&gt;&lt;div class="td-alert-heading alert-heading" role="heading"&gt;警告&lt;/div&gt;
+ &lt;div class="td-alert-body"&gt;
+ &lt;p&gt;截至 2024-07-24 还不够完善，有些功能无法添加认证能力，对以添加认证的 Prom 无能为力。&lt;/p&gt;
+ &lt;/div&gt;
+&lt;/div&gt;
+&lt;h1 id="syntax语法"&gt;Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Command&lt;/th&gt;
+					&lt;th&gt;Description&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;check&lt;/td&gt;
+					&lt;td&gt;检查资源的有效性。比如配置文件是否正确、etc.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;query&lt;/td&gt;
+					&lt;td&gt;运行 PromQL 获取查询结果&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;debug&lt;/td&gt;
+					&lt;td&gt;获取 Debug 信息&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;push&lt;/td&gt;
+					&lt;td&gt;Push to a Prometheus server.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;test&lt;/td&gt;
+					&lt;td&gt;单元测试&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;tsdb&lt;/td&gt;
+					&lt;td&gt;Run tsdb commands.&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;promql&lt;/td&gt;
+					&lt;td&gt;PromQL 格式化与编辑器&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;div class="td-alert td-alert--md alert alert-notes" role="alert"&gt;&lt;div class="td-alert-heading alert-heading" role="heading"&gt;[i18n] notes&lt;/div&gt;
+ &lt;div class="td-alert-body"&gt;
+ &lt;p&gt;截至 2024-08-01，&amp;ndash;http.config.file 选项的格式在 &lt;a href="https://github.com/prometheus/common/blob/v0.55.0/config/http_config.go#L299"&gt;https://github.com/prometheus/common/blob/v0.55.0/config/http_config.go#L299&lt;/a&gt; ，由 LoadHTTPConfigFile() 函数解析 HTTPClientConfig 结构体。与 prometheus 的 &amp;ndash;web.config.file 配置格式并不一致&lt;/p&gt;</description></item><item><title>最佳实践</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-MGMT/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="http://www.xuyasong.com/?p=1921"&gt;Vermouth 博客，高可用 Prometheus 问题集锦&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="几点原则"&gt;几点原则&lt;a class="td-heading-self-link" href="#%e5%87%a0%e7%82%b9%e5%8e%9f%e5%88%99" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;监控是基础设施，目的是为了解决问题，不要只朝着大而全去做，尤其是不必要的指标采集，浪费人力和存储资源（To B 商业产品例外）。&lt;/li&gt;
+&lt;li&gt;需要处理的告警才发出来，发出来的告警必须得到处理。&lt;/li&gt;
+&lt;li&gt;简单的架构就是最好的架构，业务系统都挂了，监控也不能挂。Google Sre 里面也说避免使用 Magic 系统，例如机器学习报警阈值、自动修复之类。这一点见仁见智吧，感觉很多公司都在搞智能 AI 运维。&lt;/li&gt;
+&lt;li&gt;不要把随机值放在 Label 中
+&lt;ul&gt;
+&lt;li&gt;这里强烈建议不要把随机值，或者变化较快的值放在 label 里，如 timestamp，request_args，thread_id 等等，这是因为只要 label 的值一变，就会产生另外一个 Series，而 Prometheus 或者类 Prometheus 的监控系统，都会把近期出现的 Series 信息缓存在内存中，如果短期内出现大量 Series，可能导致系统 OOM。（俗称：高基数问题）&lt;/li&gt;
+&lt;li&gt;注意：如果想记录一些经常变动的 Label 集合，应该使用日志系统，而不是监控系统&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="prometheus-的局限"&gt;Prometheus 的局限&lt;a class="td-heading-self-link" href="#prometheus-%e7%9a%84%e5%b1%80%e9%99%90" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Prometheus 是基于 Metric 的监控，不适用于日志（Logs）、事件 (Event)、调用链 (Tracing)。&lt;/li&gt;
+&lt;li&gt;Prometheus 默认是 Pull 模型，合理规划你的网络，尽量不要转发。&lt;/li&gt;
+&lt;li&gt;对于集群化和水平扩展，官方和社区都没有银弹，需要合理选择 Federate、Cortex、Thanos 等方案。&lt;/li&gt;
+&lt;li&gt;监控系统一般情况下可用性大于一致性，容忍部分副本数据丢失，保证查询请求成功。这个后面说 Thanos 去重的时候会提到。&lt;/li&gt;
+&lt;li&gt;Prometheus 不一定保证数据准确，这里的不准确一是指 rate、histogram_quantile 等函数会做统计和推断，产生一些反直觉的结果，这个后面会详细展开。二来查询范围过长要做降采样，势必会造成数据精度丢失，不过这是时序数据的特点，也是不同于日志系统的地方。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="prometheus-容量规划"&gt;Prometheus 容量规划&lt;a class="td-heading-self-link" href="#prometheus-%e5%ae%b9%e9%87%8f%e8%a7%84%e5%88%92" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;容量规划除了上边说的内存，还有磁盘存储规划，这和你的 Prometheus 的架构方案有关。&lt;/p&gt;</description></item></channel></rss>

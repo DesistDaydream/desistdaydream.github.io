@@ -1,29 +1,226 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>构建 OCI Image on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/</link><description>Recent content in 构建 OCI Image on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/index.xml" rel="self" type="application/rss+xml"/><item><title>构建 OCI Image</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/%E6%9E%84%E5%BB%BA-OCI-Image/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/%E6%9E%84%E5%BB%BA-OCI-Image/</guid><description>概述 参考：
-官方文档，使用 Docker 开发-构建镜像-编写 Dockerfile 的最佳实践 在容器刚刚流行的时候，想要构建一个容器镜像通常只有两种方式：
-通过对 Container 执行 commit 命令来创建基于该 Container 的 Image 通过 Dockerfile 功能来构建 Image Dockerfile 构建镜像的方式逐渐成为主流甚至标准，但是随着各个项目的去 Docker 化，大家都想消除自身对 Docker 的依赖，这其中包括 Docker 项目的起源 Moby，从这里(moby/moby 的 issue #34227)可以略窥 12。但是 Dockerfile 的影响已经深入人心，所以各家一时半会也无法完全舍弃，只能说基于 Dockerfile 形式进行优化。时至今日(2022 年 6 月 3 日)，Dockerfile 依然是最常见最通用的构建镜像的方式，不管构建程序是什么，总归是要通过 Dockerfile 文件的。
-Dockerfile 参考：
-官方文档 Dockerfile 参考 Docker 通过读取 Dockerfile 文件中的指令来构建符合 OCI 标准的容器镜像。Dockerfile 这个称呼有多个理解方式，可以是指一个功能，也可以指一个文件的文件名，也可以代指一类文件的统称。
-DockerFile 功能的工作逻辑 找一个专用目录，在目录中放入默认的名为 Dockerfile 的文件，该文件名首字母必须大写 Dockerfile 文件，类似于一个脚本，使用 docker build 命令创建镜像的时候默认使用名为 Dockerfile 的文件，通过该文件中的各种指令来执行操作。（如果想使用其余名字的文件，则需要使用-f 参数来指明需要使用的 DockerFile 的文件，这时候可以使用名字不为 Dockerfile 的文件） 如果该 Image 中需要打包进去很多文件(比如 rpm 包、配置文件等等)，则这些文件必须做好后，放到 Dockerfile 所在的目录中(可以有子目录)。 使用 docker build 命令并用指定目录路径，则该命令会自动查找该目录下的名为 Dockerfile 文件并根据其中内容创建 Image，效果如上图所示 具体过程详解如下 首先在当前目录创建一个名为 Dockerfile 的文件，在该文件中写入需要执行的指令 ~]# ll total 4 -rw-r--r--.</description></item><item><title>Dockerfile 指令</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%8C%87%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%8C%87%E4%BB%A4/</guid><description>概述 参考：
-官方文档 官方文档 - 构建镜像的最佳实践 FROM - 指定 base 镜像 FROM 指令将会初始化一个新的构建阶段，并设置用于后续指令所使用的 BaseImage(基础镜像)。所以一个有效的 Dockerfile 必须从 FROM 指令开始。ARG 是唯一一个可以在 FROM 指令前面的指令，除此以外，FROM 可以说是必须存在的基础字段且为 DokerFile 文件的第一个非注释行。
-一个 Dockerfile 中可以有多个 FROM 指令，每出现一个 FROM 指令，即表示一个老阶段的结束，一个新阶段的开始。
-Syntax(语法) from [&amp;ndash;platform=&amp;lt;PLATFORM&amp;gt;] &amp;lt;image&amp;gt;[:&amp;lt;TAG&amp;gt; | @[DIGEST] ] [AS &amp;lt;NAME&amp;gt;] 附加指令：
-AS &amp;lt;NAME&amp;gt; # 为当前构建阶段起一个名字。该附加指令有如下几种用法： 在开始构建之前，可是使用 &amp;ndash;target 指令指定指定要从 STRING 这个阶段开始构建镜像。 在构建中，COPY 指令可以使用 &amp;ndash;from=&amp;lt;NAME&amp;gt; 参数来指定数据源是来自某个构建阶段内的数据，也就是说，COPY 指令不止可以从宿主机拷贝文件到容器中，还可以从上一个构建阶段的容器中，拷贝其内容到当前容器中。这也为多阶段构建模式中，减少镜像体积打下来坚实基础。 TAG 和 DIGEST # 该附加指令是可选的，若不指定镜像的 TAG，则默认使用 latest。 用法 Docker 还存在一个特殊的镜像，名为 scratch。这个镜像是虚拟的概念，并不实际存在，它表示一个空白的镜像。
-如果以 scratch 为基础镜像的话，意味着本次构建阶段不以任何镜像为基础，接下来所写的指令将作为镜像第一层开始存在。 不以任何系统为基础，直接将可执行文件复制进镜像的做法并不罕见，比如 coreos/etcd。对于 Linux 下静态编译的程序来说，并不需要有操作系统提供运行时支持，所需的一切库都已经在可执行文件里了，因此直接 FROM scratch 会让镜像体积更加小巧。使用 Go 语言 开发的应用很多会使用这种方式来制作镜像，这也是为什么有人认为 Go 是特别适合容器微服务架构的语言的原因之一。 LABEL - 为镜像添加标签 Syntax(语法) label &amp;lt;key&amp;gt;=&amp;lt;value&amp;gt; &amp;lt;key&amp;gt;=&amp;lt;value&amp;gt; &amp;lt;key&amp;gt;=&amp;lt;value&amp;gt; .</description></item><item><title>Multi-Stage Builds(多阶段构建)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Multi-Stage-Builds%E5%A4%9A%E9%98%B6%E6%AE%B5%E6%9E%84%E5%BB%BA/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Multi-Stage-Builds%E5%A4%9A%E9%98%B6%E6%AE%B5%E6%9E%84%E5%BB%BA/</guid><description>概述 参考：
-官方文档 https://docs.docker.com/build/building/multi-stage/ 两个奇技淫巧，将 Docker 镜像体积减小 99% https://mp.weixin.qq.com/s/6bgtD0Aer6-3u4u9jWBBhw
-对于刚接触容器的人来说，他们很容易被自己构建的 Docker 镜像体积吓到，我只需要一个几 MB 的可执行文件而已，为何镜像的体积会达到 1 GB 以上？本文将会介绍几个奇技淫巧来帮助你精简镜像，同时又不牺牲开发人员和运维人员的操作便利性。本系列文章将分为三个部分：
-第一部分着重介绍多阶段构建（multi-stage builds），因为这是镜像精简之路至关重要的一环。在这部分内容中，我会解释静态链接和动态链接的区别，它们对镜像带来的影响，以及如何避免那些不好的影响。中间会穿插一部分对 Alpine 镜像的介绍。
-第二部分将会针对不同的语言来选择适当的精简策略，其中主要讨论 Go ，同时也涉及到了 Java ， Node ， Python ， Ruby 和 Rust 。这一部分也会详细介绍 Alpine 镜像的避坑指南。什么？你不知道 Alpine 镜像有哪些坑？我来告诉你。
-第三部分将会探讨适用于大多数语言和框架的通用精简策略，例如使用常见的基础镜像、提取可执行文件和减小每一层的体积。同时还会介绍一些更加奇特或激进的工具，例如 Bazel ， Distroless ， DockerSlim 和 UPX ，虽然这些工具在某些特定场景下能带来奇效，但大多情况下会起到反作用。
-本文介绍第一部分。
-01 万恶之源 我敢打赌，每一个初次使用自己写好的代码构建 Docker 镜像的人都会被镜像的体积吓到，来看一个例子。
-让我们搬出那个屡试不爽的 hello world C 程序：
-/* hello.c */ int main () { puts(&amp;#34;Hello, world!&amp;#34;); return 0; } 并通过下面的 Dockerfile 构建镜像：</description></item><item><title>BuildKit 构建工具</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/BuildKit-%E6%9E%84%E5%BB%BA%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/BuildKit-%E6%9E%84%E5%BB%BA%E5%B7%A5%E5%85%B7/</guid><description>概述 参考：
-GitHub 项目，moby/buildkit 官方文档 知乎，官方下一代Docker镜像构建神器 &amp;ndash; BuildKit BuildKit 是 Docker 上游社区(Moby)推出的下一代镜像构建神器，可以更加快速，有效，安全地构建容器镜像。Docker v18.06 已经集成了该组件。BuildKit 可用于多种导出格式（例如 OCI 或 Docker）以及前端支持（Dockerfile），并提供高效缓存和运行并行构建操作等功能。BuildKit 仅需要容器运行时就能执行，当前受支持的运行时包括 Containerd 和 Runc。
-构建步骤优化 Docker 提供的原始构建最令人沮丧的问题之一是 Dockerfile 指令执行构建步骤的顺序性。在引入多阶段构建之后，可以将构建步骤分组为单独的逻辑构建任务在同一个 Dockerfile 中。
-有时，这些构建阶段是彼此完全独立的，这意味着它们可以并行执行-或根本不需要执行。遗憾的是，传统的 Docker 镜像构建无法满足这种灵活性。这意味着构建时间通常会比绝对必要的时间更长。
-相比之下，BuildKit 会创建一个构建步骤之间的依赖关系图，并使用该图来确定可以忽略构建的哪些元素;可以并行执行的元素;需要顺序执行的元素。这可以更有效地执行构建，这对开发人员来说很有价值，因为他们可以迭代其应用程序的镜像构建。
-高效灵活的缓存 虽然在旧版 Docker 镜像构建中缓存构建步骤非常有用，但效率却不如预期。作为对构建后端的重写，BuildKit 在此方面进行了改进，并提供了更快，更准确的缓存机制。使用为构建生成的依赖关系图，并且基于指令定义和构建步骤内容。
-BuildKit 提供的另一个巨大好处是以构建缓存导入和导出的形式出现，正如 Kaniko 和 Makisu 允许将构建缓存推送到远程注册表一样，BuildKit 也是如此，但是 BuildKit 使您可以灵活地将缓存嵌入到内部注册表中。镜像（内联）并将它们放在一起（虽然不是每个注册表都支持），或者将它们分开导入。也可以将缓存导出到本地目录以供以后使用。
-当从头开始建立构建环境而没有任何先前的构建历史时，导入构建缓存的能力就发挥了自己的作用：导入“预热”缓存，对于临时 CI/CD 环境特别有用。
-工件 当使用旧版 Docker 镜像构建器构建镜像时，将生成的镜像添加到 Docker 守护进程管理的本地镜像的缓存中。需要单独的docker push将该镜像上载到远程容器镜像注册表。新的工件构建工具通过允许您在构建调用时指定镜像推送来增强体验，BuildKit 也不例外，它还允许以几种不同格式输出镜像；本地目录中的文件，本地 tarball，一个本地 OCI 镜像 tarball，一个 Docker 镜像 tarball，一个存储在本地缓存中的 Docker 镜像以及一个推送到注册表的 Docker 镜像，有很多格式！</description></item><item><title>Dockerfile 样例</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%A0%B7%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%A0%B7%E4%BE%8B/</guid><description>生成一个具有基本网络工具的容器，可以用来测试
-FROM centos:centos7.8.2003 ENV LANG=zh_CN.UTF-8 \ LANGUAGE=zh_CN:zh \ LC_ALL=zh_CN.UTF-8 RUN yum install -y epel-release.noarch &amp;amp;&amp;amp; \ yum install -y iproute bind-utils nginx glibc-common tcpdump telnet &amp;amp;&amp;amp; \ yum clean all &amp;amp;&amp;amp; \ rm -rf /tmp/* rm -rf /var/cache/yum/* &amp;amp;&amp;amp; \ localedef -c -f UTF-8 -i zh_CN zh_CN.UTF-8 &amp;amp;&amp;amp; \ ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime COPY index.html /usr/share/nginx/html EXPOSE 80/tcp CMD [&amp;#34;/usr/sbin/nginx&amp;#34;,&amp;#34;-g&amp;#34;,&amp;#34;daemon off;&amp;#34;] ~]# cat index.html &amp;lt;meta charset=&amp;#34;utf-8&amp;#34;/&amp;gt; &amp;lt;h1&amp;gt;网络测试容器 desist-daydream 1&amp;lt;/h1&amp;gt; 使用 alpine 版本让镜像更小</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>构建 OCI Image on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/</link><description>Recent content in 构建 OCI Image on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/index.xml" rel="self" type="application/rss+xml"/><item><title>构建 OCI Image</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/%E6%9E%84%E5%BB%BA-OCI-Image/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/%E6%9E%84%E5%BB%BA-OCI-Image/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/"&gt;官方文档，使用 Docker 开发-构建镜像-编写 Dockerfile 的最佳实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在容器刚刚流行的时候，想要构建一个容器镜像通常只有两种方式：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;通过对 Container 执行 commit 命令来创建基于该 Container 的 Image&lt;/li&gt;
+&lt;li&gt;通过 Dockerfile 功能来构建 Image&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Dockerfile 构建镜像的方式逐渐成为主流甚至标准，但是随着各个项目的去 Docker 化，大家都想消除自身对 Docker 的依赖，这其中包括 Docker 项目的起源 Moby，从&lt;a href="https://github.com/moby/moby/issues/34227"&gt;这里(moby/moby 的 issue #34227)&lt;/a&gt;可以略窥 12。但是 Dockerfile 的影响已经深入人心，所以各家一时半会也无法完全舍弃，只能说基于 Dockerfile 形式进行优化。时至今日(2022 年 6 月 3 日)，Dockerfile 依然是最常见最通用的构建镜像的方式，不管构建程序是什么，总归是要通过 Dockerfile 文件的。&lt;/p&gt;
+&lt;h1 id="dockerfile"&gt;Dockerfile&lt;a class="td-heading-self-link" href="#dockerfile" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/"&gt;官方文档&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://docs.docker.com/engine/reference/builder/"&gt;Dockerfile 参考&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Docker 通过读取 &lt;strong&gt;Dockerfile 文件&lt;/strong&gt;中的指令来构建符合 OCI 标准的容器镜像。Dockerfile 这个称呼有多个理解方式，可以是指一个&lt;strong&gt;功能&lt;/strong&gt;，也可以指一个文件的&lt;strong&gt;文件名&lt;/strong&gt;，也可以代指一类文件的&lt;strong&gt;统称。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id="dockerfile-功能的工作逻辑"&gt;DockerFile 功能的工作逻辑&lt;a class="td-heading-self-link" href="#dockerfile-%e5%8a%9f%e8%83%bd%e7%9a%84%e5%b7%a5%e4%bd%9c%e9%80%bb%e8%be%91" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ymn9n3/1616121926992-8640dd4a-029c-487c-9fa2-f20ee1b61b83.png" alt=""&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;找一个专用目录，在目录中放入默认的名为 Dockerfile 的文件，该文件名首字母必须大写
+&lt;ul&gt;
+&lt;li&gt;Dockerfile 文件，类似于一个脚本，使用 docker build 命令创建镜像的时候默认使用名为 Dockerfile 的文件，通过该文件中的各种指令来执行操作。（如果想使用其余名字的文件，则需要使用-f 参数来指明需要使用的 DockerFile 的文件，这时候可以使用名字不为 Dockerfile 的文件）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;如果该 Image 中需要打包进去很多文件(比如 rpm 包、配置文件等等)，则这些文件必须做好后，放到 Dockerfile 所在的目录中(可以有子目录)。&lt;/li&gt;
+&lt;li&gt;使用 docker build 命令并用指定目录路径，则该命令会自动查找该目录下的名为 Dockerfile 文件并根据其中内容创建 Image，效果如上图所示&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="具体过程详解如下"&gt;具体过程详解如下&lt;a class="td-heading-self-link" href="#%e5%85%b7%e4%bd%93%e8%bf%87%e7%a8%8b%e8%af%a6%e8%a7%a3%e5%a6%82%e4%b8%8b" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;首先在当前目录创建一个名为 Dockerfile 的文件，在该文件中写入需要执行的指令&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# ll&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;total &lt;span style="color:#0000cf;font-weight:bold"&gt;4&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;-rw-r--r--. &lt;span style="color:#0000cf;font-weight:bold"&gt;1&lt;/span&gt; root root &lt;span style="color:#0000cf;font-weight:bold"&gt;49&lt;/span&gt; Nov &lt;span style="color:#0000cf;font-weight:bold"&gt;27&lt;/span&gt; 21:02 &lt;span style="color:#204a87"&gt;test&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# cat test&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;FROM ubuntu
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;RUN apt update &lt;span style="color:#ce5c00;font-weight:bold"&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt install -y vim
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;RUN apt install -y iproute2
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;ul&gt;
+&lt;li&gt;使用 docker build -t ubuntu-vi -f test /dockerfile/ 命令创建镜像
+&lt;ul&gt;
+&lt;li&gt;当创建镜像的时候，会使用命令中定义的 PATH 中的默认名为 Dockerfile 文件中的指令来进行自动操作，可以通过-f 选项来选择指定路径下的 Dockerfile 文件（注：命令会从/dockerfile/目录中查找 Dockerfile 文件，然后把/root 目录中的所有文件发送给 Docker daemon 来使用，所以定义创建环境的时候最好使用一个空目录）
+&lt;ul&gt;
+&lt;li&gt;sending(发送)build context(创建环境)to(给)docker daemon(容器守护进程) 17.92KB(这个文件 17.92K)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# docker build -t ubuntu-vi -f test /dockerfile/&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;Sending build context to Docker daemon 2.048kB
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;ul&gt;
+&lt;li&gt;执行文件中 FROM 指令,将 ubuntu 作为基础镜像，IMAGE ID 为 93fd78260bd1&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;Step 1/3 : FROM ubuntu
+ ---&amp;gt; 93fd78260bd1
+&lt;/code&gt;&lt;/pre&gt;&lt;ul&gt;
+&lt;li&gt;基于 93fd78260bd1 这个 IMAGE 启动名为 607ce2e8553f 的临时容器，执行 RUN 后面的命令执行文件中的第二行 RUN 指令,安装 VIM&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;Step 2/3 : RUN apt update &amp;amp;&amp;amp; apt install -y vim
+ ---&amp;gt; Running in 607ce2e8553f
+&lt;/code&gt;&lt;/pre&gt;&lt;ul&gt;
+&lt;li&gt;开始执行安装程序，会有警告，具体过程忽略不截图了&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+Get:1 http://archive.ubuntu.com/ubuntu bionic InRelease [242 kB]
+Get:2 http://security.ubuntu.com/ubuntu bionic-security InRelease [83.2 kB]
+Get:3 http://security.ubuntu.com/ubuntu bionic-security/multiverse amd64 Packages [1364 B]
+Get:4 http://archive.ubuntu.com/ubuntu bionic-updates InRelease [88.7 kB]
+Get:5 http://security.ubuntu.com/ubuntu bionic-security/main amd64 Packages [264 kB]
+Get:6 http://archive.ubuntu.com/ubuntu bionic-backports InRelease [74.6 kB]
+Get:7 http://archive.ubuntu.com/ubuntu bionic/main amd64 Packages [1344 kB]
+。。。。。。。后面省略
+&lt;/code&gt;&lt;/pre&gt;&lt;ul&gt;
+&lt;li&gt;生成临时 IMAGE，ID 为 f5d8205bae1b，移除临时容器 607ce2e8553f&lt;/li&gt;
+&lt;li&gt;注：这一步使用的就是 docker commit 命令类似的功能，提交一个运行中的容器生成镜像，只不过该容器是缓存状态，最后会彻底删除&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;Removing intermediate container 607ce2e8553f
+ ---&amp;gt; f5d8205bae1b
+&lt;/code&gt;&lt;/pre&gt;&lt;ul&gt;
+&lt;li&gt;基于 f5d8205bae1b 这个临时 IMAGE 启动 ddceac75c0ef 容器，执行 Dockerfile 中第三行的 RUN 指令&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;Step 3/3 : RUN apt install -y iproute2
+ ---&amp;gt; Running in ddceac75c0ef .......命令执行结果省略
+&lt;/code&gt;&lt;/pre&gt;&lt;ul&gt;
+&lt;li&gt;处理成功，生成最终 IMAGE，ID 为 9e0ddfd39bb1，并移除临时容器 ddceac75c0ef&lt;/li&gt;
+&lt;li&gt;注：这一步使用的就是 docker commit 命令类似的功能，提交一个运行中的容器生成镜像，只不过该容器是缓存状态，最后会彻底删除&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;Processing triggers for libc-bin (2.27-3ubuntu1) ...
+Removing intermediate container ddceac75c0ef
+ ---&amp;gt; 9e0ddfd39bb1
+&lt;/code&gt;&lt;/pre&gt;&lt;ul&gt;
+&lt;li&gt;创建 IMAGE ID 为 9e0ddfd39bb1 的 IMAGE 成功，并成功给 IMAGE 打上标签为 ubuntu-vi:latest&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;Successfully built 9e0ddfd39bb1
+Successfully tagged ubuntu-vi:latest
+&lt;/code&gt;&lt;/pre&gt;&lt;ul&gt;
+&lt;li&gt;下图是创建过程中查询容器，会发现，中间创建的临时 Container 已经都被删除了，并且还会有一个没有名字只有 IMAGE ID 的 IMAGE&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;[root@master0 ~]# docker ps -a
+CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
+607ce2e8553f 93fd78260bd1 &amp;#34;/bin/sh -c &amp;#39;apt ins…&amp;#34; 2 seconds ago Up 2 seconds jovial_almeida
+[root@master0 ~]# docker ps -a
+CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
+ddceac75c0ef f5d8205bae1b &amp;#34;/bin/sh -c &amp;#39;apt ins…&amp;#34; 2 seconds ago Up 2 seconds serene_rosalind
+[root@master0 ~]# docker ps -a
+CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
+[root@master0 ~]# docker ps -a
+[root@master0 ~]# docker images -a
+ubuntu-vi latest 9e0ddfd39bb1 58 seconds ago 169M
+&amp;lt;none&amp;gt; &amp;lt;none&amp;gt; f5d8205bae1b 58 seconds ago 151MB
+ubuntu latest 93fd78260bd1 7 days ago 86.2MB
+&lt;/code&gt;&lt;/pre&gt;&lt;ul&gt;
+&lt;li&gt;该过程结束&lt;/li&gt;
+&lt;li&gt;总结
+&lt;ul&gt;
+&lt;li&gt;dockerfile 的每一个命令，就是给 base image 上新加一层 image&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="dockerfile-构建镜像的过程"&gt;Dockerfile 构建镜像的过程&lt;a class="td-heading-self-link" href="#dockerfile-%e6%9e%84%e5%bb%ba%e9%95%9c%e5%83%8f%e7%9a%84%e8%bf%87%e7%a8%8b" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;从 base 镜像运行一个容器。&lt;/li&gt;
+&lt;li&gt;执行一条指令，对容器做修改。&lt;/li&gt;
+&lt;li&gt;执行类似 docker commit 的操作，生成一个新的镜像层。&lt;/li&gt;
+&lt;li&gt;Docker 再基于刚刚提交的镜像运行一个新容器。&lt;/li&gt;
+&lt;li&gt;重复 2-4 步，直到 Dockerfile 中的所有指令执行完毕&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/ymn9n3/1616121927006-3431594b-1d7d-4764-b6ce-6227bcfc9966.png" alt=""&gt;&lt;/p&gt;</description></item><item><title>Dockerfile 指令</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%8C%87%E4%BB%A4/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%8C%87%E4%BB%A4/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://docs.docker.com/engine/reference/builder/"&gt;官方文档&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/"&gt;官方文档 - 构建镜像的最佳实践&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="from---指定-base-镜像"&gt;FROM - 指定 base 镜像&lt;a class="td-heading-self-link" href="#from---%e6%8c%87%e5%ae%9a-base-%e9%95%9c%e5%83%8f" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;code&gt;FROM&lt;/code&gt; 指令将会初始化一个新的构建阶段，并设置用于后续指令所使用的 BaseImage(基础镜像)。&lt;strong&gt;所以一个有效的 Dockerfile 必须从 FROM 指令开始&lt;/strong&gt;。&lt;code&gt;ARG&lt;/code&gt; 是唯一一个可以在 &lt;code&gt;FROM&lt;/code&gt; 指令前面的指令，除此以外，&lt;code&gt;FROM&lt;/code&gt; 可以说是&lt;strong&gt;必须存在的基础字段且为 DokerFile 文件的第一个非注释行。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;一个 Dockerfile 中可以有多个 &lt;code&gt;FROM&lt;/code&gt; 指令，每出现一个 &lt;code&gt;FROM&lt;/code&gt; 指令，即表示一个老阶段的结束，一个新阶段的开始。&lt;/p&gt;
+&lt;h2 id="syntax语法"&gt;Syntax(语法)&lt;a class="td-heading-self-link" href="#syntax%e8%af%ad%e6%b3%95" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;from [&amp;ndash;platform=&amp;lt;PLATFORM&amp;gt;] &amp;lt;image&amp;gt;[:&amp;lt;TAG&amp;gt; | @[DIGEST] ] [AS &amp;lt;NAME&amp;gt;]&lt;/strong&gt;
+附加指令：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;AS &amp;lt;NAME&amp;gt;&lt;/strong&gt; # 为当前构建阶段起一个名字。该附加指令有如下几种用法：
+&lt;ul&gt;
+&lt;li&gt;在开始构建之前，可是使用 &amp;ndash;target 指令指定指定要从 STRING 这个阶段开始构建镜像。&lt;/li&gt;
+&lt;li&gt;在构建中，&lt;code&gt;COPY&lt;/code&gt; 指令可以使用 &amp;ndash;from=&amp;lt;NAME&amp;gt; 参数来指定数据源是来自某个构建阶段内的数据，也就是说，&lt;code&gt;COPY&lt;/code&gt; 指令不止可以从宿主机拷贝文件到容器中，还可以从上一个构建阶段的容器中，拷贝其内容到当前容器中。这也为多阶段构建模式中，减少镜像体积打下来坚实基础。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;TAG 和 DIGEST&lt;/strong&gt; # 该附加指令是可选的，若不指定镜像的 TAG，则默认使用 latest。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="用法"&gt;用法&lt;a class="td-heading-self-link" href="#%e7%94%a8%e6%b3%95" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;Docker 还存在一个特殊的镜像，名为 scratch。这个镜像是虚拟的概念，并不实际存在，它表示一个空白的镜像。&lt;/p&gt;</description></item><item><title>Multi-Stage Builds(多阶段构建)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Multi-Stage-Builds%E5%A4%9A%E9%98%B6%E6%AE%B5%E6%9E%84%E5%BB%BA/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Multi-Stage-Builds%E5%A4%9A%E9%98%B6%E6%AE%B5%E6%9E%84%E5%BB%BA/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://docs.docker.com/develop/develop-images/multistage-build/"&gt;官方文档&lt;/a&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://docs.docker.com/build/building/multi-stage/"&gt;https://docs.docker.com/build/building/multi-stage/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="两个奇技淫巧将-docker-镜像体积减小-99"&gt;两个奇技淫巧，将 Docker 镜像体积减小 99%&lt;a class="td-heading-self-link" href="#%e4%b8%a4%e4%b8%aa%e5%a5%87%e6%8a%80%e6%b7%ab%e5%b7%a7%e5%b0%86-docker-%e9%95%9c%e5%83%8f%e4%bd%93%e7%a7%af%e5%87%8f%e5%b0%8f-99" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;a href="https://mp.weixin.qq.com/s/6bgtD0Aer6-3u4u9jWBBhw"&gt;https://mp.weixin.qq.com/s/6bgtD0Aer6-3u4u9jWBBhw&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;对于刚接触容器的人来说，他们很容易被自己构建的 Docker 镜像体积吓到，我只需要一个几 MB 的可执行文件而已，为何镜像的体积会达到 &lt;code&gt;1 GB&lt;/code&gt; 以上？本文将会介绍几个奇技淫巧来帮助你精简镜像，同时又不牺牲开发人员和运维人员的操作便利性。本系列文章将分为三个部分：&lt;/p&gt;
+&lt;p&gt;第一部分着重介绍多阶段构建（multi-stage builds），因为这是镜像精简之路至关重要的一环。在这部分内容中，我会解释静态链接和动态链接的区别，它们对镜像带来的影响，以及如何避免那些不好的影响。中间会穿插一部分对 &lt;code&gt;Alpine&lt;/code&gt; 镜像的介绍。&lt;/p&gt;
+&lt;p&gt;第二部分将会针对不同的语言来选择适当的精简策略，其中主要讨论 &lt;code&gt;Go&lt;/code&gt; ，同时也涉及到了 &lt;code&gt;Java&lt;/code&gt; ， &lt;code&gt;Node&lt;/code&gt; ， &lt;code&gt;Python&lt;/code&gt; ， &lt;code&gt;Ruby&lt;/code&gt; 和 &lt;code&gt;Rust&lt;/code&gt; 。这一部分也会详细介绍 Alpine 镜像的避坑指南。什么？你不知道 &lt;code&gt;Alpine&lt;/code&gt; 镜像有哪些坑？我来告诉你。&lt;/p&gt;
+&lt;p&gt;第三部分将会探讨适用于大多数语言和框架的通用精简策略，例如使用常见的基础镜像、提取可执行文件和减小每一层的体积。同时还会介绍一些更加奇特或激进的工具，例如 &lt;code&gt;Bazel&lt;/code&gt; ， &lt;code&gt;Distroless&lt;/code&gt; ， &lt;code&gt;DockerSlim&lt;/code&gt; 和 &lt;code&gt;UPX&lt;/code&gt; ，虽然这些工具在某些特定场景下能带来奇效，但大多情况下会起到反作用。&lt;/p&gt;
+&lt;p&gt;本文介绍第一部分。&lt;/p&gt;
+&lt;h2 id="01-万恶之源"&gt;01 万恶之源&lt;a class="td-heading-self-link" href="#01-%e4%b8%87%e6%81%b6%e4%b9%8b%e6%ba%90" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;我敢打赌，每一个初次使用自己写好的代码构建 Docker 镜像的人都会被镜像的体积吓到，来看一个例子。&lt;/p&gt;
+&lt;p&gt;让我们搬出那个屡试不爽的 &lt;code&gt;hello world&lt;/code&gt; C 程序：&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;/* hello.c */
+int main () {
+ puts(&amp;#34;Hello, world!&amp;#34;);
+ return 0;
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;并通过下面的 Dockerfile 构建镜像：&lt;/p&gt;</description></item><item><title>BuildKit 构建工具</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/BuildKit-%E6%9E%84%E5%BB%BA%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/BuildKit-%E6%9E%84%E5%BB%BA%E5%B7%A5%E5%85%B7/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://github.com/moby/buildkit"&gt;GitHub 项目，moby/buildkit&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://docs.docker.com/develop/develop-images/build_enhancements/"&gt;官方文档&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://zhuanlan.zhihu.com/p/137261919"&gt;知乎，官方下一代Docker镜像构建神器 &amp;ndash; BuildKit&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;BuildKit 是 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker/"&gt;Docker&lt;/a&gt; 上游社区(Moby)推出的下一代镜像构建神器，可以更加快速，有效，安全地构建容器镜像。Docker v18.06 已经集成了该组件。BuildKit 可用于多种导出格式（例如 OCI 或 Docker）以及前端支持（Dockerfile），并提供高效缓存和运行并行构建操作等功能。BuildKit 仅需要容器运行时就能执行，当前受支持的运行时包括 Containerd 和 Runc。&lt;/p&gt;
+&lt;h2 id="构建步骤优化"&gt;构建步骤优化&lt;a class="td-heading-self-link" href="#%e6%9e%84%e5%bb%ba%e6%ad%a5%e9%aa%a4%e4%bc%98%e5%8c%96" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;Docker 提供的原始构建最令人沮丧的问题之一是 Dockerfile 指令执行构建步骤的顺序性。在引入多阶段构建之后，可以将构建步骤分组为单独的逻辑构建任务在同一个 Dockerfile 中。&lt;/p&gt;
+&lt;p&gt;有时，这些构建阶段是彼此完全独立的，这意味着它们可以并行执行-或根本不需要执行。遗憾的是，传统的 Docker 镜像构建无法满足这种灵活性。这意味着构建时间通常会比绝对必要的时间更长。&lt;/p&gt;
+&lt;p&gt;相比之下，BuildKit 会创建一个构建步骤之间的依赖关系图，并使用该图来确定可以忽略构建的哪些元素;可以并行执行的元素;需要顺序执行的元素。这可以更有效地执行构建，这对开发人员来说很有价值，因为他们可以迭代其应用程序的镜像构建。&lt;/p&gt;
+&lt;h2 id="高效灵活的缓存"&gt;高效灵活的缓存&lt;a class="td-heading-self-link" href="#%e9%ab%98%e6%95%88%e7%81%b5%e6%b4%bb%e7%9a%84%e7%bc%93%e5%ad%98" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;虽然在旧版 Docker 镜像构建中缓存构建步骤非常有用，但效率却不如预期。作为对构建后端的重写，BuildKit 在此方面进行了改进，并提供了更快，更准确的缓存机制。使用为构建生成的依赖关系图，并且基于指令定义和构建步骤内容。&lt;/p&gt;
+&lt;p&gt;BuildKit 提供的另一个巨大好处是以构建缓存导入和导出的形式出现，正如 Kaniko 和 Makisu 允许将构建缓存推送到远程注册表一样，BuildKit 也是如此，但是 BuildKit 使您可以灵活地将缓存嵌入到内部注册表中。镜像（内联）并将它们放在一起（虽然不是每个注册表都支持），或者将它们分开导入。也可以将缓存导出到本地目录以供以后使用。&lt;/p&gt;
+&lt;p&gt;当从头开始建立构建环境而没有任何先前的构建历史时，导入构建缓存的能力就发挥了自己的作用：导入“预热”缓存，对于临时 CI/CD 环境特别有用。&lt;/p&gt;
+&lt;h2 id="工件"&gt;工件&lt;a class="td-heading-self-link" href="#%e5%b7%a5%e4%bb%b6" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;当使用旧版 Docker 镜像构建器构建镜像时，将生成的镜像添加到 Docker 守护进程管理的本地镜像的缓存中。需要单独的&lt;code&gt;docker push&lt;/code&gt;将该镜像上载到远程容器镜像注册表。新的工件构建工具通过允许您在构建调用时指定镜像推送来增强体验，BuildKit 也不例外，它还允许以几种不同格式输出镜像；本地目录中的文件，本地 tarball，一个本地 OCI 镜像 tarball，一个 Docker 镜像 tarball，一个存储在本地缓存中的 Docker 镜像以及一个推送到注册表的 Docker 镜像，有很多格式！&lt;/p&gt;</description></item><item><title>Dockerfile 样例</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%A0%B7%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/%E6%9E%84%E5%BB%BA-OCI-Image/Dockerfile-%E6%A0%B7%E4%BE%8B/</guid><description>&lt;p&gt;生成一个具有基本网络工具的容器，可以用来测试&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-dockerfile" data-lang="dockerfile"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;FROM&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#4e9a06"&gt;centos:centos7.8.2003&lt;/span&gt;&lt;span style="color:#a40000"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;ENV&lt;/span&gt; &lt;span style="color:#000"&gt;LANG&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;zh_CN.UTF-8 &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#000"&gt;LANGUAGE&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;zh_CN:zh &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#000"&gt;LC_ALL&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;zh_CN.UTF-8&lt;span style="color:#a40000"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;RUN&lt;/span&gt; yum install -y epel-release.noarch &lt;span style="color:#ce5c00;font-weight:bold"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; yum install -y iproute bind-utils nginx glibc-common tcpdump telnet &lt;span style="color:#ce5c00;font-weight:bold"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; yum clean all &lt;span style="color:#ce5c00;font-weight:bold"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;rm -rf /tmp/* rm -rf /var/cache/yum/* &lt;span style="color:#ce5c00;font-weight:bold"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; localedef -c -f UTF-8 -i zh_CN zh_CN.UTF-8 &lt;span style="color:#ce5c00;font-weight:bold"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime&lt;span style="color:#a40000"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;COPY&lt;/span&gt; index.html /usr/share/nginx/html&lt;span style="color:#a40000"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;EXPOSE&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#4e9a06"&gt;80/tcp&lt;/span&gt;&lt;span style="color:#a40000"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;CMD&lt;/span&gt; &lt;span style="color:#000;font-weight:bold"&gt;[&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;/usr/sbin/nginx&amp;#34;&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;,&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;-g&amp;#34;&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;,&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;daemon off;&amp;#34;&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#a40000"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# cat index.html&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&amp;lt;meta &lt;span style="color:#000"&gt;charset&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;utf-8&amp;#34;&lt;/span&gt;/&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&amp;lt;h1&amp;gt;网络测试容器 desist-daydream 1&amp;lt;/h1&amp;gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;使用 alpine 版本让镜像更小&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-dockerfile" data-lang="dockerfile"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;FROM&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#4e9a06"&gt;nginx:stable-alpine&lt;/span&gt;&lt;span style="color:#a40000"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;RUN&lt;/span&gt; sed -i &lt;span style="color:#4e9a06"&gt;&amp;#39;s/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g&amp;#39;&lt;/span&gt; /etc/apk/repositories &lt;span style="color:#ce5c00;font-weight:bold"&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; apk add --no-cache busybox-extras curl iproute2 tcpdump&lt;span style="color:#a40000"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;COPY&lt;/span&gt; index.html /usr/share/nginx/html&lt;span style="color:#a40000"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;使用 multi-stage 功能构建镜像&lt;/p&gt;</description></item></channel></rss>

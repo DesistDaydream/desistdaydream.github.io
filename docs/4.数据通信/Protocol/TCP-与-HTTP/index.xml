@@ -1,8 +1,35 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>TCP 与 HTTP on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/</link><description>Recent content in TCP 与 HTTP on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/index.xml" rel="self" type="application/rss+xml"/><item><title>TCP 与 HTTP</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/TCP-%E4%B8%8E-HTTP/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/TCP-%E4%B8%8E-HTTP/</guid><description>TCP 与 HTTP 的 Keep-Alive 原文链接：https://mp.weixin.qq.com/s/25atTs4b-vORIx525ur_aw
-大致问题是，TCP 的 Keepalive 和 HTTP 的 Keep-Alive 是一个东西吗？ 这是个好问题，应该有不少人都会搞混，因为这两个东西看上去太像了，很容易误以为是同一个东西。 事实上，这两个完全是两样不同东西，实现的层面也不同：
-HTTP 的 Keep-Alive，是由应用层（用户态） 实现的，称为 HTTP 长连接； TCP 的 Keepalive，是由 TCP 层（内核态） 实现的，称为 TCP 保活机制； 接下来，分别说说它们。
-HTTP 的 Keep-Alive HTTP 协议采用的是「请求-应答」的模式，也就是客户端发起了请求，服务端才会返回响应，一来一回这样子。 请求-应答 由于 HTTP 是基于 TCP 传输协议实现的，客户端与服务端要进行 HTTP 通信前，需要先建立 TCP 连接，然后客户端发送 HTTP 请求，服务端收到后就返回响应，至此「请求-应答」的模式就完成了，随后就会释放 TCP 连接。 一个 HTTP 请求 如果每次请求都要经历这样的过程：建立 TCP -&amp;gt; 请求资源 -&amp;gt; 响应资源 -&amp;gt; 释放连接，那么此方式就是 HTTP 短连接，如下图： HTTP 短连接 这样实在太累人了，一次连接只能请求一次资源。 能不能在第一个 HTTP 请求完后，先不断开 TCP 连接，让后续的 HTTP 请求继续使用此连接？ 当然可以，HTTP 的 Keep-Alive 就是实现了这个功能，可以使用同一个 TCP 连接来发送和接收多个 HTTP 请求/应答，避免了连接建立和释放的开销，这个方法称为 HTTP 长连接。 HTTP 长连接 HTTP 长连接的特点是，只要任意一端没有明确提出断开连接，则保持 TCP 连接状态。 怎么才能使用 HTTP 的 Keep-Alive 功能？ 在 HTTP 1.</description></item><item><title>一个 TCP 连接上面能发多少个 HTTP 请求</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/%E4%B8%80%E4%B8%AA-TCP-%E8%BF%9E%E6%8E%A5%E4%B8%8A%E9%9D%A2%E8%83%BD%E5%8F%91%E5%A4%9A%E5%B0%91%E4%B8%AA-HTTP-%E8%AF%B7%E6%B1%82/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/%E4%B8%80%E4%B8%AA-TCP-%E8%BF%9E%E6%8E%A5%E4%B8%8A%E9%9D%A2%E8%83%BD%E5%8F%91%E5%A4%9A%E5%B0%91%E4%B8%AA-HTTP-%E8%AF%B7%E6%B1%82/</guid><description>你猜一个 TCP 连接上面能发多少个 HTTP 请求 - 知乎
-一道经典的面试题是从 URL 在浏览器被被输入到页面展现的过程中发生了什么，大多数回答都是说请求响应之后 DOM 怎么被构建，被绘制出来。但是你有没有想过，收到的 HTML 如果包含几十个图片标签，这些图片是以什么方式、什么顺序、建立了多少连接、使用什么协议被下载下来的呢？
-要搞懂这个问题，我们需要先解决下面五个问题：
-现代浏览器在与服务器建立了一个 TCP 连接后是否会在一个 HTTP 请求完成后断开？什么情况下会断开？ 一个 TCP 连接可以对应几个 HTTP 请求？ 一个 TCP 连接中 HTTP 请求发送可以一起发送么（比如一起发三个请求，再三个响应一起接收）？ 为什么有的时候刷新页面不需要重新建立 SSL 连接？ 浏览器对同一 Host 建立 TCP 连接到数量有没有限制？ 先来谈谈第一个问题：现代浏览器在与服务器建立了一个 TCP 连接后是否会在一个 HTTP 请求完成后断开？什么情况下会断开？
-在 HTTP/1.0 中，一个服务器在发送完一个 HTTP 响应后，会断开 TCP 链接。但是这样每次请求都会重新建立和断开 TCP 连接，代价过大。所以虽然标准中没有设定，某些服务器对 Connection: keep-alive 的 Header 进行了支持。意思是说，完成这个 HTTP 请求之后，不要断开 HTTP 请求使用的 TCP 连接。这样的好处是连接可以被重新使用，之后发送 HTTP 请求的时候不需要重新建立 TCP 连接，以及如果维持连接，那么 SSL 的开销也可以避免，两张图片是我短时间内两次访问 https://www.github.com 的时间统计：</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>TCP 与 HTTP on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/</link><description>Recent content in TCP 与 HTTP on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/index.xml" rel="self" type="application/rss+xml"/><item><title>TCP 与 HTTP</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/TCP-%E4%B8%8E-HTTP/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/TCP-%E4%B8%8E-HTTP/</guid><description>&lt;h1 id="tcp-与-http-的-keep-alive"&gt;TCP 与 HTTP 的 Keep-Alive&lt;a class="td-heading-self-link" href="#tcp-%e4%b8%8e-http-%e7%9a%84-keep-alive" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;原文链接：&lt;a href="https://mp.weixin.qq.com/s/25atTs4b-vORIx525ur_aw"&gt;https://mp.weixin.qq.com/s/25atTs4b-vORIx525ur_aw&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;大致问题是，&lt;strong&gt;TCP 的 Keepalive 和 HTTP 的 Keep-Alive 是一个东西吗？&lt;/strong&gt;
+这是个好问题，应该有不少人都会搞混，因为这两个东西看上去太像了，很容易误以为是同一个东西。
+事实上，&lt;strong&gt;这两个完全是两样不同东西&lt;/strong&gt;，实现的层面也不同：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;HTTP 的 Keep-Alive，是由&lt;strong&gt;应用层（用户态）&lt;/strong&gt; 实现的，称为 HTTP 长连接；&lt;/li&gt;
+&lt;li&gt;TCP 的 Keepalive，是由 &lt;strong&gt;TCP 层（内核态）&lt;/strong&gt; 实现的，称为 TCP 保活机制；&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;接下来，分别说说它们。&lt;/p&gt;
+&lt;h3 id="http-的-keep-alive"&gt;HTTP 的 Keep-Alive&lt;a class="td-heading-self-link" href="#http-%e7%9a%84-keep-alive" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;HTTP 协议采用的是「请求-应答」的模式，也就是客户端发起了请求，服务端才会返回响应，一来一回这样子。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/aqay4l/1625643072489-5556e712-c824-499b-8a85-9df5b8de00a2.png" alt=""&gt;请求-应答
+由于 HTTP 是基于 TCP 传输协议实现的，客户端与服务端要进行 HTTP 通信前，需要先建立 TCP 连接，然后客户端发送 HTTP   请求，服务端收到后就返回响应，至此「请求-应答」的模式就完成了，随后就会释放 TCP 连接。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/aqay4l/1625643072516-f1e8278b-3248-4e10-b9a0-f1858df8238d.png" alt=""&gt;一个 HTTP 请求
+如果每次请求都要经历这样的过程：建立 TCP -&amp;gt; 请求资源 -&amp;gt; 响应资源 -&amp;gt; 释放连接，那么此方式就是 &lt;strong&gt;HTTP 短连接&lt;/strong&gt;，如下图：
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/aqay4l/1625643072462-fff13ee3-a399-4f41-bfe9-443e85f007b1.png" alt=""&gt;HTTP 短连接
+这样实在太累人了，一次连接只能请求一次资源。
+能不能在第一个 HTTP 请求完后，先不断开 TCP 连接，让后续的 HTTP 请求继续使用此连接？
+当然可以，HTTP 的 Keep-Alive 就是实现了这个功能，可以使用同一个 TCP 连接来发送和接收多个 HTTP 请求/应答，避免了连接建立和释放的开销，这个方法称为 &lt;strong&gt;HTTP 长连接&lt;/strong&gt;。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/aqay4l/1625643072505-c0e7c75c-925f-4b8a-a791-1b44484decf0.png" alt=""&gt;HTTP 长连接
+HTTP 长连接的特点是，只要任意一端没有明确提出断开连接，则保持 TCP 连接状态。
+怎么才能使用 HTTP 的 Keep-Alive 功能？
+在 HTTP 1.0 中默认是关闭的，如果浏览器要开启 Keep-Alive，它必须在请求的包头中添加：&lt;/p&gt;</description></item><item><title>一个 TCP 连接上面能发多少个 HTTP 请求</title><link>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/%E4%B8%80%E4%B8%AA-TCP-%E8%BF%9E%E6%8E%A5%E4%B8%8A%E9%9D%A2%E8%83%BD%E5%8F%91%E5%A4%9A%E5%B0%91%E4%B8%AA-HTTP-%E8%AF%B7%E6%B1%82/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/4.%E6%95%B0%E6%8D%AE%E9%80%9A%E4%BF%A1/Protocol/TCP-%E4%B8%8E-HTTP/%E4%B8%80%E4%B8%AA-TCP-%E8%BF%9E%E6%8E%A5%E4%B8%8A%E9%9D%A2%E8%83%BD%E5%8F%91%E5%A4%9A%E5%B0%91%E4%B8%AA-HTTP-%E8%AF%B7%E6%B1%82/</guid><description>&lt;p&gt;&lt;a href="https://zhuanlan.zhihu.com/p/61423830"&gt;你猜一个 TCP 连接上面能发多少个 HTTP 请求 - 知乎&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;一道经典的面试题是从 URL 在浏览器被被输入到页面展现的过程中发生了什么，大多数回答都是说请求响应之后 DOM 怎么被构建，被绘制出来。但是你有没有想过，收到的 HTML 如果包含几十个图片标签，这些图片是以什么方式、什么顺序、建立了多少连接、使用什么协议被下载下来的呢？&lt;/p&gt;
+&lt;p&gt;要搞懂这个问题，我们需要先解决下面五个问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;现代浏览器在与服务器建立了一个 TCP 连接后是否会在一个 HTTP 请求完成后断开？什么情况下会断开？&lt;/li&gt;
+&lt;li&gt;一个 TCP 连接可以对应几个 HTTP 请求？&lt;/li&gt;
+&lt;li&gt;一个 TCP 连接中 HTTP 请求发送可以一起发送么（比如一起发三个请求，再三个响应一起接收）？&lt;/li&gt;
+&lt;li&gt;为什么有的时候刷新页面不需要重新建立 SSL 连接？&lt;/li&gt;
+&lt;li&gt;浏览器对同一 Host 建立 TCP 连接到数量有没有限制？&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;先来谈谈第一个问题：现代浏览器在与服务器建立了一个 TCP 连接后是否会在一个 HTTP 请求完成后断开？什么情况下会断开？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在 HTTP/1.0 中，一个服务器在发送完一个 HTTP 响应后，会断开 TCP 链接。但是这样每次请求都会重新建立和断开 TCP 连接，代价过大。所以虽然标准中没有设定，某些服务器对 Connection: keep-alive 的 Header 进行了支持。意思是说，完成这个 HTTP 请求之后，不要断开 HTTP 请求使用的 TCP 连接。这样的好处是连接可以被重新使用，之后发送 HTTP 请求的时候不需要重新建立 TCP 连接，以及如果维持连接，那么 SSL 的开销也可以避免，两张图片是我短时间内两次访问 &lt;a href="https://link.zhihu.com/?target=https%3A//www.github.com"&gt;https://www.github.com&lt;/a&gt; 的时间统计：&lt;/p&gt;</description></item></channel></rss>

@@ -1,13 +1,70 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubernetes 证书管理 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/</link><description>Recent content in Kubernetes 证书管理 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Kubernetes 证书管理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/</guid><description>概述 参考：
-PKI 证书和要求 参考：
-官方文档，入门-最佳实践-PKI 证书和要求 Kubernetes 需要 PKI 证书才能进行基于 TLS 的身份验证。如果你是使用 kubeadm 安装的 Kubernetes， 则会自动生成集群所需的证书。你还可以生成自己的证书。 例如，不将私钥存储在 API 服务器上，可以让私钥更加安全。此页面说明了集群必需的证书。
-集群是如何使用证书的 Kubernetes 需要 PKI 才能执行以下操作：
-Kubelet 的客户端证书，用于 API 服务器身份验证 API 服务器端点的证书 集群管理员的客户端证书，用于 API 服务器身份认证 API 服务器的客户端证书，用于和 Kubelet 的会话 API 服务器的客户端证书，用于和 etcd 的会话 控制器管理器的客户端证书/kubeconfig，用于和 API 服务器的会话 调度器的客户端证书/kubeconfig，用于和 API 服务器的会话 前端代理 的客户端及服务端证书 说明： 只有当你运行 kube-proxy 并要支持 扩展 API 服务器 时，才需要 front-proxy 证书
-etcd 还实现了双向 TLS 来对客户端和对其他对等节点进行身份验证。
-证书存放的位置 如果你是通过 kubeadm 安装的 Kubernetes，所有证书都存放在 /etc/kubernetes/pki 目录下。本文所有相关的路径都是基于该路径的相对路径。</description></item><item><title>手动管理 Kubernetes 证书</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/%E6%89%8B%E5%8A%A8%E7%AE%A1%E7%90%86-Kubernetes-%E8%AF%81%E4%B9%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/%E6%89%8B%E5%8A%A8%E7%AE%A1%E7%90%86-Kubernetes-%E8%AF%81%E4%B9%A6/</guid><description>概述 参考：
-官方文档，任务-管理集群-证书 在使用客户端证书认证的场景下，你可以通过 easyrsa、openssl 或 cfssl 等工具以手工方式生成证书。
-easyrsa easyrsa 支持以手工方式为你的集群生成证书。
-下载、解压、初始化打过补丁的 easyrsa3。 curl -LO https://storage.googleapis.com/kubernetes-release/easy-rsa/easy-rsa.tar.gz tar xzf easy-rsa.tar.gz cd easy-rsa-master/easyrsa3 ./easyrsa init-pki 生成新的证书颁发机构（CA）。参数 --batch 用于设置自动模式； 参数 --req-cn 用于设置新的根证书的通用名称（CN）。
-./easyrsa &amp;ndash;batch &amp;ldquo;&amp;ndash;req-cn=${MASTER_IP}@date +%s&amp;rdquo; build-ca nopass
-生成服务器证书和秘钥。 参数 --subject-alt-name 设置 API 服务器的 IP 和 DNS 名称。 MASTER_CLUSTER_IP 用于 API 服务器和控制管理器，通常取 CIDR 的第一个 IP，由 --service-cluster-ip-range 的参数提供。 参数 --days 用于设置证书的过期时间。 下面的示例假定你的默认 DNS 域名为 cluster.local。
-./easyrsa --subject-alt-name=&amp;#34;IP:${MASTER_IP},&amp;#34;\ &amp;#34;IP:${MASTER_CLUSTER_IP},&amp;#34;\ &amp;#34;DNS:kubernetes,&amp;#34;\ &amp;#34;DNS:kubernetes.default,&amp;#34;\ &amp;#34;DNS:kubernetes.default.svc,&amp;#34;\ &amp;#34;DNS:kubernetes.default.svc.cluster,&amp;#34;\ &amp;#34;DNS:kubernetes.default.svc.cluster.local&amp;#34; \ --days=10000 \ build-server-full server nopass 拷贝文件 pki/ca.</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubernetes 证书管理 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/</link><description>Recent content in Kubernetes 证书管理 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Kubernetes 证书管理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="pki-证书和要求"&gt;PKI 证书和要求&lt;a class="td-heading-self-link" href="#pki-%e8%af%81%e4%b9%a6%e5%92%8c%e8%a6%81%e6%b1%82" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/docs/setup/best-practices/certificates/"&gt;官方文档，入门-最佳实践-PKI 证书和要求&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Kubernetes 需要 PKI 证书才能进行基于 TLS 的身份验证。如果你是使用 &lt;a href="https://kubernetes.io/zh/docs/reference/setup-tools/kubeadm/"&gt;kubeadm&lt;/a&gt; 安装的 Kubernetes， 则会自动生成集群所需的证书。你还可以生成自己的证书。 例如，不将私钥存储在 API 服务器上，可以让私钥更加安全。此页面说明了集群必需的证书。&lt;/p&gt;
+&lt;h2 id="集群是如何使用证书的"&gt;集群是如何使用证书的&lt;a class="td-heading-self-link" href="#%e9%9b%86%e7%be%a4%e6%98%af%e5%a6%82%e4%bd%95%e4%bd%bf%e7%94%a8%e8%af%81%e4%b9%a6%e7%9a%84" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;Kubernetes 需要 PKI 才能执行以下操作：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Kubelet 的客户端证书，用于 API 服务器身份验证&lt;/li&gt;
+&lt;li&gt;API 服务器端点的证书&lt;/li&gt;
+&lt;li&gt;集群管理员的客户端证书，用于 API 服务器身份认证&lt;/li&gt;
+&lt;li&gt;API 服务器的客户端证书，用于和 Kubelet 的会话&lt;/li&gt;
+&lt;li&gt;API 服务器的客户端证书，用于和 etcd 的会话&lt;/li&gt;
+&lt;li&gt;控制器管理器的客户端证书/kubeconfig，用于和 API 服务器的会话&lt;/li&gt;
+&lt;li&gt;调度器的客户端证书/kubeconfig，用于和 API 服务器的会话&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/zh/docs/tasks/extend-kubernetes/configure-aggregation-layer/"&gt;前端代理&lt;/a&gt; 的客户端及服务端证书&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;说明：&lt;/strong&gt; 只有当你运行 kube-proxy 并要支持 &lt;a href="https://kubernetes.io/zh/docs/tasks/extend-kubernetes/setup-extension-api-server/"&gt;扩展 API 服务器&lt;/a&gt; 时，才需要 &lt;code&gt;front-proxy&lt;/code&gt; 证书&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;etcd 还实现了双向 TLS 来对客户端和对其他对等节点进行身份验证。&lt;/p&gt;
+&lt;h2 id="证书存放的位置"&gt;证书存放的位置&lt;a class="td-heading-self-link" href="#%e8%af%81%e4%b9%a6%e5%ad%98%e6%94%be%e7%9a%84%e4%bd%8d%e7%bd%ae" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;如果你是通过 kubeadm 安装的 Kubernetes，所有证书都存放在 &lt;code&gt;/etc/kubernetes/pki&lt;/code&gt; 目录下。本文所有相关的路径都是基于该路径的相对路径。&lt;/p&gt;</description></item><item><title>手动管理 Kubernetes 证书</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/%E6%89%8B%E5%8A%A8%E7%AE%A1%E7%90%86-Kubernetes-%E8%AF%81%E4%B9%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-%E8%AE%BF%E9%97%AE%E6%8E%A7%E5%88%B6/Kubernetes-%E8%AF%81%E4%B9%A6%E7%AE%A1%E7%90%86/%E6%89%8B%E5%8A%A8%E7%AE%A1%E7%90%86-Kubernetes-%E8%AF%81%E4%B9%A6/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/docs/tasks/administer-cluster/certificates/"&gt;官方文档，任务-管理集群-证书&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在使用客户端证书认证的场景下，你可以通过 &lt;code&gt;easyrsa&lt;/code&gt;、&lt;code&gt;openssl&lt;/code&gt; 或 &lt;code&gt;cfssl&lt;/code&gt; 等工具以手工方式生成证书。&lt;/p&gt;
+&lt;h3 id="easyrsa"&gt;easyrsa&lt;a class="td-heading-self-link" href="#easyrsa" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;&lt;strong&gt;easyrsa&lt;/strong&gt; 支持以手工方式为你的集群生成证书。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;下载、解压、初始化打过补丁的 easyrsa3。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;curl -LO https://storage.googleapis.com/kubernetes-release/easy-rsa/easy-rsa.tar.gz
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;tar xzf easy-rsa.tar.gz
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87"&gt;cd&lt;/span&gt; easy-rsa-master/easyrsa3
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;./easyrsa init-pki
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;生成新的证书颁发机构（CA）。参数 &lt;code&gt;--batch&lt;/code&gt; 用于设置自动模式； 参数 &lt;code&gt;--req-cn&lt;/code&gt; 用于设置新的根证书的通用名称（CN）。&lt;/p&gt;
+&lt;p&gt;./easyrsa &amp;ndash;batch &amp;ldquo;&amp;ndash;req-cn=${MASTER_IP}@&lt;code&gt;date +%s&lt;/code&gt;&amp;rdquo; build-ca nopass&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;生成服务器证书和秘钥。 参数 &lt;code&gt;--subject-alt-name&lt;/code&gt; 设置 API 服务器的 IP 和 DNS 名称。 &lt;code&gt;MASTER_CLUSTER_IP&lt;/code&gt; 用于 API 服务器和控制管理器，通常取 CIDR 的第一个 IP，由 &lt;code&gt;--service-cluster-ip-range&lt;/code&gt; 的参数提供。 参数 &lt;code&gt;--days&lt;/code&gt; 用于设置证书的过期时间。 下面的示例假定你的默认 DNS 域名为 &lt;code&gt;cluster.local&lt;/code&gt;。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;./easyrsa --subject-alt-name&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;IP:&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;${&lt;/span&gt;&lt;span style="color:#000"&gt;MASTER_IP&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;}&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;,&amp;#34;&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;IP:&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;${&lt;/span&gt;&lt;span style="color:#000"&gt;MASTER_CLUSTER_IP&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;}&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;,&amp;#34;&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;DNS:kubernetes,&amp;#34;&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;DNS:kubernetes.default,&amp;#34;&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;DNS:kubernetes.default.svc,&amp;#34;&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;DNS:kubernetes.default.svc.cluster,&amp;#34;&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;DNS:kubernetes.default.svc.cluster.local&amp;#34;&lt;/span&gt; &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;--days&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#0000cf;font-weight:bold"&gt;10000&lt;/span&gt; &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;build-server-full server nopass
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;拷贝文件 &lt;code&gt;pki/ca.crt&lt;/code&gt;、&lt;code&gt;pki/issued/server.crt&lt;/code&gt; 和 &lt;code&gt;pki/private/server.key&lt;/code&gt; 到你的目录中。&lt;/p&gt;</description></item></channel></rss>

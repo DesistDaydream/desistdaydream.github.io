@@ -1,31 +1,130 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Prometheus on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/</link><description>Recent content in Prometheus on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/index.xml" rel="self" type="application/rss+xml"/><item><title>Prometheus</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus/</guid><description>概述 参考：
-官方文档 yunlzheng 写的电子书 GitHub 项目，Tencent-Cloud-Native/tkedocs(我个人总结完绝大部分文档后发现的这个项目) Prometheus 纪录片 YouTube B 站翻译 Prometheus 是由 SoundCloud 开发的 开源监控报警系统 和 时间序列数据库(TSDB)。使用 Go 语言开发，是 Google BorgMon 监控系统的开源版本。
-题外话：Google 的 Borg 诞生了 kuberntes；Google 的 Borgmon 诞生了 Prometheus
-2016 年由 Google 发起 Linux 基金会旗下的 Cloud Native Computing Foundation(云原生计算基金会), 将 Prometheus 纳入其下第二大开源项目。Prometheus 目前在开源社区相当活跃。
-Prometheus 架构概述 Prometheus 的基本原理是通过 HTTP 协议周期性抓取被监控组件的状态，任意组件只要提供对应的 HTTP 接口就可以接入监控。不需要任何 SDK 或者其他的集成过程。这样做非常适合做虚拟化环境监控系统，比如 VM、Docker、Kubernetes 等。输出被监控组件信息的 HTTP 接口被叫做 exporter 。
-下面这张图说明了 Prometheus 的整体架构，以及生态中的一些组件作用：
-Prometheus 生态圈中包含了多个组件，其中许多组件是可选的，多数 Prometheus 组件是 Go 语言写的，使得这些组件很容易编译和部署：</description></item><item><title>Label matchers</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Label-matchers/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Label-matchers/</guid><description>概述 参考：
-官方文档，告警 - 配置，标签匹配器 Label matchers(标签匹配器) 类似 K8S 中的 Label and Selector(标签和选择器)，是 Prometheus 中常见用以查找数据的功能，与 PromQL 的 XX选择器也有类似的效果。
-在 Alertmanager 配置 中可以通过 Label matchers 过滤出想要处理的告警条目；在 Promethesu Server 的配置中也有类似（没有明确指出，比如 .remote_read.required_matchers）的逻辑，尽管有时候语法可能并不相同。</description></item><item><title>Target(目标) 与 Relabeling(重新标记)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Target%E7%9B%AE%E6%A0%87-%E4%B8%8E-Relabeling%E9%87%8D%E6%96%B0%E6%A0%87%E8%AE%B0/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Target%E7%9B%AE%E6%A0%87-%E4%B8%8E-Relabeling%E9%87%8D%E6%96%B0%E6%A0%87%E8%AE%B0/</guid><description>概述 参考：
-官方文档，配置 - 配置 简书大佬 Targets(目标) 是 Prometheus 核心概念的其中之一，Targets 是一组 Label(标签) 的集合。
-Prometheus 在采集 Targets(目标) 的指标时，会自动将 Target 的标签附加到采集到的每条时间序列上才存储，这样是为了更好的对数据进行筛选过滤，而这些附加的新标签是怎么来的呢？这就是本文所要描述的东西。
-如下所示，随便找一条时间序列，就可以看到，原始的指标中没有下图红框中的标签，而通过 Prometheus Server 采集后，就附加了两个新的标签上去。
-]# curl -s localhost:9090/metrics | grep build_info # HELP prometheus_build_info A metric with a constant &amp;#39;1&amp;#39; value labeled by version, revision, branch, and goversion from which prometheus was built. # TYPE prometheus_build_info gauge prometheus_build_info{branch=&amp;#34;HEAD&amp;#34;,goversion=&amp;#34;go1.18.6&amp;#34;,revision=&amp;#34;1ce2197e7f9e95089bfb95cb61762b5a89a8c0da&amp;#34;,version=&amp;#34;2.37.1&amp;#34;} 1 这里为什么会多出来两个标签呢，这种现象又是什么功能来实现的呢？假如说 job 是通过配置文件中定义出来的，那 instance 又是怎么来的？
-首先，我们在 Prometheus Server 的 web 界面的 Status 标签中的 Targets 页面和 Service Discovery 页面中，可以发现 Prometheus 把标签分为两类：</description></item><item><title>Alerting</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Alerting/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Alerting/</guid><description>概述 参考：
-官方文档，告警 - 告警概述 官方文档，告警 - 客户端 官方文档，告警 - 告警 API OpenAPI Prometheus 本身不提告警的通知的功能！告警能力在 Prometheus 的架构中被划分成两个独立的部分。如下所示，通过在 Prometheus 中定义 AlertRule（告警规则），Prometheus 会周期性的对告警规则进行 Evaluate(评估)，如果满足告警触发条件就会向 Alertmanager 发送告警信息。
-Prometheus 推出的 Alertmanager 作为一个独立的组件，可以实现告警管理功能，负责接收并处理来自 Prometheus Server(也可以是其它的客户端程序) 的告警信息。Alertmanager 可以对这些告警信息进行进一步的处理，比如当接收到大量重复告警时能够消除重复的告警信息，同时对告警信息进行分组并且路由到正确的通知方，Alertmanager 内置了对邮件，Slack 等多种通知方式的支持。同时 AlertManager 还提供了静默和告警抑制机制来对告警通知行为进行优化。
-Evaluate(评估) 就是指，Prometheus Server 会定期执行规则配置文件中的 PromQL，获得结果并与阈值进行匹配，当超过设置的阈值时，会产生告警。这个过程，就称为 Evaluate(评估)。在代码中，通过 Eval() 方法来评估规则。 Alertmanager 处理客户端应用程序(如 Prometheus Server)发送的警报。它负责对它们进行重复数据删除，分组和路由，以及正确的接收器集成，例如 email，PagerDuty 或 OpsGenie。它还负责警报的静音和抑制。
-即：Prometheus Server 只负责根据 PromQL 语句定义的规则产生告警并发送给 Alertmanager(告警管理器)。
-注意：
-Alertmanager 是一个单独的程序，需要独立安装使用 Alertmanager 既可以描述为一类具有处理告警功能的应用程序。也可以描述为一个 Prometheus 官方推出的名为 Alertmanager 的程序。以后的描述一般都不加区分 关联 Alertmanager 与 Prometheus 由于 Alertmanager 与 Prometheus 是两个程序。所以需要修改 Prometheus Server 的配置文件，以便让自己产生的告警可以发送到正确地方，配置效果如下（Alertmanager 默认监听在 9093 端口上）</description></item><item><title>Federate(集群联邦)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Federate%E9%9B%86%E7%BE%A4%E8%81%94%E9%82%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Federate%E9%9B%86%E7%BE%A4%E8%81%94%E9%82%A6/</guid><description>概述 参考：
-官方文档，Prometheus - 联邦 通过 Remote Storage 可以分离监控样本采集和数据存储，解决 Prometheus 的持久化问题。这一部分会重点讨论如何利用联邦集群特性对 Promthues 进行扩展，以适应不同监控规模的变化。
-Prometheus Federate 还可以充当代理功能，让 Prometheus Server 获取无法直接访问网段的 Metrics
-使用联邦集群 对于大部分监控规模而言，我们只需要在每一个数据中心(例如：EC2 可用区，Kubernetes 集群)安装一个 Prometheus Server 实例，就可以在各个数据中心处理上千规模的集群。同时将 Prometheus Server 部署到不同的数据中心可以避免网络配置的复杂性。
-如上图所示，在每个数据中心部署单独的 Prometheus Server，用于采集当前数据中心监控数据。并由一个中心的 Prometheus Server 负责聚合多个数据中心的监控数据。这一特性在 Promthues 中称为联邦集群。
-联邦集群的核心在于每一个 Prometheus Server 都包含额一个用于获取当前实例中监控样本的接口/federate(用于 web 打开 localhost:9090/federate 即可，初始是空白的，需要详细指明要匹配的内容，才可以获取 metrics)。对于中心 Prometheus Server 而言，无论是从其他的 Prometheus 实例还是 Exporter 实例中获取数据实际上并没有任何差异。其实其他的 promeheus 就相当于中心 prometheus 的一个 exporter
-scrape_configs: - job_name: &amp;#34;federate&amp;#34; scrape_interval: 15s honor_labels: true metrics_path: &amp;#34;/federate&amp;#34; params: &amp;#34;match[]&amp;#34;: - &amp;#39;up{job=~&amp;#34;external.</description></item><item><title>HTTPS 和 Authentication</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/HTTPS-%E5%92%8C-Authentication/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/HTTPS-%E5%92%8C-Authentication/</guid><description>概述 参考：
-官方文档，Prometheus - 配置 - HTTPS 和 认证 官方文档，指南 - 基础认证 Ngxin Ingress Controller 官方文档，认证-基础认证 知乎 认证功能的发展：
-Prometheus 从 2.24 版本开始，才支持基本认证，截止 2021 年 8 月 25 日官方已经提供了实验性的 HTTPS 与 认证配置，详见此处。 截止 2021 年 8 月 25 日，Thanos 的 Sidecar 还不支持向 Prometheus 发起请求是携带认证信息，但已经有 issue #3975 提出来该问题，并将在未来 PR #4104 实现 现阶段在 Prometheus 前面添加代理(比如 Nginx)，只暴露 Nginx 端口，所有访问 Prometheus 的请求都经过代理，并在代理上添加认证，这样可以为 Prometheus 的 web 端添加一个基本的基于用户名和密码的认证。
-在 kubernetes 中，可以通过 ingress 来实现。其他环境可以直接配置 ngxin 来实现。
-通过 ingress controller 配置认证，普通的 nginx 同理 首先需要安装 htpasswd 二进制文件，通过 htpasswd 命令行工具生成保存用户名密码的文件，然后通过该文件创建一个 secret 对象，并在 ingress 引用该 secret 对象</description></item><item><title>Prometheus Agent</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-Agent/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-Agent/</guid><description>概述 参考：
-Prometheus Blog, Introducing Prometheus Agent Mode, an Efficient and Cloud-Native Way for Metric Forwarding 官方文档，Prometheus Agent 模式 Prometheus Agent 是 Prometheus 二进制文件中内置的一种操作模式，它具有相同的抓取 API、语义、配置和发现机制；此代理模式禁用了 Prometheus 的一些常用功能（TSDB、警报和规则评估），并针对抓取和远程写入远程位置优化了二进制文件。</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Prometheus on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/</link><description>Recent content in Prometheus on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/index.xml" rel="self" type="application/rss+xml"/><item><title>Prometheus</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/introduction/overview/"&gt;官方文档&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://yunlzheng.gitbook.io/prometheus-book/"&gt;yunlzheng 写的电子书&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://github.com/Tencent-Cloud-Native/tkedocs"&gt;GitHub 项目，Tencent-Cloud-Native/tkedocs&lt;/a&gt;(我个人总结完绝大部分文档后发现的这个项目)&lt;/li&gt;
+&lt;li&gt;Prometheus 纪录片
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.youtube.com/watch?v=rT4fJNbfe14"&gt;YouTube&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.bilibili.com/video/BV1aW4y147GX"&gt;B 站翻译&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Prometheus 是由 SoundCloud 开发的 开源监控报警系统 和 &lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/%E6%97%B6%E9%97%B4%E5%BA%8F%E5%88%97%E6%95%B0%E6%8D%AE/"&gt;时间序列数据库&lt;/a&gt;(TSDB)。使用 Go 语言开发，是 Google BorgMon 监控系统的开源版本。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;题外话：Google 的 Borg 诞生了 kuberntes；Google 的 Borgmon 诞生了 Prometheus&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;2016 年由 Google 发起 Linux 基金会旗下的 Cloud Native Computing Foundation(云原生计算基金会), 将 Prometheus 纳入其下第二大开源项目。Prometheus 目前在开源社区相当活跃。&lt;/p&gt;
+&lt;h1 id="prometheus-架构概述"&gt;Prometheus 架构概述&lt;a class="td-heading-self-link" href="#prometheus-%e6%9e%b6%e6%9e%84%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;Prometheus 的基本原理是通过 HTTP 协议周期性抓取被监控组件的状态，任意组件只要提供对应的 HTTP 接口就可以接入监控。不需要任何 SDK 或者其他的集成过程。这样做非常适合做虚拟化环境监控系统，比如 VM、Docker、Kubernetes 等。输出被监控组件信息的 HTTP 接口被叫做 exporter 。&lt;/p&gt;
+&lt;p&gt;下面这张图说明了 Prometheus 的整体架构，以及生态中的一些组件作用：&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/prometheus/1616041189523-5ca97287-5886-4ab9-a4f8-6c249117e314.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;Prometheus 生态圈中包含了多个组件，其中许多组件是可选的，多数 Prometheus 组件是 Go 语言写的，使得这些组件很容易编译和部署：&lt;/p&gt;</description></item><item><title>Label matchers</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Label-matchers/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Label-matchers/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/alerting/latest/configuration/#label-matchers"&gt;官方文档，告警 - 配置，标签匹配器&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Label matchers(标签匹配器)&lt;/strong&gt; 类似 K8S 中的 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-Resource-%E4%B8%8E-Object/Object-%E7%AE%A1%E7%90%86/Label-and-Selector%E6%A0%87%E7%AD%BE%E5%92%8C%E9%80%89%E6%8B%A9%E5%99%A8/Label-and-Selector%E6%A0%87%E7%AD%BE%E5%92%8C%E9%80%89%E6%8B%A9%E5%99%A8/"&gt;Label and Selector(标签和选择器)&lt;/a&gt;，是 Prometheus 中常见用以查找数据的功能，与 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/PromQL/PromQL/"&gt;PromQL&lt;/a&gt; 的 XX选择器也有类似的效果。&lt;/p&gt;
+&lt;p&gt;在 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Alertmanager/Alertmanager-%E9%85%8D%E7%BD%AE/"&gt;Alertmanager 配置&lt;/a&gt; 中可以通过 Label matchers 过滤出想要处理的告警条目；在 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Configuration/Promethesu-Server/"&gt;Promethesu Server&lt;/a&gt; 的配置中也有类似（没有明确指出，比如 .remote_read.required_matchers）的逻辑，尽管有时候语法可能并不相同。&lt;/p&gt;</description></item><item><title>Target(目标) 与 Relabeling(重新标记)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Target%E7%9B%AE%E6%A0%87-%E4%B8%8E-Relabeling%E9%87%8D%E6%96%B0%E6%A0%87%E8%AE%B0/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Target%E7%9B%AE%E6%A0%87-%E4%B8%8E-Relabeling%E9%87%8D%E6%96%B0%E6%A0%87%E8%AE%B0/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config"&gt;官方文档，配置 - 配置&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.jianshu.com/p/c21d399c140a"&gt;简书大佬&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Targets(目标)&lt;/strong&gt; 是 Prometheus 核心概念的其中之一，Targets 是&lt;strong&gt;一组 Label(标签) 的集合。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Prometheus 在采集 Targets(目标) 的指标时，会自动将 Target 的标签附加到采集到的每条时间序列上&lt;/strong&gt;才存储，这样是为了更好的对数据进行筛选过滤，而这些附加的新标签是怎么来的呢？这就是本文所要描述的东西。&lt;/p&gt;
+&lt;p&gt;如下所示，随便找一条时间序列，就可以看到，原始的指标中没有下图红框中的标签，而通过 Prometheus Server 采集后，就附加了两个新的标签上去。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# curl -s localhost:9090/metrics | grep build_info&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# HELP prometheus_build_info A metric with a constant &amp;#39;1&amp;#39; value labeled by version, revision, branch, and goversion from which prometheus was built.&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# TYPE prometheus_build_info gauge&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;prometheus_build_info&lt;span style="color:#ce5c00;font-weight:bold"&gt;{&lt;/span&gt;&lt;span style="color:#000"&gt;branch&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;HEAD&amp;#34;&lt;/span&gt;,goversion&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;go1.18.6&amp;#34;&lt;/span&gt;,revision&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;1ce2197e7f9e95089bfb95cb61762b5a89a8c0da&amp;#34;&lt;/span&gt;,version&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;2.37.1&amp;#34;&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;}&lt;/span&gt; &lt;span style="color:#0000cf;font-weight:bold"&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/prometheus/1616045780717-62e9699b-0064-4ea8-93d2-c741437d0a7f.png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;这里为什么会多出来两个标签呢，这种现象又是什么功能来实现的呢？假如说 job 是通过配置文件中定义出来的，那 instance 又是怎么来的？&lt;/p&gt;
+&lt;p&gt;首先，我们在 Prometheus Server 的 web 界面的 Status 标签中的 Targets 页面和 Service Discovery 页面中，可以发现 Prometheus 把标签分为两类：&lt;/p&gt;</description></item><item><title>Alerting</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Alerting/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Alerting/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/alerting/latest/overview/"&gt;官方文档，告警 - 告警概述&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/alerting/latest/clients/"&gt;官方文档，告警 - 客户端&lt;/a&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/alerting/latest/alerts_api/"&gt;官方文档，告警 - 告警 API&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://github.com/prometheus/alertmanager/blob/main/api/v2/openapi.yaml"&gt;OpenAPI&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Prometheus 本身不提告警的通知的功能！告警能力在 Prometheus 的架构中被划分成两个独立的部分。如下所示，通过在 Prometheus 中定义 AlertRule（告警规则），Prometheus 会周期性的对告警规则进行 &lt;strong&gt;Evaluate(评估)&lt;/strong&gt;，如果满足告警触发条件就会向 &lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Alertmanager/Alertmanager/"&gt;Alertmanager&lt;/a&gt; 发送告警信息。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Prometheus 推出的 Alertmanager 作为一个独立的组件，可以实现告警管理功能，负责接收并处理来自 Prometheus Server(也可以是其它的客户端程序) 的告警信息。Alertmanager 可以对这些告警信息进行进一步的处理，比如当接收到大量重复告警时能够消除重复的告警信息，同时对告警信息进行分组并且路由到正确的通知方，Alertmanager 内置了对邮件，Slack 等多种通知方式的支持。同时 AlertManager 还提供了静默和告警抑制机制来对告警通知行为进行优化。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Evaluate(评估)&lt;/strong&gt; 就是指，Prometheus Server 会定期执行规则配置文件中的 PromQL，获得结果并与阈值进行匹配，当超过设置的阈值时，会产生告警。这个过程，就称为 &lt;strong&gt;Evaluate(评估)&lt;/strong&gt;。在代码中，通过 Eval() 方法来评估规则。
+&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/sw6o6t/1616069590594-41190e69-d023-4ef4-87ad-fdc1a7cf8b6f.png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;Alertmanager 处理客户端应用程序(如 Prometheus Server)发送的警报。它负责对它们进行重复数据删除，分组和路由，以及正确的接收器集成，例如 email，PagerDuty 或 OpsGenie。它还负责警报的静音和抑制。&lt;/p&gt;
+&lt;p&gt;即：Prometheus Server 只负责根据 PromQL 语句定义的规则产生告警并发送给 Alertmanager(告警管理器)。&lt;/p&gt;
+&lt;p&gt;注意：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Alertmanager 是一个单独的程序，需要独立安装使用&lt;/li&gt;
+&lt;li&gt;Alertmanager 既可以描述为一类具有处理告警功能的应用程序。也可以描述为一个 Prometheus 官方推出的名为 Alertmanager 的程序。以后的描述一般都不加区分&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="关联-alertmanager-与-prometheus"&gt;关联 Alertmanager 与 Prometheus&lt;a class="td-heading-self-link" href="#%e5%85%b3%e8%81%94-alertmanager-%e4%b8%8e-prometheus" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;由于 Alertmanager 与 Prometheus 是两个程序。所以需要修改 Prometheus Server 的配置文件，以便让自己产生的告警可以发送到正确地方，配置效果如下（Alertmanager 默认监听在 9093 端口上）&lt;/p&gt;</description></item><item><title>Federate(集群联邦)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Federate%E9%9B%86%E7%BE%A4%E8%81%94%E9%82%A6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Federate%E9%9B%86%E7%BE%A4%E8%81%94%E9%82%A6/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/prometheus/latest/federation/"&gt;官方文档，Prometheus - 联邦&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;通过 Remote Storage 可以分离监控样本采集和数据存储，解决 Prometheus 的持久化问题。这一部分会重点讨论如何利用联邦集群特性对 Promthues 进行扩展，以适应不同监控规模的变化。&lt;/p&gt;
+&lt;p&gt;Prometheus Federate 还可以充当代理功能，让 Prometheus Server 获取无法直接访问网段的 Metrics&lt;/p&gt;
+&lt;h1 id="使用联邦集群"&gt;使用联邦集群&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8%e8%81%94%e9%82%a6%e9%9b%86%e7%be%a4" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;对于大部分监控规模而言，我们只需要在每一个数据中心(例如：EC2 可用区，Kubernetes 集群)安装一个 Prometheus Server 实例，就可以在各个数据中心处理上千规模的集群。同时将 Prometheus Server 部署到不同的数据中心可以避免网络配置的复杂性。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gx0oz1/1616069518476-78bbd4f5-fc64-4a96-bde6-2309bd716812.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;如上图所示，在每个数据中心部署单独的 Prometheus Server，用于采集当前数据中心监控数据。并由一个中心的 Prometheus Server 负责聚合多个数据中心的监控数据。这一特性在 Promthues 中称为联邦集群。&lt;/p&gt;
+&lt;p&gt;联邦集群的核心在于每一个 Prometheus Server 都包含额一个用于获取当前实例中监控样本的接口/federate(用于 web 打开 localhost:9090/federate 即可，初始是空白的，需要详细指明要匹配的内容，才可以获取 metrics)。对于中心 Prometheus Server 而言，无论是从其他的 Prometheus 实例还是 Exporter 实例中获取数据实际上并没有任何差异。其实其他的 promeheus 就相当于中心 prometheus 的一个 exporter&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;scrape_configs&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;- &lt;span style="color:#204a87;font-weight:bold"&gt;job_name&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;federate&amp;#34;&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;scrape_interval&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000"&gt;15s&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;honor_labels&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;true&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;metrics_path&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;/federate&amp;#34;&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;params&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;match[]&amp;#34;&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;- &lt;span style="color:#4e9a06"&gt;&amp;#39;up{job=~&amp;#34;external.*&amp;#34;}&amp;#39;&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;static_configs&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;- &lt;span style="color:#204a87;font-weight:bold"&gt;targets&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;- &lt;span style="color:#4e9a06"&gt;&amp;#34;192.168.77.11:9090&amp;#34;&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;- &lt;span style="color:#4e9a06"&gt;&amp;#34;192.168.77.12:9090&amp;#34;&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;配置说明：&lt;/p&gt;</description></item><item><title>HTTPS 和 Authentication</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/HTTPS-%E5%92%8C-Authentication/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/HTTPS-%E5%92%8C-Authentication/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/prometheus/latest/configuration/https/"&gt;官方文档，Prometheus - 配置 - HTTPS 和 认证&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/guides/basic-auth/"&gt;官方文档，指南 - 基础认证&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.github.io/ingress-nginx/examples/auth/basic/"&gt;Ngxin Ingress Controller 官方文档，认证-基础认证&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.jianshu.com/p/4d5aa1995de3"&gt;知乎&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;认证功能的发展：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Prometheus 从 2.24 版本开始，才支持基本认证，截止 2021 年 8 月 25 日官方已经提供了实验性的 HTTPS 与 认证配置，详见&lt;a href="https://prometheus.io/docs/prometheus/latest/configuration/https/"&gt;此处&lt;/a&gt;。&lt;/li&gt;
+&lt;li&gt;截止 2021 年 8 月 25 日，Thanos 的 Sidecar 还不支持向 Prometheus 发起请求是携带认证信息，但已经有 &lt;a href="https://github.com/thanos-io/thanos/issues/3975"&gt;issue #3975&lt;/a&gt; 提出来该问题，并将在未来 &lt;a href="https://github.com/thanos-io/thanos/pull/4104"&gt;PR #4104&lt;/a&gt; 实现&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;现阶段在 Prometheus 前面添加代理(比如 Nginx)，只暴露 Nginx 端口，所有访问 Prometheus 的请求都经过代理，并在代理上添加认证，这样可以为 Prometheus 的 web 端添加一个基本的基于用户名和密码的认证。&lt;/p&gt;
+&lt;p&gt;在 kubernetes 中，可以通过 ingress 来实现。其他环境可以直接配置 ngxin 来实现。&lt;/p&gt;
+&lt;h1 id="通过-ingress-controller-配置认证普通的-nginx-同理"&gt;通过 ingress controller 配置认证，普通的 nginx 同理&lt;a class="td-heading-self-link" href="#%e9%80%9a%e8%bf%87-ingress-controller-%e9%85%8d%e7%bd%ae%e8%ae%a4%e8%af%81%e6%99%ae%e9%80%9a%e7%9a%84-nginx-%e5%90%8c%e7%90%86" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;首先需要安装 htpasswd 二进制文件，通过 htpasswd 命令行工具生成保存用户名密码的文件，然后通过该文件创建一个 secret 对象，并在 ingress 引用该 secret 对象&lt;/p&gt;</description></item><item><title>Prometheus Agent</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-Agent/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Metrics/Prometheus/Prometheus-Agent/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/blog/2021/11/16/agent/"&gt;Prometheus Blog, Introducing Prometheus Agent Mode, an Efficient and Cloud-Native Way for Metric Forwarding&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://prometheus.io/docs/prometheus/latest/prometheus_agent"&gt;官方文档，Prometheus Agent 模式&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Prometheus Agent 是 Prometheus 二进制文件中内置的一种操作模式，它具有相同的抓取 API、语义、配置和发现机制；此代理模式禁用了 Prometheus 的一些常用功能（TSDB、警报和规则评估），并针对抓取和远程写入远程位置优化了二进制文件。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://prometheus.io/assets/blog/2021-11-16/agent.png" alt=""&gt;&lt;/p&gt;</description></item></channel></rss>

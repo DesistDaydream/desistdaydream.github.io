@@ -1,15 +1,46 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>CPU 性能优化 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/</link><description>Recent content in CPU 性能优化 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/index.xml" rel="self" type="application/rss+xml"/><item><title>CPU 性能优化</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/</guid><description>系统性能调优之绑定 cpu 原文链接：https://mp.weixin.qq.com/s/jiQz01hg8DiA1zucqjMZkQ
-支持超线程的numa架构 物理硬件视角，
-将多个CPU封装在一起，这个封装被称为插槽Socket； Core是socket上独立的硬件单元； 通过intel的超线程HT技术进一步提升CPU的处理能力，OS看到的逻辑上的核Processor的数量。 每个硬件线程都可以按逻辑cpu寻址，因此这个处理器看上去有八块cpu。
-对于操作系统的视角：
-CPU(s)：8 NUMA node0 CPU(s)：0，4 NUMA node1 CPU(s)：1，5 NUMA node2 CPU(s)：2，6 NUMA node3 CPU(s)：3，7 操作系统视角.png
-L1缓分成两种，一种是指令缓存，一种是数据缓存。L2缓存和L3缓存不分指令和数据。L1和L2缓存在第一个CPU核中，L3则是所有CPU核心共享的内存。L1、L2、L3的越离CPU近就越小，速度也越快，越离CPU远，速度也越慢。再往后面就是内存，内存的后面就是硬盘。我们来看一些他们的速度：
-L1 的存取速度：4 个CPU时钟周期 L2 的存取速度：11 个CPU时钟周期 L3 的存取速度：39 个CPU时钟周期 RAM内存的存取速度 ：107 个CPU时钟周期 如果 CPU 所要操作的数据在缓存中，则直接读取，这称为缓存命中。命中缓存会带来很大的性能提升，因此，我们的代码优化目标是提升 CPU 缓存的命中率。
-在主流的服务器上，一个 CPU 处理器会有 10 到 20 多个物理核。同时，为了提升服务器的处理能力，服务器上通常还会有多个 CPU 处理器（也称为多 CPU Socket），每个处理器有自己的物理核（包括 L1、L2 缓存），L3 缓存，以及连接的内存，同时，不同处理器间通过总线连接。通过lscpu来看：
-root@ubuntu:~# lscpu Architecture: x86_64 CPU(s): 32 Thread(s) per core: 1 Core(s) per socket: 8 Socket(s): 4 L1d cache: 32K L1i cache: 32K L2 cache: 256K L3 cache: 20480K NUMA node0 CPU(s): 0-7 NUMA node1 CPU(s): 8-15 NUMA node2 CPU(s): 16-23 NUMA node3 CPU(s): 24-31 你可能注意到，三级缓存要比一、二级缓存大许多倍，这是因为当下的 CPU 都是多核心的，每个核心都有自己的一、二级缓存，但三级缓存却是一颗 CPU 上所有核心共享的。</description></item><item><title>Load 高/CPU 使用率 问题及实用脚本</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/Load-%E9%AB%98_CPU-%E4%BD%BF%E7%94%A8%E7%8E%87-%E9%97%AE%E9%A2%98%E5%8F%8A%E5%AE%9E%E7%94%A8%E8%84%9A%E6%9C%AC/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/Load-%E9%AB%98_CPU-%E4%BD%BF%E7%94%A8%E7%8E%87-%E9%97%AE%E9%A2%98%E5%8F%8A%E5%AE%9E%E7%94%A8%E8%84%9A%E6%9C%AC/</guid><description>Linux 资源&amp;amp;瓶颈分析概述 参考：
-公众号,CPU 飙高，系统性能问题如何排查？ 阿里云,ECS 运维指南之 LInux 系统诊断-找到 Linux 虚机 Load 高的元凶 Load Average 和 CPU 使用率 可被细分为不同的子域指标，指向不同的资源瓶颈。总体来说，指标与资源瓶颈的对应关系基本如下图所示。
-注意：Load 与 CPU 使用率 之间没有必然的联系。有可能 Load 很高，而 CPU 使用率很低；也有可能 Load 很低而 CPU 使用率很高。具体原因详见 CPU 管理 与 Process 进程管理 章节中关于 Load 与 CPU 使用率的概念。简单说就是因为 Load Average 在计算时，包含了对 I/O 的统计
-Load 高 &amp;amp; CPU 高 这是我们最常遇到的一类情况，即 load 上涨是 CPU 负载上升导致。根据 CPU 具体资源分配表现，可分为以下几类：
-CPU sys 高
-这种情况 CPU 主要开销在于系统内核，可进一步查看上下文切换情况。
-如果非自愿上下文切换较多，说明 CPU 抢占较为激烈，大量进程由于时间片已到等原因，被系统强制调度，进而发生的上下文切换。 如果自愿上下文切换较多，说明可能存在 I/O、内存等系统资源瓶颈，大量进程无法获取所需资源，导致的上下文切换。 CPU si 高</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>CPU 性能优化 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/</link><description>Recent content in CPU 性能优化 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/index.xml" rel="self" type="application/rss+xml"/><item><title>CPU 性能优化</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/</guid><description>&lt;h1 id="系统性能调优之绑定-cpu"&gt;系统性能调优之绑定 cpu&lt;a class="td-heading-self-link" href="#%e7%b3%bb%e7%bb%9f%e6%80%a7%e8%83%bd%e8%b0%83%e4%bc%98%e4%b9%8b%e7%bb%91%e5%ae%9a-cpu" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;原文链接：https://mp.weixin.qq.com/s/jiQz01hg8DiA1zucqjMZkQ&lt;/p&gt;
+&lt;h2 id="支持超线程的numa架构"&gt;支持超线程的numa架构&lt;a class="td-heading-self-link" href="#%e6%94%af%e6%8c%81%e8%b6%85%e7%ba%bf%e7%a8%8b%e7%9a%84numa%e6%9e%b6%e6%9e%84" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;物理硬件视角，&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;将多个CPU封装在一起，这个封装被称为插槽Socket；&lt;/li&gt;
+&lt;li&gt;Core是socket上独立的硬件单元；&lt;/li&gt;
+&lt;li&gt;通过intel的超线程HT技术进一步提升CPU的处理能力，OS看到的逻辑上的核Processor的数量。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;每个硬件线程都可以按逻辑cpu寻址，因此这个处理器看上去有八块cpu。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/ibD9iaaPDn99gtSUiaaFg901xOL7aeib35k3l1cnIaQCeOuYLaOO6jkpcjlibwMn7H99ia4pY6ic7veFZwdkzuUblC9SQ/640?wx_fmt=png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;对于操作系统的视角：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;CPU(s)：8&lt;/li&gt;
+&lt;li&gt;NUMA node0 CPU(s)：0，4&lt;/li&gt;
+&lt;li&gt;NUMA node1  CPU(s)：1，5&lt;/li&gt;
+&lt;li&gt;NUMA node2 CPU(s)：2，6&lt;/li&gt;
+&lt;li&gt;NUMA node3 CPU(s)：3，7&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/ibD9iaaPDn99gtSUiaaFg901xOL7aeib35k3Go5f7Q3n45NiaGYcUFCFaPicPnGEU4tiboXy3ljpYS7GrlwIAzrpOu55A/640?wx_fmt=png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;操作系统视角.png&lt;/p&gt;
+&lt;p&gt;L1缓分成两种，一种是指令缓存，一种是数据缓存。L2缓存和L3缓存不分指令和数据。L1和L2缓存在第一个CPU核中，L3则是所有CPU核心共享的内存。L1、L2、L3的越离CPU近就越小，速度也越快，越离CPU远，速度也越慢。再往后面就是内存，内存的后面就是硬盘。我们来看一些他们的速度：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;L1 的存取速度：4 个CPU时钟周期&lt;/li&gt;
+&lt;li&gt;L2 的存取速度：11 个CPU时钟周期&lt;/li&gt;
+&lt;li&gt;L3 的存取速度：39 个CPU时钟周期&lt;/li&gt;
+&lt;li&gt;RAM内存的存取速度 ：107 个CPU时钟周期&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;如果 CPU 所要操作的数据在缓存中，则直接读取，这称为缓存命中。命中缓存会带来很大的性能提升，因此，我们的代码优化目标是提升 CPU 缓存的命中率。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/ibD9iaaPDn99gtSUiaaFg901xOL7aeib35k3MDcGSMaDov6SEc811uibXAQB5FhfarrlSNgWrNzUicUzWfTjCbibaq2dw/640?wx_fmt=png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;在主流的服务器上，一个 CPU 处理器会有 10 到 20 多个物理核。同时，为了提升服务器的处理能力，服务器上通常还会有多个 CPU 处理器（也称为多 CPU Socket），每个处理器有自己的物理核（包括 L1、L2 缓存），L3 缓存，以及连接的内存，同时，不同处理器间通过总线连接。通过lscpu来看：&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;root@ubuntu:~# lscpu Architecture:          x86_64 CPU(s):                32 Thread(s) per core:    1 Core(s) per socket:    8 Socket(s):             4 L1d cache:             32K L1i cache:             32K L2 cache:              256K L3 cache:              20480K NUMA node0 CPU(s):     0-7 NUMA node1 CPU(s):     8-15 NUMA node2 CPU(s):     16-23 NUMA node3 CPU(s):     24-31 &lt;/code&gt;&lt;/p&gt;</description></item><item><title>Load 高/CPU 使用率 问题及实用脚本</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/Load-%E9%AB%98_CPU-%E4%BD%BF%E7%94%A8%E7%8E%87-%E9%97%AE%E9%A2%98%E5%8F%8A%E5%AE%9E%E7%94%A8%E8%84%9A%E6%9C%AC/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Linux-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/CPU-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/Load-%E9%AB%98_CPU-%E4%BD%BF%E7%94%A8%E7%8E%87-%E9%97%AE%E9%A2%98%E5%8F%8A%E5%AE%9E%E7%94%A8%E8%84%9A%E6%9C%AC/</guid><description>&lt;h1 id="linux-资源瓶颈分析概述"&gt;Linux 资源&amp;amp;瓶颈分析概述&lt;a class="td-heading-self-link" href="#linux-%e8%b5%84%e6%ba%90%e7%93%b6%e9%a2%88%e5%88%86%e6%9e%90%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/fzLcAkYwKhj-9hgoVkTzaw"&gt;公众号,CPU 飙高，系统性能问题如何排查？&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://developer.aliyun.com/topic/download?id=143"&gt;阿里云,ECS 运维指南之 LInux 系统诊断-找到 Linux 虚机 Load 高的元凶&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Load Average 和 CPU 使用率 可被细分为不同的子域指标，指向不同的资源瓶颈。总体来说，指标与资源瓶颈的对应关系基本如下图所示。&lt;/p&gt;
+&lt;p&gt;注意：Load 与 CPU 使用率 之间没有必然的联系。有可能 Load 很高，而 CPU 使用率很低；也有可能 Load 很低而 CPU 使用率很高。具体原因详见 CPU 管理 与 Process 进程管理 章节中关于 Load 与 CPU 使用率的概念。简单说就是因为 Load Average 在计算时，包含了对 I/O 的统计&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/go9krg/1616164005685-f19dcd0b-9837-42cb-aeaa-a48586cf1cca.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;h2 id="load-高--cpu-高"&gt;Load 高 &amp;amp; CPU 高&lt;a class="td-heading-self-link" href="#load-%e9%ab%98--cpu-%e9%ab%98" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;这是我们最常遇到的一类情况，即 load 上涨是 CPU 负载上升导致。根据 CPU 具体资源分配表现，可分为以下几类：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;CPU sys 高&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;这种情况 CPU 主要开销在于系统内核，可进一步查看上下文切换情况。&lt;/p&gt;</description></item></channel></rss>

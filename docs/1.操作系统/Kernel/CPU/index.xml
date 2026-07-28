@@ -1,105 +1,206 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>CPU on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/</link><description>Recent content in CPU on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/index.xml" rel="self" type="application/rss+xml"/><item><title>CPU</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU/</guid><description>概述 参考：
-极客时间，Linux 性能优化实战-03 基础篇：经常说的 CPU 上下文切换是什么意思 LinuxPerformance 博客，进程切换：自愿与强制 在 Linux Kernel 中，CPU 的管理，绝大部分时间都是在进行任务的调度，所以很多时候也称为调度管理。
-CPU 多线程、并发、并行 概念 Node：在这里时间片只是一种描述，理解 CPU 的并行与并发概念就好
-1、CPU 时间分片、多线程？
-如果线程数不多于 CPU 核心数，会把各个线程都分配一个核心，不需分片，而当线程数多于 CPU 核心数时才会分片。
-2、并发和并行的区别
-并发：当有多个线程在操作时,如果系统只有一个 CPU，把 CPU 运行时间划分成若干个时间片,分配给各个线程执行，在一个时间段的线程代码运行时，其它线程处于挂起状态。这种方式我们称之为 Concurrent(并发)。并发=间隔发生 并行：当系统有一个以上 CPU 时,则线程的操作有可能非并发。当一个 CPU 执行一个线程时，另一个 CPU 可以执行另一个线程，两个线程互不抢占 CPU 资源，可以同时进行，这种方式我们称之为 Parallel(并行)。 并行=同时进行 区别：并行是指两个或者多个事件在同一时刻发生；而并发是指两个或多个事件在同一时间间隔内发生。
-并行是同时做多件事情。
-并发表示同时发生了多件事情，通过时间片切换，哪怕只有单一的核心，也可以实现“同时做多件事情”这个效果。
-根据底层是否有多处理器，并发与并行是可以等效的，这并不是两个互斥的概念。
-举个我们开发中会遇到的例子，我们说资源请求并发数达到了 1 万。这里的意思是有 1 万个请求同时过来了。但是这里很明显不可能真正的同时去处理这 1 万个请求的吧！
-如果这台机器的处理器有 4 个核心，不考虑超线程，那么我们认为同时会有 4 个线程在跑。也就是说，并发访问数是 1 万，而底层真实的并行处理的请求数是 4。如果并发数小一些只有 4 的话，又或者你的机器牛逼有 1 万个核心，那并发在这里和并行一个效果。也就是说，并发可以是虚拟的同时执行，也可以是真的同时执行。而并行的意思是真的同时执行。
-结论是：并行是我们物理时空观下的同时执行，而并发则是操作系统用线程这个模型抽象之后站在线程的视角上看到的“同时”执行。
-time slice(时间片) 概念 参考：https://en.</description></item><item><title>Load Average 平均负载简述</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Load-Average-%E5%B9%B3%E5%9D%87%E8%B4%9F%E8%BD%BD%E7%AE%80%E8%BF%B0/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Load-Average-%E5%B9%B3%E5%9D%87%E8%B4%9F%E8%BD%BD%E7%AE%80%E8%BF%B0/</guid><description>概述 参考：
-https://blog.csdn.net/u011183653/article/details/19489603 https://blog.csdn.net/slvher/article/details/9199439 Load 与 Load Average LoadAverage = calc_load(TASK_RUNNING + TASK_UNINTERRUPTIBLE,n) Load 是此时此刻 CPU 正在处理的进程数。进程可运行状态时，它处在一个运行队列 run queue 中，与其他可运行进程争夺 CPU 时间。 系统的 load 是指正在运行 running 和准备好运行 runnable 以及 不可中断睡眠 的进程的总数。比如现在系统有 2 个正在运行的进程，3 个可运行进程，那么系统的 load 就是 5
-Load Average 为在特定时间间隔内运行队列中(在 CPU 上运行或者等待运行多少进程)的平均进程数。如果一个进程满足以下条件则其就会位于运行队列中：
-它没有在等待 I/O 操作的结果 它没有主动进入等待状态(也就是没有调用’wait’) 没有被停止(例如：等待终止) 在 Linux 中，进程分为三种状态，一种是阻塞的进程 blocked process，一种是可运行的进程 runnable process，另外就是正在运行的进程 running process。当进程阻塞时，进程会等待 I/O 设备的数据或者系统调用。
-一、查看系统负荷
-如果你的电脑很慢，你或许想查看一下，它的工作量是否太大了。
-在 Linux 系统中，我们一般使用 uptime 命令查看（w 命令和 top 命令也行）。（另外，它们在苹果公司的 Mac 电脑上也适用。）</description></item><item><title>10.1.CPU 执行程序的秘密，藏在了这 15 张图里</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.1.CPU-%E6%89%A7%E8%A1%8C%E7%A8%8B%E5%BA%8F%E7%9A%84%E7%A7%98%E5%AF%86%E8%97%8F%E5%9C%A8%E4%BA%86%E8%BF%99-15-%E5%BC%A0%E5%9B%BE%E9%87%8C/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.1.CPU-%E6%89%A7%E8%A1%8C%E7%A8%8B%E5%BA%8F%E7%9A%84%E7%A7%98%E5%AF%86%E8%97%8F%E5%9C%A8%E4%BA%86%E8%BF%99-15-%E5%BC%A0%E5%9B%BE%E9%87%8C/</guid><description>CPU 执行程序的秘密，藏在了这 15 张图里
-前言
-代码写了那么多，你知道 a = 1 + 2 这条代码是怎么被 CPU 执行的吗？
-软件用了那么多，你知道软件的 32 位和 64 位之间的区别吗？再来 32 位的操作系统可以运行在 64 位的电脑上吗？64 位的操作系统可以运行在 32 位的电脑上吗？如果不行，原因是什么？
-CPU 看了那么多，我们都知道 CPU 通常分为 32 位和 64 位，你知道 64 位相比 32 位 CPU 的优势在哪吗？64 位 CPU 的计算性能一定比 32 位 CPU 高很多吗？
-不知道也不用慌张，接下来就循序渐进的、一层一层的攻破这些问题。
-图灵机的工作方式 要想知道程序执行的原理，我们可以先从「图灵机」说起，图灵的基本思想是用机器来模拟人们用纸笔进行数学运算的过程，而且还定义了计算机由哪些部分组成，程序又是如何执行的。
-图灵机长什么样子呢？你从下图可以看到图灵机的实际样子：
-图来源自：http://www.kristergustafsson.me/turing-machine/
-图灵机的基本组成如下：
-有一条「纸带」，纸带由一个个连续的格子组成，每个格子可以写入字符，纸带就好比内存，而纸带上的格子的字符就好比内存中的数据或程序；
-有一个「读写头」，读写头可以读取纸带上任意格子的字符，也可以把字符写入到纸带的格子；
-读写头上有一些部件，比如存储单元、控制单元以及运算单元：
-1、存储单元用于存放数据；
-2、控制单元用于识别字符是数据还是指令，以及控制程序的流程等；
-3、运算单元用于执行运算指令；
-知道了图灵机的组成后，我们以简单数学运算的 1 + 2 作为例子，来看看它是怎么执行这行代码的。
-首先，用读写头把 「1、2、+」这 3 个字符分别写入到纸带上的 3 个格子，然后读写头先停在 1 字符对应的格子上；</description></item><item><title>10.2.知道硬盘很慢，但没想到比 CPU Cache 慢 10000000 倍</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.2.%E7%9F%A5%E9%81%93%E7%A1%AC%E7%9B%98%E5%BE%88%E6%85%A2%E4%BD%86%E6%B2%A1%E6%83%B3%E5%88%B0%E6%AF%94-CPU-Cache-%E6%85%A2-10000000-%E5%80%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.2.%E7%9F%A5%E9%81%93%E7%A1%AC%E7%9B%98%E5%BE%88%E6%85%A2%E4%BD%86%E6%B2%A1%E6%83%B3%E5%88%B0%E6%AF%94-CPU-Cache-%E6%85%A2-10000000-%E5%80%8D/</guid><description>天啦噜！知道硬盘很慢，但没想到比 CPU Cache 慢 10000000 倍 https://mp.weixin.qq.com/s/-E5jcp7tfkXjsSu2vzdeAw
-前言
-大家如果想自己组装电脑的话，肯定需要购买一个 CPU，但是存储器方面的设备，分类比较多，那我们肯定不能只买一种存储器，比如你除了要买内存，还要买硬盘，而针对硬盘我们还可以选择是固态硬盘还是机械硬盘。
-相信大家都知道内存和硬盘都属于计算机的存储设备，断电后内存的数据是会丢失的，而硬盘则不会，因为硬盘是持久化存储设备，同时也是一个 I/O 设备。
-但其实 CPU 内部也有存储数据的组件，这个应该比较少人注意到，比如寄存器、CPU L1/L2/L3 Cache 也都是属于存储设备，只不过它们能存储的数据非常小，但是它们因为靠近 CPU 核心，所以访问速度都非常快，快过硬盘好几个数量级别。
-问题来了，那机械硬盘、固态硬盘、内存这三个存储器，到底和 CPU L1 Cache 相比速度差多少倍呢？
-在回答这个问题之前，我们先来看看「存储器的层次结构」，好让我们对存储器设备有一个整体的认识。
-存储器的层次结构 我们想象中一个场景，大学期末准备考试了，你前去图书馆临时抱佛脚。那么，在看书的时候，我们的大脑会思考问题，也会记忆知识点，另外我们通常也会把常用的书放在自己的桌子上，当我们要找一本不常用的书，则会去图书馆的书架找。
-就是这么一个小小的场景，已经把计算机的存储结构基本都涵盖了。
-我们可以把 CPU 比喻成我们的大脑，大脑正在思考的东西，就好比 CPU 中的寄存器，处理速度是最快的，但是能存储的数据也是最少的，毕竟我们也不能一下同时思考太多的事情，除非你练过。
-我们大脑中的记忆，就好比 CPU Cache，中文称为 CPU 高速缓存，处理速度相比寄存器慢了一点，但是能存储的数据也稍微多了一些。
-CPU Cache 通常会分为 L1、L2、L3 三层，其中 L1 Cache 通常分成「数据缓存」和「指令缓存」，L1 是距离 CPU 最近的，因此它比 L2、L3 的读写速度都快、存储空间都小。我们大脑中短期记忆，就好比 L1 Cache，而长期记忆就好比 L2/L3 Cache。
-寄存器和 CPU Cache 都是在 CPU 内部，跟 CPU 挨着很近，因此它们的读写速度都相当的快，但是能存储的数据很少，毕竟 CPU 就这么丁点大。
-知道 CPU 内部的存储器的层次分布，我们放眼看看 CPU 外部的存储器。</description></item><item><title>10.3.如何写出让 CPU 跑得更快的代码？</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.3.%E5%A6%82%E4%BD%95%E5%86%99%E5%87%BA%E8%AE%A9-CPU-%E8%B7%91%E5%BE%97%E6%9B%B4%E5%BF%AB%E7%9A%84%E4%BB%A3%E7%A0%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.3.%E5%A6%82%E4%BD%95%E5%86%99%E5%87%BA%E8%AE%A9-CPU-%E8%B7%91%E5%BE%97%E6%9B%B4%E5%BF%AB%E7%9A%84%E4%BB%A3%E7%A0%81/</guid><description>面试官：如何写出让 CPU 跑得更快的代码？
-前言
-代码都是由 CPU 跑起来的，我们代码写的好与坏就决定了 CPU 的执行效率，特别是在编写计算密集型的程序，更要注重 CPU 的执行效率，否则将会大大影响系统性能。
-CPU 内部嵌入了 CPU Cache（高速缓存），它的存储容量很小，但是离 CPU 核心很近，所以缓存的读写速度是极快的，那么如果 CPU 运算时，直接从 CPU Cache 读取数据，而不是从内存的话，运算速度就会很快。
-但是，大多数人不知道 CPU Cache 的运行机制，以至于不知道如何才能够写出能够配合 CPU Cache 工作机制的代码，一旦你掌握了它，你写代码的时候，就有新的优化思路了。
-那么，接下来我们就来看看，CPU Cache 到底是什么样的，是如何工作的呢，又该写出让 CPU 执行更快的代码呢？
-CPU Cache 有多快？ 你可能会好奇为什么有了内存，还需要 CPU Cache？根据摩尔定律，CPU 的访问速度每 18 个月就会翻倍，相当于每年增长 60% 左右，内存的速度当然也会不断增长，但是增长的速度远小于 CPU，平均每年只增长 7% 左右。于是，CPU 与内存的访问性能的差距不断拉大。
-到现在，一次内存访问所需时间是 200300 多个时钟周期，这意味着 CPU 和内存的访问速度已经相差 200300 多倍了。
-为了弥补 CPU 与内存两者之间的性能差异，就在 CPU 内部引入了 CPU Cache，也称高速缓存。
-CPU Cache 通常分为大小不等的三级缓存，分别是 L1 Cache、L2 Cache 和 L3 Cache。</description></item><item><title>10.4.CPU 缓存一致性</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.4.CPU-%E7%BC%93%E5%AD%98%E4%B8%80%E8%87%B4%E6%80%A7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.4.CPU-%E7%BC%93%E5%AD%98%E4%B8%80%E8%87%B4%E6%80%A7/</guid><description>概述 参考：
-公众号,小林 coding-10 张图打开 CPU 缓存一致性的大门 公众号,小林 coding-用动图的方式，理解 CPU 缓存一致性协议！ 在线体验 MESI 协议状态转换 CPU Cache 的数据写入 随着时间的推移，CPU 和内存的访问性能相差越来越大，于是就在 CPU 内部嵌入了 CPU Cache（高速缓存），CPU Cache 离 CPU 核心相当近，因此它的访问速度是很快的，于是它充当了 CPU 与内存之间的缓存角色。
-CPU Cache 通常分为三级缓存：L1 Cache、L2 Cache、L3 Cache，级别越低的离 CPU 核心越近，访问速度也快，但是存储容量相对就会越小。其中，在多核心的 CPU 里，每个核心都有各自的 L1/L2 Cache，而 L3 Cache 是所有核心共享使用的。
-我们先简单了解下 CPU Cache 的结构，CPU Cache 是由很多个 Cache Line 组成的，CPU Line 是 CPU 从内存读取数据的基本单位，而 CPU Line 是由各种标志（Tag）+ 数据块（Data Block）组成，你可以在下图清晰的看到：
-我们当然期望 CPU 读取数据的时候，都是尽可能地从 CPU Cache 中读取，而不是每一次都要从内存中获取数据。所以，身为程序员，我们要尽可能写出缓存命中率高的代码，这样就有效提高程序的性能，具体的做法，你可以参考我上一篇文章「如何写出让 CPU 跑得更快的代码？」</description></item><item><title>Context Switch(上下文切换)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Context-Switch%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%87%E6%8D%A2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Context-Switch%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%87%E6%8D%A2/</guid><description>概述 参考：
-极客时间，Linux 性能优化实战-03 基础篇：经常说的 CPU 上下文切换是什么意思 LinuxPerformance 博客，进程切换：自愿与强制 Wiki, Context Swtich 简书，进程/线程上下问切换会用掉你多少 CPU 我们都知道，Linux 是一个多任务操作系统，它支持远大于 CPU 数量的任务同时运行。当然，这些任务实际上并不是真的在同时运行，而是因为系统在很短的时间内，将 CPU 轮流分配给它们，造成多任务同时运行的错觉。
-而在每个任务运行前，CPU 都需要知道任务从哪里加载、又从哪里开始运行，也就是说，需要系统事先帮它设置好 CPU 寄存器和程序计数器（Program Counter，PC）。
-CPU 寄存器，是 CPU 内置的容量小、但速度极快的内存。而程序计数器，则是用来存储 CPU 正在执行的指令位置、或者即将执行的下一条指令位置。它们都是 CPU 在运行任何任务前，必须的依赖环境，因此也被叫做 CPU 上下文
-知道了什么是 CPU 上下文，我想你也很容易理解 CPU 上下文切换。CPU 上下文切换，就是先把前一个任务的 CPU 上下文（也就是 CPU 寄存器和程序计数器）保存起来，然后加载新任务的上下文到这些寄存器和程序计数器，最后再跳转到程序计数器所指的新位置，运行新任务。
-而这些保存下来的上下文，会存储在系统内核中，并在任务重新调度执行时再次加载进来。这样就能保证任务原来的状态不受影响，让任务看起来还是连续运行。
-我猜肯定会有人说，CPU 上下文切换无非就是更新了 CPU 寄存器的值嘛，但这些寄存器，本身就是为了快速运行任务而设计的，为什么会影响系统的 CPU 性能呢？
-在回答这个问题前，不知道你有没有想过，操作系统管理的这些“任务”到底是什么呢？也许你会说，任务就是进程，或者说任务就是线程。是的，进程和线程正是最常见的任务。但是除此之外，还有没有其他的任务呢？
-不要忘了，硬件通过触发信号，会导致中断处理程序的调用，也是一种常见的任务。
-所以，根据任务的不同，CPU 的上下文切换就可以分为几个不同的场景:
-进程上下文切换 线程上下文切换 中断上下文切换 进程上下文切换 Linux 按照特权等级，把进程的运行空间分为内核空间和用户空间，分别对应着下图中， CPU 特权等级的 Ring 0 和 Ring 3。
-内核空间（Ring 0）具有最高权限，可以直接访问所有资源； 用户空间（Ring 3）只能访问受限资源，不能直接访问内存等硬件设备，必须通过系统调用陷入到内核中，才能访问这些特权资源。 换个角度看，也就是说，进程既可以在用户空间运行，又可以在内核空间中运行。进程在用户空间运行时，被称为进程的用户态，而陷入内核空间的时候，被称为进程的内核态。</description></item><item><title>CPU 空闲时在干嘛？</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU-%E7%A9%BA%E9%97%B2%E6%97%B6%E5%9C%A8%E5%B9%B2%E5%98%9B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU-%E7%A9%BA%E9%97%B2%E6%97%B6%E5%9C%A8%E5%B9%B2%E5%98%9B/</guid><description>概述 参考：
-公众号-码农的荒岛求生，CPU 空闲时在干嘛？
-人空闲时会发呆会无聊，计算机呢？
-假设你正在用计算机浏览网页，当网页加载完成后你开始阅读，此时你没有移动鼠标，没有敲击键盘，也没有网络通信，那么你的计算机此时在干嘛？
-有的同学可能会觉得这个问题很简单，但实际上，这个问题涉及从硬件到软件、从 CPU 到操作系统等一系列环节，理解了这个问题你就能明白操作系统是如何工作的了。
-你的计算机 CPU 使用率是多少？ 如果此时你正在计算机旁，并且安装有 Windows 或者 Linux ，你可以立刻看到自己的计算机 CPU 使用率是多少。
-这是博主的一台安装有 Win10 的笔记本：
-可以看到大部分情况下 CPU 利用率很低，也就在 8% 左右，而且开启了 283 个进程，这么多进程基本上无所事事，都在等待某个特定事件来唤醒自己，就好比你写了一个打印用户输入的程序，如果用户一直不按键盘，那么你的进程就处于这种状态。
-有的同学可能会想也就你的比较空闲吧，实际上大部分个人计算机 CPU 使用率都差不多这样(排除掉看电影、玩游戏等场景)，如果你的使用率总是很高，风扇一直在嗡嗡的转，那么不是软件 bug 就有可能是病毒。。。
-那么有的同学可能会问，剩下的 CPU 时间都去哪里了？
-剩下的 CPU 时间去哪里了？ 这个问题也很简单，还是以 Win10 为例，打开任务管理器，找到 “详细信息” 这一栏，你会发现有一个 “系统空闲进程”，其 CPU 使用率达到了 99%，正是这个进程消耗了几乎所有的 CPU 时间。
-那么为什么存在这样一个进程呢？以及这个进程什么时候开始运行呢？
-这就要从操作系统说起了。
-程序、进程与操作系统 当你用最喜欢的代码编辑器编写代码时，这时的代码不过就是磁盘上的普通文件，此时的程序和操作系统没有半毛钱关系，操作系统也不认知这种文本文件。
-程序员写完代码后开始编译，这时编译器将普通的文本文件翻译成二进制可执行文件，此时的程序依然是保存在磁盘上的文件，和普通没有本质区别。
-但此时不一样的是，该文件是可执行文件，也就是说操作系统开始 “懂得” 这种文件，所谓 “懂得” 是指操作系统可以识别、解析、加载，因此必定有某种类似协议的规范，这样编译器按照这种协议生成可执行文件，操作系统就能加载了。
-在 Linux 下可执行文件格式为 ELF ，在 Windows 下是 EXE 。</description></item><item><title>调度算法</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95/</guid><description>概述 调度类型 由于任务有优先级之分，Linux 系统为了保障高优先级的任务能够尽可能早的被执行，于是分为了这几种调度类型，如下图：
-Deadline 和 Realtime 调度类型，应用于实时任务。这两个调度类型的调度策略合起来共有这三种，它们的作用如下：
-SCHED_DEADLINE：是按照 deadline 进行调度的，距离当前时间点最近的 deadline 的任务会被优先调度； SCHED_FIFO：对于相同优先级的任务，按先来先服务的原则，但是优先级更高的任务，可以抢占低优先级的任务，也就是优先级高的可以「插队」； SCHED_RR：对于相同优先级的任务，轮流着运行，每个任务都有一定的时间片，当用完时间片的任务会被放到队列尾部，以保证相同优先级任务的公平性，但是高优先级的任务依然可以抢占低优先级的任务； Fair 调度类型，应用于普通任务。都是由 CFS 调度器管理的，分为两种调度策略：
-SCHED_NORMAL：普通任务使用的调度策略； SCHED_BATCH：后台任务的调度策略，不和终端进行交互，因此在不影响其他需要交互的任务，可以适当降低它的优先级。 Deadline 调度器 RT 调度器 CFS 调度器 参考：
-官方文档: https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt https://blog.csdn.net/dog250/article/details/95729830 https://blog.csdn.net/armlinuxww/article/details/97242063 https://www.jianshu.com/p/673c9e4817a8 https://zhuanlan.zhihu.com/p/83795639 https://blog.csdn.net/cloudvtech/article/details/107634785 CFS 调度器的前身是 O(1) 调度器
-CFS 彻底抛弃了 时间片轮转 的策略，而是改之为 在任意的调度周期内公平分享 CPU 时间 的问题。
-我们平日里遇到的基本都是普通任务，对于普通任务来说，公平性最重要，在 Linux 里面，实现了一个基于 CFS 的调度算法，也就是完全公平调度（Completely Fair Scheduling）。
-Completely Fair Scheduler(完全公平的调度器，简称 CFS)。由 Ingo Molnar 实现并在 Linux Kernel 2.6.23 之后开始引入，并逐步替代老式的 (O)1 调度器。
-CFS 使用 vruntime(虚拟运行时间) 的概念，来指定任务的下一个时间片何时开始在 CPU 上执行。</description></item><item><title>读写数据的方式</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%AF%BB%E5%86%99%E6%95%B0%E6%8D%AE%E7%9A%84%E6%96%B9%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%AF%BB%E5%86%99%E6%95%B0%E6%8D%AE%E7%9A%84%E6%96%B9%E5%BC%8F/</guid><description>原文：小林的《你不好奇 CPU 是如何执行任务的？》
-前言
-你清楚下面这几个问题吗？
-有了内存，为什么还需要 CPU Cache？ CPU 是怎么读写数据的？ 如何让 CPU 能读取数据更快一些？ CPU 伪共享是如何发生的？又该如何避免？ CPU 是如何调度任务的？如果你的任务对响应要求很高，你希望它总是能被先调度，这该怎么办？ … CPU 如何读写数据的？ 先来认识 CPU 的架构，只有理解了 CPU 的 架构，才能更好地理解 CPU 是如何读写数据的，对于现代 CPU 的架构图如下：
-可以看到，一个 CPU 里通常会有多个 CPU 核心，比如上图中的 1 号和 2 号 CPU 核心，并且每个 CPU 核心都有自己的 L1 Cache 和 L2 Cache，而 L1 Cache 通常分为 dCache（数据缓存） 和 iCache（指令缓存），L3 Cache 则是多个核心共享的，这就是 CPU 典型的缓存层次。
-上面提到的都是 CPU 内部的 Cache，放眼外部的话，还会有内存和硬盘，这些存储设备共同构成了金字塔存储层次。如下图所示：
-从上图也可以看到，从上往下，存储设备的容量会越大，而访问速度会越慢。至于每个存储设备的访问延时，你可以看下图的表格：
-你可以看到， CPU 访问 L1 Cache 速度比访问内存快 100 倍，这就是为什么 CPU 里会有 L1~L3 Cache 的原因，目的就是把 Cache 作为 CPU 与内存之间的缓存层，以减少对内存的访问频率。</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>CPU on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/</link><description>Recent content in CPU on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/index.xml" rel="self" type="application/rss+xml"/><item><title>CPU</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://time.geekbang.org/column/article/69859"&gt;极客时间，Linux 性能优化实战-03 基础篇：经常说的 CPU 上下文切换是什么意思&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="http://linuxperf.com/?p=209"&gt;LinuxPerformance 博客，进程切换：自愿与强制&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Linux-Kernel/Linux-Kernel/"&gt;Linux Kernel&lt;/a&gt; 中，CPU 的管理，绝大部分时间都是在进行任务的调度，所以很多时候也称为&lt;strong&gt;调度管理&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id="cpu-多线程并发并行-概念"&gt;CPU 多线程、并发、并行 概念&lt;a class="td-heading-self-link" href="#cpu-%e5%a4%9a%e7%ba%bf%e7%a8%8b%e5%b9%b6%e5%8f%91%e5%b9%b6%e8%a1%8c-%e6%a6%82%e5%bf%b5" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;Node：在这里时间片只是一种描述，理解 CPU 的并行与并发概念就好&lt;/p&gt;
+&lt;p&gt;1、CPU 时间分片、多线程？&lt;/p&gt;
+&lt;p&gt;如果线程数不多于 CPU 核心数，会把各个线程都分配一个核心，不需分片，而当线程数多于 CPU 核心数时才会分片。&lt;/p&gt;
+&lt;p&gt;2、并发和并行的区别&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;并发：当有多个线程在操作时,如果系统只有一个 CPU，把 CPU 运行时间划分成若干个时间片,分配给各个线程执行，在一个时间段的线程代码运行时，其它线程处于挂起状态。这种方式我们称之为 &lt;strong&gt;Concurrent(并发)&lt;/strong&gt;。并发=间隔发生&lt;/li&gt;
+&lt;li&gt;并行：当系统有一个以上 CPU 时,则线程的操作有可能非并发。当一个 CPU 执行一个线程时，另一个 CPU 可以执行另一个线程，两个线程互不抢占 CPU 资源，可以同时进行，这种方式我们称之为 &lt;strong&gt;Parallel(并行)&lt;/strong&gt;。 并行=同时进行&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;区别：并行是指两个或者多个事件在同一时刻发生；而并发是指两个或多个事件在同一时间间隔内发生。&lt;/p&gt;
+&lt;p&gt;并行是同时做多件事情。&lt;/p&gt;
+&lt;p&gt;并发表示同时发生了多件事情，通过时间片切换，哪怕只有单一的核心，也可以实现“同时做多件事情”这个效果。&lt;/p&gt;
+&lt;p&gt;根据底层是否有多处理器，并发与并行是可以等效的，这并不是两个互斥的概念。&lt;/p&gt;
+&lt;p&gt;举个我们开发中会遇到的例子，我们说资源请求并发数达到了 1 万。这里的意思是有 1 万个请求同时过来了。但是这里很明显不可能真正的同时去处理这 1 万个请求的吧！&lt;/p&gt;
+&lt;p&gt;如果这台机器的处理器有 4 个核心，不考虑超线程，那么我们认为同时会有 4 个线程在跑。也就是说，并发访问数是 1 万，而底层真实的并行处理的请求数是 4。如果并发数小一些只有 4 的话，又或者你的机器牛逼有 1 万个核心，那并发在这里和并行一个效果。也就是说，并发可以是虚拟的同时执行，也可以是真的同时执行。而并行的意思是真的同时执行。&lt;/p&gt;</description></item><item><title>Load Average 平均负载简述</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Load-Average-%E5%B9%B3%E5%9D%87%E8%B4%9F%E8%BD%BD%E7%AE%80%E8%BF%B0/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Load-Average-%E5%B9%B3%E5%9D%87%E8%B4%9F%E8%BD%BD%E7%AE%80%E8%BF%B0/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://blog.csdn.net/u011183653/article/details/19489603"&gt;https://blog.csdn.net/u011183653/article/details/19489603&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://blog.csdn.net/slvher/article/details/9199439"&gt;https://blog.csdn.net/slvher/article/details/9199439&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="load-与-load-average"&gt;Load 与 Load Average&lt;a class="td-heading-self-link" href="#load-%e4%b8%8e-load-average" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#000"&gt;LoadAverage&lt;/span&gt; &lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt; calc_load&lt;span style="color:#ce5c00;font-weight:bold"&gt;(&lt;/span&gt;TASK_RUNNING + TASK_UNINTERRUPTIBLE,n&lt;span style="color:#ce5c00;font-weight:bold"&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Load 是此时此刻 CPU 正在处理的进程数。进程可运行状态时，它处在一个运行队列 run queue 中，与其他可运行进程争夺 CPU 时间。 系统的 load 是指正在运行 running 和准备好运行 runnable 以及 不可中断睡眠 的进程的总数。比如现在系统有 2 个正在运行的进程，3 个可运行进程，那么系统的 load 就是 5&lt;/p&gt;
+&lt;p&gt;Load Average 为在特定时间间隔内运行队列中(在 CPU 上运行或者等待运行多少进程)的平均进程数。如果一个进程满足以下条件则其就会位于运行队列中：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;它没有在等待 I/O 操作的结果&lt;/li&gt;
+&lt;li&gt;它没有主动进入等待状态(也就是没有调用’wait’)&lt;/li&gt;
+&lt;li&gt;没有被停止(例如：等待终止)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;在 Linux 中，进程分为三种状态，一种是阻塞的进程 blocked process，一种是可运行的进程 runnable process，另外就是正在运行的进程 running process。当进程阻塞时，进程会等待 I/O 设备的数据或者系统调用。&lt;/p&gt;
+&lt;p&gt;一、查看系统负荷&lt;/p&gt;
+&lt;p&gt;如果你的电脑很慢，你或许想查看一下，它的工作量是否太大了。&lt;/p&gt;
+&lt;p&gt;在 Linux 系统中，我们一般使用 uptime 命令查看（w 命令和 top 命令也行）。（另外，它们在苹果公司的 Mac 电脑上也适用。）&lt;/p&gt;</description></item><item><title>10.1.CPU 执行程序的秘密，藏在了这 15 张图里</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.1.CPU-%E6%89%A7%E8%A1%8C%E7%A8%8B%E5%BA%8F%E7%9A%84%E7%A7%98%E5%AF%86%E8%97%8F%E5%9C%A8%E4%BA%86%E8%BF%99-15-%E5%BC%A0%E5%9B%BE%E9%87%8C/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.1.CPU-%E6%89%A7%E8%A1%8C%E7%A8%8B%E5%BA%8F%E7%9A%84%E7%A7%98%E5%AF%86%E8%97%8F%E5%9C%A8%E4%BA%86%E8%BF%99-15-%E5%BC%A0%E5%9B%BE%E9%87%8C/</guid><description>&lt;p&gt;&lt;strong&gt;CPU 执行程序的秘密，藏在了这 15 张图里&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;前言&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;代码写了那么多，你知道 a = 1 + 2 这条代码是怎么被 CPU 执行的吗？&lt;/p&gt;
+&lt;p&gt;软件用了那么多，你知道软件的 32 位和 64 位之间的区别吗？再来 32 位的操作系统可以运行在 64 位的电脑上吗？64 位的操作系统可以运行在 32 位的电脑上吗？如果不行，原因是什么？&lt;/p&gt;
+&lt;p&gt;CPU 看了那么多，我们都知道 CPU 通常分为 32 位和 64 位，你知道 64 位相比 32 位 CPU 的优势在哪吗？64 位 CPU 的计算性能一定比 32 位 CPU 高很多吗？&lt;/p&gt;
+&lt;p&gt;不知道也不用慌张，接下来就循序渐进的、一层一层的攻破这些问题。&lt;/p&gt;
+&lt;h1 id="图灵机的工作方式"&gt;图灵机的工作方式&lt;a class="td-heading-self-link" href="#%e5%9b%be%e7%81%b5%e6%9c%ba%e7%9a%84%e5%b7%a5%e4%bd%9c%e6%96%b9%e5%bc%8f" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;要想知道程序执行的原理，我们可以先从「图灵机」说起，图灵的基本思想是用机器来模拟人们用纸笔进行数学运算的过程，而且还定义了计算机由哪些部分组成，程序又是如何执行的。&lt;/p&gt;
+&lt;p&gt;图灵机长什么样子呢？你从下图可以看到图灵机的实际样子：&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/lucr7r/1616167986635-96dcf906-5b92-45b8-97a5-3cbdf0bba696.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;图来源自：&lt;a href="http://www.kristergustafsson.me/turing-machine/"&gt;http://www.kristergustafsson.me/turing-machine/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;图灵机的基本组成如下：&lt;/p&gt;
+&lt;p&gt;有一条「纸带」，纸带由一个个连续的格子组成，每个格子可以写入字符，纸带就好比内存，而纸带上的格子的字符就好比内存中的数据或程序；&lt;/p&gt;
+&lt;p&gt;有一个「读写头」，读写头可以读取纸带上任意格子的字符，也可以把字符写入到纸带的格子；&lt;/p&gt;
+&lt;p&gt;读写头上有一些部件，比如存储单元、控制单元以及运算单元：&lt;/p&gt;
+&lt;p&gt;1、存储单元用于存放数据；&lt;/p&gt;
+&lt;p&gt;2、控制单元用于识别字符是数据还是指令，以及控制程序的流程等；&lt;/p&gt;
+&lt;p&gt;3、运算单元用于执行运算指令；&lt;/p&gt;
+&lt;p&gt;知道了图灵机的组成后，我们以简单数学运算的 1 + 2 作为例子，来看看它是怎么执行这行代码的。&lt;/p&gt;
+&lt;p&gt;首先，用读写头把 「1、2、+」这 3 个字符分别写入到纸带上的 3 个格子，然后读写头先停在 1 字符对应的格子上；&lt;/p&gt;</description></item><item><title>10.2.知道硬盘很慢，但没想到比 CPU Cache 慢 10000000 倍</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.2.%E7%9F%A5%E9%81%93%E7%A1%AC%E7%9B%98%E5%BE%88%E6%85%A2%E4%BD%86%E6%B2%A1%E6%83%B3%E5%88%B0%E6%AF%94-CPU-Cache-%E6%85%A2-10000000-%E5%80%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.2.%E7%9F%A5%E9%81%93%E7%A1%AC%E7%9B%98%E5%BE%88%E6%85%A2%E4%BD%86%E6%B2%A1%E6%83%B3%E5%88%B0%E6%AF%94-CPU-Cache-%E6%85%A2-10000000-%E5%80%8D/</guid><description>&lt;h1 id="天啦噜知道硬盘很慢但没想到比-cpu-cache-慢-10000000-倍"&gt;天啦噜！知道硬盘很慢，但没想到比 CPU Cache 慢 10000000 倍&lt;a class="td-heading-self-link" href="#%e5%a4%a9%e5%95%a6%e5%99%9c%e7%9f%a5%e9%81%93%e7%a1%ac%e7%9b%98%e5%be%88%e6%85%a2%e4%bd%86%e6%b2%a1%e6%83%b3%e5%88%b0%e6%af%94-cpu-cache-%e6%85%a2-10000000-%e5%80%8d" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;a href="https://mp.weixin.qq.com/s/-E5jcp7tfkXjsSu2vzdeAw"&gt;https://mp.weixin.qq.com/s/-E5jcp7tfkXjsSu2vzdeAw&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;前言&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;大家如果想自己组装电脑的话，肯定需要购买一个 CPU，但是存储器方面的设备，分类比较多，那我们肯定不能只买一种存储器，比如你除了要买内存，还要买硬盘，而针对硬盘我们还可以选择是固态硬盘还是机械硬盘。&lt;/p&gt;
+&lt;p&gt;相信大家都知道内存和硬盘都属于计算机的存储设备，断电后内存的数据是会丢失的，而硬盘则不会，因为硬盘是持久化存储设备，同时也是一个 I/O 设备。&lt;/p&gt;
+&lt;p&gt;但其实 CPU 内部也有存储数据的组件，这个应该比较少人注意到，比如&lt;strong&gt;寄存器、CPU L1/L2/L3 Cache&lt;/strong&gt; 也都是属于存储设备，只不过它们能存储的数据非常小，但是它们因为靠近 CPU 核心，所以访问速度都非常快，快过硬盘好几个数量级别。&lt;/p&gt;
+&lt;p&gt;问题来了，&lt;strong&gt;那机械硬盘、固态硬盘、内存这三个存储器，到底和 CPU L1 Cache 相比速度差多少倍呢？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;在回答这个问题之前，我们先来看看「&lt;strong&gt;存储器的层次结构&lt;/strong&gt;」，好让我们对存储器设备有一个整体的认识。&lt;/p&gt;
+&lt;h1 id="存储器的层次结构"&gt;存储器的层次结构&lt;a class="td-heading-self-link" href="#%e5%ad%98%e5%82%a8%e5%99%a8%e7%9a%84%e5%b1%82%e6%ac%a1%e7%bb%93%e6%9e%84" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;我们想象中一个场景，大学期末准备考试了，你前去图书馆临时抱佛脚。那么，在看书的时候，我们的大脑会思考问题，也会记忆知识点，另外我们通常也会把常用的书放在自己的桌子上，当我们要找一本不常用的书，则会去图书馆的书架找。&lt;/p&gt;
+&lt;p&gt;就是这么一个小小的场景，已经把计算机的存储结构基本都涵盖了。&lt;/p&gt;
+&lt;p&gt;我们可以把 CPU 比喻成我们的大脑，大脑正在思考的东西，就好比 CPU 中的&lt;strong&gt;寄存器&lt;/strong&gt;，处理速度是最快的，但是能存储的数据也是最少的，毕竟我们也不能一下同时思考太多的事情，除非你练过。&lt;/p&gt;
+&lt;p&gt;我们大脑中的记忆，就好比 &lt;strong&gt;CPU Cache&lt;/strong&gt;，中文称为 CPU 高速缓存，处理速度相比寄存器慢了一点，但是能存储的数据也稍微多了一些。&lt;/p&gt;
+&lt;p&gt;CPU Cache 通常会分为 &lt;strong&gt;L1、L2、L3 三层&lt;/strong&gt;，其中 L1 Cache 通常分成「数据缓存」和「指令缓存」，L1 是距离 CPU 最近的，因此它比 L2、L3 的读写速度都快、存储空间都小。我们大脑中短期记忆，就好比 L1 Cache，而长期记忆就好比 L2/L3 Cache。&lt;/p&gt;
+&lt;p&gt;寄存器和 CPU Cache 都是在 CPU 内部，跟 CPU 挨着很近，因此它们的读写速度都相当的快，但是能存储的数据很少，毕竟 CPU 就这么丁点大。&lt;/p&gt;</description></item><item><title>10.3.如何写出让 CPU 跑得更快的代码？</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.3.%E5%A6%82%E4%BD%95%E5%86%99%E5%87%BA%E8%AE%A9-CPU-%E8%B7%91%E5%BE%97%E6%9B%B4%E5%BF%AB%E7%9A%84%E4%BB%A3%E7%A0%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.3.%E5%A6%82%E4%BD%95%E5%86%99%E5%87%BA%E8%AE%A9-CPU-%E8%B7%91%E5%BE%97%E6%9B%B4%E5%BF%AB%E7%9A%84%E4%BB%A3%E7%A0%81/</guid><description>&lt;p&gt;&lt;strong&gt;面试官：如何写出让 CPU 跑得更快的代码？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;前言&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;代码都是由 CPU 跑起来的，我们代码写的好与坏就决定了 CPU 的执行效率，特别是在编写计算密集型的程序，更要注重 CPU 的执行效率，否则将会大大影响系统性能。&lt;/p&gt;
+&lt;p&gt;CPU 内部嵌入了 CPU Cache（高速缓存），它的存储容量很小，但是离 CPU 核心很近，所以缓存的读写速度是极快的，那么如果 CPU 运算时，直接从 CPU Cache 读取数据，而不是从内存的话，运算速度就会很快。&lt;/p&gt;
+&lt;p&gt;但是，大多数人不知道 CPU Cache 的运行机制，以至于不知道如何才能够写出能够配合 CPU Cache 工作机制的代码，一旦你掌握了它，你写代码的时候，就有新的优化思路了。&lt;/p&gt;
+&lt;p&gt;那么，接下来我们就来看看，CPU Cache 到底是什么样的，是如何工作的呢，又该写出让 CPU 执行更快的代码呢？&lt;/p&gt;
+&lt;h1 id="cpu-cache-有多快"&gt;CPU Cache 有多快？&lt;a class="td-heading-self-link" href="#cpu-cache-%e6%9c%89%e5%a4%9a%e5%bf%ab" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;你可能会好奇为什么有了内存，还需要 CPU Cache？根据摩尔定律，CPU 的访问速度每 18 个月就会翻倍，相当于每年增长 60% 左右，内存的速度当然也会不断增长，但是增长的速度远小于 CPU，平均每年只增长 7% 左右。于是，CPU 与内存的访问性能的差距不断拉大。&lt;/p&gt;
+&lt;p&gt;到现在，一次内存访问所需时间是 200&lt;del&gt;300 多个时钟周期，这意味着 CPU 和内存的访问速度已经相差 200&lt;/del&gt;300 多倍了。&lt;/p&gt;
+&lt;p&gt;为了弥补 CPU 与内存两者之间的性能差异，就在 CPU 内部引入了 CPU Cache，也称高速缓存。&lt;/p&gt;
+&lt;p&gt;CPU Cache 通常分为大小不等的三级缓存，分别是 &lt;strong&gt;L1 Cache、L2 Cache 和 L3 Cache&lt;/strong&gt;。&lt;/p&gt;</description></item><item><title>10.4.CPU 缓存一致性</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.4.CPU-%E7%BC%93%E5%AD%98%E4%B8%80%E8%87%B4%E6%80%A7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/10.4.CPU-%E7%BC%93%E5%AD%98%E4%B8%80%E8%87%B4%E6%80%A7/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/PDUqwAIaUxNkbjvRfovaCg"&gt;公众号,小林 coding-10 张图打开 CPU 缓存一致性的大门&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/otJfvn1M3ObNqonrkFTiYg"&gt;公众号,小林 coding-用动图的方式，理解 CPU 缓存一致性协议！&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.scss.tcd.ie/Jeremy.Jones/VivioJS/caches/MESIHelp.htm"&gt;在线体验 MESI 协议状态转换&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="cpu-cache-的数据写入"&gt;CPU Cache 的数据写入&lt;a class="td-heading-self-link" href="#cpu-cache-%e7%9a%84%e6%95%b0%e6%8d%ae%e5%86%99%e5%85%a5" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;随着时间的推移，CPU 和内存的访问性能相差越来越大，于是就在 CPU 内部嵌入了 CPU Cache（高速缓存），CPU Cache 离 CPU 核心相当近，因此它的访问速度是很快的，于是它充当了 CPU 与内存之间的缓存角色。&lt;/p&gt;
+&lt;p&gt;CPU Cache 通常分为三级缓存：L1 Cache、L2 Cache、L3 Cache，级别越低的离 CPU 核心越近，访问速度也快，但是存储容量相对就会越小。其中，在多核心的 CPU 里，每个核心都有各自的 L1/L2 Cache，而 L3 Cache 是所有核心共享使用的。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951900-5b473df4-ff48-449e-a160-95bf38f43801.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;我们先简单了解下 CPU Cache 的结构，CPU Cache 是由很多个 Cache Line 组成的，CPU Line 是 CPU 从内存读取数据的基本单位，而 CPU Line 是由各种标志（Tag）+ 数据块（Data Block）组成，你可以在下图清晰的看到：&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/rzzghc/1616167951908-bd5942d3-a3de-45e7-8488-540091ab9e59.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;我们当然期望 CPU 读取数据的时候，都是尽可能地从 CPU Cache 中读取，而不是每一次都要从内存中获取数据。所以，身为程序员，我们要尽可能写出缓存命中率高的代码，这样就有效提高程序的性能，具体的做法，你可以参考我上一篇文章「如何写出让 CPU 跑得更快的代码？」&lt;/p&gt;</description></item><item><title>Context Switch(上下文切换)</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Context-Switch%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%87%E6%8D%A2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/Context-Switch%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%87%E6%8D%A2/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://time.geekbang.org/column/article/69859"&gt;极客时间，Linux 性能优化实战-03 基础篇：经常说的 CPU 上下文切换是什么意思&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="http://linuxperf.com/?p=209"&gt;LinuxPerformance 博客，进程切换：自愿与强制&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://en.wikipedia.org/wiki/Context_switch"&gt;Wiki, Context Swtich&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.jianshu.com/p/ebf1f832694c"&gt;简书，进程/线程上下问切换会用掉你多少 CPU&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;我们都知道，Linux 是一个多任务操作系统，它支持远大于 CPU 数量的任务同时运行。当然，这些任务实际上并不是真的在同时运行，而是因为系统在很短的时间内，将 CPU 轮流分配给它们，造成多任务同时运行的错觉。&lt;/p&gt;
+&lt;p&gt;而在每个任务运行前，CPU 都需要知道任务从哪里加载、又从哪里开始运行，也就是说，需要系统事先帮它设置好 CPU 寄存器和程序计数器（Program Counter，PC）。&lt;/p&gt;
+&lt;p&gt;CPU 寄存器，是 CPU 内置的容量小、但速度极快的内存。而程序计数器，则是用来存储 CPU 正在执行的指令位置、或者即将执行的下一条指令位置。它们都是 CPU 在运行任何任务前，必须的依赖环境，因此也被叫做 CPU 上下文&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dr9st4/1616168021551-0a8538d2-8938-4fa1-989b-989b818630ed.png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;知道了什么是 CPU 上下文，我想你也很容易理解 CPU 上下文切换。CPU 上下文切换，就是先把前一个任务的 CPU 上下文（也就是 CPU 寄存器和程序计数器）保存起来，然后加载新任务的上下文到这些寄存器和程序计数器，最后再跳转到程序计数器所指的新位置，运行新任务。&lt;/p&gt;
+&lt;p&gt;而这些保存下来的上下文，会存储在系统内核中，并在任务重新调度执行时再次加载进来。这样就能保证任务原来的状态不受影响，让任务看起来还是连续运行。&lt;/p&gt;
+&lt;p&gt;我猜肯定会有人说，CPU 上下文切换无非就是更新了 CPU 寄存器的值嘛，但这些寄存器，本身就是为了快速运行任务而设计的，为什么会影响系统的 CPU 性能呢？&lt;/p&gt;
+&lt;p&gt;在回答这个问题前，不知道你有没有想过，操作系统管理的这些“任务”到底是什么呢？也许你会说，任务就是进程，或者说任务就是线程。是的，进程和线程正是最常见的任务。但是除此之外，还有没有其他的任务呢？&lt;/p&gt;
+&lt;p&gt;不要忘了，硬件通过触发信号，会导致中断处理程序的调用，也是一种常见的任务。&lt;/p&gt;
+&lt;p&gt;所以，根据任务的不同，CPU 的上下文切换就可以分为几个不同的场景:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;进程上下文切换&lt;/li&gt;
+&lt;li&gt;线程上下文切换&lt;/li&gt;
+&lt;li&gt;中断上下文切换&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h1 id="进程上下文切换"&gt;进程上下文切换&lt;a class="td-heading-self-link" href="#%e8%bf%9b%e7%a8%8b%e4%b8%8a%e4%b8%8b%e6%96%87%e5%88%87%e6%8d%a2" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;Linux 按照特权等级，把进程的运行空间分为内核空间和用户空间，分别对应着下图中， CPU 特权等级的 Ring 0 和 Ring 3。&lt;/p&gt;</description></item><item><title>CPU 空闲时在干嘛？</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU-%E7%A9%BA%E9%97%B2%E6%97%B6%E5%9C%A8%E5%B9%B2%E5%98%9B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/CPU-%E7%A9%BA%E9%97%B2%E6%97%B6%E5%9C%A8%E5%B9%B2%E5%98%9B/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://mp.weixin.qq.com/s/FajNjSaxeaYZClunmtRDMg"&gt;公众号-码农的荒岛求生，CPU 空闲时在干嘛？&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;人空闲时会发呆会无聊，计算机呢？&lt;/p&gt;
+&lt;p&gt;假设你正在用计算机浏览网页，当网页加载完成后你开始阅读，此时你没有移动鼠标，没有敲击键盘，也没有网络通信，那么你的计算机此时在干嘛？&lt;/p&gt;
+&lt;p&gt;有的同学可能会觉得这个问题很简单，但实际上，这个问题涉及从硬件到软件、从 CPU 到操作系统等一系列环节，理解了这个问题你就能明白操作系统是如何工作的了。&lt;/p&gt;
+&lt;h1 id="你的计算机-cpu-使用率是多少"&gt;你的计算机 CPU 使用率是多少？&lt;a class="td-heading-self-link" href="#%e4%bd%a0%e7%9a%84%e8%ae%a1%e7%ae%97%e6%9c%ba-cpu-%e4%bd%bf%e7%94%a8%e7%8e%87%e6%98%af%e5%a4%9a%e5%b0%91" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;如果此时你正在计算机旁，并且安装有 Windows 或者 Linux ，你可以立刻看到自己的计算机 CPU 使用率是多少。&lt;/p&gt;
+&lt;p&gt;这是博主的一台安装有 Win10 的笔记本：&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/8g3rwJPmya104J44bWiaD22R1eLqdRJlibWRdZ06k2wwuj2IxIbA0Ts3HfhUIZe3kYKwmusTVibLIjD97oMPzvtoQ/640?wx_fmt=png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;可以看到大部分情况下 CPU 利用率很低，也就在 8% 左右，而且开启了 283 个进程，&lt;strong&gt;这么多进程基本上无所事事&lt;/strong&gt;，&lt;strong&gt;都在等待某个特定事件来唤醒自己&lt;/strong&gt;，就好比你写了一个打印用户输入的程序，如果用户一直不按键盘，那么你的进程就处于这种状态。&lt;/p&gt;
+&lt;p&gt;有的同学可能会想也就你的比较空闲吧，实际上大部分个人计算机 CPU 使用率都差不多这样(排除掉看电影、玩游戏等场景)，如果你的使用率&lt;strong&gt;总是&lt;/strong&gt;很高，风扇一直在嗡嗡的转，那么不是软件 bug 就有可能是病毒。。。&lt;/p&gt;
+&lt;p&gt;那么有的同学可能会问，剩下的 CPU 时间都去哪里了？&lt;/p&gt;
+&lt;h1 id="剩下的-cpu-时间去哪里了"&gt;剩下的 CPU 时间去哪里了？&lt;a class="td-heading-self-link" href="#%e5%89%a9%e4%b8%8b%e7%9a%84-cpu-%e6%97%b6%e9%97%b4%e5%8e%bb%e5%93%aa%e9%87%8c%e4%ba%86" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;这个问题也很简单，还是以 Win10 为例，打开任务管理器，找到 “详细信息” 这一栏，你会发现有一个 “系统空闲进程”，其 CPU 使用率达到了 99%，正是这个进程消耗了几乎所有的 CPU 时间。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/8g3rwJPmya104J44bWiaD22R1eLqdRJlibD8dNImSbBvibWj4o8F9OOvDn2bnTVyXYicoWvjQwqmlrbDCgIgYicHLCQ/640?wx_fmt=png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;那么为什么存在这样一个进程呢？以及这个进程什么时候开始运行呢？&lt;/p&gt;
+&lt;p&gt;这就要从操作系统说起了。&lt;/p&gt;
+&lt;h1 id="程序进程与操作系统"&gt;程序、进程与操作系统&lt;a class="td-heading-self-link" href="#%e7%a8%8b%e5%ba%8f%e8%bf%9b%e7%a8%8b%e4%b8%8e%e6%93%8d%e4%bd%9c%e7%b3%bb%e7%bb%9f" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;当你用最喜欢的代码编辑器编写代码时，这时的代码不过就是磁盘上的普通文件，此时的程序和操作系统没有半毛钱关系，操作系统也不认知这种文本文件。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/8g3rwJPmya104J44bWiaD22R1eLqdRJlibyy331MHvxdiawh2xcvlPP6U49GWFwhQZyNvbKHjYFAibLOs6hiauPZg8A/640?wx_fmt=png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;程序员写完代码后开始编译，这时编译器将普通的文本文件翻译成二进制可执行文件，此时的程序依然是保存在磁盘上的文件，和普通没有本质区别。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://mmbiz.qpic.cn/mmbiz_png/8g3rwJPmya104J44bWiaD22R1eLqdRJlib73IiaxpkWzic6GFbtfzxDYovg8srzIDuxiaKvSvibibAg6gKicl2OibRwmnoA/640?wx_fmt=png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;但此时不一样的是，该文件是可执行文件，也就是说操作系统开始 “懂得” 这种文件，所谓 “懂得” 是指操作系统可以识别、解析、加载，因此必定有某种类似协议的规范，这样编译器按照这种协议生成可执行文件，操作系统就能加载了。&lt;/p&gt;</description></item><item><title>调度算法</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%B0%83%E5%BA%A6%E7%AE%97%E6%B3%95/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;h2 id="调度类型"&gt;调度类型&lt;a class="td-heading-self-link" href="#%e8%b0%83%e5%ba%a6%e7%b1%bb%e5%9e%8b" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;由于任务有优先级之分，Linux 系统为了保障高优先级的任务能够尽可能早的被执行，于是分为了这几种调度类型，如下图：&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/coth1i/1616168010725-2970b496-047e-4890-808b-84b4aa539c5f.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Deadline 和 Realtime 调度类型&lt;/strong&gt;，应用于&lt;strong&gt;实时任务&lt;/strong&gt;。这两个调度类型的调度策略合起来共有这三种，它们的作用如下：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;SCHED_DEADLINE：是按照 deadline 进行调度的，距离当前时间点最近的 deadline 的任务会被优先调度；&lt;/li&gt;
+&lt;li&gt;SCHED_FIFO：对于相同优先级的任务，按先来先服务的原则，但是优先级更高的任务，可以抢占低优先级的任务，也就是优先级高的可以「插队」；&lt;/li&gt;
+&lt;li&gt;SCHED_RR：对于相同优先级的任务，轮流着运行，每个任务都有一定的时间片，当用完时间片的任务会被放到队列尾部，以保证相同优先级任务的公平性，但是高优先级的任务依然可以抢占低优先级的任务；&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;Fair 调度类型&lt;/strong&gt;，应用于&lt;strong&gt;普通任务&lt;/strong&gt;。都是由 CFS 调度器管理的，分为两种调度策略：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;SCHED_NORMAL：普通任务使用的调度策略；&lt;/li&gt;
+&lt;li&gt;SCHED_BATCH：后台任务的调度策略，不和终端进行交互，因此在不影响其他需要交互的任务，可以适当降低它的优先级。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="deadline-调度器"&gt;Deadline 调度器&lt;a class="td-heading-self-link" href="#deadline-%e8%b0%83%e5%ba%a6%e5%99%a8" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;h1 id="rt-调度器"&gt;RT 调度器&lt;a class="td-heading-self-link" href="#rt-%e8%b0%83%e5%ba%a6%e5%99%a8" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;h1 id="cfs-调度器"&gt;CFS 调度器&lt;a class="td-heading-self-link" href="#cfs-%e8%b0%83%e5%ba%a6%e5%99%a8" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;官方文档: &lt;a href="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt"&gt;https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://blog.csdn.net/dog250/article/details/95729830"&gt;https://blog.csdn.net/dog250/article/details/95729830&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://blog.csdn.net/armlinuxww/article/details/97242063"&gt;https://blog.csdn.net/armlinuxww/article/details/97242063&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.jianshu.com/p/673c9e4817a8"&gt;https://www.jianshu.com/p/673c9e4817a8&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://zhuanlan.zhihu.com/p/83795639"&gt;https://zhuanlan.zhihu.com/p/83795639&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://blog.csdn.net/cloudvtech/article/details/107634785"&gt;https://blog.csdn.net/cloudvtech/article/details/107634785&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;CFS 调度器的前身是 O(1) 调度器&lt;/p&gt;
+&lt;p&gt;CFS 彻底&lt;strong&gt;抛弃了 时间片轮转&lt;/strong&gt; 的策略，而是改之为 &lt;strong&gt;在任意的调度周期内公平分享 CPU 时间&lt;/strong&gt; 的问题。&lt;/p&gt;
+&lt;p&gt;我们平日里遇到的基本都是普通任务，对于普通任务来说，公平性最重要，在 Linux 里面，实现了一个基于 CFS 的调度算法，也就是完全公平调度（Completely Fair Scheduling）。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Completely Fair Scheduler(完全公平的调度器，简称 CFS)&lt;/strong&gt;。由 Ingo Molnar 实现并在 Linux Kernel 2.6.23 之后开始引入，并逐步替代老式的 (O)1 调度器。&lt;/p&gt;</description></item><item><title>读写数据的方式</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%AF%BB%E5%86%99%E6%95%B0%E6%8D%AE%E7%9A%84%E6%96%B9%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/CPU/%E8%AF%BB%E5%86%99%E6%95%B0%E6%8D%AE%E7%9A%84%E6%96%B9%E5%BC%8F/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;原文：小林的《你不好奇 CPU 是如何执行任务的？》&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;前言&lt;/p&gt;
+&lt;p&gt;你清楚下面这几个问题吗？&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;有了内存，为什么还需要 CPU Cache？&lt;/li&gt;
+&lt;li&gt;CPU 是怎么读写数据的？&lt;/li&gt;
+&lt;li&gt;如何让 CPU 能读取数据更快一些？&lt;/li&gt;
+&lt;li&gt;CPU 伪共享是如何发生的？又该如何避免？&lt;/li&gt;
+&lt;li&gt;CPU 是如何调度任务的？如果你的任务对响应要求很高，你希望它总是能被先调度，这该怎么办？&lt;/li&gt;
+&lt;li&gt;…&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="cpu-如何读写数据的"&gt;CPU 如何读写数据的？&lt;a class="td-heading-self-link" href="#cpu-%e5%a6%82%e4%bd%95%e8%af%bb%e5%86%99%e6%95%b0%e6%8d%ae%e7%9a%84" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;先来认识 CPU 的架构，只有理解了 CPU 的 架构，才能更好地理解 CPU 是如何读写数据的，对于现代 CPU 的架构图如下：&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000499-c31e4a9e-99eb-4226-9708-27c4c17f4c02.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;可以看到，一个 CPU 里通常会有多个 CPU 核心，比如上图中的 1 号和 2 号 CPU 核心，并且每个 CPU 核心都有自己的 L1 Cache 和 L2 Cache，而 L1 Cache 通常分为 dCache（数据缓存） 和 iCache（指令缓存），L3 Cache 则是多个核心共享的，这就是 CPU 典型的缓存层次。&lt;/p&gt;
+&lt;p&gt;上面提到的都是 CPU 内部的 Cache，放眼外部的话，还会有内存和硬盘，这些存储设备共同构成了金字塔存储层次。如下图所示：&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000513-03e89c02-e296-46cd-9359-f48cad53e9c8.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;从上图也可以看到，从上往下，存储设备的容量会越大，而访问速度会越慢。至于每个存储设备的访问延时，你可以看下图的表格：&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/bfl4ia/1616168000495-78f2f527-9309-4fed-bfed-50554ebabd85.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;你可以看到， CPU 访问 L1 Cache 速度比访问内存快 100 倍，这就是为什么 CPU 里会有 L1~L3 Cache 的原因，目的就是把 Cache 作为 CPU 与内存之间的缓存层，以减少对内存的访问频率。&lt;/p&gt;</description></item></channel></rss>

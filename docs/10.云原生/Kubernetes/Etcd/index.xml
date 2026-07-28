@@ -1,12 +1,32 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Etcd on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/</link><description>Recent content in Etcd on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/index.xml" rel="self" type="application/rss+xml"/><item><title>Etcd</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/Etcd/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/Etcd/</guid><description>概述 参考：
-Etcd 作为 kubernetes 集群的存储系统使用(也可以算是集群的注册中心)，保存了集群的所有配置信息，需要高可用，如果需要在生产环境下使用，则需要在单独部署
-Note：Etcd 只接收 API Server 的请求
-每个 etcd 一般使用两个端口进行工作，一个端口面向客户端提供服务(port/2379)，另一个端口集群内部通信(port/2380)
-想要正常运行 ETCD，需要注意以下几点：
-配置 etcd 的证书，如果不使用证书，则不法分子有可能直接去修改 etcd 数据 ca.crt(证书 CN：etcd-ca) # 给 apiserver 发客户端证书，给 etcd 发服务端证书以及对等证书 peer.crt(证书 CN：HostName) # etcd 集群各节点属于对等节点，使用 peer 类型证书(一般分为 server 证书和 client 证书，但是 etcd 集群之间不存在服务端和客户端的区别) apiserver-etcd-client.crt(证书 CN：kube-apiserver-etcd-client) # 与 server.crt 证书对应。apiserver 作为 etcd 的客户端所用的证书 server.crt(证书 CN：HostName) # 与 apiserver-etcd-client.crt 证书对应。etcd 作为 apiserver 的服务端所用的证书 修改 etcd 的配置文件 Etcd Metrics 详见：k8s 主要组件 metrics 获取指南
-etcdctl 命令行工具使用说明 详见：etcdctl 命令行工具</description></item><item><title>Etcd 中存储的数据之探究</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/Etcd-%E4%B8%AD%E5%AD%98%E5%82%A8%E7%9A%84%E6%95%B0%E6%8D%AE%E4%B9%8B%E6%8E%A2%E7%A9%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/Etcd-%E4%B8%AD%E5%AD%98%E5%82%A8%E7%9A%84%E6%95%B0%E6%8D%AE%E4%B9%8B%E6%8E%A2%E7%A9%B6/</guid><description>概述 原文: https://jingwei.link/2018/11/25/kubernetes-etcd-data-save-specification.html#default%E5%91%BD%E5%90%8D%E7%A9%BA%E9%97%B4%E4%B8%ADendpoint%E5%AE%9E%E4%BE%8Bkubernetes%E7%9A%84%E5%80%BC
-K8s 的架构复杂，涉及到概念非常多，其基础组件包含 ETCD、kube-apiserver、kube-controller-manager、kube-scheduler、kubelet、kube-proxy 等，其运行时环境为 docker 或 Rkt，当然还包含很多插件。在我看来，k8s 是 DevOps 的未来，因此不禁想写一些它的故事。
-ETCD 在 k8s 技术栈的地位，就仿佛数据库（Mysql、Postgresql 或 oracle 等）在 Web 应用中的地位，它存储了 k8s 集群中所有的元数据（以 key-value 的方式）。那么很现实的一个问题是：这些元数据是如何组织并保存的呢？本文就对此问题探究一番。
-相关环境
-两台 2 个核 4G 内存（2C4G）的虚拟机，ip 分别为 192.168.205.137 和 192.168.205.139 k8s 相关控件-1.8.6 etcd-3.3.10 docker-18.06.1-ce k8s 中 ETCD 数据的增删改查 首先应该明确，K8s 中所有元数据的增删改查都是由 kube-apiserver 来执行的，那么这些数据在 ETCD 中必然有一套存储规范，这样才能保证在集群中部署成千上万的应用时不会出差错。在此基础上可以认为，只要掌握了 k8s 在 ETCD 中存储数据的规范，便可以像 k8s 一样手动来操作 ETCD 了（虽然不建议这么做）。不过更大的价值是能对 k8s 的理解更进一步，便于以后 debug 或者二次开发 k8s 的某些功能时更有底气。
-初探 ETCD 中的数据 本文对 ETCD 的操作主要使用了其官方客户端工具 etcdctl，这里不对 etcdctl 进行详解了（需要用一整篇博客来介绍它才行），只就用到的一些命令进行阐释。</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Etcd on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/</link><description>Recent content in Etcd on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/index.xml" rel="self" type="application/rss+xml"/><item><title>Etcd</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/Etcd/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/Etcd/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd/"&gt;Etcd&lt;/a&gt; 作为 kubernetes 集群的存储系统使用(也可以算是集群的&lt;strong&gt;注册中心&lt;/strong&gt;)，保存了集群的所有配置信息，需要高可用，如果需要在生产环境下使用，则需要在单独部署&lt;/p&gt;
+&lt;p&gt;Note：Etcd 只接收 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-Resource-%E4%B8%8E-Object/API-Server/API-Server/"&gt;API Server&lt;/a&gt; 的请求&lt;/p&gt;
+&lt;p&gt;每个 etcd 一般使用两个端口进行工作，一个端口面向客户端提供服务(port/2379)，另一个端口集群内部通信(port/2380)&lt;/p&gt;
+&lt;p&gt;想要正常运行 ETCD，需要注意以下几点：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;配置 etcd 的证书，如果不使用证书，则不法分子有可能直接去修改 etcd 数据&lt;/li&gt;
+&lt;li&gt;ca.crt(证书 CN：etcd-ca) # 给 apiserver 发客户端证书，给 etcd 发服务端证书以及对等证书&lt;/li&gt;
+&lt;li&gt;peer.crt(证书 CN：HostName) # etcd 集群各节点属于对等节点，使用 peer 类型证书(一般分为 server 证书和 client 证书，但是 etcd 集群之间不存在服务端和客户端的区别)&lt;/li&gt;
+&lt;li&gt;apiserver-etcd-client.crt(证书 CN：kube-apiserver-etcd-client) # 与 server.crt 证书对应。apiserver 作为 etcd 的客户端所用的证书&lt;/li&gt;
+&lt;li&gt;server.crt(证书 CN：HostName) # 与 apiserver-etcd-client.crt 证书对应。etcd 作为 apiserver 的服务端所用的证书&lt;/li&gt;
+&lt;li&gt;修改 etcd 的配置文件&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h1 id="etcd-metrics"&gt;Etcd Metrics&lt;a class="td-heading-self-link" href="#etcd-metrics" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;详见：k8s 主要组件 metrics 获取指南&lt;/p&gt;</description></item><item><title>Etcd 中存储的数据之探究</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/Etcd-%E4%B8%AD%E5%AD%98%E5%82%A8%E7%9A%84%E6%95%B0%E6%8D%AE%E4%B9%8B%E6%8E%A2%E7%A9%B6/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Etcd/Etcd-%E4%B8%AD%E5%AD%98%E5%82%A8%E7%9A%84%E6%95%B0%E6%8D%AE%E4%B9%8B%E6%8E%A2%E7%A9%B6/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;原文: &lt;a href="https://jingwei.link/2018/11/25/kubernetes-etcd-data-save-specification.html#default%E5%91%BD%E5%90%8D%E7%A9%BA%E9%97%B4%E4%B8%ADendpoint%E5%AE%9E%E4%BE%8Bkubernetes%E7%9A%84%E5%80%BC"&gt;https://jingwei.link/2018/11/25/kubernetes-etcd-data-save-specification.html#default%E5%91%BD%E5%90%8D%E7%A9%BA%E9%97%B4%E4%B8%ADendpoint%E5%AE%9E%E4%BE%8Bkubernetes%E7%9A%84%E5%80%BC&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;K8s 的架构复杂，涉及到概念非常多，其基础组件包含 ETCD、kube-apiserver、kube-controller-manager、kube-scheduler、kubelet、kube-proxy 等，其运行时环境为 docker 或 Rkt，当然还包含很多插件。在我看来，k8s 是 DevOps 的未来，因此不禁想写一些它的故事。&lt;/p&gt;
+&lt;p&gt;ETCD 在 k8s 技术栈的地位，就仿佛数据库（Mysql、Postgresql 或 oracle 等）在 Web 应用中的地位，它存储了 k8s 集群中所有的元数据（以 key-value 的方式）。那么很现实的一个问题是：这些元数据是如何组织并保存的呢？本文就对此问题探究一番。&lt;/p&gt;
+&lt;p&gt;相关环境&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;两台 2 个核 4G 内存（2C4G）的虚拟机，ip 分别为 192.168.205.137 和 192.168.205.139&lt;/li&gt;
+&lt;li&gt;k8s 相关控件-1.8.6&lt;/li&gt;
+&lt;li&gt;etcd-3.3.10&lt;/li&gt;
+&lt;li&gt;docker-18.06.1-ce&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="k8s-中-etcd-数据的增删改查"&gt;k8s 中 ETCD 数据的增删改查&lt;a class="td-heading-self-link" href="#k8s-%e4%b8%ad-etcd-%e6%95%b0%e6%8d%ae%e7%9a%84%e5%a2%9e%e5%88%a0%e6%94%b9%e6%9f%a5" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;首先应该明确，K8s 中所有元数据的增删改查都是由 kube-apiserver 来执行的，那么这些数据在 ETCD 中必然有一套存储规范，这样才能保证在集群中部署成千上万的应用时不会出差错。在此基础上可以认为，只要掌握了 k8s 在 ETCD 中存储数据的规范，便可以像 k8s 一样手动来操作 ETCD 了（虽然不建议这么做）。不过更大的价值是能对 k8s 的理解更进一步，便于以后 debug 或者二次开发 k8s 的某些功能时更有底气。&lt;/p&gt;
+&lt;h1 id="初探-etcd-中的数据"&gt;初探 ETCD 中的数据&lt;a class="td-heading-self-link" href="#%e5%88%9d%e6%8e%a2-etcd-%e4%b8%ad%e7%9a%84%e6%95%b0%e6%8d%ae" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;本文对 ETCD 的操作主要使用了其官方客户端工具 etcdctl，这里不对 etcdctl 进行详解了（需要用一整篇博客来介绍它才行），只就用到的一些命令进行阐释。&lt;/p&gt;</description></item></channel></rss>

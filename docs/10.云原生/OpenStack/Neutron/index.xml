@@ -1,24 +1,117 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Neutron on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/</link><description>Recent content in Neutron on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/index.xml" rel="self" type="application/rss+xml"/><item><title>Neutron 工作原理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/</guid><description>概述 neutron 是 openstack 的一个重要模块，也是比较难以理解和 debug 的模块之一。
-我这里安装如图安装了经典的三个节点的 Havana 的 Openstack
-图 1
-分三个网络：
-External Network/API Network，这个网络是连接外网的，无论是用户调用 Openstack 的 API，还是创建出来的虚拟机要访问外网，或者外网要 ssh 到虚拟机，都需要通过这个网络
-Data Network，数据网络，虚拟机之间的数据传输通过这个网络来进行，比如一个虚拟机要连接另一个虚拟机，虚拟机要连接虚拟的路由都是通过这个网络来进行
-Management Network，管理网络，Openstack 各个模块之间的交互，连接数据库，连接 Message Queue 都是通过这个网络来。
-将这三个网络隔离，一方面是安全的原因，在虚拟机里面，无论采取什么手段，干扰的都紧紧是 Data Network，都不可能访问到我的数据库，一方面是流量分离，Management Network 的流量不是很大的，而且一般都会比较优雅的使用，而 Data network 和 External Network 就需要进行流量控制的策略。
-我的这个网络结构有些奇怪，除了 Controller 节点是两张网卡之外，其他的都多了一张网卡连接到 external network，这个网卡是用来做 apt-get 的，因为 Compute Node 按说是没有网卡连接到外网的，为了 apt-get 添加了 eth0，Network Node 虽然有一个网卡 eth1 是连接外网的，然而在 neutron 配置好之前，这个网卡通常是没有 IP 的，为了 apt-get 也添加了 eth0，有人说可以通过添加 route 规则都通过 Controller 连接外网，但是对于初学的人，这个样比较容易操作。
-neutron 是用来创建虚拟网络的，所谓虚拟网络，就是虚拟机启动的时候会有一个虚拟网卡，虚拟网卡会连接到虚拟的 switch 上，虚拟的 switch 连接到虚拟的 router 上，虚拟的 router 最终和物理网卡联通，从而虚拟网络和物理网络联通起来。</description></item><item><title>Neutron 架构</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E6%9E%B6%E6%9E%84/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E6%9E%B6%E6%9E%84/</guid><description>概述 参考：
-官方文档：https://docs.openstack.org/neutron/latest/admin/intro-os-networking.html Neutron Server 接收请求。对外提供 OpenStack 网络 API，接收请求，并调用 Plugin 处理请求。 Plugins 插件/Agent 代理 实现请求。 实现 OpenStack 网络的主要组件。用来创建各种网络设备和配置规则 Plugins 用来处理 Neutron Server 发来的请求，维护 OpenStack 逻辑网络状态， 并调用 Agent 处理请求。 Agent 用来处理对应 Plugin 的请求，并在宿主机上创建相应的网络设备以及生成网络规则。 Plugins 与 Agent 一般都是配套使用。比如 OVS Plugin 需要 OVS Agent。 Queue 队列 组件间通信。Neutron Server，Plugin 和 Agent 之间通过 Messaging Queue 通信和调用。 Database 数据库 保存网络状态。接收 Plugins 的信息，保存 OpenStack 的网络状态信息，包括 Network, Subnet, Port, Router 等。 额外说明：
-plugin 解决的是 What 的问题，即网络要配置成什么样子？而至于如何配置 How 的工作则交由 agent 完成。 plugin 的一个主要的职责是在数据库中维护 Neutron 网络的状态信息，这就造成一个问题：所有 network provider 的 plugin 都要编写一套非常类似的数据库访问代码。为了解决这个问题，Neutron 在 H 版本实现了一个 ML2（Modular Layer 2）plugin，对 plugin 的功能进行抽象和封装。有了 ML2 plugin，各种 network provider 无需开发自己的 plugin，只需要针对 ML2 开发相应的 driver 就可以了，工作量和难度都大大减少。 Neutron Server Neutron Server 提供了一个公开 Neutron API 的 Web 服务器，并将所有 Web 服务调用传递给 Neutron 插件进行处理。</description></item><item><title>OpenStack Networking 介绍</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/OpenStack-Networking-%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/OpenStack-Networking-%E4%BB%8B%E7%BB%8D/</guid><description>概述 参考：
-传统的网络管理方式很大程度上依赖于管理员手工配置和维护各种网络硬件设备；而云环境下的网络已经变得非常复杂，特别是在多租户场景里，用户随时都可能需要创建、修改和删除网络，网络的连通性和隔离不已经太可能通过手工配置来保证了。
-如何快速响应业务的需求对网络管理提出了更高的要求。传统的网络管理方式已经很难胜任这项工作，而“软件定义网络（software-defined networking, SDN）”所具有的灵活性和自动化优势使其成为云时代网络管理的主流。
-Neutron 的设计目标是实现“网络即服务（Networking as a Service）”。为了达到这一目标，在设计上遵循了基于 SDN 实现网络虚拟化的原则，在实现上充分利用了 Linux 系统上的各种网络相关的技术。
-所以！在学习和理解 OpenStack Network 的概念时，要与虚拟机的概念分开。Neutron 仅仅负责 SDN，也就是创建网络拓扑，拓扑中有多少交换机、路由器、都是怎么连接的。网络拓扑构建完毕后，再决定 VM 如何接入该 SDN 网络中，以及使用什么方式来接入。
-OpenStack Networking 介绍 参考：
-官方文档：https://docs.openstack.org/neutron/latest/admin/index.html 名为 Neutron 的服务套件实现了 OpenStack 的网络功能。可以通过 Neutron 创建和管理其他 OpenStack 组件可以使用的 Network Object(网路对象)。例如 networks、subnets、ports 等。
-Neutron 管理的 Network 对象 openstack 网络管理着以下几个核心对象。这几个对象在 web 界面创建网络时也会用到。这些对象从上到下是包含的概念，Network 包含 subnet，subnet 里包含 port
-Network # 网络。是一个隔离的二层广播域，不同的 network 之间在二层上是隔离的。network 必须属于某个 Project(有时候也叫租户 tenant)。network 支持多种类型每种网络类型，由 ML2 中的 Type Drivers 管理。 local # local 网络中的实例智能与同一节点上同一网络中的实例通信 flat # flat 网络中的实例能与位于同一网络的实例通信，并且可以跨越多个节点 vlan # vlan 是一个二层的广播域，同一 vlan 中的实例可以通信，不同 vlan 种的实例需要通过 router 通信。vlan 中的实例可以跨节点通信、 vxlan # 比 vlan 更好的技术 gre # 与 vxlan 类似的一种 overlay 网络。主要区别在于使用 IP 包而非 UDP 进行封装。 SubNet # 子网。是一个 IPv4 或者 IPv6 地址段，创建的 instance 就从 subnet 中获取 IP，每个 subnet 需要定义 IP 地址范围和掩码 注意： 在不同 network 中的 subnet 可以一样 在相同 network 中的 subnet 不可以一样 DHCP # 子网中可以创建 DHCP 服务，当启用 DHCP 服务时，会创建一个 tap 设备连接到某 bridge 上，来与子网所在的网络通信 Port # 端口 可以当做虚拟交换机的一个端口，创建 port 时，会给 port 分配 MAC 和 IP，当 instance 绑定到 port 时，会自动在 instance 上创建一个网卡，并获取 port 的 MAC 和 IP。如果不启用 DHCP 服务，则仅能获取 MAC，而无法获取 IP，instace 中的网卡 ip 还需要手动添加 注意：openstack 创建的 instance 本身并没有网卡，instance 中的网卡是通过 neutron 来添加的，而添加方式就是绑定某个 network 中 subnet 里的 port。绑定成功后，在 instance 中即可看到网卡设备。 Project，Network，Subnet，Port 和 VIF 之间关系。(VIF 指的是 instance 的网卡)</description></item><item><title>各种 Network Type 的实现方式</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/%E5%90%84%E7%A7%8D-Network-Type-%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/%E5%90%84%E7%A7%8D-Network-Type-%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F/</guid><description>Linux Bridge 可用的网络类型详解 Linux bridge 技术非常成熟，而且高效，所以业界很多 OpenStack 方案选择 linux bridge，比如 Rackspace 的 private cloud。
-open vswitch 实现的 Neutron 虚拟网络较为复杂，不易理解；而 linux bridge 方案更直观。先理解 linux bridge 方案后再学习 open vswitch 方案会更容易。并且可以通过两种方案的对比更加深入地理解 Neutron 网络。
-所谓的 Linux Bridge Provider 就是 Neutron 直接利用 Linux 中的 Bridge 来实现自身的网络功能，而没有任何额外的功能。就是类似直接在系统中使用 ip bridge、brctl 之类的命令。
-Linux Bridge 环境中，一个数据包从 instance 发送到物理网卡会经过下面几个网络设备：
-tap interface 命名为 tapN (N 为 0, 1, 2, 3&amp;hellip;&amp;hellip;) linux bridge 命名为 brqXXXX。 vlan interface 命名为 ethX.Y（X 为 interface 的序号，Y 为 vlan id） vxlan interface 命名为 vxlan-Z（z 是 VNI） 物理 interface 命名为 ethX（X 为 interface 的序号） Local Network 本地网络，无法与宿主机之外通信 Flat Network 平面网络，通过桥接与宿主机之外通信 VM——Bridge——网卡(纯二层实现，适合私有云)</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Neutron on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/</link><description>Recent content in Neutron on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/index.xml" rel="self" type="application/rss+xml"/><item><title>Neutron 工作原理</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;neutron 是 openstack 的一个重要模块，也是比较难以理解和 debug 的模块之一。&lt;/p&gt;
+&lt;p&gt;我这里安装如图安装了经典的三个节点的 Havana 的 Openstack&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dk3eew/1616123209479-a2bcb576-f320-42d7-a4df-0a7a050420f7.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;图 1&lt;/p&gt;
+&lt;p&gt;分三个网络：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;External Network/API Network，这个网络是连接外网的，无论是用户调用 Openstack 的 API，还是创建出来的虚拟机要访问外网，或者外网要 ssh 到虚拟机，都需要通过这个网络&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Data Network，数据网络，虚拟机之间的数据传输通过这个网络来进行，比如一个虚拟机要连接另一个虚拟机，虚拟机要连接虚拟的路由都是通过这个网络来进行&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Management Network，管理网络，Openstack 各个模块之间的交互，连接数据库，连接 Message Queue 都是通过这个网络来。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;将这三个网络隔离，一方面是安全的原因，在虚拟机里面，无论采取什么手段，干扰的都紧紧是 Data Network，都不可能访问到我的数据库，一方面是流量分离，Management Network 的流量不是很大的，而且一般都会比较优雅的使用，而 Data network 和 External Network 就需要进行流量控制的策略。&lt;/p&gt;
+&lt;p&gt;我的这个网络结构有些奇怪，除了 Controller 节点是两张网卡之外，其他的都多了一张网卡连接到 external network，这个网卡是用来做 apt-get 的，因为 Compute Node 按说是没有网卡连接到外网的，为了 apt-get 添加了 eth0，Network Node 虽然有一个网卡 eth1 是连接外网的，然而在 neutron 配置好之前，这个网卡通常是没有 IP 的，为了 apt-get 也添加了 eth0，有人说可以通过添加 route 规则都通过 Controller 连接外网，但是对于初学的人，这个样比较容易操作。&lt;/p&gt;</description></item><item><title>Neutron 架构</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E6%9E%B6%E6%9E%84/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/Neutron-%E6%9E%B6%E6%9E%84/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;官方文档：&lt;a href="https://docs.openstack.org/neutron/latest/admin/intro-os-networking.html"&gt;https://docs.openstack.org/neutron/latest/admin/intro-os-networking.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;Neutron Server
+&lt;ul&gt;
+&lt;li&gt;接收请求。对外提供 OpenStack 网络 API，接收请求，并调用 Plugin 处理请求。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Plugins 插件/Agent 代理
+&lt;ul&gt;
+&lt;li&gt;实现请求。&lt;/li&gt;
+&lt;li&gt;实现 OpenStack 网络的主要组件。用来创建各种网络设备和配置规则&lt;/li&gt;
+&lt;li&gt;Plugins 用来处理 Neutron Server 发来的请求，维护 OpenStack 逻辑网络状态， 并调用 Agent 处理请求。&lt;/li&gt;
+&lt;li&gt;Agent 用来处理对应 Plugin 的请求，并在宿主机上创建相应的网络设备以及生成网络规则。&lt;/li&gt;
+&lt;li&gt;Plugins 与 Agent 一般都是配套使用。比如 OVS Plugin 需要 OVS Agent。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Queue 队列
+&lt;ul&gt;
+&lt;li&gt;组件间通信。Neutron Server，Plugin 和 Agent 之间通过 Messaging Queue 通信和调用。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Database 数据库
+&lt;ul&gt;
+&lt;li&gt;保存网络状态。接收 Plugins 的信息，保存 OpenStack 的网络状态信息，包括 Network, Subnet, Port, Router 等。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/isxvn1/1616123261056-8e665764-b4d5-4d71-9756-af5d1fde6121.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;额外说明：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;plugin 解决的是 What 的问题，即网络要配置成什么样子？而至于如何配置 How 的工作则交由 agent 完成。&lt;/li&gt;
+&lt;li&gt;plugin 的一个主要的职责是在数据库中维护 Neutron 网络的状态信息，这就造成一个问题：所有 network provider 的 plugin 都要编写一套非常类似的数据库访问代码。为了解决这个问题，Neutron 在 H 版本实现了一个 ML2（Modular Layer 2）plugin，对 plugin 的功能进行抽象和封装。有了 ML2 plugin，各种 network provider 无需开发自己的 plugin，只需要针对 ML2 开发相应的 driver 就可以了，工作量和难度都大大减少。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="neutron-server"&gt;Neutron Server&lt;a class="td-heading-self-link" href="#neutron-server" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;Neutron Server 提供了一个公开 Neutron API 的 Web 服务器，并将所有 Web 服务调用传递给 Neutron 插件进行处理。&lt;/p&gt;</description></item><item><title>OpenStack Networking 介绍</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/OpenStack-Networking-%E4%BB%8B%E7%BB%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/OpenStack-Networking-%E4%BB%8B%E7%BB%8D/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;传统的网络管理方式很大程度上依赖于管理员手工配置和维护各种网络硬件设备；而云环境下的网络已经变得非常复杂，特别是在多租户场景里，用户随时都可能需要创建、修改和删除网络，网络的连通性和隔离不已经太可能通过手工配置来保证了。&lt;/p&gt;
+&lt;p&gt;如何快速响应业务的需求对网络管理提出了更高的要求。传统的网络管理方式已经很难胜任这项工作，而“软件定义网络（software-defined networking, SDN）”所具有的灵活性和自动化优势使其成为云时代网络管理的主流。&lt;/p&gt;
+&lt;p&gt;Neutron 的设计目标是实现“网络即服务（Networking as a Service）”。为了达到这一目标，在设计上遵循了基于 SDN 实现网络虚拟化的原则，在实现上充分利用了 Linux 系统上的各种网络相关的技术。&lt;/p&gt;
+&lt;p&gt;所以！在学习和理解 OpenStack Network 的概念时，要与虚拟机的概念分开。Neutron 仅仅负责 SDN，也就是创建网络拓扑，拓扑中有多少交换机、路由器、都是怎么连接的。网络拓扑构建完毕后，再决定 VM 如何接入该 SDN 网络中，以及使用什么方式来接入。&lt;/p&gt;
+&lt;h1 id="openstack-networking-介绍"&gt;OpenStack Networking 介绍&lt;a class="td-heading-self-link" href="#openstack-networking-%e4%bb%8b%e7%bb%8d" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;官方文档：&lt;a href="https://docs.openstack.org/neutron/latest/admin/index.html"&gt;https://docs.openstack.org/neutron/latest/admin/index.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;名为 Neutron 的服务套件实现了 OpenStack 的网络功能。可以通过 Neutron 创建和管理其他 OpenStack 组件可以使用的 Network Object(网路对象)。例如 networks、subnets、ports 等。&lt;/p&gt;
+&lt;h2 id="neutron-管理的-network-对象"&gt;Neutron 管理的 Network 对象&lt;a class="td-heading-self-link" href="#neutron-%e7%ae%a1%e7%90%86%e7%9a%84-network-%e5%af%b9%e8%b1%a1" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;openstack 网络管理着以下几个核心对象。这几个对象在 web 界面创建网络时也会用到。这些对象从上到下是包含的概念，Network 包含 subnet，subnet 里包含 port&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Network # 网络。是一个隔离的二层广播域，不同的 network 之间在二层上是隔离的。network 必须属于某个 Project(有时候也叫租户 tenant)。network 支持多种类型每种网络类型，由 ML2 中的 Type Drivers 管理。
+&lt;ul&gt;
+&lt;li&gt;local # local 网络中的实例智能与同一节点上同一网络中的实例通信&lt;/li&gt;
+&lt;li&gt;flat # flat 网络中的实例能与位于同一网络的实例通信，并且可以跨越多个节点&lt;/li&gt;
+&lt;li&gt;vlan # vlan 是一个二层的广播域，同一 vlan 中的实例可以通信，不同 vlan 种的实例需要通过 router 通信。vlan 中的实例可以跨节点通信、&lt;/li&gt;
+&lt;li&gt;vxlan # 比 vlan 更好的技术&lt;/li&gt;
+&lt;li&gt;gre # 与 vxlan 类似的一种 overlay 网络。主要区别在于使用 IP 包而非 UDP 进行封装。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;SubNet # 子网。是一个 IPv4 或者 IPv6 地址段，创建的 instance 就从 subnet 中获取 IP，每个 subnet 需要定义 IP 地址范围和掩码
+&lt;ul&gt;
+&lt;li&gt;注意：
+&lt;ul&gt;
+&lt;li&gt;在不同 network 中的 subnet 可以一样&lt;/li&gt;
+&lt;li&gt;在相同 network 中的 subnet 不可以一样&lt;/li&gt;
+&lt;li&gt;DHCP # 子网中可以创建 DHCP 服务，当启用 DHCP 服务时，会创建一个 tap 设备连接到某 bridge 上，来与子网所在的网络通信&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Port # 端口 可以当做虚拟交换机的一个端口，创建 port 时，会给 port 分配 MAC 和 IP，当 instance 绑定到 port 时，会自动在 instance 上创建一个网卡，并获取 port 的 MAC 和 IP。如果不启用 DHCP 服务，则仅能获取 MAC，而无法获取 IP，instace 中的网卡 ip 还需要手动添加
+&lt;ul&gt;
+&lt;li&gt;注意：openstack 创建的 instance 本身并没有网卡，instance 中的网卡是通过 neutron 来添加的，而添加方式就是绑定某个 network 中 subnet 里的 port。绑定成功后，在 instance 中即可看到网卡设备。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Project，Network，Subnet，Port 和 VIF 之间关系。(VIF 指的是 instance 的网卡)&lt;/p&gt;</description></item><item><title>各种 Network Type 的实现方式</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/%E5%90%84%E7%A7%8D-Network-Type-%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/OpenStack/Neutron/%E5%90%84%E7%A7%8D-Network-Type-%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F/</guid><description>&lt;h1 id="linux-bridge-可用的网络类型详解"&gt;Linux Bridge 可用的网络类型详解&lt;a class="td-heading-self-link" href="#linux-bridge-%e5%8f%af%e7%94%a8%e7%9a%84%e7%bd%91%e7%bb%9c%e7%b1%bb%e5%9e%8b%e8%af%a6%e8%a7%a3" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;Linux bridge 技术非常成熟，而且高效，所以业界很多 OpenStack 方案选择 linux bridge，比如 Rackspace 的 private cloud。&lt;/p&gt;
+&lt;p&gt;open vswitch 实现的 Neutron 虚拟网络较为复杂，不易理解；而 linux bridge 方案更直观。先理解 linux bridge 方案后再学习 open vswitch 方案会更容易。并且可以通过两种方案的对比更加深入地理解 Neutron 网络。&lt;/p&gt;
+&lt;p&gt;所谓的 Linux Bridge Provider 就是 Neutron 直接利用 Linux 中的 Bridge 来实现自身的网络功能，而没有任何额外的功能。就是类似直接在系统中使用 ip bridge、brctl 之类的命令。&lt;/p&gt;
+&lt;p&gt;Linux Bridge 环境中，一个数据包从 instance 发送到物理网卡会经过下面几个网络设备：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;tap interface 命名为 tapN (N 为 0, 1, 2, 3&amp;hellip;&amp;hellip;)&lt;/li&gt;
+&lt;li&gt;linux bridge 命名为 brqXXXX。&lt;/li&gt;
+&lt;li&gt;vlan interface 命名为 ethX.Y（X 为 interface 的序号，Y 为 vlan id）&lt;/li&gt;
+&lt;li&gt;vxlan interface 命名为 vxlan-Z（z 是 VNI）&lt;/li&gt;
+&lt;li&gt;物理 interface 命名为 ethX（X 为 interface 的序号）&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id="local-network-本地网络无法与宿主机之外通信"&gt;Local Network 本地网络，无法与宿主机之外通信&lt;a class="td-heading-self-link" href="#local-network-%e6%9c%ac%e5%9c%b0%e7%bd%91%e7%bb%9c%e6%97%a0%e6%b3%95%e4%b8%8e%e5%ae%bf%e4%b8%bb%e6%9c%ba%e4%b9%8b%e5%a4%96%e9%80%9a%e4%bf%a1" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/oo0pgf/1616123235077-f61119cd-ce2f-4f23-8343-9c6ba9696e26.jpeg" alt=""&gt;&lt;/p&gt;</description></item></channel></rss>

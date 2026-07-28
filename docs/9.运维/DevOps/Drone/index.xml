@@ -1,27 +1,132 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Drone on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/</link><description>Recent content in Drone on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/index.xml" rel="self" type="application/rss+xml"/><item><title>Drone</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone/</guid><description>概述 参考：
-GitHub 项目，drone/drone Drone 是一个比 Jenkins 更简单易用的现代化 CI/CD 平台。使用 Go 语言编写，基于 Docker 构建，使用简单的 yaml 配置文件来定义和执行 Docker 容器中定义的 Pipeline。
-Drone 由两个部分组成：
-Server # 用于对接 SCM，负责身份认证，SCM 配置，用户、Secrets 以及 webhook 相关的配置。当 Server 收到 SCM 的 webhook 消息后，会通知 Runner 执行 Pipeline。 可以启动多个 Server 来对接不同的 SCM。 Runners # 用于接收任务和运行 Pipeline。如果没有 Runner，那么在触发 Webhook，Drone 在开始 Pipeline 后，会处于 pending 状态并卡住。并且在 Drone Server 的日志中会看到如下报错： &amp;ldquo;error&amp;rdquo;: &amp;ldquo;Cannot transition status via :enqueue from :pending (Reason(s): 状态 cannot transition via &amp;ldquo;enqueue&amp;rdquo;)&amp;rdquo;, &amp;ldquo;msg&amp;rdquo;: &amp;ldquo;manager: cannot publish status&amp;rdquo;, Note：</description></item><item><title>Drone Pipelines 详解</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone-Pipelines-%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone-Pipelines-%E8%AF%A6%E8%A7%A3/</guid><description>概述 参考：
-官方文档：https://docs.drone.io/pipeline/overview/ Drone 默认通过 yaml 格式的名为 .drone.yml 的文件来指定 Pipelines 的行为。yaml 语法易于阅读和表达，将 .drone.yml 提交到代码仓库的根目录后，如果代码仓库配置了 webhook 并指定 Drone Server，那么当代码更改并触发 webhook 后，Drone Server 首先就会 clone 该仓库，并根据其中的 .drone.yml 文件中的内容，来执行后续 pipeline 动作。
-Note:Pipelines 从逻辑上看，就是一个或多个 Drone Plugins 的合集，每一个步骤都使用一个插件。具体原因详见下文 Pipeline 插件
-.drone.yml 文件基本样例 kind: pipeline type: docker name: default steps: - name: greeting image: alpine commands: - echo hello - echo world kind # 指定本次任务的种类，该示例任务为 pipeline 种类。还有 secret 与 signature 种类 type # 指定 pipeline 的类型，不同的类型调用不同的 Runner 来执行任务。如果不填 type，则默认为 docker 类型。该示例任务为 docker 类型(docker 类型意味着后续的所有步骤都会启动一个容器，然后再容器中执行步骤的内容)。 name # The name attribute defines a name for your pipeline.</description></item><item><title>drone 命令行工具</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/drone-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/drone-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description/></item><item><title>Drone 任务示例</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone-%E4%BB%BB%E5%8A%A1%E7%A4%BA%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone-%E4%BB%BB%E5%8A%A1%E7%A4%BA%E4%BE%8B/</guid><description>说明：
-Drone 无法通过手动来触发任务，需要在代码仓库开启 webhook，并配置该 webhook 的地址指向 Drone。
-这样在提交代码时，会自动通过 webhook 通知 Drone，有新的代码更改，可以触发任务。
-Drone 的基本示例演示 在 git 仓库中的根目录中，需要创建一个名为 .drone.yml 的文件(该文件也可以使用别的名字，如果要使用别的名字，那么在 Drone 的配置中也要进行相应修改)
-kind: pipeline type: docker name: default steps: - name: greeting image: alpine commands: - echo hello - echo world 项目的根目录下创建好该文件后，由于有 webhook 的存在，GitLab 会自动通知 Dreon 开始任务，如果没通知，那么可以通过下图的方式来手动触发 Webhook(在一个项目的 webhook 设置，手动测试 push)。
-Drone 收到 Webhook 的通知后，开始任务，首先会 clone 该仓库，然后启动 alpine 容器，并在容器中，执行 commands 中执行的命令。
-至此，一套最简单的 CI/CD 流程就算完成了
-通过 Drone 运行 go 语言的 hello world .drone.yaml 文件内容如下</description></item><item><title>Server 与 Runner 部署</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Server-%E4%B8%8E-Runner-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Server-%E4%B8%8E-Runner-%E9%83%A8%E7%BD%B2/</guid><description>GitHub Server 官方文档：https://docs.drone.io/server/provider/github/
-在 GitHub 上创建 OAuth Application，通过此连接创建。也可以点击 头像—Settings—Developer settings—OAuth Apps 来进入创建页面
-在创建页面需要指明该 OAuth Application 的 name、URL、callback URL 这三个信息。下面是三个信息的例子：
-Application name：Grone
-Homepage URL：http://10.10.100.150 # 这个 URL 指的是将要运行 Drone 的 GitHub Server 端设备 IP。也可以使用域名来表示。
-Authorization callback URL：http://10.10.100.150/login
-创建完成后，会生成两个信息 Client ID 与 Client Secret。下面是这两个信息的例子
-Client ID：df6dd0a1d49a4a26a151
-Client Secret：26507ea48eab7612f0bd8865f9d6091608baa7f3
-OAuth Application 的相关信息在安装 Drone 的 GitHub Server 端时会用到
-创建一个共享密钥，该密钥用来在 Server 与 Runner 两端进行通信时进行验证。使用如下命令即可
-openssl rand -hex 16 #
-生成字符串为：3de4792f96c2aa9e483b36a54b23d70a
-使用 docker 镜像运行 Drone 的 GitHub Server 端</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Drone on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/</link><description>Recent content in Drone on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/index.xml" rel="self" type="application/rss+xml"/><item><title>Drone</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://github.com/drone/drone"&gt;GitHub 项目，drone/drone&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Drone 是一个比 Jenkins 更简单易用的现代化 CI/CD 平台。使用 Go 语言编写，基于 Docker 构建，使用简单的 yaml 配置文件来定义和执行 Docker 容器中定义的 Pipeline。&lt;/p&gt;
+&lt;p&gt;Drone 由两个部分组成：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Server # 用于对接 SCM，负责身份认证，SCM 配置，用户、Secrets 以及 webhook 相关的配置。当 Server 收到 SCM 的 webhook 消息后，会通知 Runner 执行 Pipeline。
+&lt;ol&gt;
+&lt;li&gt;可以启动多个 Server 来对接不同的 SCM。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;Runners # 用于接收任务和运行 Pipeline。如果没有 Runner，那么在触发 Webhook，Drone 在开始 Pipeline 后，会处于 pending 状态并卡住。并且在 Drone Server 的日志中会看到如下报错：
+&lt;ol&gt;
+&lt;li&gt;&amp;ldquo;error&amp;rdquo;: &amp;ldquo;Cannot transition status via :enqueue from :pending (Reason(s): 状态 cannot transition via &amp;ldquo;enqueue&amp;rdquo;)&amp;rdquo;,&lt;/li&gt;
+&lt;li&gt;&amp;ldquo;msg&amp;rdquo;: &amp;ldquo;manager: cannot publish status&amp;rdquo;,&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Note：&lt;/p&gt;</description></item><item><title>Drone Pipelines 详解</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone-Pipelines-%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone-Pipelines-%E8%AF%A6%E8%A7%A3/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;官方文档：&lt;a href="https://docs.drone.io/pipeline/overview/"&gt;https://docs.drone.io/pipeline/overview/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Drone 默认通过 yaml 格式的名为 .drone.yml 的文件来指定 Pipelines 的行为。yaml 语法易于阅读和表达，将 .drone.yml 提交到代码仓库的根目录后，如果代码仓库配置了 webhook 并指定 Drone Server，那么当代码更改并触发 webhook 后，Drone Server 首先就会 clone 该仓库，并根据其中的 .drone.yml 文件中的内容，来执行后续 pipeline 动作。&lt;/p&gt;
+&lt;p&gt;Note:Pipelines 从逻辑上看，就是一个或多个 Drone Plugins 的合集，每一个步骤都使用一个插件。具体原因详见下文 Pipeline 插件&lt;/p&gt;
+&lt;h2 id="droneyml-文件基本样例"&gt;.drone.yml 文件基本样例&lt;a class="td-heading-self-link" href="#droneyml-%e6%96%87%e4%bb%b6%e5%9f%ba%e6%9c%ac%e6%a0%b7%e4%be%8b" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-yaml" data-lang="yaml"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;kind&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000"&gt;pipeline&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;type&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000"&gt;docker&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;name&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000"&gt;default&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;steps&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;- &lt;span style="color:#204a87;font-weight:bold"&gt;name&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000"&gt;greeting&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;image&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#000"&gt;alpine&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;commands&lt;/span&gt;&lt;span style="color:#000;font-weight:bold"&gt;:&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;- &lt;span style="color:#000"&gt;echo hello&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#f8f8f8"&gt; &lt;/span&gt;- &lt;span style="color:#000"&gt;echo world&lt;/span&gt;&lt;span style="color:#f8f8f8"&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;ol&gt;
+&lt;li&gt;kind # 指定本次任务的种类，该示例任务为 pipeline 种类。还有 secret 与 signature 种类&lt;/li&gt;
+&lt;li&gt;type # 指定 pipeline 的类型，不同的类型调用不同的 Runner 来执行任务。如果不填 type，则默认为 docker 类型。该示例任务为 docker 类型(docker 类型意味着后续的所有步骤都会启动一个容器，然后再容器中执行步骤的内容)。&lt;/li&gt;
+&lt;li&gt;name # The name attribute defines a name for your pipeline. You can define one or many pipelines for your project.&lt;/li&gt;
+&lt;li&gt;steps # The steps section defines an array of pipeline steps that are executed serially. If any step in the pipeline fails, the pipeline exits immediately.&lt;/li&gt;
+&lt;li&gt;name # The name attribute defines the name of the pipeline step.&lt;/li&gt;
+&lt;li&gt;image # 指定执行该步骤所使用的插件的镜像。&lt;/li&gt;
+&lt;li&gt;commands # 指定执行该步骤的具体内容，commands 表示在容器中执行 shell 命令。如果任何命令的退出码非 0，则 pipeline 将会失败。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id="该-pipelines-样例的流程详解"&gt;该 Pipelines 样例的流程详解&lt;a class="td-heading-self-link" href="#%e8%af%a5-pipelines-%e6%a0%b7%e4%be%8b%e7%9a%84%e6%b5%81%e7%a8%8b%e8%af%a6%e8%a7%a3" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;通过 drone/git 镜像启动容器，下载代码仓库中的代码&lt;/li&gt;
+&lt;li&gt;通过 alpine 镜像启动容器，执行 commands 字段下给定的两条命令。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;Note：&lt;/p&gt;</description></item><item><title>drone 命令行工具</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/drone-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/drone-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description/></item><item><title>Drone 任务示例</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone-%E4%BB%BB%E5%8A%A1%E7%A4%BA%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Drone-%E4%BB%BB%E5%8A%A1%E7%A4%BA%E4%BE%8B/</guid><description>&lt;p&gt;说明：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;Drone 无法通过手动来触发任务，需要在代码仓库开启 webhook，并配置该 webhook 的地址指向 Drone。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;这样在提交代码时，会自动通过 webhook 通知 Drone，有新的代码更改，可以触发任务。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h1 id="drone-的基本示例演示"&gt;Drone 的基本示例演示&lt;a class="td-heading-self-link" href="#drone-%e7%9a%84%e5%9f%ba%e6%9c%ac%e7%a4%ba%e4%be%8b%e6%bc%94%e7%a4%ba" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;在 git 仓库中的根目录中，需要创建一个名为 .drone.yml 的文件(该文件也可以使用别的名字，如果要使用别的名字，那么在 Drone 的配置中也要进行相应修改)&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;kind: pipeline
+type: docker
+name: default
+steps:
+- name: greeting
+ image: alpine
+ commands:
+ - echo hello
+ - echo world
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;项目的根目录下创建好该文件后，由于有 webhook 的存在，GitLab 会自动通知 Dreon 开始任务，如果没通知，那么可以通过下图的方式来手动触发 Webhook(在一个项目的 webhook 设置，手动测试 push)。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eluf5n/1616077689964-63e8cca0-f50d-42ec-8b95-4a3c4982ba2c.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;Drone 收到 Webhook 的通知后，开始任务，首先会 clone 该仓库，然后启动 alpine 容器，并在容器中，执行 commands 中执行的命令。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eluf5n/1616077689966-c28f6642-8925-48c5-98b8-6d06fdf5612a.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eluf5n/1616077689966-37666074-eae6-4135-9864-9d0264238779.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;至此，一套最简单的 CI/CD 流程就算完成了&lt;/p&gt;
+&lt;h1 id="通过-drone-运行-go-语言的-hello-world"&gt;通过 Drone 运行 go 语言的 hello world&lt;a class="td-heading-self-link" href="#%e9%80%9a%e8%bf%87-drone-%e8%bf%90%e8%a1%8c-go-%e8%af%ad%e8%a8%80%e7%9a%84-hello-world" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;.drone.yaml 文件内容如下&lt;/p&gt;</description></item><item><title>Server 与 Runner 部署</title><link>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Server-%E4%B8%8E-Runner-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/9.%E8%BF%90%E7%BB%B4/DevOps/Drone/Server-%E4%B8%8E-Runner-%E9%83%A8%E7%BD%B2/</guid><description>&lt;h1 id="github-server"&gt;GitHub Server&lt;a class="td-heading-self-link" href="#github-server" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;官方文档：&lt;a href="https://docs.drone.io/server/provider/github/"&gt;https://docs.drone.io/server/provider/github/&lt;/a&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;在 GitHub 上创建 OAuth Application，通过此连接创建。也可以点击 头像—Settings—Developer settings—OAuth Apps 来进入创建页面&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;在创建页面需要指明该 OAuth Application 的 name、URL、callback URL 这三个信息。下面是三个信息的例子：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;Application name：Grone&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Homepage URL：&lt;a href="http://10.10.100.150"&gt;http://10.10.100.150&lt;/a&gt; # 这个 URL 指的是将要运行 Drone 的 GitHub Server 端设备 IP。也可以使用域名来表示。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Authorization callback URL：&lt;a href="http://10.10.100.150/login"&gt;http://10.10.100.150/login&lt;/a&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;创建完成后，会生成两个信息 Client ID 与 Client Secret。下面是这两个信息的例子&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;Client ID：df6dd0a1d49a4a26a151&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Client Secret：26507ea48eab7612f0bd8865f9d6091608baa7f3&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;OAuth Application 的相关信息在安装 Drone 的 GitHub Server 端时会用到&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;创建一个共享密钥，该密钥用来在 Server 与 Runner 两端进行通信时进行验证。使用如下命令即可&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;openssl rand -hex 16 #&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;生成字符串为：3de4792f96c2aa9e483b36a54b23d70a&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;使用 docker 镜像运行 Drone 的 GitHub Server 端&lt;/p&gt;</description></item></channel></rss>

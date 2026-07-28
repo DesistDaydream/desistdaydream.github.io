@@ -1,27 +1,82 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>故障处理技巧 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/</link><description>Recent content in 故障处理技巧 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/index.xml" rel="self" type="application/rss+xml"/><item><title>/etc/kubernetes 目录误删恢复</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/etc_kubernetes-%E7%9B%AE%E5%BD%95%E8%AF%AF%E5%88%A0%E6%81%A2%E5%A4%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/etc_kubernetes-%E7%9B%AE%E5%BD%95%E8%AF%AF%E5%88%A0%E6%81%A2%E5%A4%8D/</guid><description>故障现象 参考：阳明公众号原文
-Kubernetes 是一个很牛很牛的平台，Kubernetes 的架构可以让你轻松应对各种故障，今天我们将来破坏我们的集群、删除证书，然后再想办法恢复我们的集群，进行这些危险的操作而不会对已经运行的服务造成宕机。
-如果你真的想要执行接下来的操作，还是建议别在生产环境去折腾，虽然理论上不会造成服务宕机，但是如果出现了问题，可千万别骂我~~~
-我们知道 Kubernetes 的控制平面是由几个组件组成的：
-etcd：作为整个集群的数据库使用
-kube-apiserver：集群的 API 服务
-kube-controller-manager：整个集群资源的控制操作
-kube-scheduler：核心调度器
-kubelet：是运行在节点上用来真正管理容器的组件
-这些组件都由一套针对客户端和服务端的 TLS 证书保护，用于组件之间的认证和授权，大部分情况下它们并不是直接存储在 Kubernetes 的数据库中的，而是以普通文件的形式存在。
-# tree /etc/kubernetes/pki/ /etc/kubernetes/pki/ ├── apiserver.crt ├── apiserver-etcd-client.crt ├── apiserver-etcd-client.key ├── apiserver.key ├── apiserver-kubelet-client.crt ├── apiserver-kubelet-client.key ├── ca.crt ├── ca.key ├── CTNCA.pem ├── etcd │ ├── ca.crt │ ├── ca.key │ ├── healthcheck-client.crt │ ├── healthcheck-client.key │ ├── peer.crt │ ├── peer.key │ ├── server.crt │ └── server.key ├── front-proxy-ca.</description></item><item><title>Kubernetes排障图谱</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/Kubernetes%E6%8E%92%E9%9A%9C%E5%9B%BE%E8%B0%B1/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/Kubernetes%E6%8E%92%E9%9A%9C%E5%9B%BE%E8%B0%B1/</guid><description>自从用上这张图解指南后， Kubernetes 故障排除不再难！
-TonyBai
-与技术博客 tonybai.com 同源。近期关注 Kubernetes、Docker、Golang、儿童编程、DevOps、云计算平台和机器学习。
-下面是一个示意图，可帮助你调试 Kubernetes Deployment。
-（如需此图解中文版或 PDF 版 ，请在公众号对话框回复关键字：「K8s 排障图解」，进行获取。）
-当你希望在 Kubernetes 中部署应用程序时，你通常会定义三个组件：
-•一个 Deployment - 这是一份用于创建你的应用程序的 Pod 副本的&amp;quot;食谱&amp;quot;；•一个 Service - 一个内部负载均衡器，用于将流量路由到内部的 Pod 上；•一个 Ingress - 描述如何流量应该如何从集群外部流入到集群内部的你的服务上。
-下面让我们用示意图快速总结一下要点。
-在 Kubernetes 中，你的应用程序通过两层负载均衡器暴露服务：内部的和外部的
-内部的负载均衡器称为 Service，而外部的负载均衡器称为 Ingress
-Pod 不会直接部署。Deployment 会负责创建 Pod 并管理它们
-假设你要部署一个简单的 &amp;ldquo;HelloWorld&amp;rdquo; 应用，该应用的 YAML 文件的内容应该类似下面这样：
-// hello-world.yaml
-apiVersion: apps/v1kind: Deploymentmetadata: name: my-deployment labels: track: canaryspec: selector: matchLabels: any-name: my-app template: metadata: labels: any-name: my-app spec: containers: - name: cont1 image: learnk8s/app:1.</description></item><item><title>故障处理技巧</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/</guid><description>概述 参考:
-官方文档，监控、日志和调试-调试运行中的 Pods 公众号 - k8s技术圈，解读Kubernetes常见退出码 Kubernetes 作为分布式容器调度系统荣，难免出现问题。
-Kubernetes 让运维管理设备的方式发生了根本的转变，从一台一台设备登录，变为统一管理。在 1.19 版本官方文档的 debug 章节中，提到了这么一句话：
-If none of these approaches work, you can find the host machine that the pod is running on and SSH into that host, but this should generally not be necessary given tools in the Kubernetes API. Therefore, if you find yourself needing to ssh into a machine, please file a feature request on GitHub describing your use case and why these tools are insufficient.</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>故障处理技巧 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/</link><description>Recent content in 故障处理技巧 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/index.xml" rel="self" type="application/rss+xml"/><item><title>/etc/kubernetes 目录误删恢复</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/etc_kubernetes-%E7%9B%AE%E5%BD%95%E8%AF%AF%E5%88%A0%E6%81%A2%E5%A4%8D/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/etc_kubernetes-%E7%9B%AE%E5%BD%95%E8%AF%AF%E5%88%A0%E6%81%A2%E5%A4%8D/</guid><description>&lt;h1 id="故障现象"&gt;故障现象&lt;a class="td-heading-self-link" href="#%e6%95%85%e9%9a%9c%e7%8e%b0%e8%b1%a1" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;参考：&lt;a href="https://mp.weixin.qq.com/s/O3fJF5aZuxPOKa7lIjrHnQ"&gt;阳明公众号原文&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;Kubernetes 是一个很牛很牛的平台，Kubernetes 的架构可以让你轻松应对各种故障，今天我们将来破坏我们的集群、删除证书，然后再想办法恢复我们的集群，进行这些危险的操作而不会对已经运行的服务造成宕机。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;如果你真的想要执行接下来的操作，还是建议别在生产环境去折腾，虽然理论上不会造成服务宕机，但是如果出现了问题，&lt;strong&gt;可千万别骂我~~~&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;我们知道 Kubernetes 的控制平面是由几个组件组成的：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;etcd：作为整个集群的数据库使用&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;kube-apiserver：集群的 API 服务&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;kube-controller-manager：整个集群资源的控制操作&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;kube-scheduler：核心调度器&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;kubelet：是运行在节点上用来真正管理容器的组件&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这些组件都由一套针对客户端和服务端的 TLS 证书保护，用于组件之间的认证和授权，大部分情况下它们并不是直接存储在 Kubernetes 的数据库中的，而是以普通文件的形式存在。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;# tree /etc/kubernetes/pki/
+/etc/kubernetes/pki/
+├── apiserver.crt
+├── apiserver-etcd-client.crt
+├── apiserver-etcd-client.key
+├── apiserver.key
+├── apiserver-kubelet-client.crt
+├── apiserver-kubelet-client.key
+├── ca.crt
+├── ca.key
+├── CTNCA.pem
+├── etcd
+│ ├── ca.crt
+│ ├── ca.key
+│ ├── healthcheck-client.crt
+│ ├── healthcheck-client.key
+│ ├── peer.crt
+│ ├── peer.key
+│ ├── server.crt
+│ └── server.key
+├── front-proxy-ca.crt
+├── front-proxy-ca.key
+├── front-proxy-client.crt
+├── front-proxy-client.key
+├── sa.key
+└── sa.pub
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;控制面板的组件以静态 Pod (我这里用 kubeadm 搭建的集群)的形式运行在 master 节点上，默认资源清单位于 &lt;code&gt;/etc/kubernetes/manifests&lt;/code&gt; 目录下。通常来说这些组件之间会进行互相通信，基本流程如下所示：&lt;/p&gt;</description></item><item><title>Kubernetes排障图谱</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/Kubernetes%E6%8E%92%E9%9A%9C%E5%9B%BE%E8%B0%B1/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/Kubernetes%E6%8E%92%E9%9A%9C%E5%9B%BE%E8%B0%B1/</guid><description>&lt;p&gt;自从用上这张图解指南后， Kubernetes 故障排除不再难！&lt;/p&gt;
+&lt;p&gt;TonyBai&lt;/p&gt;
+&lt;p&gt;与技术博客 tonybai.com 同源。近期关注 Kubernetes、Docker、Golang、儿童编程、DevOps、云计算平台和机器学习。&lt;/p&gt;
+&lt;p&gt;下面是一个示意图，可帮助你调试 Kubernetes Deployment。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dliags/1616114901226-fb732c1c-ed7a-4e18-8a64-e80a34b81dae.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dliags/1616114901221-7573c3fb-9ef4-4ad4-a6a8-d81a8e9917c7.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;（如需此图解中文版或 PDF 版 ，请在公众号对话框回复关键字：「K8s 排障图解」，进行获取。）&lt;/p&gt;
+&lt;p&gt;当你希望在 Kubernetes 中部署应用程序时，你通常会定义三个组件：&lt;/p&gt;
+&lt;p&gt;•一个 Deployment - 这是一份用于创建你的应用程序的 Pod 副本的&amp;quot;食谱&amp;quot;；•一个 Service - 一个内部负载均衡器，用于将流量路由到内部的 Pod 上；•一个 Ingress - 描述如何流量应该如何从集群外部流入到集群内部的你的服务上。&lt;/p&gt;
+&lt;p&gt;下面让我们用示意图快速总结一下要点。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dliags/1616114901235-8630b724-d28b-48c5-95bc-27d79cff185a.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;在 Kubernetes 中，你的应用程序通过两层负载均衡器暴露服务：内部的和外部的&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dliags/1616114901221-5d8c7b6c-ca6d-436b-a06b-f742a930eea1.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;内部的负载均衡器称为 Service，而外部的负载均衡器称为 Ingress&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/dliags/1616114901238-2e7a95cc-bf0f-4497-9809-f5597c97ad14.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;Pod 不会直接部署。Deployment 会负责创建 Pod 并管理它们&lt;/p&gt;
+&lt;p&gt;假设你要部署一个简单的 &amp;ldquo;HelloWorld&amp;rdquo; 应用，该应用的 YAML 文件的内容应该类似下面这样：&lt;/p&gt;
+&lt;p&gt;// hello-world.yaml&lt;/p&gt;
+&lt;p&gt;apiVersion: apps/v1kind: Deploymentmetadata: name: my-deployment labels: track: canaryspec: selector: matchLabels: any-name: my-app template: metadata: labels: any-name: my-app spec: containers: - name: cont1 image: learnk8s/app:1.0.0 ports: - containerPort: 8080&amp;mdash;apiVersion: v1kind: Servicemetadata: name: my-servicespec: ports: - port: 80 targetPort: 8080 selector: name: app&amp;mdash;apiVersion: networking.k8s.io/v1beta1kind: Ingressmetadata: name: my-ingressspec: rules: - http: paths: - backend: serviceName: app servicePort: 80 path: /&lt;/p&gt;</description></item><item><title>故障处理技巧</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%AE%A1%E7%90%86/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86%E6%8A%80%E5%B7%A7/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/docs/tasks/debug-application-cluster/debug-running-pod/"&gt;官方文档，监控、日志和调试-调试运行中的 Pods&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/vVFAzhbj985T2TrehxcMHg"&gt;公众号 - k8s技术圈，解读Kubernetes常见退出码&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Kubernetes 作为分布式容器调度系统荣，难免出现问题。&lt;/p&gt;
+&lt;p&gt;Kubernetes 让运维管理设备的方式发生了根本的转变，从一台一台设备登录，变为统一管理。在 1.19 版本官方文档的 &lt;a href="https://v1-19.docs.kubernetes.io/docs/tasks/debug-application-cluster/debug-running-pod/#node-shell-session"&gt;debug 章节&lt;/a&gt;中，提到了这么一句话：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;If none of these approaches work, you can find the host machine that the pod is running on and SSH into that host, but this should generally not be necessary given tools in the Kubernetes API. Therefore, if you find yourself needing to ssh into a machine, please file a feature request on GitHub describing your use case and why these tools are insufficient.&lt;/p&gt;</description></item></channel></rss>

@@ -1,19 +1,48 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>1.Namespaces on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/</link><description>Recent content in 1.Namespaces on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/index.xml" rel="self" type="application/rss+xml"/><item><title>1.Namespaces</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/1.Namespaces/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/1.Namespaces/</guid><description>概述 参考：
-Wiki, Linux_namespaces 思否，Linux Namespace 和 Cgroup 骏马金龙博客，Linux namespace 公众号，YP 小站-Namespace 机制详解 公众号，开发内功修炼-Linux 网络名称空间 公众号，MoeLove-彻底搞懂容器技术的基石：namespace https://mp.weixin.qq.com/s/o5nZZzOTNXOFjv2aaIZ6OA(下) Linux Namespaces(Linux 名称空间) 是 Linux 内核的一个特性，Namespaces 可以对内核资源进行划分，使得一组进程看到一组资源，而另一组进程看到一组不同的资源。
-这里的资源包括 进程 ID、主机名、用户 ID、网络 等等。
-如果把 Linux 操作系统比作一个大房子，那名称空间指的就是这个房子中的一个个房间，住在每个房间里的人都自以为独享了整个房子的资源，但其实大家仅仅只是在共享的基础之上互相隔离，共享指的是共享全局的资源，而隔离指的是局部上彼此保持隔离，因而名称空间的本质就是指：一种在空间上隔离的概念，当下盛行的许多容器虚拟化技术（典型代表如 LXC、Docker）就是基于 Linux 名称空间的概念而来的。
-很早以前的 Unix 有一个叫 Chroot 的系统调用（通过修改根目录把用户 jail(监狱) 到一个特定目录下），Chroot 提供了一种简单的隔离模式(隔离目录)：Chroot 内部的文件系统无法访问外部的内容。Linux Namespace 就是基于 Chroot 的概念扩展而来，提供了对系统下更多资源的隔离机制。
-操作系统通过虚拟内存技术，使得每个用户进程都认为自己拥有所有的物理内存，这是操作系统对内存的虚拟化。操作系统通过分时调度系统，每个进程都能被【公平地】调度执行，即每个进程都能获取到 CPU，使得每个进程都认为自己在进程活动期间拥有所有的 CPU 时间，这是操作系统对 CPU 的虚拟化。
-从这两种虚拟化方式可推知，当使用某种虚拟化技术去管理进程时，进程会认为自己拥有某种物理资源的全部。
-虚拟内存和分时系统均是对物理资源进行虚拟化，其实操作系统中还有很多非物理资源，比如用户权限系统资源、网络协议栈资源、文件系统挂载路径资源等。通过 Linux 的 namespace 功能，可以对这些非物理全局资源进行虚拟化。
-Linux namespace 是在当前运行的系统环境中创建(隔离)另一个进程的运行环境出来，并在此运行环境中将一些必要的系统全局资源进行【虚拟化】。进程可以运行在指定的 namespace 中，因此，namespace 中的每个进程都认为自己拥有所有这些虚拟化的全局资源。
-背景 Linux Namespaces 的灵感来自 Plan 9 from Bell Labs 中大量使用的名称空间功能。Plan 9 from Bell Labs 是贝尔实验室弄出来的分布式操作系统。</description></item><item><title>PID Namespace</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/PID-Namespace/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/PID-Namespace/</guid><description>概述 PID namespace 用来隔离进程的 PID 空间，使得不同 PID namespace 里的进程 PID 可以重复且互不影响。PID namesapce 对容器类应用特别重要， 可以实现容器内进程的暂停/恢复等功能，还可以支持容器在跨主机的迁移前后保持内部进程的 PID 不发生变化。
-说明：本文的演示环境为 ubuntu 16.04。
-PID namesapce 与 /proc Linux 下的每个进程都有一个对应的 /proc/PID 目录，该目录包含了大量的有关当前进程的信息。 对一个 PID namespace 而言，/proc 目录只包含当前 namespace 和它所有子孙后代 namespace 里的进程的信息。
-创建一个新的 PID namespace 后，如果想让子进程中的 top、ps 等依赖 /proc 文件系统的命令工作，还需要挂载 /proc 文件系统。下面的例子演示了挂载 /proc 文件系统的重要性。先输出当前进程的 PID，然后查看其 PID namespace，接着通过 unshare 命令创建新的 PID namespace：
-$ sudo unshare &amp;ndash;pid &amp;ndash;mount &amp;ndash;fork /bin/bash
-该命令会同时创建新的 PID 和 mount namespace，然后再查看此时的 PID namespace：
-上图中的结果似乎不是我们想要的，因为显示的 PID namespace 并没有变化。让我们接着做实验：</description></item><item><title>UTS Namespace</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/UTS-Namespace/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/UTS-Namespace/</guid><description>概述 UTS(UNIX Time-Sharing System) Namespace 可隔离 hostname 和 NIS Domain name 资源，使得一个宿主机可拥有多个主机名或 Domain Name。换句话说，可让不同 namespace 中的进程看到不同的主机名。
-例如，使用 unshare 命令(较新版本 Linux 内核还支持 nscreate 命令)创建一个新的 uts namespace：
-# -u或--uts表示创建一个uts namespace # 这个namespace中运行/bin/bash程序 $ hostname longshuai-vm # 当前root namespace的主机名为longshuai-vm $ sudo unshare -u /bin/bash root@longshuai-vm:/home/longshuai# # 进入了新的namespace中的shell # 其主机名初始时也是longshuai-vm， # 其拷贝自上级namespace资源 上面指定运行的是/bin/bash 程序，这会进入交互式模式，当执行 exit 时，bash 退出，回到当前的 namespace 中。也可以指定在 namespace 中运行其他程序，例如 unshare -u sleep 3 表示在 uts namespace 中睡眠 3 秒后退出并回到当前 namespace。
-因为是 uts namespace，所以可在此 namespace 中修改主机名：</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>1.Namespaces on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/</link><description>Recent content in 1.Namespaces on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/index.xml" rel="self" type="application/rss+xml"/><item><title>1.Namespaces</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/1.Namespaces/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/1.Namespaces/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://en.wikipedia.org/wiki/Linux_namespaces"&gt;Wiki, Linux_namespaces&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://segmentfault.com/a/1190000009732550"&gt;思否，Linux Namespace 和 Cgroup&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.junmajinlong.com/virtual/namespace"&gt;骏马金龙博客，Linux namespace&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/rhO5GUuWycRiFxdYaV-yiQ"&gt;公众号，YP 小站-Namespace 机制详解&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/lscMpc5BWAEzjgYw6H0wBw"&gt;公众号，开发内功修炼-Linux 网络名称空间&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/jJ9peydbNSd6Fv5bsJR3yA"&gt;公众号，MoeLove-彻底搞懂容器技术的基石：namespace&lt;/a&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/o5nZZzOTNXOFjv2aaIZ6OA"&gt;https://mp.weixin.qq.com/s/o5nZZzOTNXOFjv2aaIZ6OA&lt;/a&gt;(下)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Linux Namespaces(Linux 名称空间) 是 Linux 内核的一个特性，Namespaces 可以对内核资源进行划分，使得一组进程看到一组资源，而另一组进程看到一组不同的资源。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;这里的资源包括 进程 ID、主机名、用户 ID、网络 等等。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;如果把 Linux 操作系统比作一个大房子，那名称空间指的就是这个房子中的一个个房间，住在每个房间里的人都自以为独享了整个房子的资源，但其实大家仅仅只是在共享的基础之上互相隔离，共享指的是共享全局的资源，而隔离指的是局部上彼此保持隔离，因而名称空间的本质就是指：一种在空间上隔离的概念，当下盛行的许多容器虚拟化技术（典型代表如 LXC、Docker）就是基于 Linux 名称空间的概念而来的。&lt;/p&gt;
+&lt;p&gt;很早以前的 Unix 有一个叫 &lt;a href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Process/Chroot/"&gt;Chroot&lt;/a&gt; 的系统调用（通过修改根目录把用户 &lt;strong&gt;jail(监狱)&lt;/strong&gt; 到一个特定目录下），Chroot 提供了一种简单的隔离模式(隔离目录)：Chroot 内部的文件系统无法访问外部的内容。Linux Namespace 就是基于 Chroot 的概念扩展而来，提供了对系统下更多资源的隔离机制。&lt;/p&gt;
+&lt;p&gt;操作系统通过虚拟内存技术，使得每个用户进程都认为自己拥有所有的物理内存，这是操作系统对内存的虚拟化。操作系统通过分时调度系统，每个进程都能被【公平地】调度执行，即每个进程都能获取到 CPU，使得每个进程都认为自己在进程活动期间拥有所有的 CPU 时间，这是操作系统对 CPU 的虚拟化。&lt;/p&gt;
+&lt;p&gt;从这两种虚拟化方式可推知，当使用某种虚拟化技术去管理进程时，进程会认为自己拥有某种物理资源的全部。&lt;/p&gt;
+&lt;p&gt;虚拟内存和分时系统均是对物理资源进行虚拟化，其实操作系统中还有很多非物理资源，比如用户权限系统资源、网络协议栈资源、文件系统挂载路径资源等。通过 Linux 的 namespace 功能，可以对这些非物理全局资源进行虚拟化。&lt;/p&gt;
+&lt;p&gt;Linux namespace 是在当前运行的系统环境中创建(隔离)另一个进程的运行环境出来，并在此运行环境中将一些必要的系统全局资源进行【虚拟化】。进程可以运行在指定的 namespace 中，因此，namespace 中的每个进程都认为自己拥有所有这些虚拟化的全局资源。&lt;/p&gt;
+&lt;h2 id="背景"&gt;背景&lt;a class="td-heading-self-link" href="#%e8%83%8c%e6%99%af" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gp34mf/1640133594098-db8cd29e-8628-4117-a5ec-ea14de312485.webp" alt=""&gt;
+Linux Namespaces 的灵感来自 &lt;a href="https://en.wikipedia.org/wiki/Plan_9_from_Bell_Labs"&gt;Plan 9 from Bell Labs&lt;/a&gt; 中大量使用的名称空间功能。Plan 9 from Bell Labs 是贝尔实验室弄出来的分布式操作系统。&lt;/p&gt;</description></item><item><title>PID Namespace</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/PID-Namespace/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/PID-Namespace/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;PID namespace 用来隔离进程的 PID 空间，使得不同 PID namespace 里的进程 PID 可以重复且互不影响。PID namesapce 对容器类应用特别重要， 可以实现容器内进程的暂停/恢复等功能，还可以支持容器在跨主机的迁移前后保持内部进程的 PID 不发生变化。&lt;/p&gt;
+&lt;p&gt;说明：本文的演示环境为 ubuntu 16.04。&lt;/p&gt;
+&lt;h1 id="pid-namesapce-与-proc"&gt;PID namesapce 与 /proc&lt;a class="td-heading-self-link" href="#pid-namesapce-%e4%b8%8e-proc" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;Linux 下的每个进程都有一个对应的 /proc/PID 目录，该目录包含了大量的有关当前进程的信息。 对一个 PID namespace 而言，/proc 目录只包含当前 namespace 和它所有子孙后代 namespace 里的进程的信息。&lt;/p&gt;
+&lt;p&gt;创建一个新的 PID namespace 后，如果想让子进程中的 top、ps 等依赖 /proc 文件系统的命令工作，还需要挂载 /proc 文件系统。下面的例子演示了挂载 /proc 文件系统的重要性。先输出当前进程的 PID，然后查看其 PID namespace，接着通过 unshare 命令创建新的 PID namespace：&lt;/p&gt;
+&lt;p&gt;$ sudo unshare &amp;ndash;pid &amp;ndash;mount &amp;ndash;fork /bin/bash&lt;/p&gt;
+&lt;p&gt;该命令会同时创建新的 PID 和 mount namespace，然后再查看此时的 PID namespace：&lt;/p&gt;</description></item><item><title>UTS Namespace</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/UTS-Namespace/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization/1.Namespaces/UTS-Namespace/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;strong&gt;UTS(UNIX Time-Sharing System)&lt;/strong&gt; Namespace 可隔离 hostname 和 NIS Domain name 资源，使得一个宿主机可拥有多个主机名或 Domain Name。换句话说，可让不同 namespace 中的进程看到不同的主机名。&lt;/p&gt;
+&lt;p&gt;例如，使用 unshare 命令(较新版本 Linux 内核还支持 nscreate 命令)创建一个新的 uts namespace：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# -u或--uts表示创建一个uts namespace&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# 这个namespace中运行/bin/bash程序&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;$ hostname
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;longshuai-vm &lt;span style="color:#8f5902;font-style:italic"&gt;# 当前root namespace的主机名为longshuai-vm&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;$ sudo unshare -u /bin/bash
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;root@longshuai-vm:/home/longshuai# &lt;span style="color:#8f5902;font-style:italic"&gt;# 进入了新的namespace中的shell&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# 其主机名初始时也是longshuai-vm，&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# 其拷贝自上级namespace资源&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;上面指定运行的是/bin/bash 程序，这会进入交互式模式，当执行 exit 时，bash 退出，回到当前的 namespace 中。也可以指定在 namespace 中运行其他程序，例如 unshare -u sleep 3 表示在 uts namespace 中睡眠 3 秒后退出并回到当前 namespace。&lt;/p&gt;
+&lt;p&gt;因为是 uts namespace，所以可在此 namespace 中修改主机名：&lt;/p&gt;</description></item></channel></rss>

@@ -1,24 +1,94 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubernetes 网络 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/</link><description>Recent content in Kubernetes 网络 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/index.xml" rel="self" type="application/rss+xml"/><item><title>Kubernetes 网络</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-%E7%BD%91%E7%BB%9C/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-%E7%BD%91%E7%BB%9C/</guid><description>概述 参考：
-官方文档，概念-集群管理-集群网络 Kubernetes 的整体网络分为以下三类
-Node IP(各节点网络) # Cluster IP(Service 网络) # 虚拟的，在 Netfilter 结构上，就是主机上 iptables 规则中的地址 Pod IP(Pod 网络) # 网络是 Kubernetes 的核心部分，Kubernetes 中有下面几个点需要互相通信
-同一个 Pod 内的多个容器间通信，通过各容器的 lo 通信 Pod 之间的通信，Pod IP&amp;lt;&amp;ndash;&amp;gt;Pod IP overlay 叠加网络转发二层报文，通过隧道方式转发三层报文 Pod 与 Service 之间的通信，Pod IP&amp;lt;&amp;ndash;&amp;gt;Cluster IP。详见 Service(服务)。 Service 与集群外部客户端的通信。详见 Service(服务)。 Kubernetes 的宗旨就是在应用之间共享机器。 通常来说，共享机器需要两个应用之间不能使用相同的端口，但是在多个应用开发者之间 去大规模地协调端口是件很困难的事情，尤其是还要让用户暴露在他们控制范围之外的集群级别的问题上。
-动态分配端口也会给系统带来很多复杂度 - 每个应用都需要设置一个端口的参数， 而 API 服务器还需要知道如何将动态端口数值插入到配置模块中，服务也需要知道如何找到对方等等。 与其去解决这些问题，Kubernetes 选择了其他不同的方法。
-Kubernetes 网络模型 每一个 Pod 都有它自己的 IP 地址，这就意味着你不需要显式地在每个 Pod 之间创建链接， 你几乎不需要处理容器端口到主机端口之间的映射。 这将创建一个干净的、向后兼容的模型，在这个模型里，从端口分配、命名、服务发现、 负载均衡、应用配置和迁移的角度来看，Pod 可以被视作虚拟机或者物理主机。</description></item><item><title>Gateway API</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Gateway-API/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Gateway-API/</guid><description>概述 参考：
-GitHub 项目，kubernetes-sigs/gateway-api 云原生资料库-Kubernetes 基础教程，服务发现与路由-GatewayAPI 公众号-MoeLove，Gateway API： 在Kubernetes网络中掀起一场革命</description></item><item><title>NetworkPolicy 网络策略</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/NetworkPolicy-%E7%BD%91%E7%BB%9C%E7%AD%96%E7%95%A5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/NetworkPolicy-%E7%BD%91%E7%BB%9C%E7%AD%96%E7%95%A5/</guid><description>如果想要正常使用 NetworkPolicy 对象，则集群的网路插件必须要支持该功能
-使用 NetworkPolicy 对象来定义网络策略(注意：该定义的网络策略只能适用于某个 namesapce 下的 Pod，可以在 metadata 中定义生效的 namespace)
-一个网络策略中包含两中类型的规则，规则用于控制数据流量(Traffic)，
-ingress # 入口(入站)规则，列出所选择的 Pod，把入口规则应用其上
-port，定义允许还是拒绝哪些端口，ingress 规则中为，从外面来的可以从自己哪个端口进来 from # ingress 定义 from(目标过来的规则，即从哪来的可以入)
-ipBlock # 定义从哪来的 IP 段可以进来
-except # 定义完 ipBlock 后，定义 IP 段内的某些事不能进来 namespaceSelector # 定义来自哪些 namesapce 的可以进来
-podSelector # 定义来自哪些 Pod 的可以进来
-egress # 出口(出站)规则，列出所选择的 Pod，把出口规则应用其上
-port，定义允许还是拒绝哪些端口，egress 规则中，到哪的端口可以出去 to # egress 定义 to(到目标的规则，即到哪的可以出)
-ipBlock # 定义到哪的 IP 段可以出去
-except # 定义完 ipBlock 后，定义 IP 段内的某些事不能出去 namespaceSelector # 定义到哪些 namesapce 的可以出去</description></item><item><title>Service(服务)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Service%E6%9C%8D%E5%8A%A1/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Service%E6%9C%8D%E5%8A%A1/</guid><description>概述 参考：
-官方文档，概念-服务，负载均衡，网络-服务 Service 资源可以将一组运行在 Pods 上的应用程序暴露为网络服务，这是一种抽象的功能，说白了 Service 资源实现 服务发现，执行访问 POD 的任务、4 层代理 等功能
-为什么要使用 Service？
-Deployment 可以部署多个副本，每个 Pod 都有自己的 IP，外界如何访问这些副本呢？通过 Pod 的 IP 吗？要知道 Pod 很可能会被频繁地销毁和重启，它们的 IP 会发生变化，用 IP 来访问不太现实。答案是 Service。Service 作为访问 Pod 的接入层来使用。service 就像 lvs 的 director 一样，充当一个调度器的作用。
-Service 定义了外界访问一组特定 Pod 的方式。Service 有自己的 IP 和 PORT ，Service 为 Pod 提供了负载均衡。
-可以把 Service 想象成负载均衡功能的前端，该 Service 下的 Pod 是负载均衡功能的后端。通过其自动创建的 ipvs 或者 iptables 的规则，访问 Service 的 IP:PORT，然后转发数据到后端的 Pod
-Endpoints 注意：在 service 与 pod 中间，还有一个中间层，这个中间层就是 Endpoints 资源。</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubernetes 网络 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/</link><description>Recent content in Kubernetes 网络 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/index.xml" rel="self" type="application/rss+xml"/><item><title>Kubernetes 网络</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-%E7%BD%91%E7%BB%9C/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Kubernetes-%E7%BD%91%E7%BB%9C/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/docs/concepts/cluster-administration/networking/"&gt;官方文档，概念-集群管理-集群网络&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Kubernetes 的整体网络分为以下三类&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Node IP(各节点网络) #&lt;/li&gt;
+&lt;li&gt;Cluster IP(Service 网络) # 虚拟的，在 Netfilter 结构上，就是主机上 iptables 规则中的地址&lt;/li&gt;
+&lt;li&gt;Pod IP(Pod 网络) #&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;网络是 Kubernetes 的核心部分，Kubernetes 中有下面几个点需要互相通信&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;同一个 Pod 内的多个容器间通信，通过各容器的 lo 通信&lt;/li&gt;
+&lt;li&gt;Pod 之间的通信，Pod IP&amp;lt;&amp;ndash;&amp;gt;Pod IP
+&lt;ul&gt;
+&lt;li&gt;overlay 叠加网络转发二层报文，通过隧道方式转发三层报文&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Pod 与 Service 之间的通信，Pod IP&amp;lt;&amp;ndash;&amp;gt;Cluster IP。详见 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Service%E6%9C%8D%E5%8A%A1/"&gt;Service(服务)&lt;/a&gt;。&lt;/li&gt;
+&lt;li&gt;Service 与集群外部客户端的通信。详见 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Service%E6%9C%8D%E5%8A%A1/"&gt;Service(服务)&lt;/a&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Kubernetes 的宗旨就是在应用之间共享机器。 通常来说，共享机器需要两个应用之间不能使用相同的端口，但是在多个应用开发者之间 去大规模地协调端口是件很困难的事情，尤其是还要让用户暴露在他们控制范围之外的集群级别的问题上。&lt;/p&gt;
+&lt;p&gt;动态分配端口也会给系统带来很多复杂度 - 每个应用都需要设置一个端口的参数， 而 API 服务器还需要知道如何将动态端口数值插入到配置模块中，服务也需要知道如何找到对方等等。 与其去解决这些问题，Kubernetes 选择了其他不同的方法。&lt;/p&gt;
+&lt;h2 id="kubernetes-网络模型"&gt;Kubernetes 网络模型&lt;a class="td-heading-self-link" href="#kubernetes-%e7%bd%91%e7%bb%9c%e6%a8%a1%e5%9e%8b" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;每一个 Pod 都有它自己的 IP 地址，这就意味着你不需要显式地在每个 Pod 之间创建链接， 你几乎不需要处理容器端口到主机端口之间的映射。 这将创建一个干净的、向后兼容的模型，在这个模型里，从端口分配、命名、服务发现、 负载均衡、应用配置和迁移的角度来看，Pod 可以被视作虚拟机或者物理主机。&lt;/p&gt;</description></item><item><title>Gateway API</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Gateway-API/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Gateway-API/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://github.com/kubernetes-sigs/gateway-api/"&gt;GitHub 项目，kubernetes-sigs/gateway-api&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://lib.jimmysong.io/kubernetes-handbook/service-discovery/gateway/"&gt;云原生资料库-Kubernetes 基础教程，服务发现与路由-GatewayAPI&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;a href="https://mp.weixin.qq.com/s/JeuQZv_CN1c9qip7JMyzmg"&gt;公众号-MoeLove，Gateway API： 在Kubernetes网络中掀起一场革命&lt;/a&gt;&lt;/p&gt;</description></item><item><title>NetworkPolicy 网络策略</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/NetworkPolicy-%E7%BD%91%E7%BB%9C%E7%AD%96%E7%95%A5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/NetworkPolicy-%E7%BD%91%E7%BB%9C%E7%AD%96%E7%95%A5/</guid><description>&lt;p&gt;如果想要正常使用 NetworkPolicy 对象，则集群的网路插件必须要支持该功能&lt;/p&gt;
+&lt;p&gt;使用 NetworkPolicy 对象来定义网络策略(注意：该定义的网络策略只能适用于某个 namesapce 下的 Pod，可以在 metadata 中定义生效的 namespace)&lt;/p&gt;
+&lt;p&gt;一个网络策略中包含两中类型的规则，规则用于控制数据流量(Traffic)，&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;ingress # 入口(入站)规则，列出所选择的 Pod，把入口规则应用其上&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;port，定义允许还是拒绝哪些端口，ingress 规则中为，从外面来的可以从自己哪个端口进来&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;from # ingress 定义 from(目标过来的规则，即从哪来的可以入)&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;ipBlock # 定义从哪来的 IP 段可以进来&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;except # 定义完 ipBlock 后，定义 IP 段内的某些事不能进来&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;namespaceSelector # 定义来自哪些 namesapce 的可以进来&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;podSelector # 定义来自哪些 Pod 的可以进来&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;egress # 出口(出站)规则，列出所选择的 Pod，把出口规则应用其上&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;port，定义允许还是拒绝哪些端口，egress 规则中，到哪的端口可以出去&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;to # egress 定义 to(到目标的规则，即到哪的可以出)&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;ipBlock # 定义到哪的 IP 段可以出去&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;except # 定义完 ipBlock 后，定义 IP 段内的某些事不能出去&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;namespaceSelector # 定义到哪些 namesapce 的可以出去&lt;/p&gt;</description></item><item><title>Service(服务)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Service%E6%9C%8D%E5%8A%A1/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E7%BD%91%E7%BB%9C/Service%E6%9C%8D%E5%8A%A1/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/docs/concepts/services-networking/service/"&gt;官方文档，概念-服务，负载均衡，网络-服务&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Service 资源可以将一组运行在 Pods 上的应用程序暴露为网络服务，这是一种抽象的功能，说白了 Service 资源实现 服务发现，执行访问 POD 的任务、4 层代理 等功能&lt;/p&gt;
+&lt;p&gt;为什么要使用 Service？&lt;/p&gt;
+&lt;p&gt;Deployment 可以部署多个副本，每个 Pod 都有自己的 IP，外界如何访问这些副本呢？通过 Pod 的 IP 吗？要知道 Pod 很可能会被频繁地销毁和重启，它们的 IP 会发生变化，用 IP 来访问不太现实。答案是 Service。Service 作为访问 Pod 的接入层来使用。service 就像 lvs 的 director 一样，充当一个调度器的作用。&lt;/p&gt;
+&lt;p&gt;Service 定义了外界访问一组特定 Pod 的方式。Service 有自己的 IP 和 PORT ，Service 为 Pod 提供了负载均衡。&lt;/p&gt;
+&lt;p&gt;可以把 Service 想象成负载均衡功能的前端，该 Service 下的 Pod 是负载均衡功能的后端。通过其自动创建的 ipvs 或者 iptables 的规则，访问 Service 的 IP:PORT，然后转发数据到后端的 Pod&lt;/p&gt;
+&lt;h2 id="endpoints"&gt;Endpoints&lt;a class="td-heading-self-link" href="#endpoints" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;注意：在 service 与 pod 中间，还有一个中间层，这个中间层就是 Endpoints 资源。&lt;/p&gt;</description></item></channel></rss>

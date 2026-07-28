@@ -1,13 +1,127 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Containerd on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/</link><description>Recent content in Containerd on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/index.xml" rel="self" type="application/rss+xml"/><item><title>Containerd</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd/</guid><description>概述 参考：
-官网 GitHub 项目，containerd/containerd GitHub 项目文档，containerd/docs/PLUGINS.md 云原生实验室，Containerd 使用教程 架构小白，Containerd 标签 公众号-云原生实验室，容器中的 Shim 到底是个什么鬼 Containerd 是行业标准的容器运行时，着重于简单性，健壮性和可移植性。
-Containerd 的前世今生 很久以前，Docker 强势崛起，以“镜像”这个大招席卷全球，对其他容器技术进行致命的降维打击，使其毫无招架之力，就连 Google 也不例外。Google 为了不被拍死在沙滩上，被迫拉下脸面（当然，跪舔是不可能的），希望 Docker 公司和自己联合推进一个开源的容器运行时作为 Docker 的核心依赖，不然就走着瞧。Docker 公司觉得自己的智商被侮辱了，走着瞧就走着瞧，谁怕谁啊！
-很明显，Docker 公司的这个决策断送了自己的大好前程，造成了今天的悲剧。
-紧接着，Google 联合 Red Hat、IBM 等几位巨佬连哄带骗忽悠 Docker 公司将 libcontainer 捐给中立的社区（OCI，Open Container Intiative），并改名为 runc，不留一点 Docker 公司的痕迹。。。这还不够，为了彻底扭转 Docker 一家独大的局面，几位大佬又合伙成立了一个基金会叫 CNCF（Cloud Native Computing Fundation），这个名字想必大家都很熟了，我就不详细介绍了。CNCF 的目标很明确，既然在当前的维度上干不过 Docker，干脆往上爬，升级到大规模容器编排的维度，以此来击败 Docker。Docker 公司当然不甘示弱，搬出了 Swarm 和 Kubernetes 进行 PK，最后的结局大家都知道了，Swarm 战败。然后 Docker 公司耍了个小聪明，将自己的核心依赖 Containerd 捐给了 CNCF，以此来标榜 Docker 是一个 PaaS 平台。
-很明显，这个小聪明又大大加速了自己的灭亡。</description></item><item><title>Containerd 部署</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd-%E9%83%A8%E7%BD%B2/</guid><description>概述 参考：
-GitHub 文档，containerd/containerd/docs/getting-started.md 我们可以在官方 README 中的 Runtime Requirements 处找到当前 Containerd 版本所依赖的各种组件所需的版本，比如 runc 的版本等。
-依赖的 runc 版本通常记录在 containerd/script/setup/runc-version 文件中 安装 Containerd 是否需要 libseccomp2 依赖？待验证
-使用包管理器安装 CentOS yum install -y yum-utils device-mapper-persistent-data lvm2 yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo yum install -y containerd.io Ubuntu sudo apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg | sudo apt-key add - sudo add-apt-repository &amp;#34;deb [arch=amd64] https://mirrors.aliyun.com/docker-ce/linux/ubuntu $(lsb_release -cs) stable&amp;#34; sudo apt-get -y update sudo apt-get -y install containerd.</description></item><item><title>Containerd Image</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd-Image/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd-Image/</guid><description>概述 参考：
-https://blog.frognew.com/tags/containerd.html 重学容器 09: Containerd 是如何存储容器镜像和数据的 这是一个 /var/lib/containerd 目录的最基本组成：
-~]# tree -L 1 . ├── io.containerd.content.v1.content ├── io.containerd.metadata.v1.bolt ├── io.containerd.runtime.v2.task ├── io.containerd.snapshotter.v1.overlayfs ├── ...... 等 └── tmpmounts 初始情况，Containerd 会加载部分插件，对应了 content、snapshot、metadata、runtime 等等插件。通过 ctr plugin ls 命令可以发现，目录名称与插件名称是一致的。
-这是一个只有一个 lchdzh/k8s-debug:v1 镜像的 /var/lib/containerd 目录：
-~]# tree /var/lib/containerd -L 5 . ├── io.containerd.content.v1.content │ ├── blobs │ │ └── sha256 │ │ ├── 02daccf1684b499e99c258348d492c5f0ea086174d2f0d430791d4f902ae4f71 │ │ ├── 188c0c94c7c576fff0792aca7ec73d67a2f7f4cb3a6e53a84559337260b36964 │ │ ├── 5f9b9d9c910519d9a4b1e06f031672e14acf9bcc288ed7e3ed3842916ed4394d │ │ ├── c690d4fd64d6622c3721a1db686c2e4cfb559dd1d9f9ff825584a8f56ec02c7f │ │ ├── df727e3daae2c57da7071b4056d328d4bbb9d6a913e469d8f07b58e35a5cff96 │ │ └── ee24b921ba004624b350e7f140e68c6a7d8297bb815b4ca526979a7e66cec15a │ └── ingest ├── io.</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Containerd on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/</link><description>Recent content in Containerd on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/index.xml" rel="self" type="application/rss+xml"/><item><title>Containerd</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://containerd.io/"&gt;官网&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://github.com/containerd/containerd"&gt;GitHub 项目，containerd/containerd&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://github.com/containerd/containerd/blob/main/docs/PLUGINS.md"&gt;GitHub 项目文档，containerd/docs/PLUGINS.md&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://fuckcloudnative.io/posts/getting-started-with-containerd/"&gt;云原生实验室，Containerd 使用教程&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://blog.frognew.com/tags/containerd.html"&gt;架构小白，Containerd 标签&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/Dr6851XnkNLVFHaj1b13RQ"&gt;公众号-云原生实验室，容器中的 Shim 到底是个什么鬼&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Containerd 是行业标准的容器运行时，着重于简单性，健壮性和可移植性。&lt;/p&gt;
+&lt;h2 id="containerd-的前世今生"&gt;Containerd 的前世今生&lt;a class="td-heading-self-link" href="#containerd-%e7%9a%84%e5%89%8d%e4%b8%96%e4%bb%8a%e7%94%9f" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;很久以前，&lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Docker/Docker/"&gt;Docker&lt;/a&gt; 强势崛起，以“镜像”这个大招席卷全球，对其他容器技术进行致命的降维打击，使其毫无招架之力，就连 Google 也不例外。Google 为了不被拍死在沙滩上，被迫拉下脸面（当然，跪舔是不可能的），希望 Docker 公司和自己联合推进一个开源的容器运行时作为 Docker 的核心依赖，不然就走着瞧。Docker 公司觉得自己的智商被侮辱了，走着瞧就走着瞧，谁怕谁啊！&lt;/p&gt;
+&lt;p&gt;很明显，Docker 公司的这个决策断送了自己的大好前程，造成了今天的悲剧。&lt;/p&gt;
+&lt;p&gt;紧接着，Google 联合 Red Hat、IBM 等几位巨佬连哄带骗忽悠 Docker 公司将 &lt;code&gt;libcontainer&lt;/code&gt; 捐给中立的社区（OCI，Open Container Intiative），并改名为 &lt;code&gt;runc&lt;/code&gt;，不留一点 Docker 公司的痕迹。。。这还不够，为了彻底扭转 Docker 一家独大的局面，几位大佬又合伙成立了一个基金会叫 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/%E4%BA%91%E5%8E%9F%E7%94%9F/CNCF/"&gt;CNCF&lt;/a&gt;（Cloud Native Computing Fundation），这个名字想必大家都很熟了，我就不详细介绍了。CNCF 的目标很明确，既然在当前的维度上干不过 Docker，干脆往上爬，升级到大规模容器编排的维度，以此来击败 Docker。Docker 公司当然不甘示弱，搬出了 Swarm 和 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes/"&gt;Kubernetes&lt;/a&gt; 进行 PK，最后的结局大家都知道了，Swarm 战败。然后 Docker 公司耍了个小聪明，将自己的核心依赖 &lt;code&gt;Containerd&lt;/code&gt; 捐给了 CNCF，以此来标榜 Docker 是一个 PaaS 平台。&lt;/p&gt;</description></item><item><title>Containerd 部署</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd-%E9%83%A8%E7%BD%B2/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://github.com/containerd/containerd/blob/main/docs/getting-started.md"&gt;GitHub 文档，containerd/containerd/docs/getting-started.md&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;我们可以在官方 README 中的 &lt;a href="https://github.com/containerd/containerd#runtime-requirements"&gt;Runtime Requirements&lt;/a&gt; 处找到当前 Containerd 版本所依赖的各种组件所需的版本，比如 runc 的版本等。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;依赖的 runc 版本通常记录在 &lt;a href="https://github.com/containerd/containerd/blob/main/script/setup/runc-version"&gt;containerd/script/setup/runc-version&lt;/a&gt; 文件中&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="安装-containerd"&gt;安装 Containerd&lt;a class="td-heading-self-link" href="#%e5%ae%89%e8%a3%85-containerd" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;是否需要 libseccomp2 依赖？待验证&lt;/p&gt;
+&lt;h2 id="使用包管理器安装"&gt;使用包管理器安装&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8%e5%8c%85%e7%ae%a1%e7%90%86%e5%99%a8%e5%ae%89%e8%a3%85" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;h3 id="centos"&gt;CentOS&lt;a class="td-heading-self-link" href="#centos" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;yum install -y yum-utils device-mapper-persistent-data lvm2
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;yum install -y containerd.io
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id="ubuntu"&gt;Ubuntu&lt;a class="td-heading-self-link" href="#ubuntu" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;sudo apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg &lt;span style="color:#000;font-weight:bold"&gt;|&lt;/span&gt; sudo apt-key add -
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;sudo add-apt-repository &lt;span style="color:#4e9a06"&gt;&amp;#34;deb [arch=amd64] https://mirrors.aliyun.com/docker-ce/linux/ubuntu &lt;/span&gt;&lt;span style="color:#204a87;font-weight:bold"&gt;$(&lt;/span&gt;lsb_release -cs&lt;span style="color:#204a87;font-weight:bold"&gt;)&lt;/span&gt;&lt;span style="color:#4e9a06"&gt; stable&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;sudo apt-get -y update
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;sudo apt-get -y install containerd.io
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h3 id="配置-unit-文件"&gt;配置 unit 文件&lt;a class="td-heading-self-link" href="#%e9%85%8d%e7%bd%ae-unit-%e6%96%87%e4%bb%b6" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;略&lt;/p&gt;</description></item><item><title>Containerd Image</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd-Image/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Containerization-implementation/Containerd/Containerd-Image/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://blog.frognew.com/tags/containerd.html"&gt;https://blog.frognew.com/tags/containerd.html&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://blog.frognew.com/2021/06/relearning-container-09.html"&gt;重学容器 09: Containerd 是如何存储容器镜像和数据的&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这是一个 /var/lib/containerd 目录的最基本组成：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# tree -L 1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;.
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.content.v1.content
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.metadata.v1.bolt
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.runtime.v2.task
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.snapshotter.v1.overlayfs
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── ...... 等
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;└── tmpmounts
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;初始情况，Containerd 会加载部分插件，对应了 content、snapshot、metadata、runtime 等等插件。通过 &lt;code&gt;ctr plugin ls&lt;/code&gt; 命令可以发现，目录名称与插件名称是一致的。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/abf521b3-7aea-4cfc-a5b4-343877ff4ccb/1637717831444-46d3e321-18da-456c-a543-7df7415d3689.png" alt="image.png"&gt;&lt;/p&gt;
+&lt;p&gt;这是一个只有一个 lchdzh/k8s-debug:v1 镜像的 /var/lib/containerd 目录：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# tree /var/lib/containerd -L 5&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;.
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.content.v1.content
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   ├── blobs
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   └── sha256
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   ├── 02daccf1684b499e99c258348d492c5f0ea086174d2f0d430791d4f902ae4f71
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   ├── 188c0c94c7c576fff0792aca7ec73d67a2f7f4cb3a6e53a84559337260b36964
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   ├── 5f9b9d9c910519d9a4b1e06f031672e14acf9bcc288ed7e3ed3842916ed4394d
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   ├── c690d4fd64d6622c3721a1db686c2e4cfb559dd1d9f9ff825584a8f56ec02c7f
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   ├── df727e3daae2c57da7071b4056d328d4bbb9d6a913e469d8f07b58e35a5cff96
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   └── ee24b921ba004624b350e7f140e68c6a7d8297bb815b4ca526979a7e66cec15a
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   └── ingest
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.metadata.v1.bolt
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   └── meta.db
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.runtime.v1.linux
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.runtime.v2.task
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.snapshotter.v1.aufs
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   └── snapshots
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.snapshotter.v1.btrfs
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.snapshotter.v1.native
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   └── snapshots
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;├── io.containerd.snapshotter.v1.overlayfs
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   ├── metadata.db
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   └── snapshots
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   ├── &lt;span style="color:#0000cf;font-weight:bold"&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   ├── fs
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── bin
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── dev
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── etc
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── home
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── lib
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── media
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── mnt
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── opt
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── proc
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── root
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── run
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── sbin
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── srv
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── sys
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── tmp
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── usr
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   └── var
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   └── work
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   ├── &lt;span style="color:#0000cf;font-weight:bold"&gt;2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   ├── fs
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── bin
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── etc
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── lib
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── run
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── sbin
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── usr
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   └── var
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   └── work
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   ├── &lt;span style="color:#0000cf;font-weight:bold"&gt;3&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   ├── fs
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── etc
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   ├── root
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   │   └── usr
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   └── work
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   └── &lt;span style="color:#0000cf;font-weight:bold"&gt;4&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   ├── fs
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   │   └── usr
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;│   └── work
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;└── tmpmounts
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;这些插件具有对应的目录：&lt;/p&gt;</description></item></channel></rss>

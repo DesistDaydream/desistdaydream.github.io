@@ -1,20 +1,119 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Etcd 管理 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/</link><description>Recent content in Etcd 管理 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Etcd 调优</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E8%B0%83%E4%BC%98/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E8%B0%83%E4%BC%98/</guid><description>Etcd Tuning(调优)概述 参考：
-官方文档 官方文档译文 决定 etcd 性能的关键因素，包括：
-延迟 (latency)：延迟是完成操作的时间。 吞吐量 (throughput)：吞吐量是在某个时间期间之内完成操作的总数量。当 etcd 接收并发客户端请求时，通常平均延迟随着总体吞吐量增加而增加。 在通常的云环境，比如 Google Compute Engine (GCE) 标准的 n-4 或者 AWS 上相当的机器类型，一个三成员 etcd 集群在轻负载下可以在低于 1 毫秒内完成一个请求，并在重负载下可以每秒完成超过 30000 个请求。
-etcd 使用 Raft 一致性算法来在成员之间复制请求并达成一致。一致性性能，特别是提交延迟，受限于两个物理约束：网络 IO 延迟和磁盘 IO 延迟。完成一个 etcd 请求的最小时间是成员之间的网络往返时延 (Round Trip Time / RTT)，加需要提交数据到持久化存储的 fdatasync 时间。在一个数据中心内的 RTT 可能有数百毫秒。在美国典型的 RTT 是大概 50ms, 而在大陆之间可以慢到 400ms。旋转硬盘(注：指传统机械硬盘) 的典型 fdatasync 延迟是大概 10ms。对于 SSD 硬盘, 延迟通常低于 1ms。为了提高吞吐量, etcd 将多个请求打包在一起并提交给 Raft。这个批量策略让 etcd 在重负载试获得高吞吐量。也有其他子系统影响到 etcd 的整体性能。每个序列化的 etcd 请求必须通过 etcd 的 boltdb 支持的(boltdb-backed) MVCC 存储引擎, 它通常需要 10 微秒来完成。etcd 定期递增快照它最近实施的请求，将他们和之前在磁盘上的快照合并。这个过程可能导致延迟尖峰(latency spike)。虽然在 SSD 上这通常不是问题，在 HDD 上它可能加倍可观察到的延迟。而且，进行中的压缩可以影响 etcd 的性能。幸运的是，压缩通常无足轻重，因为压缩是错开的，因此它不和常规请求竞争资源。RPC 系统，gRPC，为 etcd 提供定义良好，可扩展的 API，但是它也引入了额外的延迟，尤其是本地读取。</description></item><item><title>Etcd 管理</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E7%AE%A1%E7%90%86/</guid><description>概述 参考：
-GitHub https://github.com/etcd-io/website/blob/main/content/en/docs/v3.5/op-guide/maintenance.md 官方文档，-运维指南-维护 Etcd 集群需要定期 Maintenacne(维护) 才能保持可靠性。根据 etcd 应用程序的需求，通常可以自动执行该维护，而无需停机或性能显着降低。
-所有 etcd 维护都管理 etcd 键空间消耗的存储资源。存储空间配额可以防止无法充分控制键空间大小；如果 etcd 成员的空间不足，则配额将触发群集范围的警报，这将使系统进入有限操作维护模式。为了避免空间不足以写入键空间，必须压缩 etcd 键空间历史记录。可以通过对 etcd 成员进行碎片整理来回收存储空间本身。最后，etcd 成员状态的定期快照备份使恢复由于操作错误引起的意外逻辑数据丢失或损坏成为可能。
-Raft Log Retention(Raft 日志保留) https://etcd.io/docs/v3.5/op-guide/maintenance/#raft-log-retention
-Auto Compaction(自动压缩) https://etcd.io/docs/v3.5/op-guide/maintenance/#auto-compaction
-Defragmentation(碎片整理) https://etcd.io/docs/v3.5/op-guide/maintenance/#defragmentation
-在压缩 keyspace 之后，Etcd 数据库可能会出现内部 Fragmentation(碎片)。任何内部碎片都是后端可以免费使用但仍会占用存储空间的空间。通过在后端数据库中留下空白来在内部压缩旧修订版碎片 etcd。碎片空间可供 etcd 使用，但主机文件系统不可用。换句话说，删除应用程序数据不会回收磁盘空间。
-碎片整理过程将此存储空间释放回文件系统。碎片整理是针对每个成员进行的，因此可以避免集群范围内的延迟峰值。
-在 kube-prometheus-stack 项目中，会自带碎片所占空间的告警，告警名称为 etcdDatabaseHighFragmentationRatio，当出现该告警时，即可执行碎片整理操作。
-具体用法详见 etcdctl
-Etcd Space Quota(Etcd 空间配额) 参考：
-官方文档，运维指南-维护-空间配额 etcd 通过 Space Quota(空间配额) 确保集群以可靠的方式运行，空间配额指的是 etcd 可以储存的数据量上限。没有空间配额，如果密钥空间过大，etcd 可能会遭受性能不佳的影响，或者它可能只是用尽了存储空间，从而导致了不可预测的集群行为。
-默认情况下，etcd 的空间配额适合大多数应用程序的使用情况。不过，可以通过 quota-backend-bytes 命令行参数修改配额的值
-注意如果 etcd 中的数据超过了配额的值，则无法再写入新数据。并且 etcd 会在集群中发出一个 alarm(警报)，该警报会告诉各节点，并且集群将会变为 maintenance mode(维护模式)，处于维护模式的集群仅接受 key 的读取和删除操作。并且如果想让集群恢复正常运行，需要进行如下操作</description></item><item><title>Etcd 性能测试</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95/</guid><description>概述 参考：
-官方文档，运维指南-性能 安装 etcd 压测工具 benchmark：
-$ go get go.etcd.io/etcd/tools/benchmark # GOPATH should be set $ ls $GOPATH/bin benchmark 官方推荐的 etcd 性能数据 其中官方使用的设备信息为：
-Google Cloud Compute Engine 3 machines of 8 vCPUs + 16GB Memory + 50GB SSD 1 machine(client) of 16 vCPUs + 30GB Memory + 50GB SSD Ubuntu 17.04 etcd 3.2.0, go 1.8.3 etcd 写性能 Key 数量 每个 Key 的大小 每个值的大小 连接数量 客户端数量 目标 etcd 节点数 写性能的平均 QPS 每个请求的平均延迟 服务器 RRS 的平均值 10,000 8 bytes 256 bytes 1 1 只有一个 leader 583 1.</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Etcd 管理 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/</link><description>Recent content in Etcd 管理 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>Etcd 调优</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E8%B0%83%E4%BC%98/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E8%B0%83%E4%BC%98/</guid><description>&lt;h1 id="etcd-tuning调优概述"&gt;Etcd Tuning(调优)概述&lt;a class="td-heading-self-link" href="#etcd-tuning%e8%b0%83%e4%bc%98%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://etcd.io/docs/current/tuning/"&gt;官方文档&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://skyao.gitbooks.io/learning-etcd3/content/documentation/op-guide/performance.html"&gt;官方文档译文&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;决定 etcd 性能的关键因素，包括：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;延迟 (latency)&lt;/strong&gt;：延迟是完成操作的时间。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;吞吐量 (throughput)&lt;/strong&gt;：吞吐量是在某个时间期间之内完成操作的总数量。当 etcd 接收并发客户端请求时，通常平均延迟随着总体吞吐量增加而增加。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;在通常的云环境，比如 Google Compute Engine (GCE) 标准的 n-4 或者 AWS 上相当的机器类型，一个三成员 etcd 集群在轻负载下可以在低于 1 毫秒内完成一个请求，并在重负载下可以每秒完成超过 30000 个请求。&lt;/p&gt;
+&lt;p&gt;etcd 使用 Raft 一致性算法来在成员之间复制请求并达成一致。一致性性能，特别是提交延迟，受限于两个物理约束：网络 IO 延迟和磁盘 IO 延迟。完成一个 etcd 请求的最小时间是成员之间的网络往返时延 (Round Trip Time / RTT)，加需要提交数据到持久化存储的 fdatasync 时间。在一个数据中心内的 RTT 可能有数百毫秒。在美国典型的 RTT 是大概 50ms, 而在大陆之间可以慢到 400ms。旋转硬盘(注：指传统机械硬盘) 的典型 fdatasync 延迟是大概 10ms。对于 SSD 硬盘, 延迟通常低于 1ms。为了提高吞吐量, etcd 将多个请求打包在一起并提交给 Raft。这个批量策略让 etcd 在重负载试获得高吞吐量。也有其他子系统影响到 etcd 的整体性能。每个序列化的 etcd 请求必须通过 etcd 的 boltdb 支持的(boltdb-backed) MVCC 存储引擎, 它通常需要 10 微秒来完成。etcd 定期递增快照它最近实施的请求，将他们和之前在磁盘上的快照合并。这个过程可能导致延迟尖峰(latency spike)。虽然在 SSD 上这通常不是问题，在 HDD 上它可能加倍可观察到的延迟。而且，进行中的压缩可以影响 etcd 的性能。幸运的是，压缩通常无足轻重，因为压缩是错开的，因此它不和常规请求竞争资源。RPC 系统，gRPC，为 etcd 提供定义良好，可扩展的 API，但是它也引入了额外的延迟，尤其是本地读取。&lt;/p&gt;</description></item><item><title>Etcd 管理</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E7%AE%A1%E7%90%86/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E7%AE%A1%E7%90%86/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;GitHub
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://github.com/etcd-io/website/blob/main/content/en/docs/v3.5/op-guide/maintenance.md"&gt;https://github.com/etcd-io/website/blob/main/content/en/docs/v3.5/op-guide/maintenance.md&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://etcd.io/docs/latest/op-guide/maintenance/"&gt;官方文档，-运维指南-维护&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd/"&gt;Etcd&lt;/a&gt; 集群需要定期 &lt;strong&gt;Maintenacne(维护)&lt;/strong&gt; 才能保持可靠性。根据 etcd 应用程序的需求，通常可以自动执行该维护，而无需停机或性能显着降低。&lt;/p&gt;
+&lt;p&gt;所有 etcd 维护都管理 etcd 键空间消耗的存储资源。存储空间配额可以防止无法充分控制键空间大小；如果 etcd 成员的空间不足，则配额将触发群集范围的警报，这将使系统进入有限操作维护模式。为了避免空间不足以写入键空间，必须压缩 etcd 键空间历史记录。可以通过对 etcd 成员进行碎片整理来回收存储空间本身。最后，etcd 成员状态的定期快照备份使恢复由于操作错误引起的意外逻辑数据丢失或损坏成为可能。&lt;/p&gt;
+&lt;h1 id="raft-log-retentionraft-日志保留"&gt;Raft Log Retention(Raft 日志保留)&lt;a class="td-heading-self-link" href="#raft-log-retentionraft-%e6%97%a5%e5%bf%97%e4%bf%9d%e7%95%99" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;a href="https://etcd.io/docs/v3.5/op-guide/maintenance/#raft-log-retention"&gt;https://etcd.io/docs/v3.5/op-guide/maintenance/#raft-log-retention&lt;/a&gt;&lt;/p&gt;
+&lt;h1 id="auto-compaction自动压缩"&gt;Auto Compaction(自动压缩)&lt;a class="td-heading-self-link" href="#auto-compaction%e8%87%aa%e5%8a%a8%e5%8e%8b%e7%bc%a9" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;a href="https://etcd.io/docs/v3.5/op-guide/maintenance/#auto-compaction"&gt;https://etcd.io/docs/v3.5/op-guide/maintenance/#auto-compaction&lt;/a&gt;&lt;/p&gt;
+&lt;h1 id="defragmentation碎片整理"&gt;Defragmentation(碎片整理)&lt;a class="td-heading-self-link" href="#defragmentation%e7%a2%8e%e7%89%87%e6%95%b4%e7%90%86" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;a href="https://etcd.io/docs/v3.5/op-guide/maintenance/#defragmentation"&gt;https://etcd.io/docs/v3.5/op-guide/maintenance/#defragmentation&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;在压缩 keyspace 之后，Etcd 数据库可能会出现内部 &lt;strong&gt;Fragmentation(碎片)&lt;/strong&gt;。任何内部碎片都是后端可以免费使用但仍会占用存储空间的空间。通过在后端数据库中留下空白来在内部压缩旧修订版碎片 etcd。碎片空间可供 etcd 使用，但主机文件系统不可用。换句话说，删除应用程序数据不会回收磁盘空间。&lt;/p&gt;
+&lt;p&gt;碎片整理过程将此存储空间释放回文件系统。碎片整理是针对每个成员进行的，因此可以避免集群范围内的延迟峰值。&lt;/p&gt;
+&lt;p&gt;在 kube-prometheus-stack 项目中，会自带碎片所占空间的告警，告警名称为 &lt;strong&gt;etcdDatabaseHighFragmentationRatio&lt;/strong&gt;，当出现该告警时，即可执行碎片整理操作。&lt;/p&gt;
+&lt;p&gt;具体用法详见 &lt;a href="https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/etcdctl/#defrag"&gt;etcdctl&lt;/a&gt;&lt;/p&gt;
+&lt;h1 id="etcd-space-quotaetcd-空间配额"&gt;Etcd Space Quota(Etcd 空间配额)&lt;a class="td-heading-self-link" href="#etcd-space-quotaetcd-%e7%a9%ba%e9%97%b4%e9%85%8d%e9%a2%9d" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://etcd.io/docs/v3.5/op-guide/maintenance/#space-quota"&gt;官方文档，运维指南-维护-空间配额&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;etcd 通过 &lt;strong&gt;Space Quota(空间配额)&lt;/strong&gt; 确保集群以可靠的方式运行，空间配额指的是 etcd 可以储存的数据量上限。没有空间配额，如果密钥空间过大，etcd 可能会遭受性能不佳的影响，或者它可能只是用尽了存储空间，从而导致了不可预测的集群行为。&lt;/p&gt;</description></item><item><title>Etcd 性能测试</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E5%BA%93/%E9%94%AE%E5%80%BC%E6%95%B0%E6%8D%AE/Etcd/Etcd-%E7%AE%A1%E7%90%86/Etcd-%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://etcd.io/docs/current/op-guide/performance/"&gt;官方文档，运维指南-性能&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;安装 etcd 压测工具 benchmark：&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;$ go get go.etcd.io/etcd/tools/benchmark
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# GOPATH should be set&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;$ ls &lt;span style="color:#000"&gt;$GOPATH&lt;/span&gt;/bin
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;benchmark
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h1 id="官方推荐的-etcd-性能数据"&gt;官方推荐的 etcd 性能数据&lt;a class="td-heading-self-link" href="#%e5%ae%98%e6%96%b9%e6%8e%a8%e8%8d%90%e7%9a%84-etcd-%e6%80%a7%e8%83%bd%e6%95%b0%e6%8d%ae" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;其中官方使用的设备信息为：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Google Cloud Compute Engine&lt;/li&gt;
+&lt;li&gt;3 machines of 8 vCPUs + 16GB Memory + 50GB SSD&lt;/li&gt;
+&lt;li&gt;1 machine(client) of 16 vCPUs + 30GB Memory + 50GB SSD&lt;/li&gt;
+&lt;li&gt;Ubuntu 17.04&lt;/li&gt;
+&lt;li&gt;etcd 3.2.0, go 1.8.3&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="etcd-写性能"&gt;etcd 写性能&lt;a class="td-heading-self-link" href="#etcd-%e5%86%99%e6%80%a7%e8%83%bd" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Key 数量&lt;/th&gt;
+					&lt;th&gt;每个 Key 的大小&lt;/th&gt;
+					&lt;th&gt;每个值的大小&lt;/th&gt;
+					&lt;th&gt;连接数量&lt;/th&gt;
+					&lt;th&gt;客户端数量&lt;/th&gt;
+					&lt;th&gt;目标 etcd 节点数&lt;/th&gt;
+					&lt;th&gt;写性能的平均 QPS&lt;/th&gt;
+					&lt;th&gt;每个请求的平均延迟&lt;/th&gt;
+					&lt;th&gt;服务器 RRS 的平均值&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;10,000&lt;/td&gt;
+					&lt;td&gt;8 bytes&lt;/td&gt;
+					&lt;td&gt;256 bytes&lt;/td&gt;
+					&lt;td&gt;1&lt;/td&gt;
+					&lt;td&gt;1&lt;/td&gt;
+					&lt;td&gt;只有一个 leader&lt;/td&gt;
+					&lt;td&gt;583&lt;/td&gt;
+					&lt;td&gt;1.6ms&lt;/td&gt;
+					&lt;td&gt;48 MB&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;100,000&lt;/td&gt;
+					&lt;td&gt;8 bytes&lt;/td&gt;
+					&lt;td&gt;256 bytes&lt;/td&gt;
+					&lt;td&gt;100&lt;/td&gt;
+					&lt;td&gt;1000&lt;/td&gt;
+					&lt;td&gt;只有一个 leader&lt;/td&gt;
+					&lt;td&gt;44,341&lt;/td&gt;
+					&lt;td&gt;22ms&lt;/td&gt;
+					&lt;td&gt;124MB&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;100,000&lt;/td&gt;
+					&lt;td&gt;8 bytes&lt;/td&gt;
+					&lt;td&gt;256 bytes&lt;/td&gt;
+					&lt;td&gt;100&lt;/td&gt;
+					&lt;td&gt;1000&lt;/td&gt;
+					&lt;td&gt;所有 etcd 节点&lt;/td&gt;
+					&lt;td&gt;50,104&lt;/td&gt;
+					&lt;td&gt;20ms&lt;/td&gt;
+					&lt;td&gt;126MB&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id="etcd-读性能"&gt;etcd 读性能&lt;a class="td-heading-self-link" href="#etcd-%e8%af%bb%e6%80%a7%e8%83%bd" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;该测试的 &amp;ndash;endpoint 参数指定所有节点。&lt;/p&gt;</description></item></channel></rss>

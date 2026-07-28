@@ -1,9 +1,61 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Netfilter on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/</link><description>Recent content in Netfilter on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/index.xml" rel="self" type="application/rss+xml"/><item><title>Netfilter</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/Netfilter/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/Netfilter/</guid><description>概述 参考：
-Netfilter 官网 Netfilter 官方文档 Wiki, Netfilter arthurchiao.art 的文章： [译] 深入理解 iptables 和 netfilter 架构 连接跟踪（conntrack）：原理、应用及 Linux 内核实现 [译] NAT - 网络地址转换（2016） Netfilter 是 Linux 操作系统核心层内部的一个数据包处理模块集合的统称, 是一种流量控制系统。一种网络筛选系统，对数据包进入以及出去本机进行的一些控制与管理。
-Netfilter 功能的所有模块可以通过下图所示的目录进行查找，其中还包括 ipvs 等。
-~]# find /usr/lib/modules/$(uname -r)/kernel -name netfilter -exec realpath {} \; /usr/lib/modules/5.15.0-102-generic/kernel/net/bridge/netfilter /usr/lib/modules/5.15.0-102-generic/kernel/net/netfilter /usr/lib/modules/5.15.0-102-generic/kernel/net/ipv6/netfilter /usr/lib/modules/5.15.0-102-generic/kernel/net/ipv4/netfilter Netfilter 项目支持如下功能
-网络地址转换(Network Address Translate) 数据包过滤 数据包日志记录 用户空间数据包队列 其他数据包处理 等等 Netfilter Hooks 是 Linux 内核中的一个框架，它会让 Netfilter 的模块在 Linux 网络堆栈的不同位置注册回调函数。然后，为遍历 Linux 网络堆栈中相应 Hook 的每个数据包调用已注册的回调函数。
-用白话说：内核加入了 Netfilter 模块后，每个数据包进来之后，都会经过五个 Hooks 点来处理，以便决定每个数据包的走向。 Hooks hooks function(钩子函数) 是 Linux 网络栈中的流量检查点。所有流量通过网卡进入内核或从内核出去都会调用 Hook 函数来进行检查，并根据其规则进行过滤。Netfilter 框架中一共有 5 个 Hook，这些 Hooks 组成了下文定义的“五链”。</description></item><item><title>Connection tracking for Netfilter</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/Connection-Tracking-for-netfilter/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/Connection-Tracking-for-netfilter/</guid><description>概述 参考：
-Netfilter 官方文档，连接跟踪工具用户手册 云计算基层技术-netfilter 框架研究 arthurchiao.art 的文章 连接跟踪（conntrack）：原理、应用及 Linux 内核实现 Connection Tracking(连接跟踪系统，简称 ConnTrack、CT)，用于跟踪并且记录连接状态。Linux 为每一个经过网络堆栈的数据包，生成一个 ConnTrack Entry(连接跟踪条目，简称 Entry)，并把该条目记录在一个 ConnnTrack Table(连接跟踪表) 中，条目中主要是包含该连接的协议、源 IP 和 PORT、目标 IP 和 PORT、协议号、数据包的大小等等等信息。此后，在处理数据包时读取该文件，在文件中所有属于此连接的数据包都被唯一地分配给这个连接，并标识连接的状态。该文件中的每一个条目都有一个持续时间，当持续时间结束后，该连接会被自动清除，再有相同的连接进来的时候，则按照新连接来处理。Netfilter 中定义了如下几个连接状态以便对具有这些状态的连接进行处理：
-可跟踪的连接状态有以下几个
-NEW # 新发出的请求。在连接跟踪文件中(nf_conntrack)不存在此连接。 ESTABLISHED # 已建立的。NEW 状态之后，在 nf_conntrack 文件中为其建立的条目失效之前所进行的通信的状态 RELATED # 有关联的。某个已经建立的连接所建立的新连接；e.g.FTP 的数据传输连接就是控制连接所 RELATED 出来的连接。–icmp-type 8(ping 请求)就是–icmp-type 0(ping 应答) 所 RELATED 出来的。 INVALIED # 无法识别的连接。 UNTRACKED # 不跟踪的链接状态，仅在使用 raw 表的时候该状态才有用，即 raw 不进行链接跟踪的时候，则连接跟踪表中没有记录的数据包就是此状态 其他： NEW 与 ESTABLISHED 的定义：只要第一次请求就算 NEW(e.g.本机往外第一次发送 和 外部第一次发往本机的请求)，哪怕对第一个 NEW 请求再回应的都算 ESTABLISHED。注意在 INPUT 和 OUTPUT 链上定义 NEW 的情况，INPUT 是外部第一次访问本机算 NEW；OUTPUT 是本机第一次访问外部算 NEW。 注意：ConnTrack 中所定义的状态与 TCP 等协议所定义的状态不一样，这里面定义的状态只是为了可以通过一种新的方式来处理每一个数据包，并进行过滤，这是 Netfilter 中所定义的状态</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Netfilter on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/</link><description>Recent content in Netfilter on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/index.xml" rel="self" type="application/rss+xml"/><item><title>Netfilter</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/Netfilter/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/Netfilter/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://www.netfilter.org/index.html"&gt;Netfilter 官网&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://www.netfilter.org/documentation/index.html"&gt;Netfilter 官方文档&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://en.wikipedia.org/wiki/Netfilter"&gt;Wiki, Netfilter&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="http://arthurchiao.art/index.html"&gt;arthurchiao.art 的文章&lt;/a&gt;：
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="http://arthurchiao.art/blog/deep-dive-into-iptables-and-netfilter-arch-zh/"&gt;[译] 深入理解 iptables 和 netfilter 架构&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="http://arthurchiao.art/blog/conntrack-design-and-implementation-zh/"&gt;连接跟踪（conntrack）：原理、应用及 Linux 内核实现&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="http://arthurchiao.art/blog/nat-zh/"&gt;[译] NAT - 网络地址转换（2016）&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Netfilter 是 Linux 操作系统核心层内部的一个&lt;strong&gt;数据包处理&lt;/strong&gt;模块集合的统称, 是一种&lt;strong&gt;流量控制系统&lt;/strong&gt;。一种网络筛选系统，对数据包进入以及出去本机进行的一些控制与管理。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/netfilter/packet_flow_in_netfilter_and_general_networking.jpeg" alt="https://commons.wikimedia.org/wiki/File:Netfilter-packet-flow.svg"&gt;&lt;/p&gt;
+&lt;p&gt;Netfilter 功能的所有模块可以通过下图所示的目录进行查找，其中还包括 ipvs 等。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# find /usr/lib/modules/$(uname -r)/kernel -name netfilter -exec realpath {} \;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;/usr/lib/modules/5.15.0-102-generic/kernel/net/bridge/netfilter
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;/usr/lib/modules/5.15.0-102-generic/kernel/net/netfilter
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;/usr/lib/modules/5.15.0-102-generic/kernel/net/ipv6/netfilter
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;/usr/lib/modules/5.15.0-102-generic/kernel/net/ipv4/netfilter
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Netfilter 项目支持如下功能&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;网络地址转换(Network Address Translate)&lt;/li&gt;
+&lt;li&gt;数据包过滤&lt;/li&gt;
+&lt;li&gt;数据包日志记录&lt;/li&gt;
+&lt;li&gt;用户空间数据包队列&lt;/li&gt;
+&lt;li&gt;其他数据包处理&lt;/li&gt;
+&lt;li&gt;等等&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Netfilter Hooks 是 Linux 内核中的一个框架，它会让 Netfilter 的模块在 Linux 网络堆栈的不同位置注册回调函数。然后，为遍历 Linux 网络堆栈中相应 Hook 的每个数据包调用已注册的回调函数。&lt;/p&gt;</description></item><item><title>Connection tracking for Netfilter</title><link>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/Connection-Tracking-for-netfilter/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/1.%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/Kernel/Network/Linux-%E7%BD%91%E7%BB%9C%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6/Netfilter/Connection-Tracking-for-netfilter/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://conntrack-tools.netfilter.org/manual.html"&gt;Netfilter 官方文档，连接跟踪工具用户手册&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://opengers.github.io/openstack/openstack-base-netfilter-framework-overview/"&gt;云计算基层技术-netfilter 框架研究&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="http://arthurchiao.art/index.html"&gt;arthurchiao.art 的文章&lt;/a&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="http://arthurchiao.art/blog/conntrack-design-and-implementation-zh/"&gt;连接跟踪（conntrack）：原理、应用及 Linux 内核实现&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Connection Tracking(连接跟踪系统，简称 ConnTrack、CT)&lt;/strong&gt;，用于跟踪并且记录连接状态。Linux 为每一个经过网络堆栈的数据包，生成一个 &lt;strong&gt;ConnTrack Entry(连接跟踪条目，简称 Entry)&lt;/strong&gt;，并把该条目记录在一个 &lt;strong&gt;ConnnTrack Table(连接跟踪表)&lt;/strong&gt; 中，条目中主要是包含该连接的协议、源 IP 和 PORT、目标 IP 和 PORT、协议号、数据包的大小等等等信息。此后，在处理数据包时读取该文件，在文件中所有属于此连接的数据包都被唯一地分配给这个连接，并标识连接的状态。该文件中的每一个条目都有一个持续时间，当持续时间结束后，该连接会被自动清除，再有相同的连接进来的时候，则按照新连接来处理。Netfilter 中定义了如下几个连接状态以便对具有这些状态的连接进行处理：&lt;/p&gt;
+&lt;p&gt;可跟踪的连接状态有以下几个&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;NEW&lt;/strong&gt; # 新发出的请求。在连接跟踪文件中(nf_conntrack)不存在此连接。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;ESTABLISHED&lt;/strong&gt; # 已建立的。NEW 状态之后，在 nf_conntrack 文件中为其建立的条目失效之前所进行的通信的状态&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RELATED&lt;/strong&gt; # 有关联的。某个已经建立的连接所建立的新连接；e.g.FTP 的数据传输连接就是控制连接所 RELATED 出来的连接。–icmp-type 8(ping 请求)就是–icmp-type 0(ping 应答) 所 RELATED 出来的。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;INVALIED&lt;/strong&gt; # 无法识别的连接。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;UNTRACKED&lt;/strong&gt; # 不跟踪的链接状态，仅在使用 raw 表的时候该状态才有用，即 raw 不进行链接跟踪的时候，则连接跟踪表中没有记录的数据包就是此状态&lt;/li&gt;
+&lt;li&gt;其他：
+&lt;ol&gt;
+&lt;li&gt;NEW 与 ESTABLISHED 的定义：只要第一次请求就算 NEW(e.g.本机往外第一次发送 和 外部第一次发往本机的请求)，哪怕对第一个 NEW 请求再回应的都算 ESTABLISHED。注意在 INPUT 和 OUTPUT 链上定义 NEW 的情况，INPUT 是外部第一次访问本机算 NEW；OUTPUT 是本机第一次访问外部算 NEW。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;注意：ConnTrack 中所定义的状态与 TCP 等协议所定义的状态不一样，这里面定义的状态只是为了可以通过一种新的方式来处理每一个数据包，并进行过滤，这是 Netfilter 中所定义的状态&lt;/p&gt;</description></item></channel></rss>

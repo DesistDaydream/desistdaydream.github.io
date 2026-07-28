@@ -1,23 +1,134 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Loki on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/</link><description>Recent content in Loki on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/index.xml" rel="self" type="application/rss+xml"/><item><title>Loki</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki/</guid><description>概述 参考：
-GitHub 项目，grafana/loki 官方文档，基础 - 概述 Loki 是受 Prometheus 启发的水平可扩展，高度可用的多租户日志聚合系统。它的设计具有很高的成本效益，并且易于操作。它不索引日志的内容，而是为每个日志流设置一组标签。 与其他日志聚合系统相比，Loki 有以下特点：
-不对日志进行全文本索引。通过存储压缩的，非结构化的日志以及仅索引元数据，Loki 更加易于操作且运行成本更低。 使用与 Prometheus 相同的标签对日志流进行索引和分组，从而使您能够使用与 Prometheus 相同的标签在指标和日志之间无缝切换。 特别适合存储 Kubernetes Pod 日志。诸如 Pod 标签之类的元数据会自动被抓取并建立索引。 在 Grafana 中具有本机支持（需要 Grafana v6.0）。 基于 Loki 的日志包含 3 个程序：
-Loki 是主服务器，负责存储日志和处理查询。 ClientAgent 客户端代理，负责收集日志并将其发送给 Loki。 Promtail 是其中一种 Agent，是 loki 原配。 Grafana 用于查询和显示日志。 Loki 像 Prometheus 一样，但是是用于处理日志的：我们更喜欢基于多维标签的索引方法，并且希望使用没有依赖关系的单一二进制，易于操作的系统。Loki 与 Prometheus 的不同之处在于，它侧重于日志而不是指标，并通过推送而不是拉取交付日志。
-Tips: Loki 与 ClientAgent 加一起才相当于 Prometheus，因为 Promtail 是发现目标，采集日志的程序。然后主动 Push 给 Loki，由 Loki 存储日志数据。 而 Promtheus，可以自己发现目标，采集指标，存储指标。</description></item><item><title>Loki 部署</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E9%83%A8%E7%BD%B2/</guid><description>概述 参考：
-官方文档，安装 官方文档，基础知识 - 架构 - 部署模式 使用 docker 运行 Loki chown 10001:10001 /opt/loki/data docker run -d --rm --name loki \ --network host \ -v /opt/loki/config:/etc/loki \ -v /opt/loki/data:/loki \ -v /etc/localtime:/etc/localtime:ro \ grafana/loki 在 Kubernets 集群中部署 添加 loki 的 helm chart 仓库
-helm repo add grafana https://grafana.github.io/helm-charts helm repo update Helm 部署 Loki 套件 参考：
-官方文档 2.4.x，安装 - helm 部署 Loki 栈
-kubectl create ns loki # 创建名称空间 helm pull grafana/loki-stack # 获取 loki-stack 的 charts 压缩包 tar -zxvf loki-stack-X.</description></item><item><title>Loki API</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-API/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-API/</guid><description>概述 参考：
-官方文档，HTTP API 每个组件都会暴露一些基本的 API
-GET /ready GET /metrics GET /config GET /services GET /loki/api/v1/status/buildinfo 除了这几个基本的 API 以外，每个组件都会暴露一些专用的 API，若是以 Monolithic 架构启动 Loki，则下面的所有 API 都会在这个进程暴露。
-Querier API 与 Query Frontend API 查询器与查询前端暴露的 API 是我们最常用的 API，用来处理客户端发来的 LogQL。
-GET /loki/api/v1/query GET /loki/api/v1/query_range Step vs Interval GET /loki/api/v1/labels GET /loki/api/v1/label/&amp;lt;name&amp;gt;/values GET /loki/api/v1/series GET /loki/api/v1/index/stats GET /loki/api/v1/tail Distributor API POST /flush POST /ingester/flush_shutdown Ingester API POST /flush POST /ingester/shutdown Ruler API 以 /loki/ 开头的 API 与 Prometheus API 兼容，结果格式可以互换使用</description></item><item><title>Authentication(认证)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Authentication%E8%AE%A4%E8%AF%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Authentication%E8%AE%A4%E8%AF%81/</guid><description>概述 参考：
-官方文档，运行方式 - 认证 Loki 不附带任何包含的身份验证层。运营商应在您的服务之前运行身份验证反向代理，例如使用基本身份验证或 OAuth2 代理的 NGINX。
-请注意，在多租户模式下使用 Loki 时，Loki 要求将 HTTP 标头 X-Scope-OrgID设置为标识租户的字符串。填充此值的责任应由身份验证反向代理处理。阅读多租户文档以了解更多信息。
-有关身份验证 Promtail 的信息，请参阅文档以了解如何配置 Promtail。</description></item><item><title>组件详解</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/%E7%BB%84%E4%BB%B6%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/%E7%BB%84%E4%BB%B6%E8%AF%A6%E8%A7%A3/</guid><description>概述 参考：
-官方文档，架构 官方文档，架构 - 组件 公众号，Grafana Loki 架构(阳明翻译的官方文档) Grafana Loki 是一套可以组合成一个功能齐全的日志堆栈组件，与其他日志记录系统不同，Loki 是基于仅索引有关日志元数据的想法而构建的：标签（就像 Prometheus 标签一样）。日志数据本身被压缩然后并存储在对象存储（例如 S3 或 GCS）的块中，甚至存储在本地文件系统上，轻量级的索引和高度压缩的块简化了操作，并显着降低了 Loki 的成本，Loki 更适合中小团队。
-Grafana Loki 主要由 3 部分组成:
-loki: 日志记录引擎，负责存储日志和处理查询 promtail: 代理，负责收集日志并将其发送给 loki grafana: UI 界面 Distributor(分配器) Distributor 服务负责处理客户端写入的日志，它本质上是日志数据写入路径中的第一站，一旦 Distributor 收到日志数据，会将其拆分为多个批次，然后并行发送给多个 Ingester。
-Distributor 通过 gRPC 与 Ingester 通信，它们都是无状态的，可以根据需要扩大或缩小规模。
-Validation(验证) Preprocessing(预处理) Rate limiting(速率限制) Forwarding(转发) Hashing(哈希) Distributors 将一致性哈希和可配置的复制因子结合使用，以确定 Ingester 服务的哪些实例应该接收指定的流。
-流是一组与租户和唯一标签集关联的日志，使用租户 ID 和标签集对流进行 hash 处理，然后使用哈希查询要发送流的 Ingesters。
-存储在 Consul 中的哈希环被用来实现一致性哈希。。。所有的 ingester 都会使用自己拥有的一组 Token 注册到哈希环中，每个 Token 是一个随机的无符号 32 位数字，与一组 Token 一起，ingester 将其状态注册到哈希环中，状态 JOINING 和 ACTIVE 都可以接收写请求，而 ACTIVE 和 LEAVING 的 ingesters 可以接收读请求。在进行哈希查询时，distributors 只使用处于请求的适当状态的 ingester 的 Token。</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Loki on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/</link><description>Recent content in Loki on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/index.xml" rel="self" type="application/rss+xml"/><item><title>Loki</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://github.com/grafana/loki"&gt;GitHub 项目，grafana/loki&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/fundamentals/overview/"&gt;官方文档，基础 - 概述&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Loki 是受 Prometheus 启发的水平可扩展，高度可用的多租户日志聚合系统。它的设计具有很高的成本效益，并且易于操作。它不索引日志的内容，而是为每个日志流设置一组标签。
+与其他日志聚合系统相比，Loki 有以下特点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;不对日志进行全文本索引。通过存储压缩的，非结构化的日志以及仅索引元数据，Loki 更加易于操作且运行成本更低。&lt;/li&gt;
+&lt;li&gt;使用与 Prometheus 相同的标签对日志流进行索引和分组，从而使您能够使用与 Prometheus 相同的标签在指标和日志之间无缝切换。&lt;/li&gt;
+&lt;li&gt;特别适合存储 Kubernetes Pod 日志。诸如 Pod 标签之类的元数据会自动被抓取并建立索引。&lt;/li&gt;
+&lt;li&gt;在 Grafana 中具有本机支持（需要 Grafana v6.0）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;基于 Loki 的日志包含 3 个程序：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Loki 是主服务器，负责存储日志和处理查询。&lt;/li&gt;
+&lt;li&gt;ClientAgent 客户端代理，负责收集日志并将其发送给 Loki。
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/DataPipeline/Promtail/Promtail/"&gt;Promtail&lt;/a&gt; 是其中一种 Agent，是 loki 原配。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;Grafana 用于查询和显示日志。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Loki 像 Prometheus 一样，但是是用于处理日志的：我们更喜欢基于多维标签的索引方法，并且希望使用没有依赖关系的单一二进制，易于操作的系统。Loki 与 Prometheus 的不同之处在于，它侧重于日志而不是指标，并通过推送而不是拉取交付日志。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Tips: Loki 与 ClientAgent 加一起才相当于 Prometheus，因为 Promtail 是发现目标，采集日志的程序。然后主动 Push 给 Loki，由 Loki 存储日志数据。
+而 Promtheus，可以自己发现目标，采集指标，存储指标。&lt;/p&gt;</description></item><item><title>Loki 部署</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E9%83%A8%E7%BD%B2/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E9%83%A8%E7%BD%B2/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/installation/"&gt;官方文档，安装&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/fundamentals/architecture/deployment-modes"&gt;官方文档，基础知识 - 架构 - 部署模式&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="使用-docker-运行-loki"&gt;使用 docker 运行 Loki&lt;a class="td-heading-self-link" href="#%e4%bd%bf%e7%94%a8-docker-%e8%bf%90%e8%a1%8c-loki" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;chown 10001:10001 /opt/loki/data
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;docker run -d --rm --name loki &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; --network host &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; -v /opt/loki/config:/etc/loki &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; -v /opt/loki/data:/loki &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; -v /etc/localtime:/etc/localtime:ro &lt;span style="color:#4e9a06"&gt;\
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; grafana/loki
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h1 id="在-kubernets-集群中部署"&gt;在 Kubernets 集群中部署&lt;a class="td-heading-self-link" href="#%e5%9c%a8-kubernets-%e9%9b%86%e7%be%a4%e4%b8%ad%e9%83%a8%e7%bd%b2" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;添加 loki 的 helm chart 仓库&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;helm repo add grafana &lt;a href="https://grafana.github.io/helm-charts"&gt;https://grafana.github.io/helm-charts&lt;/a&gt;&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;helm repo update&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="helm-部署-loki-套件"&gt;Helm 部署 Loki 套件&lt;a class="td-heading-self-link" href="#helm-%e9%83%a8%e7%bd%b2-loki-%e5%a5%97%e4%bb%b6" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/v2.4.x/installation/helm/"&gt;官方文档 2.4.x，安装 - helm&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;部署 Loki 栈&lt;/p&gt;</description></item><item><title>Loki API</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-API/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-API/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/"&gt;官方文档，HTTP API&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;每个组件都会暴露一些基本的 API&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#identify-ready-loki-instance"&gt;GET /ready&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#return-exposed-prometheus-metrics"&gt;GET /metrics&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#list-current-configuration"&gt;GET /config&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#list-running-services"&gt;GET /services&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#list-build-information"&gt;GET /loki/api/v1/status/buildinfo&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;除了这几个基本的 API 以外，每个组件都会暴露一些专用的 API，若是以 Monolithic 架构启动 Loki，则下面的所有 API 都会在这个进程暴露。&lt;/p&gt;
+&lt;h1 id="querier-api-与-query-frontend-api"&gt;Querier API 与 Query Frontend API&lt;a class="td-heading-self-link" href="#querier-api-%e4%b8%8e-query-frontend-api" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;查询器与查询前端暴露的 API 是我们最常用的 API，用来处理客户端发来的 LogQL。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#query-loki"&gt;GET /loki/api/v1/query&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#query-loki-over-a-range-of-time"&gt;GET /loki/api/v1/query_range&lt;/a&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#step-vs-interval"&gt;Step vs Interval&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#list-labels-within-a-range-of-time"&gt;GET /loki/api/v1/labels&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#list-label-values-within-a-range-of-time"&gt;GET /loki/api/v1/label/&amp;lt;name&amp;gt;/values&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#list-series"&gt;GET /loki/api/v1/series&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#index-stats"&gt;GET /loki/api/v1/index/stats&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#stream-log-messages"&gt;GET /loki/api/v1/tail&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="distributor-api"&gt;Distributor API&lt;a class="td-heading-self-link" href="#distributor-api" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#post-flush"&gt;POST /flush&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#post-ingesterflush_shutdown"&gt;POST /ingester/flush_shutdown&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="ingester-api"&gt;Ingester API&lt;a class="td-heading-self-link" href="#ingester-api" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#flush-in-memory-chunks-to-backing-store"&gt;POST /flush&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/api/#flush-in-memory-chunks-and-shut-down"&gt;POST /ingester/shutdown&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="ruler-api"&gt;Ruler API&lt;a class="td-heading-self-link" href="#ruler-api" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;以 /loki/ 开头的 API 与 &lt;a href="https://prometheus.io/docs/prometheus/latest/querying/api/"&gt;Prometheus API&lt;/a&gt; 兼容，结果格式可以互换使用&lt;/p&gt;</description></item><item><title>Authentication(认证)</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Authentication%E8%AE%A4%E8%AF%81/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Authentication%E8%AE%A4%E8%AF%81/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/operations/authentication/"&gt;官方文档，运行方式 - 认证&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Loki 不附带任何包含的身份验证层。运营商应在您的服务之前运行身份验证反向代理，例如使用基本身份验证或 OAuth2 代理的 NGINX。&lt;/p&gt;
+&lt;p&gt;请注意，在多租户模式下使用 Loki 时，Loki 要求将 HTTP 标头 &lt;code&gt;X-Scope-OrgID&lt;/code&gt;设置为标识租户的字符串。填充此值的责任应由身份验证反向代理处理。阅读&lt;a href="https://grafana.com/docs/loki/latest/operations/multi-tenancy/"&gt;多租户&lt;/a&gt;文档以了解更多信息。&lt;/p&gt;
+&lt;p&gt;有关身份验证 Promtail 的信息，请参阅文档以&lt;a href="https://grafana.com/docs/loki/latest/clients/promtail/configuration/"&gt;了解如何配置 Promtail&lt;/a&gt;。&lt;/p&gt;</description></item><item><title>组件详解</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/%E7%BB%84%E4%BB%B6%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/%E7%BB%84%E4%BB%B6%E8%AF%A6%E8%A7%A3/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/architecture/"&gt;官方文档，架构&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/v2.6.x/fundamentals/architecture/components/"&gt;官方文档，架构 - 组件&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://mp.weixin.qq.com/s/dnG4Yye0cP5XtxY0VWiEDg"&gt;公众号，Grafana Loki 架构(阳明翻译的官方文档)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Grafana Loki 是一套可以组合成一个功能齐全的日志堆栈组件，与其他日志记录系统不同，Loki 是基于仅索引有关日志元数据的想法而构建的：标签（就像 Prometheus 标签一样）。日志数据本身被压缩然后并存储在对象存储（例如 S3 或 GCS）的块中，甚至存储在本地文件系统上，轻量级的索引和高度压缩的块简化了操作，并显着降低了 Loki 的成本，Loki 更适合中小团队。&lt;/p&gt;
+&lt;p&gt;Grafana Loki 主要由 3 部分组成:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;loki: 日志记录引擎，负责存储日志和处理查询&lt;/li&gt;
+&lt;li&gt;promtail: 代理，负责收集日志并将其发送给 loki&lt;/li&gt;
+&lt;li&gt;grafana: UI 界面&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1 id="distributor分配器"&gt;Distributor(分配器)&lt;a class="td-heading-self-link" href="#distributor%e5%88%86%e9%85%8d%e5%99%a8" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;Distributor 服务负责处理客户端写入的日志，它本质上是日志数据写入路径中的&lt;strong&gt;第一站&lt;/strong&gt;，一旦 Distributor 收到日志数据，会将其拆分为多个批次，然后并行发送给多个 Ingester。&lt;/p&gt;
+&lt;p&gt;Distributor 通过 gRPC 与 Ingester 通信，它们都是无状态的，可以根据需要扩大或缩小规模。&lt;/p&gt;
+&lt;h3 id="validation验证"&gt;Validation(验证)&lt;a class="td-heading-self-link" href="#validation%e9%aa%8c%e8%af%81" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;h3 id="preprocessing预处理"&gt;Preprocessing(预处理)&lt;a class="td-heading-self-link" href="#preprocessing%e9%a2%84%e5%a4%84%e7%90%86" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;h3 id="rate-limiting速率限制"&gt;Rate limiting(速率限制)&lt;a class="td-heading-self-link" href="#rate-limiting%e9%80%9f%e7%8e%87%e9%99%90%e5%88%b6" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;h3 id="forwarding转发"&gt;Forwarding(转发)&lt;a class="td-heading-self-link" href="#forwarding%e8%bd%ac%e5%8f%91" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;h3 id="hashing哈希"&gt;Hashing(哈希)&lt;a class="td-heading-self-link" href="#hashing%e5%93%88%e5%b8%8c" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;Distributors&lt;/code&gt; 将一致性哈希和可配置的复制因子结合使用，以确定 &lt;code&gt;Ingester&lt;/code&gt; 服务的哪些实例应该接收指定的流。&lt;/p&gt;</description></item></channel></rss>

@@ -1,19 +1,70 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Libvirt on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/</link><description>Recent content in Libvirt on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/index.xml" rel="self" type="application/rss+xml"/><item><title>Libvirt</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Libvirt/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Libvirt/</guid><description>概述 参考：
-GitHub 组织，libvirt 官网 Libvirt 项目是用于管理虚拟化平台的工具包，包括开源的 API，后台程序和管理工具。它可以用于管理 KVM、Xen、VMware ESX，QEMU 和其他虚拟化技术。Libvirt 将虚拟机统一称为 Domain。
-Libvirt 提供了管理虚拟机和其它虚拟化功能（如：存储和网络接口等）的便利途径。这些软件包括：一个长期稳定的 C 语言 API、一个守护进程（libvirtd）和一个命令行工具（virsh）。Libvirt 的主要目标是提供一个单一途径以管理不同类型的虚拟化环境(也称为 drivers 或者 hypervisors )，包括：KVM/QEMU，Xen，VMware， VirtualBox hypervisors，LXC，OpenVZ
-Libvirt 包含 3 个东西：
-Libvirt API # API 库使得其他人可以开发基于 Libvirt 的高级工具，比如 virt-manager、virt-install、virt-viewer 等。 Driver # 虚拟化平台的驱动程序，暴露了 Libvirt API。由驱动程序对接各种不同的虚拟化平台的 Hypervisor 以管理虚拟化环境。 libvirtd # libvirtd 是一个集合了多种驱动程序守护进程，暴露了 Libvirt API，可以接收和处理客户端发送的请求 Client APP # 客户端应用程序，典型的代表是 virsh virsh # 使用 Libvirt API 编写的客户端程序，用来连接 Driver 后发送命令以控制虚拟化环境。 Note：其实 libvirtd 在绝大部分情况下是与 qemu/kvm 相搭配来使用，都是开源的，并且 redhat 官方推荐的也是使用 libvirt 管理 kvm 虚拟机</description></item><item><title>最佳实践</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>概述 这里的最佳实践，主要是使用 Libvirt 工具集对虚拟机的全生命周期进行管理。比如创建、修改、删除虚拟机。
-最常用的工具是 virt-install、virsh 命令
-通过 libvirt 远程管理虚拟机 通过 TCP 连接 参考：
-StackOverflow，could-not-add-the-parameter-listen-to-open-tcp-socket libvirtd 官方手册 systemctl stop libvirtd.service
-在 /etc/libvirt/libvirtd.conf 文件中添加 auth_tcp=&amp;quot;none&amp;quot;
-让 libvirtd 监听本地 TCP 端口
-systemctl enable libvirtd-tcp.socket --now systemctl start libvirtd.service
-最后使用 virsh -c qemu+tcp://192.168.1.66/system 即可连接到远程 libvirtd
-通过 SSH 连接 virsh -c qemu+ssh://root@192.168.1.166/system 配置URI别名 为了简化管理员的工作，可以在 libvirt 客户端配置文件中设置 URI 别名。对于 root 用户，配置文件为 /etc/libvirt/libvirt.conf；对于任何非特权用户，配置文件为 $XDG_CONFIG_HOME/libvirt/libvirt.conf。在此文件中，可以使用以下语法来设置别名
-uri_aliases = [ &amp;#34;hail=qemu+ssh://root@hail.cloud.example.com/system&amp;#34;, &amp;#34;sleet=qemu+ssh://root@sleet.cloud.example.com/system&amp;#34;, ] URI 别名应该是由字符 a-Z、0-9、_、- 组成的字符串。 = 后面可以是任何 libvirt URI 字符串，包括任意 URI 参数。 URI 别名将应用于任何打开 libvirt 连接的应用程序，除非它已显式地将 VIR_CONNECT_NO_ALIASES 参数传递给 virConnectOpenAuth。如果传入的 URI 包含允许的别名字符集之外的字符，则不会尝试别名查找。</description></item><item><title>Libvirt 配置详解</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Libvirt-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Libvirt-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>概述 参考：
-/etc/libvirt/libvirt.conf
-# 设置别名 uri_aliases = [ &amp;#34;vs-1=qemu+ssh://10.10.100.201/system&amp;#34;, ] # 可以对 10.10.100.201 使用 virsh 命令 virsh -c vs-1 list log_level(INT) # 程序运行日志的输出级别。默认值: 2。1 debug, 2 information, 3 warnings, 4 errors</description></item><item><title>问题实例</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8B/</guid><description>dnsmasq: cannot read /var/lib/libvirt/dnsmasq/default.conf: Permission denied 参考连接：https://forum.level1techs.com/t/solved-virtual-network-issue-virsh-net-start-default/136141
-该问题常出现在移动 /var/lib/libvirt 目录下的内容到新的磁盘上之后出现，是由于 SELinux 的策略导致的
-I solved this so I figured I’d post the fix (to my specific problem) in case anybody else runs into this. This was happening due to an SELinux policy violation. Here is what I did:
-$ sudo setenforce 0 # disable SELinux momentarily$ sudo virsh net-start default # this worked which meant SELinux was involved$ sudo setenforce 1 # renable SELinux$ sudo ausearch -m AVC,USER_AVC,SELINUX_ERR -ts recent # inspect the SELinux alerts if you&amp;rsquo;re interested</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Libvirt on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/</link><description>Recent content in Libvirt on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/index.xml" rel="self" type="application/rss+xml"/><item><title>Libvirt</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Libvirt/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Libvirt/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://github.com/libvirt"&gt;GitHub 组织，libvirt&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://libvirt.org/"&gt;官网&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Libvirt 项目是用于管理虚拟化平台的工具包，包括开源的 API，后台程序和管理工具。它可以用于管理 KVM、Xen、VMware ESX，QEMU 和其他虚拟化技术。Libvirt 将虚拟机统一称为 &lt;strong&gt;Domain&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/gglb2f/1616123800173-58542239-2205-4586-bcc0-4edde6579a3f.png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;Libvirt 提供了管理虚拟机和其它虚拟化功能（如：存储和网络接口等）的便利途径。这些软件包括：一个长期稳定的 C 语言 API、一个守护进程（libvirtd）和一个命令行工具（virsh）。Libvirt 的主要目标是提供一个单一途径以管理不同类型的虚拟化环境(也称为 drivers 或者 hypervisors )，包括：KVM/QEMU，Xen，VMware， VirtualBox hypervisors，LXC，OpenVZ&lt;/p&gt;
+&lt;p&gt;Libvirt 包含 3 个东西：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Libvirt API&lt;/strong&gt; # API 库使得其他人可以开发基于 Libvirt 的高级工具，比如 virt-manager、virt-install、virt-viewer 等。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Driver&lt;/strong&gt; # 虚拟化平台的驱动程序，暴露了 Libvirt API。由驱动程序对接各种不同的虚拟化平台的 Hypervisor 以管理虚拟化环境。
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;libvirtd&lt;/strong&gt; # libvirtd 是一个集合了多种驱动程序守护进程，暴露了 Libvirt API，可以接收和处理客户端发送的请求&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Client APP&lt;/strong&gt; # 客户端应用程序，典型的代表是 virsh
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;virsh&lt;/strong&gt; # 使用 Libvirt API 编写的客户端程序，用来连接 Driver 后发送命令以控制虚拟化环境。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Note：其实 libvirtd 在绝大部分情况下是与 qemu/kvm 相搭配来使用，都是开源的，并且 redhat 官方推荐的也是使用 libvirt 管理 kvm 虚拟机&lt;/p&gt;</description></item><item><title>最佳实践</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;这里的最佳实践，主要是使用 Libvirt 工具集对虚拟机的全生命周期进行管理。比如创建、修改、删除虚拟机。&lt;/p&gt;
+&lt;p&gt;最常用的工具是 virt-install、virsh 命令&lt;/p&gt;
+&lt;h2 id="通过-libvirt-远程管理虚拟机"&gt;通过 libvirt 远程管理虚拟机&lt;a class="td-heading-self-link" href="#%e9%80%9a%e8%bf%87-libvirt-%e8%bf%9c%e7%a8%8b%e7%ae%a1%e7%90%86%e8%99%9a%e6%8b%9f%e6%9c%ba" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;h3 id="通过-tcp-连接"&gt;通过 TCP 连接&lt;a class="td-heading-self-link" href="#%e9%80%9a%e8%bf%87-tcp-%e8%bf%9e%e6%8e%a5" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://stackoverflow.com/questions/65663825/could-not-add-the-parameter-listen-to-open-tcp-socket"&gt;StackOverflow，could-not-add-the-parameter-listen-to-open-tcp-socket&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://libvirt.org/manpages/libvirtd.html"&gt;libvirtd 官方手册&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;code&gt;systemctl stop libvirtd.service&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;在 &lt;code&gt;/etc/libvirt/libvirtd.conf&lt;/code&gt; 文件中添加 &lt;code&gt;auth_tcp=&amp;quot;none&amp;quot;&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;让 libvirtd 监听本地 TCP 端口&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;systemctl enable libvirtd-tcp.socket --now&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;code&gt;systemctl start libvirtd.service&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;最后使用 &lt;code&gt;virsh -c qemu+tcp://192.168.1.66/system&lt;/code&gt; 即可连接到远程 libvirtd&lt;/p&gt;
+&lt;h3 id="通过-ssh-连接"&gt;通过 SSH 连接&lt;a class="td-heading-self-link" href="#%e9%80%9a%e8%bf%87-ssh-%e8%bf%9e%e6%8e%a5" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;virsh -c qemu+ssh://root@192.168.1.166/system
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id="配置uri别名"&gt;配置URI别名&lt;a class="td-heading-self-link" href="#%e9%85%8d%e7%bd%aeuri%e5%88%ab%e5%90%8d" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;为了简化管理员的工作，可以在 libvirt 客户端配置文件中设置 URI 别名。对于 root 用户，配置文件为 &lt;code&gt;/etc/libvirt/libvirt.conf&lt;/code&gt;；对于任何非特权用户，配置文件为 &lt;code&gt;$XDG_CONFIG_HOME/libvirt/libvirt.conf&lt;/code&gt;。在此文件中，可以使用以下语法来设置别名&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#000"&gt;uri_aliases&lt;/span&gt; &lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt; &lt;span style="color:#ce5c00;font-weight:bold"&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; &lt;span style="color:#4e9a06"&gt;&amp;#34;hail=qemu+ssh://root@hail.cloud.example.com/system&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt; &lt;span style="color:#4e9a06"&gt;&amp;#34;sleet=qemu+ssh://root@sleet.cloud.example.com/system&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;URI 别名应该是由字符 &lt;code&gt;a-Z&lt;/code&gt;、&lt;code&gt;0-9&lt;/code&gt;、&lt;code&gt;_&lt;/code&gt;、&lt;code&gt;-&lt;/code&gt; 组成的字符串。 &lt;code&gt;=&lt;/code&gt; 后面可以是任何 libvirt URI 字符串，包括任意 URI 参数。 URI 别名将应用于任何打开 libvirt 连接的应用程序，除非它已显式地将 VIR_CONNECT_NO_ALIASES 参数传递给 virConnectOpenAuth。如果传入的 URI 包含允许的别名字符集之外的字符，则不会尝试别名查找。&lt;/p&gt;</description></item><item><title>Libvirt 配置详解</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Libvirt-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/Libvirt-%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;/etc/libvirt/libvirt.conf&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# 设置别名&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#000"&gt;uri_aliases&lt;/span&gt; &lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt; &lt;span style="color:#ce5c00;font-weight:bold"&gt;[&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;vs-1=qemu+ssh://10.10.100.201/system&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# 可以对 10.10.100.201 使用 virsh 命令&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;virsh -c vs-1 list
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;log_level&lt;/strong&gt;(INT) # 程序运行日志的输出级别。&lt;code&gt;默认值: 2&lt;/code&gt;。1 debug, 2 information, 3 warnings, 4 errors&lt;/p&gt;</description></item><item><title>问题实例</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8B/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization-implementation/%E8%99%9A%E6%8B%9F%E5%8C%96%E7%AE%A1%E7%90%86/Libvirt/%E9%97%AE%E9%A2%98%E5%AE%9E%E4%BE%8B/</guid><description>&lt;h1 id="dnsmasq-cannot-read-varliblibvirtdnsmasqdefaultconf-permission-denied"&gt;dnsmasq: cannot read /var/lib/libvirt/dnsmasq/default.conf: Permission denied&lt;a class="td-heading-self-link" href="#dnsmasq-cannot-read-varliblibvirtdnsmasqdefaultconf-permission-denied" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;参考连接：&lt;a href="https://forum.level1techs.com/t/solved-virtual-network-issue-virsh-net-start-default/136141"&gt;https://forum.level1techs.com/t/solved-virtual-network-issue-virsh-net-start-default/136141&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;该问题常出现在移动 /var/lib/libvirt 目录下的内容到新的磁盘上之后出现，是由于 SELinux 的策略导致的&lt;/p&gt;
+&lt;p&gt;I solved this so I figured I’d post the fix (to my specific problem) in case anybody else runs into this. This was happening due to an SELinux policy violation. Here is what I did:&lt;/p&gt;
+&lt;p&gt;$ sudo setenforce 0 # disable SELinux momentarily$ sudo virsh net-start default # this worked which meant SELinux was involved$ sudo setenforce 1 # renable SELinux$ sudo ausearch -m AVC,USER_AVC,SELINUX_ERR -ts recent # inspect the SELinux alerts if you&amp;rsquo;re interested&lt;/p&gt;</description></item></channel></rss>

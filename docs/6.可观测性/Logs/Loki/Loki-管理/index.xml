@@ -1,29 +1,69 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Loki 管理 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/</link><description>Recent content in Loki 管理 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>LogQL 常见查询语句</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/LogQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/LogQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</guid><description>概述 参考：
-官方文档，查询 - 查询示例 多重过滤
-过滤应该首先使用标签匹配器，然后是行过滤器，最后使用标签过滤器：
-{cluster=&amp;#34;ops-tools1&amp;#34;, namespace=&amp;#34;loki-dev&amp;#34;, job=&amp;#34;loki-dev/query-frontend&amp;#34;} |= &amp;#34;metrics.go&amp;#34; !=&amp;#34;out of order&amp;#34; | logfmt | duration &amp;gt; 30s or status_code!=&amp;#34;200&amp;#34; 多解析器
-比如要提取以下格式日志行的方法和路径：
-level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg=&amp;#34;POST /api/prom/api/v1/query_range (200) 1.5s&amp;#34; 你可以像下面这样使用多个解析器：
-{job=&amp;#34;loki-ops/query-frontend&amp;#34;} | logfmt | line_format &amp;#34;{{.msg}}&amp;#34; | regexp &amp;#34;(?P&amp;lt;method&amp;gt;\\w+) (?P&amp;lt;path&amp;gt;[\\w|/]+) \\((?P&amp;lt;status&amp;gt;\\d+?)\\) (?P&amp;lt;duration&amp;gt;.*)&amp;#34; Notes: 其实这种 regexp 语法在新版已经可以用 pattern 代替了
-pattern `&amp;lt;method&amp;gt; &amp;lt;path&amp;gt; (&amp;lt;status&amp;gt;) &amp;lt;duration&amp;gt;` 首先通过 logfmt 解析器提取日志中的数据，然后使用 | line_format 重新将日志格式化为 POST /api/prom/api/v1/query_range (200) 1.5s，然后紧接着就是用 regexp 解析器通过正则表达式来匹配提前标签了。
-格式化 下面的查询显示了如何重新格式化日志行，使其更容易阅读。</description></item><item><title>最佳实践</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>概述 参考：
-标签设计最佳实践: https://grafana.com/docs/loki/latest/get-started/labels/bp-labels/
-公众号 - 云原生小白，Loki中的标签简明指南（译）
-https://grafana.com/blog/2020/08/27/the-concise-guide-to-labels-in-loki/ 最近很多同学的 Loki 在上线过程中经常遇见丢日志的情况，一查 Loki 日志的发现是日志流的时序问题导致的。这也从侧方面反映出大家对 Loki 的日志流和标签之间的关系还是明确清楚。几个月前，偶然看见博客上原作者对 Loki 标签有过简明指南，深感有责任翻译给大家，用于理解这部分概念。由于原文写于 Loki1.x 时代，译文对于部分于差异的部分进行了相关删减，如小伙伴们要阅读原文，点击文末【阅读原文】即可
-作为 Loki 的用户或操作员，我们的目标应该是使用尽可能少的标签来存储你的日志。
-这意味着，更少的标签带来更小的索引，从而导致更好的性能 再重复一遍 更少的标签=更好的性能
-这可能听起来有悖直觉。大部分数据库的管理经验告诉我们，如果你想让查询更加快速，我们通常通过需要建立更多的索引。但是，Loki 是以完全相反的方式构建和优化的。我们围绕 Loki 的设计初衷是为了保持运营成本和复杂性低，这是通过保持一个非常小的索引和利用硬件能力和并行化运算来实现的。
-因此，作为 Loki 的用户或操作者，我们在添加标签之前一定要三思而行。
-我举个例子：
-ts=2020-08-25T16:55:42.986960888Z caller=spanlogger.go:53 org_id=29 traceID=2612c3ff044b7d02 method=Store.lookupIdsByMetricNameMatcher level=debug matcher=&amp;#34;pod=&amp;#34;loki-canary-25f2k/&amp;#34;&amp;#34; queries=16 我们应该通过 TraceID 查询所有日志？
-你可能会想，&amp;ldquo;我应该提取 traceID 作为标签&amp;rdquo;，然后我可以这样查询。
-{cluster=&amp;#34;ops-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;, traceID=”2612c3ff044b7d02”} 千万不要这样做! 我们要避免将日志中的内容提取成标签！如果你想在你的日志中找到高基的数据，可以使用下面这样的过滤表达式。
-{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;} |= &amp;#34;traceID=2612c3ff044b7d02&amp;#34; 但是如果标签是一个较低的基数怎么办？如果把日志级别提取到标签中，而我们的日志级别只有五个值，怎么办？
-{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;, level=&amp;#34;debug&amp;#34;} 在这里要小心！记住标签对索引和存储有多重的, 增加一个标签，那么对Loki的索引和存储有倍增的效应。一开始是我们是一个日志流，现在变成了多达五个流（按照日志级别）。然后我们考虑是否添加另一个标签？但是不幸的是，即使它只有几个值，事情也会很快失控。
-相反，我们应该按照过滤表达式如下编写 LogQL 语法：
-{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;} |= &amp;#34;level=debug&amp;#34; |= &amp;#34;status=200&amp;#34; |= &amp;#34;path=/api/v1/query&amp;#34; 是否可以将日志内容提取为标签？</description></item><item><title>logcli 命令行工具</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/logcli-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/logcli-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>概述 参考：
-export LOKI_ADDR=http://localhost:3100
-在 https://github.com/grafana/loki/releases 该界面下载 logcli 工具的二进制文件，并放到系统 $PATH 下。
-二进制文件有了之后，配置一下 logcli 所需要的环境变量 export LOKI_ADDR=http://localhost:3100 然后就可以使用了
-下面是一些命令使用示例
-~]# logcli labels job http://172.38.40.212:31000/loki/api/v1/label/job/values?end=1600402177427090944&amp;amp;start=1600398577427090944 varlogs ~]# logcli query &amp;#39;{job=&amp;#34;varlogs&amp;#34;}&amp;#39; | more http://172.38.40.212:31000/loki/api/v1/query_range?direction=BACKWARD&amp;amp;end=1600402187037107678&amp;amp;limit=30&amp;amp;query=%7Bjob%3D%22varlogs%22%7D&amp;amp;start=1600398587037107678 Common labels: {job=&amp;#34;varlogs&amp;#34;} 2020-09-18T11:48:50+08:00 {filename=&amp;#34;/var/log/host/messages&amp;#34;} Sep 18 11:48:50 master-1 kubelet: W0918 11:48:50.468511 30889 container.go:526] Failed to update stats for container &amp;#34;/system .slice/docker-f326688c0b9b38fb8190bba72eb12d55e2017a9624889948ac118e6b9eb1199b.scope&amp;#34;: unable to determine device info for dir: /var/lib/docker/overlay2/51f0b901d76af9efd801abb473d0b7d5b27a193ccb990 d3db1cac1799a2a0432/diff: stat failed on /var/lib/docker/overlay2/51f0b901d76af9efd801abb473d0b7d5b27a193ccb990d3db1cac1799a2a0432/diff with error: no such file or directory, continuing to push stat s .</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Loki 管理 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/</link><description>Recent content in Loki 管理 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/index.xml" rel="self" type="application/rss+xml"/><item><title>LogQL 常见查询语句</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/LogQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/LogQL-%E5%B8%B8%E8%A7%81%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/docs/loki/latest/query/query_examples/"&gt;官方文档，查询 - 查询示例&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;多重过滤&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;过滤应该首先使用标签匹配器，然后是行过滤器，最后使用标签过滤器：&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code class="language-logql" data-lang="logql"&gt;{cluster=&amp;#34;ops-tools1&amp;#34;, namespace=&amp;#34;loki-dev&amp;#34;, job=&amp;#34;loki-dev/query-frontend&amp;#34;} |= &amp;#34;metrics.go&amp;#34; !=&amp;#34;out of order&amp;#34; | logfmt | duration &amp;gt; 30s or status_code!=&amp;#34;200&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;多解析器&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;比如要提取以下格式日志行的方法和路径：&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code class="language-log" data-lang="log"&gt;level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg=&amp;#34;POST /api/prom/api/v1/query_range (200) 1.5s&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;你可以像下面这样使用多个解析器：&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code class="language-logql" data-lang="logql"&gt;{job=&amp;#34;loki-ops/query-frontend&amp;#34;} | logfmt | line_format &amp;#34;{{.msg}}&amp;#34;
+| regexp &amp;#34;(?P&amp;lt;method&amp;gt;\\w+) (?P&amp;lt;path&amp;gt;[\\w|/]+) \\((?P&amp;lt;status&amp;gt;\\d+?)\\) (?P&amp;lt;duration&amp;gt;.*)&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Notes: 其实这种 regexp 语法在新版已经可以用 pattern 代替了&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;pattern `&amp;lt;method&amp;gt; &amp;lt;path&amp;gt; (&amp;lt;status&amp;gt;) &amp;lt;duration&amp;gt;`
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;首先通过 &lt;code&gt;logfmt&lt;/code&gt; 解析器提取日志中的数据，然后使用 &lt;code&gt;| line_format&lt;/code&gt; 重新将日志格式化为 &lt;code&gt;POST /api/prom/api/v1/query_range (200) 1.5s&lt;/code&gt;，然后紧接着就是用 &lt;code&gt;regexp&lt;/code&gt; 解析器通过正则表达式来匹配提前标签了。&lt;/p&gt;</description></item><item><title>最佳实践</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;标签设计最佳实践: &lt;a href="https://grafana.com/docs/loki/latest/get-started/labels/bp-labels/"&gt;https://grafana.com/docs/loki/latest/get-started/labels/bp-labels/&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a href="https://mp.weixin.qq.com/s/Weh50_VAeazUSZdumfiOSQ"&gt;公众号 - 云原生小白，Loki中的标签简明指南（译）&lt;/a&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://grafana.com/blog/2020/08/27/the-concise-guide-to-labels-in-loki/"&gt;https://grafana.com/blog/2020/08/27/the-concise-guide-to-labels-in-loki/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;最近很多同学的 Loki 在上线过程中经常遇见丢日志的情况，一查 Loki 日志的发现是日志流的时序问题导致的。这也从侧方面反映出大家对 Loki 的日志流和标签之间的关系还是明确清楚。几个月前，偶然看见博客上原作者对 Loki 标签有过简明指南，深感有责任翻译给大家，用于理解这部分概念。由于原文写于 Loki1.x 时代，译文对于部分于差异的部分进行了相关删减，如小伙伴们要阅读原文，点击文末【阅读原文】即可&lt;/p&gt;
+&lt;p&gt;作为 Loki 的用户或操作员，我们的目标应该是使用尽可能少的标签来存储你的日志。&lt;/p&gt;
+&lt;p&gt;这意味着，&lt;code&gt;更少的标签带来更小的索引，从而导致更好的性能&lt;/code&gt; 再重复一遍 &lt;code&gt;更少的标签=更好的性能&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;这可能听起来有悖直觉。大部分数据库的管理经验告诉我们，如果你想让查询更加快速，我们通常通过需要建立更多的索引。但是，Loki 是以完全相反的方式构建和优化的。我们围绕 Loki 的设计初衷是为了保持运营成本和复杂性低，这是通过保持一个非常小的索引和利用硬件能力和并行化运算来实现的。&lt;/p&gt;
+&lt;p&gt;因此，作为 Loki 的用户或操作者，我们在添加标签之前&lt;code&gt;一定要三思而行&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;我举个例子：&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;ts=2020-08-25T16:55:42.986960888Z caller=spanlogger.go:53 org_id=29 traceID=2612c3ff044b7d02 method=Store.lookupIdsByMetricNameMatcher level=debug matcher=&amp;#34;pod=&amp;#34;loki-canary-25f2k/&amp;#34;&amp;#34; queries=16
+&lt;/code&gt;&lt;/pre&gt;&lt;blockquote&gt;
+&lt;p&gt;我们应该通过 TraceID 查询所有日志？&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;你可能会想，&amp;ldquo;我应该提取 traceID 作为标签&amp;rdquo;，然后我可以这样查询。&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;{cluster=&amp;#34;ops-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;, traceID=”2612c3ff044b7d02”}
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;code&gt;千万不要这样做!&lt;/code&gt; 我们要避免将日志中的内容提取成标签！如果你想在你的日志中找到高基的数据，可以使用下面这样的过滤表达式。&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;} |= &amp;#34;traceID=2612c3ff044b7d02&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;blockquote&gt;
+&lt;p&gt;但是如果标签是一个较低的基数怎么办？如果把日志级别提取到标签中，而我们的日志级别只有五个值，怎么办？&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;, level=&amp;#34;debug&amp;#34;}
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;在这里要小心！&lt;code&gt;记住标签对索引和存储有多重的, 增加一个标签，那么对Loki的索引和存储有倍增的效应。&lt;/code&gt;一开始是我们是一个日志流，现在变成了多达五个流（按照日志级别）。然后我们考虑是否添加另一个标签？但是不幸的是，即使它只有几个值，事情也会很快失控。&lt;/p&gt;
+&lt;p&gt;相反，我们应该按照过滤表达式如下编写 LogQL 语法：&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;{cluster=&amp;#34;OPS-cluster-1&amp;#34;,namespace=&amp;#34;loki-dev&amp;#34;} |= &amp;#34;level=debug&amp;#34; |= &amp;#34;status=200&amp;#34; |= &amp;#34;path=/api/v1/query&amp;#34;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;strong&gt;是否可以将日志内容提取为标签？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;是的，我们可以这么做，不过在这样做之前应该仔细考虑下，新增的标签是否是用于描述日志，以帮助你缩小搜索范围，如果是那你应当慎重。或者说，我们在 Loki 使用标签，主要是它们描述了我们的应用运行在各种环境、服务器等物理的拓扑结构，通过他们来描述日志的来源。&lt;/p&gt;</description></item><item><title>logcli 命令行工具</title><link>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/logcli-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/6.%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/Logs/Loki/Loki-%E7%AE%A1%E7%90%86/logcli-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%B7%A5%E5%85%B7/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;export LOKI_ADDR=http://localhost:3100&lt;/p&gt;
+&lt;p&gt;在 &lt;a href="https://github.com/grafana/loki/releases"&gt;https://github.com/grafana/loki/releases&lt;/a&gt; 该界面下载 logcli 工具的二进制文件，并放到系统 $PATH 下。&lt;/p&gt;
+&lt;p&gt;二进制文件有了之后，配置一下 logcli 所需要的环境变量 export LOKI_ADDR=http://localhost:3100 然后就可以使用了&lt;/p&gt;
+&lt;p&gt;下面是一些命令使用示例&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# logcli labels job&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;http://172.38.40.212:31000/loki/api/v1/label/job/values?end&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;1600402177427090944&lt;span style="color:#000;font-weight:bold"&gt;&amp;amp;&lt;/span&gt;&lt;span style="color:#000"&gt;start&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#0000cf;font-weight:bold"&gt;1600398577427090944&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;varlogs
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# logcli query &amp;#39;{job=&amp;#34;varlogs&amp;#34;}&amp;#39; | more&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;http://172.38.40.212:31000/loki/api/v1/query_range?direction&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;BACKWARD&lt;span style="color:#000;font-weight:bold"&gt;&amp;amp;&lt;/span&gt;&lt;span style="color:#000"&gt;end&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;1600402187037107678&lt;span style="color:#000;font-weight:bold"&gt;&amp;amp;&lt;/span&gt;&lt;span style="color:#000"&gt;limit&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;30&lt;span style="color:#000;font-weight:bold"&gt;&amp;amp;&lt;/span&gt;&lt;span style="color:#000"&gt;query&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;%7Bjob%3D%22varlogs%22%7D&lt;span style="color:#000;font-weight:bold"&gt;&amp;amp;&lt;/span&gt;&lt;span style="color:#000"&gt;start&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#0000cf;font-weight:bold"&gt;1600398587037107678&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;Common labels: &lt;span style="color:#ce5c00;font-weight:bold"&gt;{&lt;/span&gt;&lt;span style="color:#000"&gt;job&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;varlogs&amp;#34;&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;2020-09-18T11:48:50+08:00 &lt;span style="color:#ce5c00;font-weight:bold"&gt;{&lt;/span&gt;&lt;span style="color:#000"&gt;filename&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;=&lt;/span&gt;&lt;span style="color:#4e9a06"&gt;&amp;#34;/var/log/host/messages&amp;#34;&lt;/span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;}&lt;/span&gt; Sep &lt;span style="color:#0000cf;font-weight:bold"&gt;18&lt;/span&gt; 11:48:50 master-1 kubelet: W0918 11:48:50.468511 &lt;span style="color:#0000cf;font-weight:bold"&gt;30889&lt;/span&gt; container.go:526&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt; Failed to update stats &lt;span style="color:#204a87;font-weight:bold"&gt;for&lt;/span&gt; container &lt;span style="color:#4e9a06"&gt;&amp;#34;/system
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#4e9a06"&gt;.slice/docker-f326688c0b9b38fb8190bba72eb12d55e2017a9624889948ac118e6b9eb1199b.scope&amp;#34;&lt;/span&gt;: unable to determine device info &lt;span style="color:#204a87;font-weight:bold"&gt;for&lt;/span&gt; dir: /var/lib/docker/overlay2/51f0b901d76af9efd801abb473d0b7d5b27a193ccb990
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;d3db1cac1799a2a0432/diff: stat failed on /var/lib/docker/overlay2/51f0b901d76af9efd801abb473d0b7d5b27a193ccb990d3db1cac1799a2a0432/diff with error: no such file or directory, continuing to push stat
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;s
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;......
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description></item></channel></rss>

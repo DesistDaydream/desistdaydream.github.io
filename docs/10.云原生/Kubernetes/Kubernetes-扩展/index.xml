@@ -1,28 +1,106 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubernetes 扩展 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/</link><description>Recent content in Kubernetes 扩展 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/index.xml" rel="self" type="application/rss+xml"/><item><title>Custom Resource Definitions(CRD)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Custom-Resource-DefinitionsCRD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Custom-Resource-DefinitionsCRD/</guid><description>概述 参考：
-官方文档，概念 - 扩展 Kubernetes - 扩展 API - 自定义资源，CRD Custom Resource Definitions 自定义资源定义，简称 CRD。是一个 Kubernetes 的 API Resource(API 资源)。其前身是 Kubernetes1.6 版本中一个叫做 ThirdPartyResource(第三方资源，简称 TPR) 的内建对象，可以用它来创建自定义资源，但该对象在 kubernetes1.7 中版本已被 CRD（CustomResourceDefinition）取代。CRD 的目的是让 Kubernetes API 能够认识新对象(就是 yaml 中的 kind)。所以通过 CRD 创建的对象可以跟 kubernetes 中内建对象一样使用 kubectl 操作，就像 kubectl 操作 pod 一样，如果我定义了一个名为 lch 的 crd ，那么我可以使用 kubectl get lch 命令来操作 lch 这个资源
-注意：单纯设置了 CRD，并没有什么用，只有跟自定义控制器(controller)结合起来，才能将资源对象中的声明式 API 翻译成用户所期望的状态。自定义控制器可以用来管理任何资源类型，但是一般是跟 CRD 结合使用。自定义控制器称为 Operator。
-为什么这么说呢？
-比如，在一个 pod 的 yaml 文件里每一个字段就是对该资源的定义，name 字段定义了该资源名字，image 字段定义了 pod 这个资源的 container 所使用的镜像等等。但是，既然有字段可以定义一个 k8s 资源，那么谁又来决定这个字段就是其所描述的功能呢？~答案当然是 kubernetes 主程序(也就是 kube-controller)。</description></item><item><title>Kubernetes 扩展</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Kubernetes-%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Kubernetes-%E6%89%A9%E5%B1%95/</guid><description>概述 参考：
-官方文档，概念 - 扩展 Kubernetes - 扩展集群 概念： 任务：https://kubernetes.io/docs/tasks/extend-kubernetes/ 这里引用张磊大佬的一张图来开篇
-Kubernetes 是高度可配置和可扩展的。因此，极少需要分发或提交补丁代码给 Kubernetes 项目。通过对 Kubernetes 的扩展，可以将中间狭窄的部分扩大。
-本文档介绍自定义 Kubernetes 集群的方式。本文档的目标读者包括希望了解如何使 Kubernetes 集群满足其业务环境需求的 集群运维人员、 Kubernetes 项目的贡献者。 或潜在的平台开发人员 也可以从本文找到有用的信息，如对已存在扩展点和模式的介绍，以及它们的权衡和限制。
-自定义方法可以大致分为两类
-Configuration (配置) # 配置只涉及更改标志参数、本地配置文件或 API 资源； Extension (扩展) # 扩展涉及运行额外的程序或服务。 扩展的实现依赖于某些特殊配置，这些配置可能在某些 k8s 发行版中并不自带。需要自行修改程序参数来让集群支撑某些扩展方式。
-配置 Kubernetes 集群 关于 配置文件 和 标志 的说明文档位于在线文档的&amp;quot;参考&amp;quot;部分，按照可执行文件组织：
-kubelet kube-apiserver kube-controller-manager kube-scheduler. 在托管的 Kubernetes 服务或受控安装的 Kubernetes 版本中，标志和配置文件可能并不总是可以更改的。而且当它们可以进行更改时，它们通常只能由集群管理员进行更改。此外，标志和配置文件在未来的 Kubernetes 版本中可能会发生变化，并且更改设置后它们可能需要重新启动进程。出于这些原因，只有在没有其他选择的情况下才使用它们。
-内置策略 API ，例如 ResourceQuota、 PodSecurityPolicy、 NetworkPolicy 和基于角色的权限控制 (RBAC)， 是内置的 Kubernetes API。API 通常与托管的 Kubernetes 服务和受控的 Kubernetes 安装一起使用。 它们是声明性的，并使用与其他 Kubernetes 资源（如 Pod ）相同的约定，所以新的集群配置可以重复使用， 并以与应用程序相同的方式进行管理。 而且，当它们变稳定后，也遵循和其他 Kubernetes API 一样的 支持政策。 出于这些原因，在合适的情况下它们优先于 配置文件 和 标志 被使用。</description></item><item><title>Operator 模式</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Operator-%E6%A8%A1%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Operator-%E6%A8%A1%E5%BC%8F/</guid><description>概述 参考：
-官方文档，概念 - 扩展 K8S - Operator 模式 https://jimmysong.io/kubernetes-handbook/develop/operator.html Operator 是 Kubernetes API 的客户端，充当 Custom Resource 的控制器。作用与 controller-manager 类似。只不过是控制非 k8s 自带资源的控制器
-Operator 是由 CoreOS 开发的，用来扩展 Kubernetes API 的特定的应用程序控制器，它用来创建、配置和管理复杂的有状态应用，如数据库、缓存和监控系统。Operator 基于 Kubernetes 的资源和控制器概念之上构建，但同时又包含了应用程序特定的领域知识。创建 Operator 的关键是 CRD（自定义资源）的设计。
-背景 基于 Kubernetes 平台，我们可以轻松的搭建一些简单的无状态应用，比如对于一些常见的 web apps 或是移动端后台程序，开发者甚至不用十分了解 Kubernetes 就可以利用 Deployment，Service 这些基本单元模型构建出自己的应用拓扑并暴露相应的服务。由于无状态应用的特性支持其在任意时刻进行部署、迁移、升级等操作，Kubernetes 现有的 ReplicaSets、Deployment、Services 等资源对象已经足够支撑起无状态应用对于自动扩缩容、实例间负载均衡等基本需求。
-在管理简单的有状态应用时，我们可以利用社区原生的 StatefulSet 和 PV 模型来构建基础的应用拓扑，帮助实现相应的持久化存储，按顺序部署、顺序扩容、顺序滚动更新等特性。
-而随着 Kubernetes 的蓬勃发展，在数据分析，机器学习等领域相继出现了一些场景更为复杂的分布式应用系统，也给社区和相关应用的开发运维人员提出了新的挑战：
-不同场景下的分布式系统中通常维护了一套自身的模型定义规范，如何在 Kubernetes 平台中表达或兼容出应用原先的模型定义？ 当应用系统发生扩缩容或升级时，如何保证当前已有实例服务的可用性？如何保证它们之间的可连通性？ 如何去重新配置或定义复杂的分布式应用？是否需要大量的专业模板定义和复杂的命令操作？是否可以向无状态应用那样用一条 kubectl 命令就完成应用的更新？ 如何备份和管理系统状态和应用数据？如何协调系统集群各成员间在不同生命周期的应用状态？ 而所有的这些正是 Operator 希望解决的问题，本文我们将首先了解到 Operator 是什么，之后逐步了解到 Operator 的生态建设，Operator 的关键组件及其基本的工作原理，下面让我们来一探究竟吧。</description></item><item><title>API Aggregation(聚合) Layer</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-Aggregation%E8%81%9A%E5%90%88-Layer/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-Aggregation%E8%81%9A%E5%90%88-Layer/</guid><description>概述 参考；
-官方文档参考： https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/ api aggregation 称为 api 聚合。用于扩展 kubernetes 的 API 。如下所示。其中 v1beta1.metrics.k8s.io 是通过 prometheus-adapter 添加的新 API
-[root@master-1 ~]# kubectl get apiservices.apiregistration.k8s.io NAME SERVICE AVAILABLE AGE v1. Local True 163d ......... v1beta1.metrics.k8s.io monitoring/prometheus-adapter True 120m v1beta1.networking.k8s.io Local True 163d ...... 聚合出来的 API 会关联到一个指定的 service 上，所有对该 API 发起的请求，都会交由该 service 并转发到其后端的 pod 进行处理。
-下面是一个扩展 API 的样例，其中指定了该 API 所关联的 service
-apiVersion: apiregistration.k8s.io/v1 kind: APIService metadata: name: v1beta1.metrics.k8s.io spec: group: metrics.k8s.io groupPriorityMinimum: 100 insecureSkipTLSVerify: true service: name: prometheus-adapter namespace: monitoring version: v1beta1 versionPriority: 100 API Aggregation 的核心功能是动态注册、发现汇总、安全代理。</description></item><item><title>API 扩展</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-%E6%89%A9%E5%B1%95/</guid><description>概述 参考：
-官方文档，概念 - 扩展 Kubernetes - 扩展 Kubernetes API Resource(资源) 是 Kubernetes API 中的一个 endpoint(端点)， 其中存储的是某个类别的 API 对象 的一个集合。 例如内置的 pods 资源包含一组 Pod 对象。(这里面“点”的意思是这么一种语境。我说的几点记住了吗？知识点。等等)
-而扩展 Kubernetes API 实际上就是添加 Custom Resource(自定义的资源)。
-Custom Resource 自定义资源 什么是自定义资源呢？
-如 API Resource 中介绍的，Kubernetes 自身的一切都抽象为 Resource(资源)。顾名思义，Custom Resource(自定义资源) 就是非 Kubernetes 核心的资源。如果要类比的话，那么 Custom Resource 与 Kubernetes 的关系，类似于 Linux 中，Module(模块) 与 Kernel(内核) 的关系。其实，再准确的说法应该是下文将要提到的 Operator，Operator 与 Kubernetes 的关系，类似于 Linux 中，Module(模块) 与 Kernel(内核) 的关系。现在很多 Kubernetes 核心功能现在都用自定义资源来实现，这使得 Kubernetes 更加模块化。
-自定义资源可以像普通资源(比如.pod)一样被创建和销毁。一旦某个自定义资源被安装，就可以使用 kubectl 来创建和访问其中的对象，就像为 pods 这种内置资源所做的一样。</description></item><item><title>Service Catalog 服务目录</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Service-Catalog-%E6%9C%8D%E5%8A%A1%E7%9B%AE%E5%BD%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Service-Catalog-%E6%9C%8D%E5%8A%A1%E7%9B%AE%E5%BD%95/</guid><description/></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubernetes 扩展 on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/</link><description>Recent content in Kubernetes 扩展 on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/index.xml" rel="self" type="application/rss+xml"/><item><title>Custom Resource Definitions(CRD)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Custom-Resource-DefinitionsCRD/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Custom-Resource-DefinitionsCRD/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#customresourcedefinitions"&gt;官方文档，概念 - 扩展 Kubernetes - 扩展 API - 自定义资源，CRD&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Custom Resource Definitions 自定义资源定义，简称 CRD&lt;/strong&gt;。是一个 Kubernetes 的 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-Resource-%E4%B8%8E-Object/API-Resource/"&gt;API Resource&lt;/a&gt;(API 资源)。其前身是 Kubernetes1.6 版本中一个叫做 ThirdPartyResource(第三方资源，简称 TPR) 的内建对象，可以用它来创建自定义资源，但该对象在 kubernetes1.7 中版本已被 CRD（CustomResourceDefinition）取代。&lt;strong&gt;CRD 的目的是让 Kubernetes API 能够认识新对象(就是 yaml 中的 kind)&lt;/strong&gt;。所以通过 CRD 创建的对象可以跟 kubernetes 中内建对象一样使用 kubectl 操作，就像 kubectl 操作 pod 一样，如果我定义了一个名为 lch 的 crd ，那么我可以使用 kubectl get lch 命令来操作 lch 这个资源&lt;/p&gt;
+&lt;p&gt;注意：单纯设置了 CRD，并没有什么用，只有跟自定义控制器(controller)结合起来，才能将资源对象中的声明式 API 翻译成用户所期望的状态。自定义控制器可以用来管理任何资源类型，但是一般是跟 CRD 结合使用。自定义控制器称为 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Operator-%E6%A8%A1%E5%BC%8F/"&gt;Operator&lt;/a&gt;。&lt;/p&gt;
+&lt;p&gt;为什么这么说呢？&lt;/p&gt;
+&lt;p&gt;比如，在一个 pod 的 yaml 文件里每一个字段就是对该资源的定义，name 字段定义了该资源名字，image 字段定义了 pod 这个资源的 container 所使用的镜像等等。但是，既然有字段可以定义一个 k8s 资源，那么谁又来决定这个字段就是其所描述的功能呢？~答案当然是 kubernetes 主程序(也就是 kube-controller)。&lt;/p&gt;</description></item><item><title>Kubernetes 扩展</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Kubernetes-%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Kubernetes-%E6%89%A9%E5%B1%95/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/docs/concepts/extend-kubernetes/extend-cluster/"&gt;官方文档，概念 - 扩展 Kubernetes - 扩展集群&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;概念：&lt;/li&gt;
+&lt;li&gt;任务：&lt;a href="https://kubernetes.io/docs/tasks/extend-kubernetes/"&gt;https://kubernetes.io/docs/tasks/extend-kubernetes/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这里引用张磊大佬的一张图来开篇&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/eo9qpz/1619144340194-3bfc699a-f6ca-4732-b4f2-0d49c7512b1a.jpeg" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;Kubernetes 是高度可配置和可扩展的。因此，极少需要分发或提交补丁代码给 Kubernetes 项目。通过对 Kubernetes 的扩展，可以将中间狭窄的部分扩大。&lt;/p&gt;
+&lt;p&gt;本文档介绍自定义 Kubernetes 集群的方式。本文档的目标读者包括希望了解如何使 Kubernetes 集群满足其业务环境需求的 &lt;a href="https://kubernetes.io/zh/docs/reference/glossary/?all=true#term-cluster-operator"&gt;集群运维人员&lt;/a&gt;、 Kubernetes 项目的&lt;a href="https://kubernetes.io/zh/docs/reference/glossary/?all=true#term-contributor"&gt;贡献者&lt;/a&gt;。 或潜在的&lt;a href="https://kubernetes.io/zh/docs/reference/glossary/?all=true#term-platform-developer"&gt;平台开发人员&lt;/a&gt; 也可以从本文找到有用的信息，如对已存在扩展点和模式的介绍，以及它们的权衡和限制。&lt;/p&gt;
+&lt;p&gt;自定义方法可以大致分为两类&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Configuration (配置) # 配置只涉及更改标志参数、本地配置文件或 API 资源；&lt;/li&gt;
+&lt;li&gt;Extension (扩展) # 扩展涉及运行额外的程序或服务。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;扩展的实现依赖于某些特殊配置，这些配置可能在某些 k8s 发行版中并不自带。需要自行修改程序参数来让集群支撑某些扩展方式。&lt;/p&gt;
+&lt;h2 id="配置-kubernetes-集群"&gt;配置 Kubernetes 集群&lt;a class="td-heading-self-link" href="#%e9%85%8d%e7%bd%ae-kubernetes-%e9%9b%86%e7%be%a4" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;关于 配置文件 和 标志 的说明文档位于在线文档的&amp;quot;参考&amp;quot;部分，按照可执行文件组织：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kubelet/"&gt;kubelet&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kube-apiserver/"&gt;kube-apiserver&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kube-controller-manager/"&gt;kube-controller-manager&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/zh/docs/reference/command-line-tools-reference/kube-scheduler/"&gt;kube-scheduler&lt;/a&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;在托管的 Kubernetes 服务或受控安装的 Kubernetes 版本中，标志和配置文件可能并不总是可以更改的。而且当它们可以进行更改时，它们通常只能由集群管理员进行更改。此外，标志和配置文件在未来的 Kubernetes 版本中可能会发生变化，并且更改设置后它们可能需要重新启动进程。出于这些原因，只有在没有其他选择的情况下才使用它们。&lt;/p&gt;
+&lt;p&gt;内置策略 API ，例如 &lt;a href="https://kubernetes.io/zh/docs/concepts/policy/resource-quotas/"&gt;ResourceQuota&lt;/a&gt;、 &lt;a href="https://kubernetes.io/zh/docs/concepts/policy/pod-security-policy/"&gt;PodSecurityPolicy&lt;/a&gt;、 &lt;a href="https://kubernetes.io/zh/docs/concepts/services-networking/network-policies/"&gt;NetworkPolicy&lt;/a&gt; 和基于角色的权限控制 (&lt;a href="https://kubernetes.io/zh/docs/reference/access-authn-authz/rbac/"&gt;RBAC&lt;/a&gt;)， 是内置的 Kubernetes API。API 通常与托管的 Kubernetes 服务和受控的 Kubernetes 安装一起使用。 它们是声明性的，并使用与其他 Kubernetes 资源（如 Pod ）相同的约定，所以新的集群配置可以重复使用， 并以与应用程序相同的方式进行管理。 而且，当它们变稳定后，也遵循和其他 Kubernetes API 一样的 &lt;a href="https://kubernetes.io/docs/reference/using-api/deprecation-policy/"&gt;支持政策&lt;/a&gt;。 出于这些原因，在合适的情况下它们优先于 配置文件 和 标志 被使用。&lt;/p&gt;</description></item><item><title>Operator 模式</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Operator-%E6%A8%A1%E5%BC%8F/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Operator-%E6%A8%A1%E5%BC%8F/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/docs/concepts/extend-kubernetes/operator/"&gt;官方文档，概念 - 扩展 K8S - Operator 模式&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://jimmysong.io/kubernetes-handbook/develop/operator.html"&gt;https://jimmysong.io/kubernetes-handbook/develop/operator.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;Operator&lt;/strong&gt; 是 Kubernetes API 的客户端，充当 Custom Resource 的控制器。作用与 controller-manager 类似。只不过是控制非 k8s 自带资源的控制器&lt;/p&gt;
+&lt;p&gt;Operator 是由 CoreOS 开发的，用来扩展 Kubernetes API 的特定的应用程序控制器，它用来创建、配置和管理复杂的有状态应用，如数据库、缓存和监控系统。Operator 基于 Kubernetes 的资源和控制器概念之上构建，但同时又包含了应用程序特定的领域知识。创建 Operator 的关键是 CRD（自定义资源）的设计。&lt;/p&gt;
+&lt;h2 id="背景"&gt;背景&lt;a class="td-heading-self-link" href="#%e8%83%8c%e6%99%af" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;基于 Kubernetes 平台，我们可以轻松的搭建一些简单的无状态应用，比如对于一些常见的 web apps 或是移动端后台程序，开发者甚至不用十分了解 Kubernetes 就可以利用 Deployment，Service 这些基本单元模型构建出自己的应用拓扑并暴露相应的服务。由于无状态应用的特性支持其在任意时刻进行部署、迁移、升级等操作，Kubernetes 现有的 ReplicaSets、Deployment、Services 等资源对象已经足够支撑起无状态应用对于自动扩缩容、实例间负载均衡等基本需求。&lt;/p&gt;
+&lt;p&gt;在管理简单的有状态应用时，我们可以利用社区原生的 StatefulSet 和 PV 模型来构建基础的应用拓扑，帮助实现相应的持久化存储，按顺序部署、顺序扩容、顺序滚动更新等特性。&lt;/p&gt;
+&lt;p&gt;而随着 Kubernetes 的蓬勃发展，在数据分析，机器学习等领域相继出现了一些场景更为复杂的分布式应用系统，也给社区和相关应用的开发运维人员提出了新的挑战：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;不同场景下的分布式系统中通常维护了一套自身的模型定义规范，如何在 Kubernetes 平台中表达或兼容出应用原先的模型定义？&lt;/li&gt;
+&lt;li&gt;当应用系统发生扩缩容或升级时，如何保证当前已有实例服务的可用性？如何保证它们之间的可连通性？&lt;/li&gt;
+&lt;li&gt;如何去重新配置或定义复杂的分布式应用？是否需要大量的专业模板定义和复杂的命令操作？是否可以向无状态应用那样用一条 kubectl 命令就完成应用的更新？&lt;/li&gt;
+&lt;li&gt;如何备份和管理系统状态和应用数据？如何协调系统集群各成员间在不同生命周期的应用状态？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;而所有的这些正是 Operator 希望解决的问题，本文我们将首先了解到 Operator 是什么，之后逐步了解到 Operator 的生态建设，Operator 的关键组件及其基本的工作原理，下面让我们来一探究竟吧。&lt;/p&gt;</description></item><item><title>API Aggregation(聚合) Layer</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-Aggregation%E8%81%9A%E5%90%88-Layer/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-Aggregation%E8%81%9A%E5%90%88-Layer/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考；&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;官方文档参考：
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/"&gt;https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;api aggregation 称为 api 聚合。用于扩展 kubernetes 的 API 。如下所示。其中 v1beta1.metrics.k8s.io 是通过 prometheus-adapter 添加的新 API&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;[root@master-1 ~]# kubectl get apiservices.apiregistration.k8s.io
+NAME SERVICE AVAILABLE AGE
+v1. Local True 163d
+.........
+v1beta1.metrics.k8s.io monitoring/prometheus-adapter True 120m
+v1beta1.networking.k8s.io Local True 163d
+......
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;聚合出来的 API 会关联到一个指定的 service 上，所有对该 API 发起的请求，都会交由该 service 并转发到其后端的 pod 进行处理。&lt;/p&gt;
+&lt;p&gt;下面是一个扩展 API 的样例，其中指定了该 API 所关联的 service&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+ name: v1beta1.metrics.k8s.io
+spec:
+ group: metrics.k8s.io
+ groupPriorityMinimum: 100
+ insecureSkipTLSVerify: true
+ service:
+ name: prometheus-adapter
+ namespace: monitoring
+ version: v1beta1
+ versionPriority: 100
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;API Aggregation 的核心功能是动态注册、发现汇总、安全代理。&lt;/p&gt;</description></item><item><title>API 扩展</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-%E6%89%A9%E5%B1%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/API-%E6%89%A9%E5%B1%95/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/"&gt;官方文档，概念 - 扩展 Kubernetes - 扩展 Kubernetes API&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Resource(资源) 是 Kubernetes API 中的一个 endpoint(端点)， 其中存储的是某个类别的 API 对象 的一个集合。 例如内置的 pods 资源包含一组 Pod 对象。(这里面“点”的意思是这么一种语境。我说的几点记住了吗？知识点。等等)&lt;/p&gt;
+&lt;p&gt;而扩展 Kubernetes API 实际上就是添加 &lt;strong&gt;Custom Resource(自定义的资源)&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id="custom-resource-自定义资源"&gt;Custom Resource 自定义资源&lt;a class="td-heading-self-link" href="#custom-resource-%e8%87%aa%e5%ae%9a%e4%b9%89%e8%b5%84%e6%ba%90" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;什么是自定义资源呢？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;如 &lt;a href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/API-Resource-%E4%B8%8E-Object/API-Resource/"&gt;API Resource&lt;/a&gt; 中介绍的，Kubernetes 自身的一切都抽象为 Resource(资源)。顾名思义，Custom Resource(自定义资源) 就是非 Kubernetes 核心的资源。如果要类比的话，那么 Custom Resource 与 Kubernetes 的关系，类似于 Linux 中，Module(模块) 与 Kernel(内核) 的关系。其实，再准确的说法应该是下文将要提到的 Operator，Operator 与 Kubernetes 的关系，类似于 Linux 中，Module(模块) 与 Kernel(内核) 的关系。现在很多 Kubernetes 核心功能现在都用自定义资源来实现，这使得 Kubernetes 更加模块化。&lt;/p&gt;</description></item><item><title>Service Catalog 服务目录</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Service-Catalog-%E6%9C%8D%E5%8A%A1%E7%9B%AE%E5%BD%95/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Kubernetes/Kubernetes-%E6%89%A9%E5%B1%95/Service-Catalog-%E6%9C%8D%E5%8A%A1%E7%9B%AE%E5%BD%95/</guid><description/></item></channel></rss>

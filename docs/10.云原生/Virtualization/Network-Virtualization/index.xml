@@ -1,25 +1,115 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Network Virtualization on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/</link><description>Recent content in Network Virtualization on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/index.xml" rel="self" type="application/rss+xml"/><item><title>Network Virtualization</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Network-Virtualization/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Network-Virtualization/</guid><description>概述 参考：
-Wiki, Network_virtualization 在传统网络环境中，一台物理主机包含一个或多个网卡（NIC），要实现与其他物理主机之间的通信，需要通过自身的 NIC 连接到外部的网络设施，如交换机上；为了对应用进行隔离，往往是将一个应用部署在一台物理设备上，这样会存在两个问题：
-是某些应用大部分情况可能处于空闲状态， 是当应用增多的时 候，只能通过增加物理设备来解决扩展性问题。不管怎么样，这种架构都会对物理资源造成极大的浪费。 为了解决这个问题，可以借助虚拟化技术对一台物理资源进行抽象，将一张物理网卡虚拟成多张虚拟网卡（vNIC），通过虚拟机来隔离不同的应用。
-针对问题 1），可以利用虚拟化层 Hypervisor 的调度技术，将资源从空闲的应用上调度到繁忙的应用上，达到资源的合理利用； 针对问题 2），可以根据物理设备的资源使用情况进行横向扩容，除非设备资源已经用尽，否则没有必要新增设备。 综上所述：SDN 主要是通过系统的功能，模拟出网络设备中的路由器，交换机，端口，网线等等，这些现实中的数通设备都可以通过软件来模拟实现
-网络虚拟化的几种最基础模型：
-隔离模型：在 host 上创建一个 vSwitch(bridge device)：每个 VM 的 TAP 设备直接添加至 vswitch 上，VM 通过 vSwitch 互相通信，与外界隔离 路由模型：基于隔离模型，在 vSwitch 添加一个端口，作为 host 上的虚拟网卡使用(就是 VMware workstation 中创建的那些虚拟网卡，其中的 IP 作为虚拟机的网关)，并打开 host 的核心转发功能，使数据从 VM 发送到 host；该模型数据包可以从 VM 上出去，但是外界无法回到 VM，如果想让外部访问 VM，需要添加 NAT 功能，变成 NAT 模型 NAT 模型：配置 Linux 自带的 NAT(可通过 iptables 定义)功能，所有 VM 的 IP 被 NAT 成物理网卡 IP，这是一种常用的虚拟网络模型 桥接模型：可以想象成把物理机网卡变成一台 vSwitch，然后给物理机创建一个虚拟网卡，虚拟机和物理机都连接到 vSwitch，相当于把虚拟机直接接入到网络中，从网络角度看，VM 相当于同网段的一台 host 隧道模型：VM 的数据包在经过某个具备隧道功能的虚拟网络设备时，可以在数据包外层再封装一层 IP，以 IP 套 IP 的隧道方式，与对方互通 网络虚拟化术语</description></item><item><title>Linux 上抽象网络设备的原理及使用</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Linux-%E4%B8%8A%E6%8A%BD%E8%B1%A1%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E7%9A%84%E5%8E%9F%E7%90%86%E5%8F%8A%E4%BD%BF%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Linux-%E4%B8%8A%E6%8A%BD%E8%B1%A1%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E7%9A%84%E5%8E%9F%E7%90%86%E5%8F%8A%E4%BD%BF%E7%94%A8/</guid><description>概述 参考：
-Linux 抽象网络设备简介 和磁盘设备类似，Linux 用户想要使用网络功能，不能通过直接操作硬件完成，而需要直接或间接的操作一个 Linux 为我们抽象出来的设备，既通用的 Linux 网络设备来完成。一个常见的情况是，系统里装有一个硬件网卡，Linux 会在系统里为其生成一个网络设备实例，如 eth0，用户需要对 eth0 发出命令以配置或使用它了。更多的硬件会带来更多的设备实例，虚拟的硬件也会带来更多的设备实例。随着网络技术，虚拟化技术的发展，更多的高级网络设备被加入了到了 Linux 中，使得情况变得更加复杂。在以下章节中，将一一分析在虚拟化技术中经常使用的几种 Linux 网络设备抽象类型：Bridge、802.1.q VLAN device、VETH、TAP，详细解释如何用它们配合 Linux 中的 Route table、IP table 简单的创建出本地虚拟网络。
-相关网络设备工作原理 Bridge Bridge（桥）是 Linux 上用来做 TCP/IP 二层协议交换的设备，与现实世界中的交换机功能相似。Bridge 设备实例可以和 Linux 上其他网络设备实例连接，既 attach 一个从设备，类似于在现实世界中的交换机和一个用户终端之间连接一根网线。当有数据到达时，Bridge 会根据报文中的 MAC 信息进行广播、转发、丢弃处理。
-图 1.Bridge 设备工作过程
-如图所示，Bridge 的功能主要在内核里实现。当一个从设备被 attach 到 Bridge 上时，相当于现实世界里交换机的端口被插入了一根连有终端的网线。这时在内核程序里，netdev_rx_handler_register()被调用，一个用于接受数据的回调函数被注册。以后每当这个从设备收到数据时都会调用这个函数可以把数据转发到 Bridge 上。当 Bridge 接收到此数据时，br_handle_frame()被调用，进行一个和现实世界中的交换机类似的处理过程：判断包的类别（广播/单点），查找内部 MAC 端口映射表，定位目标端口号，将数据转发到目标端口或丢弃，自动更新内部 MAC 端口映射表以自我学习。
-Bridge 和现实世界中的二层交换机有一个区别，图中左侧画出了这种情况：数据被直接发到 Bridge 上，而不是从一个端口接受。这种情况可以看做 Bridge 自己有一个 MAC 可以主动发送报文，或者说 Bridge 自带了一个隐藏端口和寄主 Linux 系统自动连接，Linux 上的程序可以直接从这个端口向 Bridge 上的其他端口发数据。所以当一个 Bridge 拥有一个网络设备时，如 bridge0 加入了 eth0 时，实际上 bridge0 拥有两个有效 MAC 地址，一个是 bridge0 的，一个是 eth0 的，他们之间可以通讯。由此带来一个有意思的事情是，Bridge 可以设置 IP 地址。通常来说 IP 地址是三层协议的内容，不应该出现在二层设备 Bridge 上。但是 Linux 里 Bridge 是通用网络设备抽象的一种，只要是网络设备就能够设定 IP 地址。当一个 bridge0 拥有 IP 后，Linux 便可以通过路由表或者 IP 表规则在三层定位 bridge0，此时相当于 Linux 拥有了另外一个隐藏的虚拟网卡和 Bridge 的隐藏端口相连，这个网卡就是名为 bridge0 的通用网络设备，IP 可以看成是这个网卡的。当有符合此 IP 的数据到达 bridge0 时，内核协议栈认为收到了一包目标为本机的数据，此时应用程序可以通过 Socket 接收到它。一个更好的对比例子是现实世界中的带路由的交换机设备，它也拥有一个隐藏的 MAC 地址，供设备中的三层协议处理程序和管理程序使用。设备里的三层协议处理程序，对应名为 bridge0 的通用网络设备的三层协议处理程序，即寄主 Linux 系统内核协议栈程序。设备里的管理程序，对应 bridge0 寄主 Linux 系统里的应用程序。</description></item><item><title>Open vSwitch</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Open-vSwitch/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Open-vSwitch/</guid><description>概述 参考：
-Wiki, Open_vSwitch Open vSwitch # 开放的虚拟交换机 特性：支持 802.1q，trunk，access；支持网卡绑定技术(NIC Bonding);支持 QoS 配置及策略；支持 GRE 通用路由封装；支持 VxLAN；等等
-OVS 的组成部分：
-ovs-vswitchd # 守护进程,实现数据报文交换功能，和 Linux 内核兼容模块一同实现了基于流的交换技术 ovsdb-server # ovs 的数据库，轻量级的数据库服务器，主要保存了 OVS 的配置信息，EXP 接口、交换、VLAN 等，ovs-vswitchd 的交换功能基于此库实现,相关数据信息保存在这个文件中：/etc/openvswitch/conf.db ovs-vsctl # 命令行工具，用于获取或更改 ovs-vswitchd 的配置信息，其修改操作会保存至 ovsdb-server 中 ovs-dpctl # ovs-appctl # ovsdbmonitor # ovs-controller # ovs-ofctl # ovs-pki # 一般情况下都是对于一台物理机上的几个 vSwithc 上的 VM 进行同行进行的配置，比如两个 VM 各连接一个 vSwitch，这时候可以对物理机使用 ip link add veth1.1 type veth peer name veth1.2 命令俩创建一对虚拟接口然后使用 ovs-vsctl add-port BRIDGE PORT 命令分别把这两个虚拟接口绑定在两个 vSwitch 上，实现俩个 vSwitch 之间互联并且能够通信。还有就是如图所示，由于 OVS 有 DB，各 NODE 之间的 OVS 数据都互相共享，那么可以直接把 VM 连接到 vSwitch 上，然后再连接到物理网络就可以互通了相当于只是几个交换机互联而已，如果进行隔离后，使得隔离的 VM 可以通信，那么使用 namespace 功能创建一个 vRouter，通过 vRouter 实现被隔离的网络间互相通信</description></item><item><title>虚拟网络设备(Bridge,VLAN)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/%E8%99%9A%E6%8B%9F%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87BridgeVLAN/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/%E8%99%9A%E6%8B%9F%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87BridgeVLAN/</guid><description>概述 参考：
-云计算底层技术-虚拟网络设备(Bridge,VLAN) Posted on September 24, 2017 by opengers in openstack
-原文链接：openstack 底层技术-各种虚拟网络设备一(Bridge,VLAN)
-IBM 网站上有一篇高质量文章。本文会参考文章部分内容，本系列介绍 OpenStack 使用的这些网络设备包括 Bridge，VLAN，tun/tap, veth，vxlan/gre。本篇先介绍 Bridge 和 VLAN 相关，其它在下一篇中介绍
-OpenStack 一般分为计算，存储，网络三部分。考虑构建一个灵活的可扩展的云网络环境，而物理网络架构一般是固定和难于扩展的，因此虚拟网络将更有优势。Linux 平台上实现了各种不同功能的虚拟网络设备，包括Bridge,Vlan,tun/tap,veth pair,vxlan/gre，...，这些虚拟设备就像一个个积木块一样，被 OpenStack 组合用于构建虚拟网络。 还有火热的 Docker，docker 容器的隔离技术实现脱胎于 Linux 平台上的namspace,以及更早的chroot。
-文中会牵涉虚拟机，所以文中出现的”主机”一词明确表示一台物理机，”接口”指挂载到网桥上的网络设备，环境如下：
-CentOS Linux release 7.3.1611 (Core) Linux controller 3.10.0-514.16.1.el7.x86_64 #1 SMP Wed Apr 12 15:04:24 UTC 2017 x86_64 x86_64 x86_64 GNU/Linux OpenStack社区版 Newton Linux Bridge
-内核模块bridge
-[root@controller ~]# modinfo bridge filename: /lib/modules/3.10.0-514.16.1.el7.x86_64/kernel/net/bridge/bridge.ko Bridge 是 Linux 上工作在内核协议栈二层的虚拟交换机，虽然是软件实现的，但它与普通的二层物理交换机功能一样。可以添加若干个网络设备(em1,eth0,tap,.</description></item><item><title>虚拟网络设备(tun tap,veth)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/%E8%99%9A%E6%8B%9F%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87tun-tapveth/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/%E8%99%9A%E6%8B%9F%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87tun-tapveth/</guid><description>概述 参考：
-[openstack 底层技术-各种虚拟网络设备一(Bridge,VLAN)](https://opengers.github.io/openstack/openstack-base-virtual-network-devices-bridge-and-vlan/ openstack 底层技术-各种虚拟网络设备二(tun/tap,veth) 第一篇文章介绍了 Bridge 和 VLAN，本文继续介绍 tun/tap，veth 等虚拟设备，除了 tun，其它设备都能在 openstack 中找到应用，这些各种各样的虚拟网络设备使网络虚拟化成为了可能
-tun/tap tap 设备作为虚拟机网卡 openvpn 中使用的 tun 设备 veth 设备 veth 设备在 openstack 中的应用 tun/tap 我们知道 KVM 虚拟化中单个虚拟机是主机上的一个普通 qemu-kvm 进程，虚拟机当然也需要网卡，最常见的虚拟网卡就是使用主机上的 tap 设备。那从主机的角度看，这个qemu-kvm进程是如何使用 tap 设备呢，下面先介绍下 tun/tap 设备概念，然后分别用一个实例来解释 tun/tap 的具体用途 tun/tap 是操作系统内核中的虚拟网络设备，他们为用户层程序提供数据的接收与传输。实现 tun/tap 设备的内核模块为 tun，其模块介绍为 Universal TUN/TAP device driver，该模块提供了一个设备接口 /dev/net/tun 供用户层程序读写，用户层程序通过读写 /dev/net/tun 来向主机内核协议栈注入数据或接收来自主机内核协议栈的数据，可以把 tun/tap 看成数据管道，它一端连接主机协议栈，另一端连接用户程序
-~]# modinfo tun filename: /lib/modules/3.10.0-514.16.1.el7.x86_64/kernel/drivers/net/tun.ko alias: devname:net/tun ... description: Universal TUN/TAP device driver .</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Network Virtualization on 断念梦的站点</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/</link><description>Recent content in Network Virtualization on 断念梦的站点</description><generator>Hugo</generator><language>zh-cn</language><atom:link href="https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/index.xml" rel="self" type="application/rss+xml"/><item><title>Network Virtualization</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Network-Virtualization/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Network-Virtualization/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://en.wikipedia.org/wiki/Network_virtualization"&gt;Wiki, Network_virtualization&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;在传统网络环境中，一台物理主机包含一个或多个网卡（NIC），要实现与其他物理主机之间的通信，需要通过自身的 NIC 连接到外部的网络设施，如交换机上；为了对应用进行隔离，往往是将一个应用部署在一台物理设备上，这样会存在两个问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;是某些应用大部分情况可能处于空闲状态，&lt;/li&gt;
+&lt;li&gt;是当应用增多的时 候，只能通过增加物理设备来解决扩展性问题。不管怎么样，这种架构都会对物理资源造成极大的浪费。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;为了解决这个问题，可以借助虚拟化技术对一台物理资源进行抽象，将一张物理网卡虚拟成多张虚拟网卡（vNIC），通过虚拟机来隔离不同的应用。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;针对问题 1），可以利用虚拟化层 Hypervisor 的调度技术，将资源从空闲的应用上调度到繁忙的应用上，达到资源的合理利用；&lt;/li&gt;
+&lt;li&gt;针对问题 2），可以根据物理设备的资源使用情况进行横向扩容，除非设备资源已经用尽，否则没有必要新增设备。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;综上所述：SDN 主要是通过系统的功能，模拟出网络设备中的路由器，交换机，端口，网线等等，这些现实中的数通设备都可以通过软件来模拟实现&lt;/p&gt;
+&lt;p&gt;网络虚拟化的几种最基础模型：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;隔离模型：在 host 上创建一个 vSwitch(bridge device)：每个 VM 的 TAP 设备直接添加至 vswitch 上，VM 通过 vSwitch 互相通信，与外界隔离&lt;/li&gt;
+&lt;li&gt;路由模型：基于隔离模型，在 vSwitch 添加一个端口，作为 host 上的虚拟网卡使用(就是 VMware workstation 中创建的那些虚拟网卡，其中的 IP 作为虚拟机的网关)，并打开 host 的核心转发功能，使数据从 VM 发送到 host；该模型数据包可以从 VM 上出去，但是外界无法回到 VM，如果想让外部访问 VM，需要添加 NAT 功能，变成 NAT 模型&lt;/li&gt;
+&lt;li&gt;NAT 模型：配置 Linux 自带的 NAT(可通过 iptables 定义)功能，所有 VM 的 IP 被 NAT 成物理网卡 IP，这是一种常用的虚拟网络模型&lt;/li&gt;
+&lt;li&gt;桥接模型：可以想象成把物理机网卡变成一台 vSwitch，然后给物理机创建一个虚拟网卡，虚拟机和物理机都连接到 vSwitch，相当于把虚拟机直接接入到网络中，从网络角度看，VM 相当于同网段的一台 host&lt;/li&gt;
+&lt;li&gt;隧道模型：VM 的数据包在经过某个具备隧道功能的虚拟网络设备时，可以在数据包外层再封装一层 IP，以 IP 套 IP 的隧道方式，与对方互通&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;网络虚拟化术语&lt;/p&gt;</description></item><item><title>Linux 上抽象网络设备的原理及使用</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Linux-%E4%B8%8A%E6%8A%BD%E8%B1%A1%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E7%9A%84%E5%8E%9F%E7%90%86%E5%8F%8A%E4%BD%BF%E7%94%A8/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Linux-%E4%B8%8A%E6%8A%BD%E8%B1%A1%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87%E7%9A%84%E5%8E%9F%E7%90%86%E5%8F%8A%E4%BD%BF%E7%94%A8/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="linux-抽象网络设备简介"&gt;Linux 抽象网络设备简介&lt;a class="td-heading-self-link" href="#linux-%e6%8a%bd%e8%b1%a1%e7%bd%91%e7%bb%9c%e8%ae%be%e5%a4%87%e7%ae%80%e4%bb%8b" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;和磁盘设备类似，Linux 用户想要使用网络功能，不能通过直接操作硬件完成，而需要直接或间接的操作一个 Linux 为我们抽象出来的设备，既通用的 Linux 网络设备来完成。一个常见的情况是，系统里装有一个硬件网卡，Linux 会在系统里为其生成一个网络设备实例，如 eth0，用户需要对 eth0 发出命令以配置或使用它了。更多的硬件会带来更多的设备实例，虚拟的硬件也会带来更多的设备实例。随着网络技术，虚拟化技术的发展，更多的高级网络设备被加入了到了 Linux 中，使得情况变得更加复杂。在以下章节中，将一一分析在虚拟化技术中经常使用的几种 Linux 网络设备抽象类型：Bridge、802.1.q VLAN device、VETH、TAP，详细解释如何用它们配合 Linux 中的 Route table、IP table 简单的创建出本地虚拟网络。&lt;/p&gt;
+&lt;h2 id="相关网络设备工作原理"&gt;相关网络设备工作原理&lt;a class="td-heading-self-link" href="#%e7%9b%b8%e5%85%b3%e7%bd%91%e7%bb%9c%e8%ae%be%e5%a4%87%e5%b7%a5%e4%bd%9c%e5%8e%9f%e7%90%86" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;h3 id="bridge"&gt;Bridge&lt;a class="td-heading-self-link" href="#bridge" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;Bridge（桥）是 Linux 上用来做 TCP/IP 二层协议交换的设备，与现实世界中的交换机功能相似。Bridge 设备实例可以和 Linux 上其他网络设备实例连接，既 attach 一个从设备，类似于在现实世界中的交换机和一个用户终端之间连接一根网线。当有数据到达时，Bridge 会根据报文中的 MAC 信息进行广播、转发、丢弃处理。&lt;/p&gt;
+&lt;p&gt;图 1.Bridge 设备工作过程&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://notes-learning.oss-cn-beijing.aliyuncs.com/szbbas/1616124257424-79688f5a-dd7b-4f17-9afe-18d24df26e54.png" alt=""&gt;&lt;/p&gt;
+&lt;p&gt;如图所示，Bridge 的功能主要在内核里实现。当一个从设备被 attach 到 Bridge 上时，相当于现实世界里交换机的端口被插入了一根连有终端的网线。这时在内核程序里，netdev_rx_handler_register()被调用，一个用于接受数据的回调函数被注册。以后每当这个从设备收到数据时都会调用这个函数可以把数据转发到 Bridge 上。当 Bridge 接收到此数据时，br_handle_frame()被调用，进行一个和现实世界中的交换机类似的处理过程：判断包的类别（广播/单点），查找内部 MAC 端口映射表，定位目标端口号，将数据转发到目标端口或丢弃，自动更新内部 MAC 端口映射表以自我学习。&lt;/p&gt;
+&lt;p&gt;Bridge 和现实世界中的二层交换机有一个区别，图中左侧画出了这种情况：数据被直接发到 Bridge 上，而不是从一个端口接受。这种情况可以看做 Bridge 自己有一个 MAC 可以主动发送报文，或者说 Bridge 自带了一个隐藏端口和寄主 Linux 系统自动连接，Linux 上的程序可以直接从这个端口向 Bridge 上的其他端口发数据。所以当一个 Bridge 拥有一个网络设备时，如 bridge0 加入了 eth0 时，实际上 bridge0 拥有两个有效 MAC 地址，一个是 bridge0 的，一个是 eth0 的，他们之间可以通讯。由此带来一个有意思的事情是，Bridge 可以设置 IP 地址。通常来说 IP 地址是三层协议的内容，不应该出现在二层设备 Bridge 上。但是 Linux 里 Bridge 是通用网络设备抽象的一种，只要是网络设备就能够设定 IP 地址。当一个 bridge0 拥有 IP 后，Linux 便可以通过路由表或者 IP 表规则在三层定位 bridge0，此时相当于 Linux 拥有了另外一个隐藏的虚拟网卡和 Bridge 的隐藏端口相连，这个网卡就是名为 bridge0 的通用网络设备，IP 可以看成是这个网卡的。当有符合此 IP 的数据到达 bridge0 时，内核协议栈认为收到了一包目标为本机的数据，此时应用程序可以通过 Socket 接收到它。一个更好的对比例子是现实世界中的带路由的交换机设备，它也拥有一个隐藏的 MAC 地址，供设备中的三层协议处理程序和管理程序使用。设备里的三层协议处理程序，对应名为 bridge0 的通用网络设备的三层协议处理程序，即寄主 Linux 系统内核协议栈程序。设备里的管理程序，对应 bridge0 寄主 Linux 系统里的应用程序。&lt;/p&gt;</description></item><item><title>Open vSwitch</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Open-vSwitch/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/Open-vSwitch/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://en.wikipedia.org/wiki/Open_vSwitch"&gt;Wiki, Open_vSwitch&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="open-vswitch--开放的虚拟交换机"&gt;Open vSwitch # 开放的虚拟交换机&lt;a class="td-heading-self-link" href="#open-vswitch--%e5%bc%80%e6%94%be%e7%9a%84%e8%99%9a%e6%8b%9f%e4%ba%a4%e6%8d%a2%e6%9c%ba" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;特性：支持 802.1q，trunk，access；支持网卡绑定技术(NIC Bonding);支持 QoS 配置及策略；支持 GRE 通用路由封装；支持 VxLAN；等等&lt;/p&gt;
+&lt;p&gt;OVS 的组成部分：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;ovs-vswitchd # 守护进程,实现数据报文交换功能，和 Linux 内核兼容模块一同实现了基于流的交换技术&lt;/li&gt;
+&lt;li&gt;ovsdb-server # ovs 的数据库，轻量级的数据库服务器，主要保存了 OVS 的配置信息，EXP 接口、交换、VLAN 等，ovs-vswitchd 的交换功能基于此库实现,相关数据信息保存在这个文件中：/etc/openvswitch/conf.db&lt;/li&gt;
+&lt;li&gt;ovs-vsctl # 命令行工具，用于获取或更改 ovs-vswitchd 的配置信息，其修改操作会保存至 ovsdb-server 中&lt;/li&gt;
+&lt;li&gt;ovs-dpctl #&lt;/li&gt;
+&lt;li&gt;ovs-appctl #&lt;/li&gt;
+&lt;li&gt;ovsdbmonitor #&lt;/li&gt;
+&lt;li&gt;ovs-controller #&lt;/li&gt;
+&lt;li&gt;ovs-ofctl #&lt;/li&gt;
+&lt;li&gt;ovs-pki #&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;一般情况下都是对于一台物理机上的几个 vSwithc 上的 VM 进行同行进行的配置，比如两个 VM 各连接一个 vSwitch，这时候可以对物理机使用 ip link add veth1.1 type veth peer name veth1.2 命令俩创建一对虚拟接口然后使用 ovs-vsctl add-port BRIDGE PORT 命令分别把这两个虚拟接口绑定在两个 vSwitch 上，实现俩个 vSwitch 之间互联并且能够通信。还有就是如图所示，由于 OVS 有 DB，各 NODE 之间的 OVS 数据都互相共享，那么可以直接把 VM 连接到 vSwitch 上，然后再连接到物理网络就可以互通了相当于只是几个交换机互联而已，如果进行隔离后，使得隔离的 VM 可以通信，那么使用 namespace 功能创建一个 vRouter，通过 vRouter 实现被隔离的网络间互相通信&lt;/p&gt;</description></item><item><title>虚拟网络设备(Bridge,VLAN)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/%E8%99%9A%E6%8B%9F%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87BridgeVLAN/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/%E8%99%9A%E6%8B%9F%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87BridgeVLAN/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h1 id="云计算底层技术-虚拟网络设备bridgevlan"&gt;云计算底层技术-虚拟网络设备(Bridge,VLAN)&lt;a class="td-heading-self-link" href="#%e4%ba%91%e8%ae%a1%e7%ae%97%e5%ba%95%e5%b1%82%e6%8a%80%e6%9c%af-%e8%99%9a%e6%8b%9f%e7%bd%91%e7%bb%9c%e8%ae%be%e5%a4%87bridgevlan" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;Posted on September 24, 2017 by opengers in openstack&lt;/p&gt;
+&lt;p&gt;原文链接：&lt;a href="https://opengers.github.io/openstack/openstack-base-virtual-network-devices-bridge-and-vlan/"&gt;openstack 底层技术-各种虚拟网络设备一(Bridge,VLAN)&lt;/a&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;IBM 网站上有一篇高质量文章。本文会参考文章部分内容，本系列介绍 OpenStack 使用的这些网络设备包括 Bridge，VLAN，tun/tap, veth，vxlan/gre。本篇先介绍 Bridge 和 VLAN 相关，其它在下一篇中介绍&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;OpenStack 一般分为计算，存储，网络三部分。考虑构建一个灵活的可扩展的云网络环境，而物理网络架构一般是固定和难于扩展的，因此虚拟网络将更有优势。Linux 平台上实现了各种不同功能的虚拟网络设备，包括&lt;code&gt;Bridge,Vlan,tun/tap,veth pair,vxlan/gre，...&lt;/code&gt;，这些虚拟设备就像一个个积木块一样，被 OpenStack 组合用于构建虚拟网络。 还有火热的 Docker，docker 容器的隔离技术实现脱胎于 Linux 平台上的&lt;code&gt;namspace&lt;/code&gt;,以及更早的&lt;code&gt;chroot&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;文中会牵涉虚拟机，所以文中出现的”主机”一词明确表示一台物理机，”接口”指挂载到网桥上的网络设备，环境如下：&lt;/p&gt;
+&lt;pre tabindex="0"&gt;&lt;code&gt;CentOS Linux release 7.3.1611 (Core)
+Linux controller 3.10.0-514.16.1.el7.x86_64 #1 SMP Wed Apr 12 15:04:24 UTC 2017 x86_64 x86_64 x86_64 GNU/Linux
+
+OpenStack社区版 Newton
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Linux Bridge&lt;/p&gt;
+&lt;p&gt;内核模块&lt;code&gt;bridge&lt;/code&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;&lt;span style="color:#ce5c00;font-weight:bold"&gt;[&lt;/span&gt;root@controller ~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# modinfo bridge&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;filename: /lib/modules/3.10.0-514.16.1.el7.x86_64/kernel/net/bridge/bridge.ko
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;Bridge 是 Linux 上工作在内核协议栈二层的虚拟交换机，虽然是软件实现的，但它与普通的二层物理交换机功能一样。可以添加若干个网络设备(em1,eth0,tap,..)到 Bridge 上(&lt;code&gt;brctl addif&lt;/code&gt;)作为其接口，添加到 Bridge 上的设备被设置为只接受二层数据帧并且转发所有收到的数据包到 Bridge 中(bridge 内核模块)，在 Bridge 中会进行一个类似物理交换机的查 MAC 端口映射表，转发，更新 MAC 端口映射表这样的处理逻辑，从而数据包可以被转发到另一个接口/丢弃/广播/发往上层协议栈，由此 Bridge 实现了数据转发的功能。如果使用&lt;code&gt;tcpdump&lt;/code&gt;在 Bridge 接口上抓包，是可以抓到桥上所有接口进出的包跟物理交换机不同的是，运行 Bridge 的是一个 Linux 主机，Linux 主机本身也需要 IP 地址与其它设备通信。但被添加到 Bridge 上的网卡是不能配置 IP 地址的，他们工作在数据链路层，对路由系统不可见。不过 Bridge 本身可以设置 IP 地址，可以认为当使用&lt;code&gt;brctl addbr br0&lt;/code&gt;新建一个&lt;code&gt;br0&lt;/code&gt;网桥时，系统自动创建了一个同名的隐藏&lt;code&gt;br0&lt;/code&gt;网络设备。&lt;code&gt;br0&lt;/code&gt;一旦设置 IP 地址，就意味着&lt;code&gt;br0&lt;/code&gt;可以作为路由接口设备，参与 IP 层的路由选择(可以使用&lt;code&gt;route -n&lt;/code&gt;查看最后一列&lt;code&gt;Iface&lt;/code&gt;)。因此只有当&lt;code&gt;br0&lt;/code&gt;设置 IP 地址时，Bridge 才有可能将数据包发往上层协议栈。&lt;/p&gt;</description></item><item><title>虚拟网络设备(tun tap,veth)</title><link>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/%E8%99%9A%E6%8B%9F%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87tun-tapveth/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/10.%E4%BA%91%E5%8E%9F%E7%94%9F/Virtualization/Network-Virtualization/%E8%99%9A%E6%8B%9F%E7%BD%91%E7%BB%9C%E8%AE%BE%E5%A4%87tun-tapveth/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;[openstack 底层技术-各种虚拟网络设备一(Bridge,VLAN)](&lt;a href="https://opengers.github.io/openstack/openstack-base-virtual-network-devices-bridge-and-vlan/"&gt;https://opengers.github.io/openstack/openstack-base-virtual-network-devices-bridge-and-vlan/&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://opengers.github.io/openstack/openstack-base-virtual-network-devices-tuntap-veth/"&gt;openstack 底层技术-各种虚拟网络设备二(tun/tap,veth)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;第一篇文章介绍了 Bridge 和 VLAN，本文继续介绍 tun/tap，veth 等虚拟设备，除了 tun，其它设备都能在 openstack 中找到应用，这些各种各样的虚拟网络设备使网络虚拟化成为了可能&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://opengers.github.io/openstack/openstack-base-virtual-network-devices-tuntap-veth/#tuntap"&gt;tun/tap&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://opengers.github.io/openstack/openstack-base-virtual-network-devices-tuntap-veth/#tap%E8%AE%BE%E5%A4%87%E4%BD%9C%E4%B8%BA%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%BD%91%E5%8D%A1"&gt;tap 设备作为虚拟机网卡&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://opengers.github.io/openstack/openstack-base-virtual-network-devices-tuntap-veth/#openvpn%E4%B8%AD%E4%BD%BF%E7%94%A8%E7%9A%84tun%E8%AE%BE%E5%A4%87"&gt;openvpn 中使用的 tun 设备&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://opengers.github.io/openstack/openstack-base-virtual-network-devices-tuntap-veth/#veth%E8%AE%BE%E5%A4%87"&gt;veth 设备&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="https://opengers.github.io/openstack/openstack-base-virtual-network-devices-tuntap-veth/#veth%E8%AE%BE%E5%A4%87%E5%9C%A8openstack%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8"&gt;veth 设备在 openstack 中的应用&lt;/a&gt;
+tun/tap&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;我们知道 KVM 虚拟化中单个虚拟机是主机上的一个普通 &lt;code&gt;qemu-kvm&lt;/code&gt; 进程，虚拟机当然也需要网卡，最常见的虚拟网卡就是使用主机上的 tap 设备。那从主机的角度看，这个&lt;code&gt;qemu-kvm&lt;/code&gt;进程是如何使用 tap 设备呢，下面先介绍下 &lt;code&gt;tun/tap&lt;/code&gt; 设备概念，然后分别用一个实例来解释 &lt;code&gt;tun/tap&lt;/code&gt; 的具体用途 &lt;code&gt;tun/tap&lt;/code&gt; 是操作系统内核中的虚拟网络设备，他们为用户层程序提供数据的接收与传输。实现 &lt;code&gt;tun/tap&lt;/code&gt; 设备的内核模块为 &lt;code&gt;tun&lt;/code&gt;，其模块介绍为 &lt;code&gt;Universal TUN/TAP device driver&lt;/code&gt;，该模块提供了一个设备接口 &lt;code&gt;/dev/net/tun&lt;/code&gt; 供用户层程序读写，用户层程序通过读写 &lt;code&gt;/dev/net/tun&lt;/code&gt; 来向主机内核协议栈注入数据或接收来自主机内核协议栈的数据，&lt;strong&gt;可以把 tun/tap 看成数据管道，它一端连接主机协议栈，另一端连接用户程序&lt;/strong&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# modinfo tun&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;filename: /lib/modules/3.10.0-514.16.1.el7.x86_64/kernel/drivers/net/tun.ko
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;alias: devname:net/tun
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;...
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;description: Universal TUN/TAP device driver
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;...
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;~&lt;span style="color:#ce5c00;font-weight:bold"&gt;]&lt;/span&gt;&lt;span style="color:#8f5902;font-style:italic"&gt;# ls /dev/net/tun&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;/dev/net/tun
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;为了使用&lt;code&gt;tun/tap&lt;/code&gt;设备，用户层程序需要通过系统调用打开&lt;code&gt;/dev/net/tun&lt;/code&gt;获得一个读写该设备的文件描述符(FD)，并且调用 ioctl()向内核注册一个 TUN 或 TAP 类型的虚拟网卡(实例化一个 tun/tap 设备)，其名称可能是 &lt;code&gt;tap7b7ee9a9-c1/vnetXX/tunXX/tap0&lt;/code&gt; 等。此后，用户程序可以通过该虚拟网卡与主机内核协议栈交互。当用户层程序关闭后，其注册的 TUN 或 TAP 虚拟网卡以及路由表相关条目(使用 tun 可能会产生路由表条目，比如 openvpn)都会被内核释放。可以把用户层程序看做是网络上另一台主机，他们通过 tap 虚拟网卡相连 TUN 和 TAP 设备区别在于他们工作的协议栈层次不同，TAP 等同于一个以太网设备，用户层程序向 tap 设备读写的是二层数据包如以太网数据帧，tap 设备最常用的就是作为虚拟机网卡。TUN 则模拟了网络层设备，操作第三层数据包比如 IP 数据包，&lt;code&gt;openvpn&lt;/code&gt;使用 TUN 设备在 C/S 间建立 VPN 隧道&lt;/p&gt;</description></item></channel></rss>
