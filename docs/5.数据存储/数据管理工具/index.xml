@@ -75,4 +75,28 @@
 &lt;/table&gt;
 &lt;h1 id="syntax"&gt;Syntax&lt;a class="td-heading-self-link" href="#syntax" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
 &lt;h1 id="最佳实践"&gt;最佳实践&lt;a class="td-heading-self-link" href="#%e6%9c%80%e4%bd%b3%e5%ae%9e%e8%b7%b5" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
-&lt;p&gt;指定 SSH 的端口和用户。将 observability 目录及其文件同步到 192.168.254.253 的 /home/DesistDaydream/ 目录下。使用 SSH 的 1070 端口和 command 用户&lt;/p&gt;</description></item></channel></rss>
+&lt;p&gt;指定 SSH 的端口和用户。将 observability 目录及其文件同步到 192.168.254.253 的 /home/DesistDaydream/ 目录下。使用 SSH 的 1070 端口和 command 用户&lt;/p&gt;</description></item><item><title>Syncthing</title><link>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/Syncthing/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://desistdaydream.github.io/docs/5.%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/%E6%95%B0%E6%8D%AE%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7/Syncthing/</guid><description>&lt;h1 id="概述"&gt;概述&lt;a class="td-heading-self-link" href="#%e6%a6%82%e8%bf%b0" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;参考：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://github.com/syncthing/syncthing"&gt;GitHub 项目，syncthing/syncthing&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Syncthing 可以实时监听本地文件系统的文件，并与远端互相同步到最新。&lt;/p&gt;
+&lt;h2 id="syncthing-与-rclone-的区别"&gt;Syncthing 与 Rclone 的区别&lt;a class="td-heading-self-link" href="#syncthing-%e4%b8%8e-rclone-%e7%9a%84%e5%8c%ba%e5%88%ab" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;来自 &lt;a href="https://claude.ai/chat/87f4c383-9634-444a-ba90-a3220a6ee17d"&gt;Claude AI&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;直接说结论：&lt;strong&gt;这个场景下 Syncthing 更合适，但不是说 rclone 不能用，而是两者设计目标不同。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;核心区别：&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Syncthing&lt;/strong&gt; 是为&amp;quot;两台/多台设备之间持续保持文件夹一致&amp;quot;设计的。它是常驻后台服务，实时监听文件变化，检测到改动就自动双向同步，不需要手动触发，也不需要中间的云存储。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;rclone&lt;/strong&gt; 本质是&amp;quot;云存储同步/复制工具&amp;quot;，主要用于本地和云端（S3、OneDrive、Google Drive 等）之间做单向 sync/copy，或者两个远程之间搬数据。它没有内置的&amp;quot;实时监听变化自动同步&amp;quot;能力，正常用法是靠 cron 定时跑 &lt;code&gt;rclone sync&lt;/code&gt;，一次性单向对齐。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;针对你的场景（两台电脑的 MC 存档+模组配置+JourneyMap 数据）：&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;你需要的是双向、持续、自动的同步——今天在电脑 A 玩过之后数据要能&amp;quot;跑&amp;quot;到电脑 B，反过来也一样。Syncthing 原生就是干这个的。&lt;/li&gt;
+&lt;li&gt;rclone 确实有 &lt;code&gt;rclone bisync&lt;/code&gt;（双向同步）功能，理论上也能做，但官方文档里明确说它比单向 sync 更容易出问题、需要谨慎配置冲突处理，而且同样没有文件变化实时监听，得配合 cron 或者自己写 inotify 触发脚本才能接近&amp;quot;自动&amp;quot;的效果。&lt;/li&gt;
+&lt;li&gt;rclone 的强项在于你要把数据同步到云存储（比如你想额外存一份云端备份到 S3/OneDrive），这种&amp;quot;本地 ↔ 云&amp;quot;场景 rclone 明显更合适；但&amp;quot;本地 ↔ 本地&amp;quot;这种点对点持续同步，Syncthing 开箱即用，配置也更简单（跑起来两边加好设备和文件夹基本就完事了）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;所以如果你只是想让两台电脑的游戏目录保持一致，Syncthing 更省心；如果你还想额外备份一份到云端存储，rclone 可以作为补充（比如再用 rclone 定时把 Syncthing 同步好的目录传一份到云盘做灾备）。&lt;/p&gt;
+&lt;h1 id="关联文件与配置"&gt;关联文件与配置&lt;a class="td-heading-self-link" href="#%e5%85%b3%e8%81%94%e6%96%87%e4%bb%b6%e4%b8%8e%e9%85%8d%e7%bd%ae" aria-label="Heading self-link"&gt;&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;a href="https://docs.syncthing.net/users/config.html#syncthing-configuration"&gt;https://docs.syncthing.net/users/config.html#syncthing-configuration&lt;/a&gt;&lt;/p&gt;</description></item></channel></rss>
